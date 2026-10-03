@@ -1,0 +1,66 @@
+import { AdminMessage } from "./types";
+
+export const ADMIN_MESSAGES: AdminMessage[] = [
+  {
+    id: "msg-001",
+    title: "Welcome to Company Brain 0.5 — Core Intelligence Layer",
+    sender: "Company Brain Core Team",
+    senderRole: "Core Devs",
+    badge: "release",
+    summary: "A unified enterprise operating system aggregating knowledge, decisions, and meetings.",
+    content: [
+      "Welcome to Company Brain! We built this platform to serve as the long-term institutional memory for modern fast-moving companies.",
+      "In this Phase 0.5 foundation, you have full multi-tenant isolation with PostgreSQL Row-Level Security (RLS), verified Stripe billing with 7-day trials, and real-time settings configuration.",
+      "Feel free to explore our new navigation shortcuts (Ctrl+K for search, Ctrl+, for Settings) and start organizing your workspace!",
+    ],
+    createdAt: "2026-09-30T09:30:00Z",
+    actionUrl: "/dashboard/settings",
+    actionLabel: "Explore Settings",
+  },
+  {
+    id: "msg-002",
+    title: "New Integrations Catalog: GitHub, Linear, Stripe & More",
+    sender: "Platform Engineering",
+    senderRole: "Integrations Dev",
+    badge: "update",
+    summary: "Gmail and Google Calendar are now decoupled alongside 8 new enterprise services.",
+    content: [
+      "We've just expanded the integration catalog to support 10 independent enterprise providers!",
+      "Gmail and Google Calendar can now be linked separately with granular OAuth scopes. Additionally, you can now configure GitHub, Microsoft Outlook, Outlook Calendar, Linear, Vercel, Sentry, Stripe, and Shopify.",
+      "Check out your .env.example file for all credentials and callback endpoints ready for immediate deployment.",
+    ],
+    createdAt: "2026-09-30T08:15:00Z",
+    actionUrl: "/dashboard/settings/integrations",
+    actionLabel: "View Integrations",
+  },
+  {
+    id: "msg-003",
+    title: "Multi-Language Support (i18n) is Live",
+    sender: "Product Localization",
+    senderRole: "Product Team",
+    badge: "tip",
+    summary: "Switch seamlessly between English, Portuguese, Spanish, and French.",
+    content: [
+      "Company Brain is now natively multilingual! By default, the interface runs in English, with full dictionary coverage for Portuguese (PT), Spanish, and French.",
+      "Your language selection updates the entire UI in real time without refreshing and is preserved across sessions via localStorage.",
+      "To test it, press Ctrl+, and navigate to Preferences -> Language & time.",
+    ],
+    createdAt: "2026-09-29T23:50:00Z",
+    actionUrl: "/dashboard/settings",
+    actionLabel: "Change Language",
+  },
+  {
+    id: "msg-004",
+    title: "Security & Database Isolation Update",
+    sender: "Security Operations",
+    senderRole: "Infra & Security",
+    badge: "security",
+    summary: "PostgreSQL tenant boundary verified with AES-256-GCM token encryption.",
+    content: [
+      "All organization records remain strictly isolated via PostgreSQL Row Level Security (RLS) policies. Every query is scoped to your active workspace.",
+      "External tokens from connected integrations are encrypted at rest using AES-256-GCM with authenticated tags before storing in the database.",
+      "No action is required on your part. All systems are operating normally.",
+    ],
+    createdAt: "2026-09-29T21:00:00Z",
+  },
+];

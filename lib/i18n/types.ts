@@ -1,0 +1,264 @@
+export type Locale = "en" | "es" | "fr" | "pt";
+
+export interface LocaleOption {
+  code: Locale;
+  label: string;
+  nativeLabel: string;
+}
+
+export interface Dictionary {
+  common: {
+    save: string;
+    cancel: string;
+    close: string;
+    search: string;
+    loading: string;
+    enabled: string;
+    disabled: string;
+    gotIt: string;
+    beta: string;
+    status: string;
+    operational: string;
+    day: string;
+    days: string;
+    leftInTrial: string;
+    automaticRenewal: string;
+    manageBilling: string;
+    total: string;
+  };
+  sidebar: {
+    home: string;
+    email: string;
+    calendar: string;
+    inbox: string;
+    overview: string;
+    work: string;
+    projects: string;
+    tasks: string;
+    meetings: string;
+    memory: string;
+    brain: string;
+    knowledge: string;
+    decisions: string;
+    searchPlaceholder: string;
+  };
+  account: {
+    freeWorkspace: string;
+    trialPlan: string;
+    memberCount: string;
+    upgrade: string;
+    settings: string;
+    people: string;
+    newWorkspace: string;
+    logOut: string;
+    loggingOut: string;
+  };
+  help: {
+    help: string;
+    documentation: string;
+    getSupport: string;
+    more: string;
+    keyboardShortcuts: string;
+    termsPrivacy: string;
+    status: string;
+    clearCache: string;
+    updatedToday: string;
+    webCloudEdition: string;
+    whatsNew: string;
+    viewAllReleases: string;
+    shortcutsTitle: string;
+    quickSearch: string;
+    zoomTimeline: string;
+    panTimeline: string;
+    closeModal: string;
+  };
+  settings: {
+    modalTitle: string;
+    searchPlaceholder: string;
+    escToClose: string;
+    tabs: {
+      profile: string;
+      preferences: string;
+      notifications: string;
+      workspace: string;
+      people: string;
+      integrations: string;
+      billing: string;
+    };
+    sections: {
+      account: string;
+      workspace: string;
+      accessAndBilling: string;
+    };
+    preferences: {
+      title: string;
+      description: string;
+      appearance: string;
+      theme: string;
+      themeDesc: string;
+      themeSystem: string;
+      themeDark: string;
+      themeLight: string;
+      highContrast: string;
+      highContrastDesc: string;
+      contrastSystem: string;
+      contrastStandard: string;
+      contrastHigh: string;
+      inputOptions: string;
+      enterNewLine: string;
+      enterNewLineDesc: string;
+      languageAndTime: string;
+      language: string;
+      languageDesc: string;
+      timeFormat: string;
+      timeFormatDesc: string;
+      format24h: string;
+      format12h: string;
+    };
+    profile: {
+      title: string;
+      description: string;
+      email: string;
+      emailDesc: string;
+      password: string;
+      passwordDesc: string;
+      changePassword: string;
+    };
+    workspaceTab: {
+      title: string;
+      description: string;
+      orgName: string;
+      orgNameDesc: string;
+      slug: string;
+      slugDesc: string;
+      security: string;
+      securityDesc: string;
+      rlsEnforced: string;
+    };
+    peopleTab: {
+      title: string;
+      description: string;
+      total: string;
+      owner: string;
+      admin: string;
+      member: string;
+    };
+    integrationsTab: {
+      title: string;
+      description: string;
+      googleWorkspace: string;
+      googleWorkspaceDesc: string;
+      connect: string;
+      connected: string;
+      notConnected: string;
+      disconnect: string;
+      configure: string;
+      all: string;
+      communication: string;
+      calendar: string;
+      engineering: string;
+      operations: string;
+      commerce: string;
+      searchPlaceholder: string;
+      providers: {
+        gmail: { name: string; description: string };
+        googleCalendar: { name: string; description: string };
+        outlook: { name: string; description: string };
+        outlookCalendar: { name: string; description: string };
+        github: { name: string; description: string };
+        linear: { name: string; description: string };
+        vercel: { name: string; description: string };
+        sentry: { name: string; description: string };
+        stripe: { name: string; description: string };
+        shopify: { name: string; description: string };
+      };
+    };
+    billingTab: {
+      title: string;
+      description: string;
+      currentPlan: string;
+      currentPlanDesc: string;
+      status: string;
+      statusDesc: string;
+      activeTrial: string;
+      activeSubscription: string;
+      changePlan: string;
+      billingDetails: string;
+    };
+    notificationsTab: {
+      title: string;
+      description: string;
+      emailNotifs: string;
+      emailNotifsDesc: string;
+      inAppBadges: string;
+      inAppBadgesDesc: string;
+    };
+  };
+  settingsPage: {
+    title: string;
+    description: string;
+    openPreferences: string;
+    orgDetails: string;
+    orgDetailsDesc: string;
+    companyName: string;
+    workspaceSlug: string;
+    integrationsTitle: string;
+    integrationsDesc: string;
+    manageIntegrations: string;
+    subBillingTitle: string;
+    subBillingDesc: string;
+    trialStatus: string;
+    completed: string;
+    nextBillingDate: string;
+    manageInvoices: string;
+    stripeCustomerPortal: string;
+    teamMembers: string;
+    teamMembersDesc: string;
+  };
+  emailPage: {
+    title: string;
+    description: string;
+    connectedAccounts: string;
+    noAccountConnected: string;
+    noAccountDesc: string;
+    noIntegrationsConnected: string;
+    integrateButton: string;
+    goToIntegrations: string;
+    connectGmail: string;
+    connectOutlook: string;
+    recentThreads: string;
+    syncedEmails: string;
+    emptyInbox: string;
+  };
+  calendarPage: {
+    title: string;
+    description: string;
+    connectedCalendar: string;
+    noCalendarConnected: string;
+    noCalendarDesc: string;
+    noIntegrationsConnected: string;
+    integrateButton: string;
+    goToIntegrations: string;
+    connectGoogleCalendar: string;
+    connectOutlookCalendar: string;
+    upcomingMeetings: string;
+    todaySchedule: string;
+    noMeetings: string;
+  };
+  inboxPage: {
+    title: string;
+    description: string;
+    allMessages: string;
+    announcements: string;
+    updates: string;
+    security: string;
+    tips: string;
+    markAsRead: string;
+    markAllRead: string;
+    unread: string;
+    fromDevTeam: string;
+    emptyState: string;
+    noMessagesFound: string;
+    closeReader: string;
+  };
+}
