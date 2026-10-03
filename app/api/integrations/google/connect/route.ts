@@ -5,7 +5,7 @@ import { generateGoogleAuthUrl } from "@/lib/integrations/google/oauth";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
 
-const VALID_SERVICES = ["gmail", "google_calendar", "calendar", "google"] as const;
+const VALID_SERVICES = ["gmail", "google_calendar", "calendar", "google", "google_drive", "drive"] as const;
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();
@@ -38,11 +38,13 @@ export async function GET(request: Request) {
   const serviceParam = searchParams.get("service");
 
   // Validate service against permitted whitelist
-  let service: "gmail" | "google_calendar" | "google" = "google";
+  let service: "gmail" | "google_calendar" | "google" | "google_drive" = "google";
   if (serviceParam === "gmail") {
     service = "gmail";
   } else if (serviceParam === "calendar" || serviceParam === "google_calendar") {
     service = "google_calendar";
+  } else if (serviceParam === "drive" || serviceParam === "google_drive") {
+    service = "google_drive";
   }
 
   try {

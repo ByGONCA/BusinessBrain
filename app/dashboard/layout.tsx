@@ -6,6 +6,8 @@ import { SettingsProvider } from "@/components/dashboard/settings/settings-conte
 import { SettingsModal } from "@/components/dashboard/settings/settings-modal";
 import { InboxProvider } from "@/components/dashboard/inbox/inbox-context";
 import { InboxModal } from "@/components/dashboard/inbox/inbox-modal";
+import { SidePeekProvider } from "@/components/dashboard/pages/side-peek-context";
+import { DashboardSplitLayout } from "@/components/dashboard/dashboard-split-layout";
 
 export default async function DashboardLayout({
   children,
@@ -25,40 +27,38 @@ export default async function DashboardLayout({
     <SidebarProvider>
       <SettingsProvider>
         <InboxProvider>
-          <div className="flex h-screen overflow-hidden bg-background text-foreground selection:bg-blue-600/30 transition-colors duration-150 relative">
-            {/* Floating button to reopen sidebar when collapsed */}
-            <SidebarTrigger />
+          <SidePeekProvider>
+            <div className="flex h-screen overflow-hidden bg-background text-foreground selection:bg-blue-600/30 transition-colors duration-150 relative">
+              {/* Floating button to reopen sidebar when collapsed */}
+              <SidebarTrigger />
 
-            {/* Sidebar - fixed and non-scrolling with page */}
-          <Sidebar
-            user={user}
-            organizations={organizations}
-            activeOrg={activeOrg}
-            entitlement={entitlement}
-            pageTree={pageTree}
-            favoritePages={favoritePages}
-          />
+              {/* Sidebar - fixed and non-scrolling with page */}
+              <Sidebar
+                user={user}
+                organizations={organizations}
+                activeOrg={activeOrg}
+                entitlement={entitlement}
+                pageTree={pageTree}
+                favoritePages={favoritePages}
+              />
 
-          {/* Main Content Area - independently scrollable */}
-          <div className="flex flex-1 flex-col overflow-hidden min-w-0">
-            <main className="flex-1 overflow-y-auto no-scrollbar p-6 md:p-8">
-              <div className="mx-auto max-w-7xl w-full">{children}</div>
-            </main>
-          </div>
+              {/* Main Content & Side Peek (Side-by-Side Split View) */}
+              <DashboardSplitLayout>{children}</DashboardSplitLayout>
 
-          {/* Notion-style Settings Modal Window */}
-          <SettingsModal
-            user={user}
-            organizations={organizations}
-            activeOrg={activeOrg}
-            entitlement={entitlement}
-          />
+              {/* Notion-style Settings Modal Window */}
+              <SettingsModal
+                user={user}
+                organizations={organizations}
+                activeOrg={activeOrg}
+                entitlement={entitlement}
+              />
 
-          {/* Inbox Modal Window */}
-          <InboxModal />
-        </div>
-      </InboxProvider>
-    </SettingsProvider>
+              {/* Inbox Modal Window */}
+              <InboxModal />
+            </div>
+          </SidePeekProvider>
+        </InboxProvider>
+      </SettingsProvider>
     </SidebarProvider>
   );
 }

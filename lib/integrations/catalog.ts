@@ -38,6 +38,17 @@ export const INTEGRATION_CATALOG: IntegrationDefinition[] = [
     docsUrl: "https://developers.google.com/calendar",
   },
   {
+    id: "google_drive",
+    name: "Google Drive",
+    category: "operations",
+    descriptionKey: "googleDrive",
+    authType: "oauth2",
+    badge: "OAuth 2.0",
+    website: "https://workspace.google.com/products/drive/",
+    envVars: ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    docsUrl: "https://developers.google.com/drive",
+  },
+  {
     id: "outlook",
     name: "Microsoft Outlook",
     category: "communication",

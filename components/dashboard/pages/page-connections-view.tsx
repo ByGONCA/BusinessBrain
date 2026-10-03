@@ -4,6 +4,8 @@ import * as React from "react";
 import {
   PageConnectionRecord,
   EntityType,
+  RelationType,
+  RELATION_LABELS,
 } from "@/lib/pages/types";
 import {
   CheckSquare,
@@ -43,6 +45,7 @@ const ENTITY_GROUP_CONFIG: Record<
   document: { label: "Documents", singular: "Document", icon: FileText, color: "text-cyan-500 bg-cyan-500/10 border-cyan-500/20" },
   person: { label: "People", singular: "Person", icon: User, color: "text-orange-500 bg-orange-500/10 border-orange-500/20" },
   page: { label: "Pages", singular: "Page", icon: FileText, color: "text-zinc-500 bg-zinc-500/10 border-zinc-500/20" },
+  file: { label: "Files", singular: "File", icon: FileText, color: "text-blue-500 bg-blue-500/10 border-blue-500/20" },
 };
 
 export function PageConnectionsView({
@@ -146,9 +149,20 @@ export function PageConnectionsView({
                           →
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
-                            {conn.target_title}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                              {conn.target_title}
+                            </p>
+                            {(() => {
+                              const relType = (conn.metadata?.relation_type as RelationType) || "related_to";
+                              const relLabel = RELATION_LABELS[relType] || "Related to";
+                              return (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 shrink-0">
+                                  {relLabel}
+                                </span>
+                              );
+                            })()}
+                          </div>
                           <div className="flex items-center gap-2 mt-0.5 text-xs text-zinc-400">
                             <span>
                               Linked to {conn.source_type === "page" ? "Page" : "Block"}

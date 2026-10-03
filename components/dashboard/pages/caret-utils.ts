@@ -45,3 +45,74 @@ export function focusBlockCaretEnd(el: HTMLElement) {
   });
 }
 
+/**
+ * Retrieves the current character offset of the caret within a contentEditable element.
+ */
+export function getCaretOffset(element: HTMLElement): number {
+  if (typeof window === "undefined" || !element) return 0;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return 0;
+
+  const range = sel.getRangeAt(0);
+  if (!element.contains(range.startContainer)) return 0;
+
+  const preCaretRange = range.cloneRange();
+  preCaretRange.selectNodeContents(element);
+  preCaretRange.setEnd(range.startContainer, range.startOffset);
+  return preCaretRange.toString().length;
+}
+
+interface TextNodeMatch {
+  node: Node;
+  offset: number;
+}
+
+function findTextNodeAtOffset(element: Node, targetOffset: number): TextNodeMatch | null {
+  let currentOffset = 0;
+  let result: TextNodeMatch | null = null;
+
+  function walk(node: Node): boolean {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const textLen = node.textContent ? node.textContent.length : 0;
+      if (currentOffset + textLen >= targetOffset) {
+        result = { node, offset: targetOffset - currentOffset };
+        return true;
+      }
+      currentOffset += textLen;
+    } else {
+      for (let i = 0; i < node.childNodes.length; i++) {
+        if (walk(node.childNodes[i])) return true;
+      }
+    }
+    return false;
+  }
+
+  walk(element);
+  return result;
+}
+
+/**
+ * Restores the caret to a specific character offset within a contentEditable element.
+ */
+export function restoreCaretOffset(element: HTMLElement, offset: number) {
+  if (typeof window === "undefined" || !element) return;
+  const sel = window.getSelection();
+  if (!sel) return;
+
+  element.focus();
+
+  const match = findTextNodeAtOffset(element, offset);
+  const range = document.createRange();
+
+  if (match && match.node.textContent) {
+    const safeOffset = Math.min(match.offset, match.node.textContent.length);
+    range.setStart(match.node, safeOffset);
+    range.collapse(true);
+  } else {
+    range.selectNodeContents(element);
+    range.collapse(false);
+  }
+
+  sel.removeAllRanges();
+  sel.addRange(range);
+}

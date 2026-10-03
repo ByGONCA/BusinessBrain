@@ -117,6 +117,17 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${redirectTarget}?error=database_error`);
     }
 
+    // Restore any previously disconnected external Google Drive file references to 'ready'
+    await supabase
+      .from("organization_files")
+      .update({
+        status: "ready",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("organization_id", statePayload.organizationId)
+      .eq("storage_provider", "google_drive")
+      .eq("status", "unavailable");
+
     logger.info("Successfully connected Google integration", {
       organizationId: statePayload.organizationId,
       provider: statePayload.service || "google",

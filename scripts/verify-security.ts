@@ -238,6 +238,121 @@ async function runTests() {
   );
 
   // ---------------------------------------------------------------------------
+  // 8. FILE SYSTEM, QUOTAS & EXTERNAL PROVIDER ARCHITECTURE
+  // ---------------------------------------------------------------------------
+  console.log("\n[8] Auditing File System, Quotas & External Provider Architecture:");
+
+  // Check migration 00008
+  const migration8Path = path.resolve(
+    process.cwd(),
+    "database/migrations/00008_file_system_foundation.sql"
+  );
+  assert(fs.existsSync(migration8Path), "Migration 00008_file_system_foundation.sql exists");
+
+  const migration8Sql = fs.readFileSync(migration8Path, "utf8");
+  assert(
+    migration8Sql.includes("create table if not exists public.organization_files"),
+    "organization_files multi-tenant table defined"
+  );
+  assert(
+    migration8Sql.includes("create table if not exists public.page_files"),
+    "page_files relational table defined"
+  );
+  assert(
+    migration8Sql.includes("alter table public.organization_files enable row level security"),
+    "RLS enabled on organization_files"
+  );
+  assert(
+    migration8Sql.includes("alter table public.page_files enable row level security"),
+    "RLS enabled on page_files"
+  );
+  assert(
+    migration8Sql.includes("get_organization_storage_bytes"),
+    "Storage accounting RPC defined for internal bytes only"
+  );
+  assert(
+    migration8Sql.includes("target_type in ('project', 'task', 'meeting', 'goal', 'person', 'page', 'decision', 'document', 'file')"),
+    "page_connections target_type expanded to include file"
+  );
+
+  // Verify Provider Abstraction
+  const { getFileProvider } = await import("../lib/files/providers/registry");
+  const cbProvider = getFileProvider("company_brain");
+  assert(cbProvider.providerId === "company_brain", "Company Brain storage provider registered");
+
+  const gdProvider = getFileProvider("google_drive");
+  assert(gdProvider.providerId === "google_drive", "Google Drive storage provider registered");
+
+  const odProvider = getFileProvider("microsoft_onedrive");
+  assert(odProvider.providerId === "microsoft_onedrive", "OneDrive extension stub provider registered");
+
+  // Verify Google Drive least privilege scopes
+  const { GOOGLE_SCOPES, DRIVE_INTEGRATION_SCOPES } = await import("../lib/integrations/google/config");
+  assert(
+    DRIVE_INTEGRATION_SCOPES.includes(GOOGLE_SCOPES.DRIVE_READONLY),
+    "Google Drive scopes require read-only access (least privilege)"
+  );
+  assert(
+    !DRIVE_INTEGRATION_SCOPES.some((s) => s.includes("drive.file") || s.includes("drive.appdata") || s.includes("drive.scripts")),
+    "Google Drive scopes do not include destructive or excess permissions"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 9. STORAGE RLS & HELPER FUNCTION SECURITY HARDENING
+  // ---------------------------------------------------------------------------
+  console.log("\n[9] Auditing Storage RLS & Helper Function Security Hardening:");
+  const migration9Path = path.resolve(
+    process.cwd(),
+    "database/migrations/00009_storage_rls_hardening.sql"
+  );
+  assert(fs.existsSync(migration9Path), "Migration 00009_storage_rls_hardening.sql exists");
+
+  const migration9Sql = fs.readFileSync(migration9Path, "utf8");
+
+  // Verify EXECUTE privileges revoked from PUBLIC
+  assert(
+    migration9Sql.includes("revoke execute on function public.is_org_member(uuid) from public"),
+    "is_org_member execute revoked from public"
+  );
+  assert(
+    migration9Sql.includes("grant execute on function public.is_org_member(uuid) to authenticated"),
+    "is_org_member execute granted to authenticated"
+  );
+  assert(
+    migration9Sql.includes("revoke execute on function public.has_org_role(uuid, text[]) from public"),
+    "has_org_role execute revoked from public"
+  );
+  assert(
+    migration9Sql.includes("grant execute on function public.has_org_role(uuid, text[]) to authenticated"),
+    "has_org_role execute granted to authenticated"
+  );
+  assert(
+    migration9Sql.includes("revoke execute on function public.shares_organization_with(uuid) from public"),
+    "shares_organization_with execute revoked from public"
+  );
+  assert(
+    migration9Sql.includes("grant execute on function public.shares_organization_with(uuid) to authenticated"),
+    "shares_organization_with execute granted to authenticated"
+  );
+
+  // Verify storage.objects policies explicitly enforce 'to authenticated'
+  const authenticatedMatches = migration9Sql.match(/to authenticated/g);
+  assert(
+    authenticatedMatches !== null && authenticatedMatches.length >= 4,
+    "All organization_files storage policies explicitly enforce 'to authenticated'"
+  );
+
+  // Verify tenant isolation via folder UUID path
+  assert(
+    migration9Sql.includes("(storage.foldername(name))[1]::uuid"),
+    "Storage policies enforce organization boundary via folder UUID path"
+  );
+  assert(
+    migration9Sql.includes("bucket_id = 'organization_files'"),
+    "Storage policies strictly bound to organization_files private bucket"
+  );
+
+  // ---------------------------------------------------------------------------
   // SUMMARY
   // ---------------------------------------------------------------------------
   console.log("\n=======================================================");

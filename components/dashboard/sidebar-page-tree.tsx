@@ -12,6 +12,12 @@ import {
   Copy,
   Star,
   GripVertical,
+  Link2,
+  Edit3,
+  CornerDownRight,
+  ExternalLink,
+  PanelRight,
+  Check,
 } from "lucide-react";
 import { PageTreeNode, PageRecord } from "@/lib/pages/types";
 import {
@@ -20,8 +26,11 @@ import {
   archivePageAction,
   togglePageFavoriteAction,
   reorderPagesAction,
+  updatePageTitleAction,
 } from "@/lib/pages/actions";
 import { TrashModal } from "./pages/trash-modal";
+import { MovePageModal } from "./pages/move-page-modal";
+import { useSidePeek } from "./pages/side-peek-context";
 import { PageIcon } from "./pages/page-icon";
 import { cn } from "@/lib/utils";
 
@@ -40,11 +49,18 @@ export function SidebarPageTree({
 }: SidebarPageTreeProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { openSidePeek } = useSidePeek();
 
   const [expandedIds, setExpandedIds] = React.useState<Set<string>>(() => new Set());
   const [trashOpen, setTrashOpen] = React.useState(false);
   const [archivedList, setArchivedList] = React.useState<PageRecord[]>(archivedPages);
   const [contextMenuId, setContextMenuId] = React.useState<string | null>(null);
+
+  // Quick feedback states for context menu and renaming
+  const [renamingId, setRenamingId] = React.useState<string | null>(null);
+  const [renameTitle, setRenameTitle] = React.useState<string>("");
+  const [copiedPageId, setCopiedPageId] = React.useState<string | null>(null);
+  const [moveModalPage, setMoveModalPage] = React.useState<PageTreeNode | null>(null);
 
   // Local state for optimistic updates
   const [pagesList, setPagesList] = React.useState<PageTreeNode[]>(initialPages);
@@ -345,6 +361,42 @@ export function SidebarPageTree({
     }
   };
 
+  const handleCommitRename = async (pageId: string) => {
+    const trimmed = renameTitle.trim();
+    const newTitle = trimmed || "Untitled";
+    setRenamingId(null);
+
+    // Optimistic update
+    setPagesList((prev) => {
+      function updateNodes(nodes: PageTreeNode[]): PageTreeNode[] {
+        return nodes.map((n) => {
+          let updatedNode = n;
+          if (n.id === pageId) {
+            updatedNode = { ...n, title: newTitle };
+          }
+          if (n.children && n.children.length > 0) {
+            return {
+              ...updatedNode,
+              children: updateNodes(n.children),
+            };
+          }
+          return updatedNode;
+        });
+      }
+      return updateNodes(prev);
+    });
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("cb-page-updated", {
+          detail: { pageId, title: newTitle },
+        })
+      );
+    }
+
+    await updatePageTitleAction({ pageId, title: newTitle });
+  };
+
   // ----------------------------------------------------------------------------
   // DRAG AND DROP HANDLERS
   // ----------------------------------------------------------------------------
@@ -424,12 +476,13 @@ export function SidebarPageTree({
     const isDragging = draggingId === node.id;
     const isTarget = dropTarget?.id === node.id;
     const isFav = Boolean(node.is_favorite);
+    const isRenaming = renamingId === node.id;
 
     return (
       <div key={node.id} className="space-y-0.5 select-none">
         <div
-          draggable
-          onDragStart={(e) => handleDragStart(node.id, e)}
+          draggable={!isRenaming}
+          onDragStart={(e) => !isRenaming && handleDragStart(node.id, e)}
           onDragOver={(e) => handleDragOver(node.id, e)}
           onDragLeave={(e) => handleDragLeave(node.id, e)}
           onDrop={(e) => handleDrop(node.id, e)}
@@ -462,100 +515,242 @@ export function SidebarPageTree({
             )}
           </button>
 
-          {/* Page Link */}
-          <Link
-            href={`/dashboard/pages/${node.id}`}
-            prefetch={true}
-            className="flex-1 flex items-center gap-2 min-w-0 py-0.5"
-          >
-            <PageIcon icon={node.icon} className="h-4 w-4 text-sm" imgClassName="h-4 w-4 rounded object-cover" />
-            <span className="truncate">{node.title || "Untitled"}</span>
-          </Link>
-
-          {/* Hover Actions: quick favorite (⭐), quick add subpage (+), and context menu (...) */}
-          <div
-            className={cn(
-              "flex items-center gap-0.5 transition-opacity",
-              isFav ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-            )}
-          >
-            {/* Quick Star Favorite Toggle */}
-            <button
-              type="button"
-              onClick={(e) => handleToggleFavorite(node.id, e)}
-              className={cn(
-                "flex h-5 w-5 items-center justify-center rounded transition-colors",
-                isFav
-                  ? "text-amber-500 hover:bg-amber-500/10"
-                  : "text-zinc-400 hover:text-amber-500 hover:bg-zinc-200 dark:hover:bg-zinc-700"
-              )}
-              title={isFav ? "Remover do topo" : "Fixar no topo"}
+          {/* Page Link OR Inline Rename Input */}
+          {isRenaming ? (
+            <div
+              className="flex-1 flex items-center gap-2 min-w-0 py-0.5"
+              onClick={(e) => e.stopPropagation()}
             >
-              <Star
-                className={cn(
-                  "h-3 w-3 transition-transform active:scale-125",
-                  isFav ? "fill-amber-500 text-amber-500" : "text-zinc-400"
-                )}
+              <PageIcon
+                icon={node.icon}
+                className="h-4 w-4 text-sm shrink-0"
+                imgClassName="h-4 w-4 rounded object-cover"
               />
-            </button>
-
-            <button
-              type="button"
-              onClick={(e) => handleCreateChildPage(node.id, e)}
-              className="flex h-5 w-5 items-center justify-center rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-              title="Add subpage"
+              <input
+                type="text"
+                autoFocus
+                value={renameTitle}
+                onChange={(e) => setRenameTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleCommitRename(node.id);
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    setRenamingId(null);
+                  }
+                }}
+                onBlur={() => handleCommitRename(node.id)}
+                className="flex-1 min-w-0 bg-white dark:bg-zinc-800 border border-blue-500 rounded px-1.5 py-0.5 text-xs text-foreground focus:outline-none shadow-2xs"
+              />
+            </div>
+          ) : (
+            <Link
+              href={`/dashboard/pages/${node.id}`}
+              prefetch={true}
+              className="flex-1 flex items-center gap-2 min-w-0 py-0.5"
             >
-              <Plus className="h-3 w-3" />
-            </button>
+              <PageIcon
+                icon={node.icon}
+                className="h-4 w-4 text-sm shrink-0"
+                imgClassName="h-4 w-4 rounded object-cover"
+              />
+              <span className="truncate">{node.title || "Untitled"}</span>
+            </Link>
+          )}
 
-            <div className="relative" data-page-menu-container={node.id}>
+          {/* Hover Actions: quick add subpage (+) and context menu (...) */}
+          {!isRenaming && (
+            <div
+              className={cn(
+                "flex items-center gap-0.5 transition-opacity",
+                isMenuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+              )}
+            >
               <button
                 type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setContextMenuId((prev) => (prev === node.id ? null : node.id));
-                }}
-                className={cn(
-                  "flex h-5 w-5 items-center justify-center rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200",
-                  isMenuOpen && "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-200"
-                )}
-                title="Page options"
+                onClick={(e) => handleCreateChildPage(node.id, e)}
+                className="flex h-5 w-5 items-center justify-center rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                title="Add subpage"
               >
-                <MoreHorizontal className="h-3 w-3" />
+                <Plus className="h-3 w-3" />
               </button>
 
-              {isMenuOpen && (
-                <div
-                  onClick={(e) => e.stopPropagation()}
-                  className="absolute right-0 top-6 z-50 w-44 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-1 shadow-xl animate-in fade-in zoom-in-95 duration-100"
+              <div className="relative" data-page-menu-container={node.id}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setContextMenuId((prev) => (prev === node.id ? null : node.id));
+                  }}
+                  className={cn(
+                    "flex h-5 w-5 items-center justify-center rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200",
+                    isMenuOpen && "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-200"
+                  )}
+                  title="Page options"
                 >
-                  <button
-                    type="button"
-                    onClick={(e) => handleCreateChildPage(node.id, e)}
-                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  <MoreHorizontal className="h-3 w-3" />
+                </button>
+
+                {isMenuOpen && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute right-0 top-6 z-50 w-52 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100 select-none text-xs"
                   >
-                    <Plus className="h-3.5 w-3.5" /> Add subpage
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => handleDuplicatePage(node.id, e)}
-                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  >
-                    <Copy className="h-3.5 w-3.5" /> Duplicate
-                  </button>
-                  <div className="my-1 h-px bg-zinc-200 dark:bg-zinc-800" />
-                  <button
-                    type="button"
-                    onClick={(e) => handleArchivePage(node, e)}
-                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" /> Move to Trash
-                  </button>
-                </div>
-              )}
+                    {/* Header: Page label */}
+                    <div className="px-2 py-1 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                      Page
+                    </div>
+
+                    {/* Add to / Remove from Favorites */}
+                    <button
+                      type="button"
+                      onClick={(e) => handleToggleFavorite(node.id, e)}
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Star
+                          className={cn(
+                            "h-3.5 w-3.5 transition-transform active:scale-125",
+                            isFav ? "fill-amber-500 text-amber-500" : "text-zinc-400"
+                          )}
+                        />
+                        <span>{isFav ? "Remove from Favorites" : "Add to Favorites"}</span>
+                      </span>
+                    </button>
+
+                    {/* Copy link */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (typeof window !== "undefined") {
+                          const url = `${window.location.origin}/dashboard/pages/${node.id}`;
+                          navigator.clipboard.writeText(url);
+                          setCopiedPageId(node.id);
+                          setTimeout(() => {
+                            setCopiedPageId(null);
+                            setContextMenuId(null);
+                          }, 1200);
+                        }
+                      }}
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        {copiedPageId === node.id ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-500" />
+                        ) : (
+                          <Link2 className="h-3.5 w-3.5 text-zinc-400" />
+                        )}
+                        <span>{copiedPageId === node.id ? "Link copied!" : "Copy link"}</span>
+                      </span>
+                    </button>
+
+                    {/* Duplicate */}
+                    <button
+                      type="button"
+                      onClick={(e) => handleDuplicatePage(node.id, e)}
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Copy className="h-3.5 w-3.5 text-zinc-400" />
+                        <span>Duplicate</span>
+                      </span>
+                      <span className="text-[10px] text-zinc-400 font-mono">Ctrl+D</span>
+                    </button>
+
+                    {/* Rename */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setContextMenuId(null);
+                        setRenamingId(node.id);
+                        setRenameTitle(node.title || "");
+                      }}
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Edit3 className="h-3.5 w-3.5 text-zinc-400" />
+                        <span>Rename</span>
+                      </span>
+                      <span className="text-[10px] text-zinc-400 font-mono">Ctrl+Shift+R</span>
+                    </button>
+
+                    {/* Move to */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setContextMenuId(null);
+                        setMoveModalPage(node);
+                      }}
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <CornerDownRight className="h-3.5 w-3.5 text-zinc-400" />
+                        <span>Move to</span>
+                      </span>
+                      <span className="text-[10px] text-zinc-400 font-mono">Ctrl+Shift+P</span>
+                    </button>
+
+                    {/* Move to Trash */}
+                    <button
+                      type="button"
+                      onClick={(e) => handleArchivePage(node, e)}
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                      <span>Move to Trash</span>
+                    </button>
+
+                    {/* Separator */}
+                    <div className="my-1 h-px bg-zinc-200 dark:bg-zinc-800" />
+
+                    {/* Open in new tab */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setContextMenuId(null);
+                        window.open(`/dashboard/pages/${node.id}`, "_blank");
+                      }}
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <ExternalLink className="h-3.5 w-3.5 text-zinc-400" />
+                        <span>Open in new tab</span>
+                      </span>
+                      <span className="text-[10px] text-zinc-400 font-mono">Ctrl+Shift+↵</span>
+                    </button>
+
+                    {/* Open in side peek */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setContextMenuId(null);
+                        openSidePeek(node.id);
+                      }}
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                    >
+                      <span className="flex items-center gap-2">
+                        <PanelRight className="h-3.5 w-3.5 text-zinc-400" />
+                        <span>Open in side peek</span>
+                      </span>
+                      <span className="text-[10px] text-zinc-400 font-mono">Alt+Click</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Nested Children */}
@@ -623,6 +818,15 @@ export function SidebarPageTree({
           </div>
         )}
       </div>
+
+      {/* Move Page Modal */}
+      <MovePageModal
+        isOpen={Boolean(moveModalPage)}
+        onClose={() => setMoveModalPage(null)}
+        page={moveModalPage}
+        pagesTree={pagesList}
+        onPageMoved={() => router.refresh()}
+      />
 
       {/* Trash Modal */}
       <TrashModal

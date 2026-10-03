@@ -4,12 +4,13 @@ import {
   DEFAULT_GOOGLE_INTEGRATION_SCOPES,
   GMAIL_INTEGRATION_SCOPES,
   CALENDAR_INTEGRATION_SCOPES,
+  DRIVE_INTEGRATION_SCOPES,
 } from "./config";
 
 export interface AuthStatePayload {
   organizationId: string;
   userId: string;
-  service?: "gmail" | "google_calendar" | "google";
+  service?: "gmail" | "google_calendar" | "google" | "google_drive" | "drive";
   returnUrl?: string;
   nonce: string;
   timestamp: number;
@@ -87,7 +88,7 @@ export function verifyOAuthState(state: string): AuthStatePayload | null {
 export function generateGoogleAuthUrl(options: {
   organizationId: string;
   userId: string;
-  service?: "gmail" | "google_calendar" | "google";
+  service?: "gmail" | "google_calendar" | "google" | "google_drive" | "drive";
   returnUrl?: string;
   scopes?: string[];
 }): string {
@@ -111,6 +112,8 @@ export function generateGoogleAuthUrl(options: {
     defaultScopes = GMAIL_INTEGRATION_SCOPES;
   } else if (options.service === "google_calendar") {
     defaultScopes = CALENDAR_INTEGRATION_SCOPES;
+  } else if (options.service === "google_drive" || options.service === "drive") {
+    defaultScopes = DRIVE_INTEGRATION_SCOPES;
   }
 
   const scopes = options.scopes || defaultScopes;
