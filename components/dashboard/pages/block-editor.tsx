@@ -55,6 +55,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+interface HistoryEntry {
+  blocks: EditorBlock[];
+  title: string;
+  icon: string;
+  focusedBlockId?: string | null;
+}
+
 interface BlockEditorProps {
   page: PageRecord;
   onPageTitleChange?: (newTitle: string) => void;
@@ -241,6 +248,30 @@ export function BlockEditor({
     pendingSaveRef.current = { title, icon, blocks };
   }, [title, icon, blocks]);
 
+  // Undo / Redo History Management
+  const undoStackRef = React.useRef<HistoryEntry[]>([]);
+  const redoStackRef = React.useRef<HistoryEntry[]>([]);
+  const isHistoryApplyingRef = React.useRef(false);
+  const lastTypingSnapshotTimeRef = React.useRef(0);
+
+  const pushHistorySnapshot = React.useCallback(
+    (customBlocks?: EditorBlock[], customTitle?: string, customIcon?: string) => {
+      if (isHistoryApplyingRef.current) return;
+      const currentEntry: HistoryEntry = {
+        blocks: customBlocks
+          ? JSON.parse(JSON.stringify(customBlocks))
+          : JSON.parse(JSON.stringify(pendingSaveRef.current.blocks)),
+        title: customTitle ?? pendingSaveRef.current.title,
+        icon: customIcon ?? pendingSaveRef.current.icon,
+        focusedBlockId,
+      };
+
+      undoStackRef.current = [...undoStackRef.current.slice(-59), currentEntry];
+      redoStackRef.current = [];
+    },
+    [focusedBlockId]
+  );
+
   const registerRef = React.useCallback((id: string, el: HTMLElement | null) => {
     if (el) {
       blockRefs.current.set(id, el);
@@ -281,6 +312,118 @@ export function BlockEditor({
     [page.id]
   );
 
+  const handleUndo = React.useCallback(() => {
+    if (undoStackRef.current.length === 0) return;
+
+    const previous = undoStackRef.current.pop()!;
+
+    const currentSnapshot: HistoryEntry = {
+      blocks: JSON.parse(JSON.stringify(pendingSaveRef.current.blocks)),
+      title: pendingSaveRef.current.title,
+      icon: pendingSaveRef.current.icon,
+      focusedBlockId,
+    };
+    redoStackRef.current.push(currentSnapshot);
+
+    isHistoryApplyingRef.current = true;
+    setBlocks(previous.blocks);
+    setTitle(previous.title);
+    setIcon(previous.icon);
+    pendingSaveRef.current = {
+      blocks: previous.blocks,
+      title: previous.title,
+      icon: previous.icon,
+    };
+    triggerAutosave(previous.blocks, previous.title, previous.icon);
+
+    if (previous.focusedBlockId) {
+      setFocusedBlockId(previous.focusedBlockId);
+      setTimeout(() => {
+        const el = blockRefs.current.get(previous.focusedBlockId!);
+        if (el) focusBlockCaretEnd(el);
+      }, 20);
+    }
+
+    setTimeout(() => {
+      isHistoryApplyingRef.current = false;
+    }, 50);
+  }, [focusedBlockId, triggerAutosave]);
+
+  const handleRedo = React.useCallback(() => {
+    if (redoStackRef.current.length === 0) return;
+
+    const next = redoStackRef.current.pop()!;
+
+    const currentSnapshot: HistoryEntry = {
+      blocks: JSON.parse(JSON.stringify(pendingSaveRef.current.blocks)),
+      title: pendingSaveRef.current.title,
+      icon: pendingSaveRef.current.icon,
+      focusedBlockId,
+    };
+    undoStackRef.current.push(currentSnapshot);
+
+    isHistoryApplyingRef.current = true;
+    setBlocks(next.blocks);
+    setTitle(next.title);
+    setIcon(next.icon);
+    pendingSaveRef.current = {
+      blocks: next.blocks,
+      title: next.title,
+      icon: next.icon,
+    };
+    triggerAutosave(next.blocks, next.title, next.icon);
+
+    if (next.focusedBlockId) {
+      setFocusedBlockId(next.focusedBlockId);
+      setTimeout(() => {
+        const el = blockRefs.current.get(next.focusedBlockId!);
+        if (el) focusBlockCaretEnd(el);
+      }, 20);
+    }
+
+    setTimeout(() => {
+      isHistoryApplyingRef.current = false;
+    }, 50);
+  }, [focusedBlockId, triggerAutosave]);
+
+  // Global Undo / Redo keyboard shortcuts (Ctrl+Z, Ctrl+Y, Ctrl+Shift+Z, Cmd+Z, Cmd+Shift+Z)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept if inside an open modal or input dialog
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.closest("[role='dialog']") ||
+        target?.closest(".modal") ||
+        target?.classList?.contains("no-undo")
+      ) {
+        return;
+      }
+
+      const isMac =
+        typeof navigator !== "undefined" &&
+        /Mac|iPod|iPhone|iPad/.test(navigator.platform);
+      const modKey = isMac ? e.metaKey : e.ctrlKey;
+      if (!modKey) return;
+
+      if (e.key === "z" || e.key === "Z") {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+      } else if (e.key === "y" || e.key === "Y") {
+        e.preventDefault();
+        e.stopPropagation();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [handleUndo, handleRedo]);
+
   // Flush on unmount if saving
   React.useEffect(() => {
     return () => {
@@ -299,6 +442,10 @@ export function BlockEditor({
 
   // Title change handler
   const handleTitleChange = (newTitle: string) => {
+    if (Date.now() - lastTypingSnapshotTimeRef.current > 700) {
+      pushHistorySnapshot();
+      lastTypingSnapshotTimeRef.current = Date.now();
+    }
     setTitle(newTitle);
     pendingSaveRef.current.title = newTitle;
     onPageTitleChange?.(newTitle);
@@ -314,6 +461,7 @@ export function BlockEditor({
 
   // Icon change handler
   const handleIconChange = (newIcon: string) => {
+    pushHistorySnapshot();
     setIcon(newIcon);
     pendingSaveRef.current.icon = newIcon;
     onPageIconChange?.(newIcon);
@@ -329,6 +477,11 @@ export function BlockEditor({
 
   // Content update for specific block
   const handleUpdateContent = (id: string, content: string) => {
+    if (Date.now() - lastTypingSnapshotTimeRef.current > 700) {
+      pushHistorySnapshot();
+      lastTypingSnapshotTimeRef.current = Date.now();
+    }
+
     setBlocks((prev) => {
       const next = prev.map((b) => (b.id === id ? { ...b, content } : b));
       triggerAutosave(next);
@@ -348,6 +501,7 @@ export function BlockEditor({
 
   // Properties update for specific block
   const handleUpdateProperties = (id: string, properties: Partial<EditorBlock["properties"]>) => {
+    pushHistorySnapshot();
     setBlocks((prev) => {
       const next = prev.map((b) =>
         b.id === id ? { ...b, properties: { ...b.properties, ...properties } } : b
@@ -359,6 +513,7 @@ export function BlockEditor({
 
   // Convert block type
   const handleConvertType = (id: string, newType: BlockType) => {
+    pushHistorySnapshot();
     setBlocks((prev) => {
       const next = prev.map((b) => {
         if (b.id === id) {
@@ -386,6 +541,7 @@ export function BlockEditor({
 
   // Insert a new block below index
   const handleInsertBelow = (index: number, type: BlockType = "paragraph") => {
+    pushHistorySnapshot();
     const newBlock: EditorBlock = {
       id: crypto.randomUUID(),
       type,
@@ -411,6 +567,7 @@ export function BlockEditor({
 
   // Delete a block
   const handleDeleteBlock = (id: string) => {
+    pushHistorySnapshot();
     if (blocks.length <= 1) {
       // Don't leave document with 0 blocks; reset to empty paragraph
       setBlocks([{ id: crypto.randomUUID(), type: "paragraph", content: "" }]);
@@ -441,6 +598,7 @@ export function BlockEditor({
   // Move block up
   const handleMoveUp = (index: number) => {
     if (index === 0) return;
+    pushHistorySnapshot();
     setBlocks((prev) => {
       const next = [...prev];
       const temp = next[index];
@@ -454,6 +612,7 @@ export function BlockEditor({
   // Move block down
   const handleMoveDown = (index: number) => {
     if (index === blocks.length - 1) return;
+    pushHistorySnapshot();
     setBlocks((prev) => {
       const next = [...prev];
       const temp = next[index];
@@ -502,6 +661,7 @@ export function BlockEditor({
     setDraggingBlockIndex(null);
     setDropTarget(null);
 
+    pushHistorySnapshot();
     setBlocks((prev) => {
       const next = [...prev];
       const [moved] = next.splice(fromIndex, 1);
@@ -550,6 +710,7 @@ export function BlockEditor({
     const targetBlock = blocks.find((b) => b.id === mentionState.blockId);
     if (!targetBlock) return;
 
+    pushHistorySnapshot();
     const cleaned = targetBlock.content.replace(/@([a-zA-Z0-9_-]*)$/, "").trim();
     const mentionText = `@${item.title}`;
     const newContent = cleaned ? `${cleaned} ${mentionText} ` : `${mentionText} `;
@@ -575,6 +736,7 @@ export function BlockEditor({
     const targetBlock = blocks.find((b) => b.id === slashState.blockId);
     if (!targetBlock) return;
 
+    pushHistorySnapshot();
     // Clean out trailing slash from content
     const cleanedContent = targetBlock.content.replace(/\/([a-zA-Z0-9_-]*)$/, "").trim();
 
@@ -824,6 +986,7 @@ export function BlockEditor({
 
   // Inline formatting handler
   const handleFormat = (format: FormatType, value?: string) => {
+    pushHistorySnapshot();
     switch (format) {
       case "bold":
         document.execCommand("bold");
@@ -931,7 +1094,7 @@ export function BlockEditor({
 
             const codeEl = document.createElement("code");
             codeEl.className =
-              "px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800/80 font-mono text-xs text-zinc-900 dark:text-white border border-zinc-200 dark:border-zinc-700/60";
+              "px-0.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800/80 font-mono text-xs text-zinc-900 dark:text-white border border-zinc-200 dark:border-zinc-700/60";
             codeEl.appendChild(extracted);
             range.insertNode(codeEl);
 
@@ -1075,6 +1238,7 @@ export function BlockEditor({
   const handleDuplicateBlock = (index: number) => {
     const target = blocks[index];
     if (!target) return;
+    pushHistorySnapshot();
     const duplicated: EditorBlock = {
       ...target,
       id: crypto.randomUUID(),
@@ -1138,6 +1302,7 @@ export function BlockEditor({
 
   // Apply template
   const handleApplyTemplate = (tmpl: PageTemplate) => {
+    pushHistorySnapshot();
     const newBlocks = tmpl.blocks.map((b) => ({
       ...b,
       id: crypto.randomUUID(),
@@ -1192,6 +1357,7 @@ export function BlockEditor({
   // Batch delete selected blocks
   const handleBatchDelete = React.useCallback(() => {
     if (selectedBlockIds.size === 0) return;
+    pushHistorySnapshot();
     setBlocks((prev) => {
       const remaining = prev.filter((b) => !selectedBlockIds.has(b.id));
       const next: EditorBlock[] =
@@ -1203,11 +1369,12 @@ export function BlockEditor({
     });
     setSelectedBlockIds(new Set());
     setBatchTransformOpen(false);
-  }, [selectedBlockIds, triggerAutosave]);
+  }, [pushHistorySnapshot, selectedBlockIds, triggerAutosave]);
 
   // Batch duplicate selected blocks
   const handleBatchDuplicate = React.useCallback(() => {
     if (selectedBlockIds.size === 0) return;
+    pushHistorySnapshot();
     setBlocks((prev) => {
       const selectedList = prev.filter((b) => selectedBlockIds.has(b.id));
       if (selectedList.length === 0) return prev;
@@ -1232,11 +1399,12 @@ export function BlockEditor({
       return next;
     });
     setBatchTransformOpen(false);
-  }, [selectedBlockIds, triggerAutosave]);
+  }, [pushHistorySnapshot, selectedBlockIds, triggerAutosave]);
 
   // Batch transform block types
   const handleBatchTransform = (newType: BlockType) => {
     if (selectedBlockIds.size === 0) return;
+    pushHistorySnapshot();
     setBlocks((prev) => {
       const next = prev.map((b) => {
         if (selectedBlockIds.has(b.id)) {

@@ -815,7 +815,7 @@ export function BlockItem({
                   <span className="text-[10px]">{copied ? "Copied" : "Copy"}</span>
                 </button>
               </div>
-              <pre className="p-3 font-mono text-xs overflow-x-auto">
+              <pre className="px-2 py-1.5 font-mono text-xs overflow-x-auto">
                 <code
                   ref={setRef}
                   contentEditable
@@ -825,10 +825,8 @@ export function BlockItem({
                   onBlur={handleBlur}
                   onKeyDown={(e) => onKeyDown(e, block, index)}
                   data-placeholder={showPlaceholder ? "// write code snippet here..." : ""}
-                  className="outline-none block min-h-[2.5rem] empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-600 empty:before:pointer-events-none whitespace-pre text-white"
-                >
-                  {block.content}
-                </code>
+                  className="outline-none block min-h-[1.75rem] empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-600 empty:before:pointer-events-none whitespace-pre text-white p-0 m-0"
+                >{block.content.replace(/^\n\s*/, "")}</code>
               </pre>
             </div>
           )}
