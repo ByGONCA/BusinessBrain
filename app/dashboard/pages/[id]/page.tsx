@@ -38,7 +38,7 @@ export default async function PageDetailPage({ params }: PageDetailProps) {
       />
 
       {/* Editor Content Canvas */}
-      <div className="flex-1 w-full p-6 md:p-8">
+      <div className="flex-1 w-full p-6 md:p-8 flex flex-col min-h-full">
         <BlockEditor page={page} />
       </div>
     </div>

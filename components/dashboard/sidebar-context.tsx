@@ -93,6 +93,7 @@ export function SidebarTrigger() {
   return (
     <button
       type="button"
+      data-sidebar-trigger="true"
       onClick={openSidebar}
       className="fixed top-3 left-3 z-40 flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur shadow-sm text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all duration-150 animate-in fade-in"
       title="Abrir barra lateral (Ctrl+\)"

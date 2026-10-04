@@ -1174,107 +1174,132 @@ export function BlockEditor({
     await navigator.clipboard.writeText(plainText);
   }, [blocks, selectedBlockIds]);
 
-  // Canvas MouseDown: initiates Marquee (drag-to-select)
-  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return; // Left click only
+  // Page-Wide MouseDown: initiates Marquee (drag-to-select) anywhere on the page, except sidebar
+  React.useEffect(() => {
+    const handleGlobalMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0) return; // Left click only
 
-    const target = e.target as HTMLElement;
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
 
-    // Ignore interactive elements
-    if (
-      target.closest(
-        'button, input, textarea, a, select, [draggable="true"], [role="button"], [data-no-marquee]'
-      )
-    ) {
-      return;
-    }
-
-    // Check if clicking inside contentEditable text
-    const contentEditable = target.closest('[contenteditable="true"]');
-    if (contentEditable) {
-      if (e.shiftKey) {
-        const blockEl = target.closest<HTMLElement>("[data-block-id]");
-        const clickedId = blockEl?.getAttribute("data-block-id");
-        if (clickedId) {
-          e.preventDefault();
-          handleBlockClickWithShift(clickedId);
-          return;
-        }
+      // 1. STRICTLY EXCLUDE SIDEBAR & SIDEBAR TRIGGER
+      if (
+        target.closest(
+          'aside[data-sidebar="true"], [data-sidebar="true"], [data-sidebar-trigger="true"], #main-sidebar'
+        )
+      ) {
+        return;
       }
-      if (selectedBlockIds.size > 0) {
+
+      // 2. EXCLUDE MODALS & FLOATING DIALOGS
+      if (
+        target.closest(
+          '[role="dialog"], [role="alertdialog"], .modal, [data-modal]'
+        )
+      ) {
+        return;
+      }
+
+      // 3. EXCLUDE INTERACTIVE CONTROLS & TOOLBARS
+      if (
+        target.closest(
+          'button, input, textarea, a, select, [draggable="true"], [role="button"], [data-no-marquee], [data-toolbar]'
+        )
+      ) {
+        return;
+      }
+
+      // 4. CHECK IF CLICKING INSIDE CONTENTEDITABLE TEXT
+      const contentEditable = target.closest('[contenteditable="true"]');
+      if (contentEditable) {
+        if (e.shiftKey) {
+          const blockEl = target.closest<HTMLElement>("[data-block-id]");
+          const clickedId = blockEl?.getAttribute("data-block-id");
+          if (clickedId) {
+            e.preventDefault();
+            handleBlockClickWithShift(clickedId);
+            return;
+          }
+        }
+        if (selectedBlockIds.size > 0) {
+          setSelectedBlockIds(new Set());
+        }
+        return;
+      }
+
+      // 5. ANYWHERE ELSE ON THE PAGE:
+      // Clicking in empty areas (left/right whitespace, bottom empty area, gutters, margins, paddings)
+      if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
         setSelectedBlockIds(new Set());
       }
-      return;
-    }
 
-    // Clicking in gutter, margin, padding or between blocks
-    if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
-      setSelectedBlockIds(new Set());
-    }
+      const startX = e.clientX;
+      const startY = e.clientY;
+      isMarqueeRef.current = false;
 
-    const startX = e.clientX;
-    const startY = e.clientY;
-    isMarqueeRef.current = false;
-
-    const onMouseMove = (moveEvent: MouseEvent) => {
-      const dist = Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY);
-      if (dist > 6) {
-        if (!isMarqueeRef.current) {
-          isMarqueeRef.current = true;
-          setIsMarqueeSelecting(true);
-        }
-        window.getSelection()?.removeAllRanges();
-
-        setMarqueeRect({
-          startX,
-          startY,
-          currentX: moveEvent.clientX,
-          currentY: moveEvent.clientY,
-        });
-
-        const boxLeft = Math.min(startX, moveEvent.clientX);
-        const boxTop = Math.min(startY, moveEvent.clientY);
-        const boxRight = Math.max(startX, moveEvent.clientX);
-        const boxBottom = Math.max(startY, moveEvent.clientY);
-
-        const blockEls = document.querySelectorAll<HTMLElement>("[data-block-id]");
-        const intersected = new Set<string>();
-
-        blockEls.forEach((el) => {
-          const rect = el.getBoundingClientRect();
-          const intersects = !(
-            rect.bottom < boxTop ||
-            rect.top > boxBottom ||
-            rect.right < boxLeft ||
-            rect.left > boxRight
-          );
-          if (intersects) {
-            const id = el.getAttribute("data-block-id");
-            if (id) intersected.add(id);
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        const dist = Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY);
+        if (dist > 6) {
+          if (!isMarqueeRef.current) {
+            isMarqueeRef.current = true;
+            setIsMarqueeSelecting(true);
           }
-        });
+          window.getSelection()?.removeAllRanges();
 
-        setSelectedBlockIds(intersected);
-      }
-    };
+          setMarqueeRect({
+            startX,
+            startY,
+            currentX: moveEvent.clientX,
+            currentY: moveEvent.clientY,
+          });
 
-    const onMouseUp = () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-      setMarqueeRect(null);
-      setIsMarqueeSelecting(false);
+          const boxLeft = Math.min(startX, moveEvent.clientX);
+          const boxTop = Math.min(startY, moveEvent.clientY);
+          const boxRight = Math.max(startX, moveEvent.clientX);
+          const boxBottom = Math.max(startY, moveEvent.clientY);
 
-      if (isMarqueeRef.current) {
-        isMarqueeRef.current = false;
-        if (document.activeElement instanceof HTMLElement) {
-          document.activeElement.blur();
+          const blockEls = document.querySelectorAll<HTMLElement>("[data-block-id]");
+          const intersected = new Set<string>();
+
+          blockEls.forEach((el) => {
+            const rect = el.getBoundingClientRect();
+            const intersects = !(
+              rect.bottom < boxTop ||
+              rect.top > boxBottom ||
+              rect.right < boxLeft ||
+              rect.left > boxRight
+            );
+            if (intersects) {
+              const id = el.getAttribute("data-block-id");
+              if (id) intersected.add(id);
+            }
+          });
+
+          setSelectedBlockIds(intersected);
         }
-      }
+      };
+
+      const onMouseUp = () => {
+        window.removeEventListener("mousemove", onMouseMove);
+        window.removeEventListener("mouseup", onMouseUp);
+        setMarqueeRect(null);
+        setIsMarqueeSelecting(false);
+
+        if (isMarqueeRef.current) {
+          isMarqueeRef.current = false;
+          if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+          }
+        }
+      };
+
+      window.addEventListener("mousemove", onMouseMove);
+      window.addEventListener("mouseup", onMouseUp);
     };
 
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-  };
+    window.addEventListener("mousedown", handleGlobalMouseDown);
+    return () => window.removeEventListener("mousedown", handleGlobalMouseDown);
+  }, [handleBlockClickWithShift, selectedBlockIds]);
 
   // Keyboard shortcuts when blocks are multi-selected
   React.useEffect(() => {
@@ -1362,10 +1387,10 @@ export function BlockEditor({
 
   return (
     <div
-      onMouseDown={handleCanvasMouseDown}
       onClick={handleEditorClick}
-      className="relative w-full max-w-6xl mx-auto pb-32"
+      className="relative w-full min-h-[calc(100vh-140px)] flex flex-col flex-1 pb-48"
     >
+      <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
       {/* Connect & Entity Creation Modal */}
       <ConnectModal
         isOpen={connectModalState.isOpen}
@@ -1632,6 +1657,7 @@ export function BlockEditor({
           }}
         />
       )}
+      </div>
 
       {/* Windows-style Selection Marquee Box */}
       {marqueeRect && (

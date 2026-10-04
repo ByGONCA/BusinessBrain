@@ -145,6 +145,8 @@ export function Sidebar({
 
   return (
     <aside
+      id="main-sidebar"
+      data-sidebar="true"
       className={cn(
         "sticky top-0 flex h-screen shrink-0 flex-col border-sidebar-border bg-sidebar select-none z-30 transition-all duration-200 overflow-hidden",
         isCollapsed
