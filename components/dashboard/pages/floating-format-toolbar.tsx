@@ -85,6 +85,123 @@ const HIGHLIGHT_COLORS = [
   { label: "Pink", value: "rgba(251, 207, 232, 0.4)" },
 ];
 
+export interface ActiveFormats {
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  strike: boolean;
+  code: boolean;
+  link: boolean;
+  highlight: boolean;
+}
+
+const DEFAULT_ACTIVE_FORMATS: ActiveFormats = {
+  bold: false,
+  italic: false,
+  underline: false,
+  strike: false,
+  code: false,
+  link: false,
+  highlight: false,
+};
+
+function detectActiveFormats(selection: Selection | null): ActiveFormats {
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+    return DEFAULT_ACTIVE_FORMATS;
+  }
+
+  let isBold = false;
+  let isItalic = false;
+  let isUnderline = false;
+  let isStrike = false;
+  let isCode = false;
+  let isLink = false;
+  let isHighlight = false;
+
+  try {
+    isBold = document.queryCommandState("bold");
+  } catch {}
+  try {
+    isItalic = document.queryCommandState("italic");
+  } catch {}
+  try {
+    isUnderline = document.queryCommandState("underline");
+  } catch {}
+  try {
+    isStrike = document.queryCommandState("strikeThrough");
+  } catch {}
+
+  try {
+    const range = selection.getRangeAt(0);
+    let container: Node | null = range.commonAncestorContainer;
+    if (container.nodeType === Node.TEXT_NODE) {
+      container = container.parentNode;
+    }
+    const el = container as HTMLElement | null;
+    if (el) {
+      if (!isBold) {
+        if (el.closest("b, strong")) {
+          isBold = true;
+        } else if (typeof window !== "undefined") {
+          const fw = window.getComputedStyle(el).fontWeight;
+          if (fw === "bold" || parseInt(fw, 10) >= 600) isBold = true;
+        }
+      }
+      if (!isItalic) {
+        if (el.closest("i, em")) {
+          isItalic = true;
+        } else if (typeof window !== "undefined") {
+          if (window.getComputedStyle(el).fontStyle === "italic") isItalic = true;
+        }
+      }
+      if (!isUnderline) {
+        if (el.closest("u")) {
+          isUnderline = true;
+        } else if (typeof window !== "undefined") {
+          const td =
+            window.getComputedStyle(el).textDecorationLine ||
+            window.getComputedStyle(el).textDecoration ||
+            "";
+          if (td.includes("underline")) isUnderline = true;
+        }
+      }
+      if (!isStrike) {
+        if (el.closest("s, strike, del")) {
+          isStrike = true;
+        } else if (typeof window !== "undefined") {
+          const td =
+            window.getComputedStyle(el).textDecorationLine ||
+            window.getComputedStyle(el).textDecoration ||
+            "";
+          if (td.includes("line-through")) isStrike = true;
+        }
+      }
+      if (el.closest("code")) {
+        isCode = true;
+      }
+      if (el.closest("a")) {
+        isLink = true;
+      }
+      if (
+        el.closest("mark") ||
+        (el.style && el.style.backgroundColor && el.style.backgroundColor !== "transparent")
+      ) {
+        isHighlight = true;
+      }
+    }
+  } catch {}
+
+  return {
+    bold: isBold,
+    italic: isItalic,
+    underline: isUnderline,
+    strike: isStrike,
+    code: isCode,
+    link: isLink,
+    highlight: isHighlight,
+  };
+}
+
 export function FloatingFormatToolbar({
   onFormat,
   onTransformBlock,
@@ -92,6 +209,7 @@ export function FloatingFormatToolbar({
 }: FloatingFormatToolbarProps) {
   const [position, setPosition] = React.useState<{ top: number; left: number } | null>(null);
   const [selectedText, setSelectedText] = React.useState("");
+  const [activeFormats, setActiveFormats] = React.useState<ActiveFormats>(DEFAULT_ACTIVE_FORMATS);
   const [activeMenu, setActiveMenu] = React.useState<"none" | "color" | "highlight" | "more" | "link">("none");
   const toolbarRef = React.useRef<HTMLDivElement>(null);
 
@@ -210,6 +328,10 @@ export function FloatingFormatToolbar({
     setActiveMenu("none");
     setLinkInputUrl("");
     setLinkError(null);
+    setTimeout(() => {
+      const sel = window.getSelection();
+      setActiveFormats(detectActiveFormats(sel));
+    }, 20);
   };
 
   const handleRemoveLink = () => {
@@ -222,6 +344,26 @@ export function FloatingFormatToolbar({
     setActiveMenu("none");
     setLinkInputUrl("");
     setLinkError(null);
+    setTimeout(() => {
+      const sel = window.getSelection();
+      setActiveFormats(detectActiveFormats(sel));
+    }, 20);
+  };
+
+  const getButtonClass = (isActive: boolean) =>
+    cn(
+      "flex h-7 w-7 items-center justify-center rounded-md transition-all duration-100",
+      isActive
+        ? "bg-blue-100 text-blue-700 dark:bg-blue-950/80 dark:text-blue-300 ring-1 ring-blue-400/60 dark:ring-blue-700/80 font-bold shadow-2xs"
+        : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
+    );
+
+  const handleFormatClick = (format: FormatType, value?: string) => {
+    onFormat(format, value);
+    setTimeout(() => {
+      const sel = window.getSelection();
+      setActiveFormats(detectActiveFormats(sel));
+    }, 20);
   };
 
   React.useEffect(() => {
@@ -231,6 +373,7 @@ export function FloatingFormatToolbar({
         if (activeMenu === "none") {
           setPosition(null);
           setSelectedText("");
+          setActiveFormats(DEFAULT_ACTIVE_FORMATS);
         }
         return;
       }
@@ -248,6 +391,7 @@ export function FloatingFormatToolbar({
         }
 
         setSelectedText(selection.toString().trim());
+        setActiveFormats(detectActiveFormats(selection));
         setPosition({
           top: Math.max(10, rect.top - 46),
           left: Math.max(10, rect.left + rect.width / 2 - 160),
@@ -286,9 +430,9 @@ export function FloatingFormatToolbar({
           type="button"
           onMouseDown={(e) => {
             e.preventDefault();
-            onFormat("bold");
+            handleFormatClick("bold");
           }}
-          className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-colors"
+          className={getButtonClass(activeFormats.bold)}
           title="Bold (Ctrl+B)"
         >
           <Bold className="h-3.5 w-3.5" />
@@ -298,9 +442,9 @@ export function FloatingFormatToolbar({
           type="button"
           onMouseDown={(e) => {
             e.preventDefault();
-            onFormat("italic");
+            handleFormatClick("italic");
           }}
-          className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-colors"
+          className={getButtonClass(activeFormats.italic)}
           title="Italic (Ctrl+I)"
         >
           <Italic className="h-3.5 w-3.5" />
@@ -310,9 +454,9 @@ export function FloatingFormatToolbar({
           type="button"
           onMouseDown={(e) => {
             e.preventDefault();
-            onFormat("underline");
+            handleFormatClick("underline");
           }}
-          className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-colors"
+          className={getButtonClass(activeFormats.underline)}
           title="Underline (Ctrl+U)"
         >
           <Underline className="h-3.5 w-3.5" />
@@ -322,9 +466,9 @@ export function FloatingFormatToolbar({
           type="button"
           onMouseDown={(e) => {
             e.preventDefault();
-            onFormat("strike");
+            handleFormatClick("strike");
           }}
-          className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-colors"
+          className={getButtonClass(activeFormats.strike)}
           title="Strikethrough"
         >
           <Strikethrough className="h-3.5 w-3.5" />
@@ -336,9 +480,9 @@ export function FloatingFormatToolbar({
           type="button"
           onMouseDown={(e) => {
             e.preventDefault();
-            onFormat("code");
+            handleFormatClick("code");
           }}
-          className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-mono text-xs transition-colors"
+          className={cn(getButtonClass(activeFormats.code), "font-mono text-xs")}
           title="Inline Code"
         >
           <Code className="h-3.5 w-3.5" />
@@ -350,13 +494,8 @@ export function FloatingFormatToolbar({
             e.preventDefault();
             handleOpenLinkMenu();
           }}
-          className={cn(
-            "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
-            activeMenu === "link"
-              ? "bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-semibold"
-              : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
-          )}
-          title="Add Link (Ctrl+K)"
+          className={getButtonClass(activeFormats.link || activeMenu === "link")}
+          title={activeFormats.link ? "Edit Link (Ctrl+K)" : "Add Link (Ctrl+K)"}
         >
           <LinkIcon className="h-3.5 w-3.5" />
         </button>
@@ -370,12 +509,7 @@ export function FloatingFormatToolbar({
             e.preventDefault();
             handleOpenColorMenu();
           }}
-          className={cn(
-            "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
-            activeMenu === "color"
-              ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100"
-              : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
-          )}
+          className={getButtonClass(activeMenu === "color")}
           title="Paleta de Cores"
         >
           <Palette className="h-3.5 w-3.5" />
@@ -388,12 +522,7 @@ export function FloatingFormatToolbar({
             e.preventDefault();
             setActiveMenu(activeMenu === "highlight" ? "none" : "highlight");
           }}
-          className={cn(
-            "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
-            activeMenu === "highlight"
-              ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100"
-              : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
-          )}
+          className={getButtonClass(activeFormats.highlight || activeMenu === "highlight")}
           title="Highlight"
         >
           <Highlighter className="h-3.5 w-3.5" />
@@ -551,6 +680,10 @@ export function FloatingFormatToolbar({
                 e.preventDefault();
                 onFormat("highlight", col.value);
                 setActiveMenu("none");
+                setTimeout(() => {
+                  const sel = window.getSelection();
+                  setActiveFormats(detectActiveFormats(sel));
+                }, 20);
               }}
               className="h-5 w-5 rounded border border-zinc-300 dark:border-zinc-700 hover:scale-110 transition-transform"
               style={{ backgroundColor: col.value === "transparent" ? "#ffffff" : col.value }}
