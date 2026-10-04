@@ -103,7 +103,7 @@ async function verifyRemoteDatabase() {
   // 5. Verify Cross-Organization Access Denial
   process.stdout.write("[5] Checking Cross-Organization Access Isolation: ");
   const fakeOrgId = "11111111-1111-1111-1111-111111111111";
-  const { data: crossOrgFiles, error: crossOrgError } = await anonClient
+  const { data: crossOrgFiles } = await anonClient
     .from("organization_files")
     .select("*")
     .eq("organization_id", fakeOrgId);
@@ -116,14 +116,35 @@ async function verifyRemoteDatabase() {
     unappliedCount++;
   }
 
+  // 6. Check Table: page_connections
+  process.stdout.write("[6] Checking table 'public.page_connections': ");
+  const res6 = await anonClient.from("page_connections").select("*").limit(0);
+  if (res6.error && res6.error.message.includes("Could not find the table")) {
+    console.log("✗ MISSING (Table 'public.page_connections' does not exist yet)");
+    unappliedCount++;
+  } else {
+    console.log("✓ PASS (Table 'public.page_connections' exists in Supabase)");
+    appliedCount++;
+  }
+
+  // 7. Check Table: page_files
+  process.stdout.write("[7] Checking table 'public.page_files': ");
+  const res7 = await anonClient.from("page_files").select("*").limit(0);
+  if (res7.error && res7.error.message.includes("Could not find the table")) {
+    console.log("✗ MISSING (Table 'public.page_files' does not exist yet)");
+    unappliedCount++;
+  } else {
+    console.log("✓ PASS (Table 'public.page_files' exists in Supabase)");
+    appliedCount++;
+  }
+
   console.log("\n=======================================================");
   if (unappliedCount === 0) {
-    console.log("STATUS: MIGRATION 00009 IS FULLY APPLIED AND VERIFIED REMOTELY");
+    console.log("STATUS: ALL TABLES & SECURITY POLICIES ARE VERIFIED IN SUPABASE");
   } else {
-    console.log(`STATUS: MIGRATION 00009 HAS NOT BEEN APPLIED TO REMOTE DATABASE YET`);
-    console.log(`(${unappliedCount} security lockdown checks pending migration execution)`);
-    console.log("\nACTION REQUIRED:");
-    console.log("Run database/migrations/00009_storage_rls_hardening.sql in your Supabase SQL Editor:");
+    console.log(`STATUS: ${unappliedCount} PENDING TABLE(S) IN REMOTE DATABASE`);
+    console.log("\nACTION REQUIRED TO CLEAR TERMINAL WARNINGS:");
+    console.log("Run database/migrations/RUN_IN_SUPABASE_TO_FIX_WARNINGS.sql in your Supabase SQL Editor:");
     console.log(`https://supabase.com/dashboard/project/jjalqvgaxzajsyccbjch/sql`);
   }
   console.log("=======================================================\n");
