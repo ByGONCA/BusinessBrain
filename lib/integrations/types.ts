@@ -10,6 +10,7 @@ export type IntegrationProvider =
   | "sentry"
   | "linear"
   | "google"
+  | "google_drive"
   | "microsoft"
   | "slack";
 

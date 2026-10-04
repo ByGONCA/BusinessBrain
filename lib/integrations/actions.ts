@@ -84,6 +84,18 @@ export async function disconnectIntegrationAction(integrationId: string) {
     .eq("id", integrationId)
     .eq("organization_id", activeOrg.id);
 
+  // Mark referenced external files as unavailable without deleting knowledge records
+  if (integration.provider === "google" || integration.provider === "google_drive") {
+    await supabase
+      .from("organization_files")
+      .update({
+        status: "unavailable",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("organization_id", activeOrg.id)
+      .eq("storage_provider", "google_drive");
+  }
+
   logger.info("Successfully disconnected integration", {
     integrationId,
     organizationId: activeOrg.id,

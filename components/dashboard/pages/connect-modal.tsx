@@ -17,7 +17,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { EntityType, CompanyEntityRecord, PageConnectionRecord } from "@/lib/pages/types";
+import { EntityType, CompanyEntityRecord, PageConnectionRecord, RelationType, RELATION_LABELS } from "@/lib/pages/types";
 import {
   RelationshipType,
   RELATIONSHIP_TYPES,
@@ -52,6 +52,7 @@ const ENTITY_CONFIG: Record<
   document: { label: "Document", icon: FileText, color: "text-cyan-500 bg-cyan-500/10 border-cyan-500/20" },
   person: { label: "Person", icon: User, color: "text-orange-500 bg-orange-500/10 border-orange-500/20" },
   page: { label: "Page", icon: FileText, color: "text-zinc-500 bg-zinc-500/10 border-zinc-500/20" },
+  file: { label: "File", icon: FileText, color: "text-blue-500 bg-blue-500/10 border-blue-500/20" },
 };
 
 export function ConnectModal({
@@ -67,6 +68,7 @@ export function ConnectModal({
   const [tab, setTab] = React.useState<"create" | "link">("create");
   const [entityType, setEntityType] = React.useState<EntityType>(initialType);
   const [relationshipType, setRelationshipType] = React.useState<RelationshipType>("related_to");
+  const relationType = relationshipType as unknown as RelationType;
   const [searchQuery, setSearchQuery] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isLoadingEntities, setIsLoadingEntities] = React.useState(false);
@@ -87,7 +89,6 @@ export function ConnectModal({
       if (initialType === "decision") setRelationshipType("decided_in");
       else if (initialType === "task") setRelationshipType("part_of");
       else setRelationshipType("related_to");
-
       const text = initialText.trim();
       if (initialType === "decision") {
         setTitle(text ? `Decision: ${text.slice(0, 40)}${text.length > 40 ? "..." : ""}` : "");
@@ -158,6 +159,7 @@ export function ConnectModal({
         content: content.trim(),
         relationshipType,
         metadata,
+        relationType,
       });
 
       if (res.success && res.connection) {
@@ -182,6 +184,7 @@ export function ConnectModal({
         targetTitle: entity.title,
         relationshipType,
         metadata: entity.metadata,
+        relationType,
       });
 
       if (res.success && res.connection) {

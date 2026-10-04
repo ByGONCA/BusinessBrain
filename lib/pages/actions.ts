@@ -6,10 +6,10 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveOrganization } from "@/lib/organizations/queries";
 import { isValidUuid } from "@/lib/security/authorization";
 import { logger } from "@/lib/security/logger";
-import { EditorBlock, PageRecord, CompanyEntityRecord, PageConnectionRecord, EntityType } from "./types";
+import { EditorBlock, PageRecord, CompanyEntityRecord, PageConnectionRecord, EntityType, RelationType, PageBreadcrumbItem } from "./types";
 import { RelationshipType } from "@/lib/connections/types";
 import { PAGE_TEMPLATES } from "./templates";
-import { getArchivedPages } from "./queries";
+import { getArchivedPages, getPageBreadcrumbs } from "./queries";
 
 const pageTitleSchema = z.string().trim().max(255, "Page title too long");
 // Support Unicode emojis, custom image URLs, and compressed base64 data URIs (up to 500KB)
@@ -322,7 +322,7 @@ export async function movePageAction(params: {
     const activeOrg = await getActiveOrganization();
     if (!activeOrg) return { success: false, error: "No active organization" };
 
-    // Cross-tenant parent validation: verify target parent belongs to the active organization
+    // Cross-tenant parent validation & cycle prevention
     if (params.targetParentId) {
       const { data: parentPage } = await supabase
         .from("pages")
@@ -332,6 +332,24 @@ export async function movePageAction(params: {
         .maybeSingle();
       if (!parentPage) {
         return { success: false, error: "Target parent page not found in your workspace" };
+      }
+
+      // Prevent cycle: ensure targetParentId is not a descendant of pageId
+      const { data: allPages } = await supabase
+        .from("pages")
+        .select("id, parent_page_id")
+        .eq("organization_id", activeOrg.id)
+        .eq("is_archived", false);
+
+      if (allPages) {
+        let currentParent: string | null = params.targetParentId;
+        while (currentParent) {
+          if (currentParent === params.pageId) {
+            return { success: false, error: "Cannot move a page inside its own subpage" };
+          }
+          const parentRow = allPages.find((p) => p.id === currentParent);
+          currentParent = parentRow ? parentRow.parent_page_id : null;
+        }
       }
     }
 
@@ -924,6 +942,7 @@ export async function createEntityAndConnectAction(params: {
   content?: string;
   relationshipType?: RelationshipType;
   metadata?: Record<string, unknown>;
+  relationType?: RelationType;
 }): Promise<{
   success: boolean;
   entity?: CompanyEntityRecord;
@@ -983,7 +1002,7 @@ export async function createEntityAndConnectAction(params: {
       return { success: false, error: "Failed to create company entity" };
     }
 
-    const relType = params.relationshipType || "related_to";
+    const relType = params.relationshipType || params.relationType || "related_to";
 
     // 2. Insert into canonical company_connections
     await supabase.from("company_connections").insert({
@@ -1000,6 +1019,12 @@ export async function createEntityAndConnectAction(params: {
     });
 
     // 3. Insert page connection (legacy compatibility)
+    const connMetadata = {
+      ...(params.metadata || {}),
+      relation_type: relType,
+      relationship_type: relType,
+    };
+
     const { data: connData, error: connError } = await supabase
       .from("page_connections")
       .insert({
@@ -1010,10 +1035,7 @@ export async function createEntityAndConnectAction(params: {
         target_type: params.type,
         target_id: entityData.id,
         target_title: cleanTitle,
-        metadata: {
-          ...(params.metadata || {}),
-          relationship_type: relType,
-        },
+        metadata: connMetadata,
         created_by: user.id,
       })
       .select()
@@ -1056,6 +1078,7 @@ export async function connectEntityAction(params: {
   targetTitle: string;
   relationshipType?: RelationshipType;
   metadata?: Record<string, unknown>;
+  relationType?: RelationType;
 }): Promise<{
   success: boolean;
   connection?: PageConnectionRecord;
@@ -1080,7 +1103,7 @@ export async function connectEntityAction(params: {
       return { success: false, error: "No active workspace found" };
     }
 
-    const relType = params.relationshipType || "related_to";
+    const relType = params.relationshipType || params.relationType || "related_to";
 
     // Cross-tenant validation: verify pageId belongs to the active organization
     const { data: pageCheck } = await supabase
@@ -1124,6 +1147,12 @@ export async function connectEntityAction(params: {
     );
 
     // 2. Upsert into page_connections (legacy compatibility)
+    const connMetadata = {
+      ...(params.metadata || {}),
+      relation_type: relType,
+      relationship_type: relType,
+    };
+
     const { data, error } = await supabase
       .from("page_connections")
       .upsert(
@@ -1135,10 +1164,7 @@ export async function connectEntityAction(params: {
           target_type: params.targetType,
           target_id: params.targetId,
           target_title: params.targetTitle.trim(),
-          metadata: {
-            ...(params.metadata || {}),
-            relationship_type: relType,
-          },
+          metadata: connMetadata,
           created_by: user.id,
         },
         { onConflict: "organization_id,page_id,source_id,target_type,target_id" }
@@ -1219,6 +1245,79 @@ export async function removeConnectionAction(connectionId: string): Promise<{
   } catch (err: unknown) {
     logger.error("Unexpected error in removeConnectionAction", err);
     return { success: false, error: "Failed to remove connection" };
+  }
+}
+
+/**
+ * Fetches an active page by ID within the active organization.
+ * Used for dynamic side peek panel and fast client lookups.
+ */
+export async function getPageAction(pageId: string): Promise<{
+  success: boolean;
+  page?: PageRecord;
+  error?: string;
+}> {
+  try {
+    if (!isValidUuid(pageId)) {
+      return { success: false, error: "Invalid page ID" };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const activeOrg = await getActiveOrganization();
+    if (!activeOrg) {
+      return { success: false, error: "No active workspace found" };
+    }
+
+    const { data: page, error } = await supabase
+      .from("pages")
+      .select("*")
+      .eq("id", pageId)
+      .eq("organization_id", activeOrg.id)
+      .eq("is_archived", false)
+      .single();
+
+    if (error || !page) {
+      return { success: false, error: "Page not found" };
+    }
+
+    return { success: true, page: page as PageRecord };
+  } catch (err: unknown) {
+    logger.error("Unexpected error in getPageAction", err);
+    return { success: false, error: "Failed to load page" };
+  }
+}
+
+/**
+ * Fetches the breadcrumb hierarchy path for a page within the active organization.
+ */
+export async function getPageBreadcrumbsAction(pageId: string): Promise<{
+  success: boolean;
+  breadcrumbs: PageBreadcrumbItem[];
+  error?: string;
+}> {
+  try {
+    if (!isValidUuid(pageId)) {
+      return { success: false, breadcrumbs: [], error: "Invalid page ID" };
+    }
+
+    const activeOrg = await getActiveOrganization();
+    if (!activeOrg) {
+      return { success: false, breadcrumbs: [], error: "No active workspace found" };
+    }
+
+    const breadcrumbs = await getPageBreadcrumbs(pageId, activeOrg.id);
+    return { success: true, breadcrumbs };
+  } catch (err: unknown) {
+    logger.error("Error in getPageBreadcrumbsAction", err);
+    return { success: false, breadcrumbs: [], error: "Failed to load breadcrumbs" };
   }
 }
 

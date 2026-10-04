@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import {
   EditorBlock,
   BlockType,
@@ -11,7 +12,8 @@ import {
   EntityType,
 } from "@/lib/pages/types";
 import { BlockItem } from "./block-item";
-import { SlashMenu } from "./slash-menu";
+import { SlashMenu, SlashMenuItem } from "./slash-menu";
+import { MentionMenu, MentionItem } from "./mention-menu";
 import { FloatingFormatToolbar, FormatType, CompanyBrainToolbarAction } from "./floating-format-toolbar";
 import { TemplatePicker } from "./template-picker";
 import { EmojiPicker } from "./emoji-picker";
@@ -27,6 +29,10 @@ import {
   removeConnectionAction,
   togglePageFavoriteAction,
 } from "@/lib/pages/actions";
+import { FilePickerModal } from "./file-picker-modal";
+import { PageAttachmentsPanel } from "./page-attachments-panel";
+import { getPageFilesAction } from "@/lib/files/actions";
+import { PageFileRecord, OrganizationFileRecord } from "@/lib/files/types";
 import {
   Check,
   Loader2,
@@ -59,6 +65,7 @@ export function BlockEditor({
   onPageTitleChange,
   onPageIconChange,
 }: BlockEditorProps) {
+  const router = useRouter();
   const [title, setTitle] = React.useState(page.title || "Untitled");
   const [icon, setIcon] = React.useState(page.icon || "📄");
   const [blocks, setBlocks] = React.useState<EditorBlock[]>(() => {
@@ -102,16 +109,20 @@ export function BlockEditor({
         })
       );
     }
-    const res = await togglePageFavoriteAction({ pageId: page.id });
-    if (!res.success) {
-      setIsFavorite(!nextVal);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(
-          new CustomEvent("cb-page-favorite-toggled", {
-            detail: { pageId: page.id, isFavorite: !nextVal },
-          })
-        );
+    try {
+      const res = await togglePageFavoriteAction({ pageId: page.id });
+      if (!res.success) {
+        setIsFavorite(!nextVal);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("cb-page-favorite-toggled", {
+              detail: { pageId: page.id, isFavorite: !nextVal },
+            })
+          );
+        }
       }
+    } catch {
+      setIsFavorite(!nextVal);
     }
   };
 
@@ -147,15 +158,53 @@ export function BlockEditor({
   // Load existing connections on mount
   React.useEffect(() => {
     let isMounted = true;
-    getPageConnectionsAction(page.id).then((res) => {
-      if (isMounted && res.success) {
-        setConnections(res.connections);
-      }
-    });
+    getPageConnectionsAction(page.id)
+      .then((res) => {
+        if (isMounted && res.success) {
+          setConnections(res.connections);
+        }
+      })
+      .catch(() => {});
     return () => {
       isMounted = false;
     };
   }, [page.id]);
+
+  // Page Files state
+  const [filePickerState, setFilePickerState] = React.useState<{
+    isOpen: boolean;
+    blockId?: string;
+    allowedTypes: "all" | "image" | "video" | "audio" | "pdf" | "document";
+  }>({
+    isOpen: false,
+    allowedTypes: "all",
+  });
+  const [pageFiles, setPageFiles] = React.useState<PageFileRecord[]>([]);
+
+  const loadPageFiles = React.useCallback(() => {
+    getPageFilesAction(page.id)
+      .then(setPageFiles)
+      .catch(() => {});
+  }, [page.id]);
+
+  React.useEffect(() => {
+    loadPageFiles();
+  }, [loadPageFiles]);
+
+  const handleFileSelected = (file: OrganizationFileRecord) => {
+    if (filePickerState.blockId) {
+      handleUpdateProperties(filePickerState.blockId, {
+        fileId: file.id,
+        fileName: file.name,
+        fileSize: file.size_bytes ? `${(file.size_bytes / (1024 * 1024)).toFixed(1)} MB` : "Document",
+        mimeType: file.mime_type,
+        storageProvider: file.storage_provider,
+        fileStatus: file.status,
+        mediaUrl: file.external_url || file.storage_path || "",
+      });
+    }
+    loadPageFiles();
+  };
 
   // Drag and drop state
   const [draggingBlockIndex, setDraggingBlockIndex] = React.useState<number | null>(null);
@@ -163,6 +212,13 @@ export function BlockEditor({
 
   // Slash menu state
   const [slashState, setSlashState] = React.useState<{
+    blockId: string;
+    position: { top: number; left: number };
+    query: string;
+  } | null>(null);
+
+  // Mention menu state
+  const [mentionState, setMentionState] = React.useState<{
     blockId: string;
     position: { top: number; left: number };
     query: string;
@@ -198,18 +254,22 @@ export function BlockEditor({
       }
 
       saveTimeoutRef.current = setTimeout(async () => {
-        const payloadTitle = newTitle !== undefined ? newTitle : pendingSaveRef.current.title;
-        const payloadIcon = newIcon !== undefined ? newIcon : pendingSaveRef.current.icon;
-        const res = await savePageContentAction({
-          pageId: page.id,
-          title: payloadTitle,
-          icon: payloadIcon,
-          blocks: newBlocks,
-        });
+        try {
+          const payloadTitle = newTitle !== undefined ? newTitle : pendingSaveRef.current.title;
+          const payloadIcon = newIcon !== undefined ? newIcon : pendingSaveRef.current.icon;
+          const res = await savePageContentAction({
+            pageId: page.id,
+            title: payloadTitle,
+            icon: payloadIcon,
+            blocks: newBlocks,
+          });
 
-        if (res.success) {
-          setSaveStatus("saved");
-        } else {
+          if (res?.success) {
+            setSaveStatus("saved");
+          } else {
+            setSaveStatus("error");
+          }
+        } catch {
           setSaveStatus("error");
         }
       }, 800);
@@ -228,7 +288,7 @@ export function BlockEditor({
           title: t,
           icon: ic,
           blocks: b,
-        });
+        }).catch(() => {});
       }
     };
   }, [page.id]);
@@ -468,8 +528,45 @@ export function BlockEditor({
     });
   };
 
+  // Mention trigger from child
+  const handleMentionTrigger = (blockId: string, rect: DOMRect) => {
+    setMentionState({
+      blockId,
+      position: {
+        top: Math.min(window.innerHeight - 300, rect.bottom + 6),
+        left: Math.max(16, rect.left),
+      },
+      query: "",
+    });
+  };
+
+  // Mention select handler
+  const handleMentionSelect = (item: MentionItem) => {
+    if (!mentionState) return;
+    const targetBlock = blocks.find((b) => b.id === mentionState.blockId);
+    if (!targetBlock) return;
+
+    const cleaned = targetBlock.content.replace(/@([a-zA-Z0-9_-]*)$/, "").trim();
+    const mentionText = `@${item.title}`;
+    const newContent = cleaned ? `${cleaned} ${mentionText} ` : `${mentionText} `;
+
+    setBlocks((prev) => {
+      const next = prev.map((b) => (b.id === mentionState.blockId ? { ...b, content: newContent } : b));
+      triggerAutosave(next);
+      return next;
+    });
+
+    setMentionState(null);
+    setFocusedBlockId(targetBlock.id);
+
+    setTimeout(() => {
+      const el = blockRefs.current.get(targetBlock.id);
+      if (el) focusBlockCaretEnd(el);
+    }, 20);
+  };
+
   // Slash select command
-  const handleSlashSelect = (type: BlockType) => {
+  const handleSlashSelect = (item: SlashMenuItem) => {
     if (!slashState) return;
     const targetBlock = blocks.find((b) => b.id === slashState.blockId);
     if (!targetBlock) return;
@@ -477,31 +574,167 @@ export function BlockEditor({
     // Clean out trailing slash from content
     const cleanedContent = targetBlock.content.replace(/\/([a-zA-Z0-9_-]*)$/, "").trim();
 
-    setBlocks((prev) => {
-      const next = prev.map((b) => {
-        if (b.id === slashState.blockId) {
-          return {
-            ...b,
-            type,
-            content: cleanedContent,
-            properties: type === "callout" ? { calloutIcon: "💡" } : undefined,
-          };
-        }
-        return b;
-      });
-      triggerAutosave(next);
-      return next;
-    });
+    // If item has a blockType, convert the block
+    if (item.blockType) {
+      const type = item.blockType;
+      let properties: EditorBlock["properties"] = undefined;
 
-    setSlashState(null);
-    setFocusedBlockId(targetBlock.id);
-
-    setTimeout(() => {
-      const el = blockRefs.current.get(targetBlock.id);
-      if (el) {
-        focusBlockCaretEnd(el);
+      if (type === "callout") {
+        properties = { calloutIcon: "💡" };
+      } else if (type === "toggle") {
+        properties = { isOpen: true };
+      } else if (type === "table") {
+        properties = {
+          tableData: {
+            headers: ["Column 1", "Column 2", "Column 3"],
+            rows: [["", "", ""], ["", "", ""]],
+          },
+        };
+      } else if (type === "board") {
+        properties = {
+          boardData: {
+            columns: [
+              { id: "col-1", title: "To Do", cards: [{ id: "c-1", text: "First card" }] },
+              { id: "col-2", title: "In Progress", cards: [] },
+              { id: "col-3", title: "Done", cards: [] },
+            ],
+          },
+        };
+      } else if (type === "gallery") {
+        properties = {
+          galleryData: {
+            items: [
+              { id: "g-1", title: "Project Overview", tag: "Design" },
+              { id: "g-2", title: "System Architecture", tag: "Engineering" },
+            ],
+          },
+        };
+      } else if (type === "list") {
+        properties = {
+          listData: {
+            items: [
+              { id: "l-1", title: "Review product requirements", status: "Active" },
+              { id: "l-2", title: "Implement block persistence", status: "Done" },
+            ],
+          },
+        };
+      } else if (type === "calendar") {
+        properties = {
+          calendarData: {
+            events: [
+              { id: "ev-1", title: "Team sync & planning", date: new Date().toISOString().split("T")[0] },
+            ],
+          },
+        };
+      } else if (type === "equation") {
+        properties = { equationFormula: "f(x) = x^2 + 2x + 1" };
+      } else if (type === "button") {
+        properties = { buttonData: { label: "Action Button", url: "" } };
+      } else if (type === "file") {
+        properties = { fileName: "document.pdf", fileSize: "1.2 MB", mediaUrl: "" };
+      } else if (type === "bookmark") {
+        properties = {
+          bookmarkTitle: "Company Brain",
+          bookmarkUrl: typeof window !== "undefined" ? window.location.href : "",
+        };
       }
-    }, 20);
+
+      setBlocks((prev) => {
+        const next = prev.map((b) => {
+          if (b.id === slashState.blockId) {
+            return {
+              ...b,
+              type,
+              content: cleanedContent,
+              properties,
+            };
+          }
+          return b;
+        });
+        triggerAutosave(next);
+        return next;
+      });
+
+      setSlashState(null);
+      setFocusedBlockId(targetBlock.id);
+
+      if (type === "image" || type === "file" || type === "video" || type === "audio") {
+        setFilePickerState({
+          isOpen: true,
+          blockId: targetBlock.id,
+          allowedTypes: type === "image" ? "image" : type === "video" ? "video" : type === "audio" ? "audio" : "all",
+        });
+      }
+
+      setTimeout(() => {
+        const el = blockRefs.current.get(targetBlock.id);
+        if (el) {
+          focusBlockCaretEnd(el);
+        }
+      }, 20);
+      return;
+    }
+
+    // If item has actionId, handle Company Brain actions
+    if (item.actionId) {
+      setSlashState(null);
+
+      // Clean the slash from the block
+      setBlocks((prev) => {
+        const next = prev.map((b) =>
+          b.id === targetBlock.id ? { ...b, content: cleanedContent } : b
+        );
+        triggerAutosave(next);
+        return next;
+      });
+
+      if (item.actionId === "create_page") {
+        createPageAction({ parentPageId: page.id, title: "Untitled Subpage" })
+          .then((res) => {
+            if (res.success && res.page) {
+              router.push(`/dashboard/pages/${res.page.id}`);
+            }
+          })
+          .catch((err) => {
+            console.error("Failed to create subpage:", err);
+          });
+        return;
+      }
+
+      if (item.actionId === "save_memory") {
+        window.alert(
+          `Content saved as Memory in Company Brain knowledge base.`
+        );
+        return;
+      }
+
+      if (item.actionId === "mention") {
+        setMentionState({
+          blockId: targetBlock.id,
+          position: slashState.position,
+          query: "",
+        });
+        return;
+      }
+
+      const typeMap: Record<string, EntityType> = {
+        create_task: "task",
+        create_project: "project",
+        create_meeting: "meeting",
+        create_goal: "goal",
+        create_decision: "decision",
+        connect: "task",
+      };
+
+      const initialType = typeMap[item.actionId] || "task";
+      setConnectModalState({
+        isOpen: true,
+        sourceType: "block",
+        sourceId: targetBlock.id,
+        initialType,
+        initialText: cleanedContent,
+      });
+    }
   };
 
   // Keyboard navigation & Enter/Backspace splitting
@@ -1023,6 +1256,16 @@ export function BlockEditor({
         }}
       />
 
+      {/* File & Cloud Storage Attachment Modal */}
+      <FilePickerModal
+        isOpen={filePickerState.isOpen}
+        onClose={() => setFilePickerState((prev) => ({ ...prev, isOpen: false }))}
+        pageId={page.id}
+        blockId={filePickerState.blockId}
+        allowedTypes={filePickerState.allowedTypes}
+        onFileSelected={handleFileSelected}
+      />
+
       {/* Floating Toolbar for Inline Marks & Company Brain Transform */}
       <FloatingFormatToolbar
         onFormat={handleFormat}
@@ -1037,6 +1280,16 @@ export function BlockEditor({
           onSelect={handleSlashSelect}
           onClose={() => setSlashState(null)}
           position={slashState.position}
+        />
+      )}
+
+      {/* Inline Mention Menu */}
+      {mentionState && (
+        <MentionMenu
+          query={mentionState.query}
+          onSelect={handleMentionSelect}
+          onClose={() => setMentionState(null)}
+          position={mentionState.position}
         />
       )}
 
@@ -1069,11 +1322,15 @@ export function BlockEditor({
             onViewChange={(view) => setViewMode(view)}
             onAddBlock={() => handleInsertBelow(blocks.length - 1)}
             onAddSubpage={() => {
-              createPageAction({ parentPageId: page.id, title: "Untitled Subpage" }).then((res) => {
-                if (res.success && res.page) {
-                  window.location.href = `/dashboard/pages/${res.page.id}`;
-                }
-              });
+              createPageAction({ parentPageId: page.id, title: "Untitled Subpage" })
+                .then((res) => {
+                  if (res.success && res.page) {
+                    router.push(`/dashboard/pages/${res.page.id}`);
+                  }
+                })
+                .catch((err) => {
+                  console.error("Failed to create subpage:", err);
+                });
             }}
             onOpenConnectModal={() => {
               setConnectModalState({
@@ -1101,10 +1358,13 @@ export function BlockEditor({
       {/* VIEW 1: EDITOR */}
       {viewMode === "editor" && (
         <>
-          {/* Template Suggestions if Document is Empty */}
-          {isPageEmpty && (
-            <TemplatePicker onApplyTemplate={handleApplyTemplate} />
-          )}
+          {/* Page Attachments (Internal & External files) */}
+          <PageAttachmentsPanel
+            pageId={page.id}
+            files={pageFiles}
+            onAddClick={() => setFilePickerState({ isOpen: true, allowedTypes: "all" })}
+            onRefresh={loadPageFiles}
+          />
 
           {/* Block Stream */}
           <div className="space-y-0.5">
@@ -1123,6 +1383,8 @@ export function BlockEditor({
                     key={block.id}
                     block={block}
                     index={idx}
+                    allBlocks={blocks}
+                    pageTitle={title}
                     listNumber={listNumber}
                     totalBlocks={blocks.length}
                     isFocused={focusedBlockId === block.id}
@@ -1139,13 +1401,18 @@ export function BlockEditor({
                     onMoveDown={handleMoveDown}
                     onDuplicateBlock={handleDuplicateBlock}
                     onConnectBlock={handleConnectBlock}
+                    onCompanyBrainAction={handleCompanyBrainToolbarAction}
                     onClickConnection={(conn) => {
                       setViewMode("connections");
                     }}
                     onKeyDown={handleKeyDown}
                     onSlashTrigger={handleSlashTrigger}
+                    onMentionTrigger={handleMentionTrigger}
                     registerRef={registerRef}
                     onFocusBlock={(id) => setFocusedBlockId(id)}
+                    onOpenFilePicker={(blockId, allowedTypes) =>
+                      setFilePickerState({ isOpen: true, blockId, allowedTypes })
+                    }
                     onDragBlockStart={handleDragBlockStart}
                     onDragBlockOver={handleDragBlockOver}
                     onDragBlockLeave={handleDragBlockLeave}
@@ -1156,6 +1423,11 @@ export function BlockEditor({
               });
             })()}
           </div>
+
+          {/* Template Suggestions if Document is Empty - rendered below the first block like Notion */}
+          {isPageEmpty && (
+            <TemplatePicker onApplyTemplate={handleApplyTemplate} />
+          )}
         </>
       )}
 

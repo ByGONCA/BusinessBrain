@@ -4,6 +4,8 @@ export const GOOGLE_SCOPES = {
   GMAIL_READONLY: "https://www.googleapis.com/auth/gmail.readonly",
   CALENDAR_READONLY: "https://www.googleapis.com/auth/calendar.readonly",
   CALENDAR_EVENTS_READONLY: "https://www.googleapis.com/auth/calendar.events.readonly",
+  DRIVE_READONLY: "https://www.googleapis.com/auth/drive.readonly",
+  DRIVE_METADATA_READONLY: "https://www.googleapis.com/auth/drive.metadata.readonly",
 } as const;
 
 export const GMAIL_INTEGRATION_SCOPES: string[] = [
@@ -19,12 +21,19 @@ export const CALENDAR_INTEGRATION_SCOPES: string[] = [
   GOOGLE_SCOPES.CALENDAR_EVENTS_READONLY,
 ];
 
+export const DRIVE_INTEGRATION_SCOPES: string[] = [
+  GOOGLE_SCOPES.EMAIL,
+  GOOGLE_SCOPES.PROFILE,
+  GOOGLE_SCOPES.DRIVE_READONLY,
+];
+
 export const DEFAULT_GOOGLE_INTEGRATION_SCOPES: string[] = [
   GOOGLE_SCOPES.EMAIL,
   GOOGLE_SCOPES.PROFILE,
   GOOGLE_SCOPES.GMAIL_READONLY,
   GOOGLE_SCOPES.CALENDAR_READONLY,
   GOOGLE_SCOPES.CALENDAR_EVENTS_READONLY,
+  GOOGLE_SCOPES.DRIVE_READONLY,
 ];
 
 export function getGoogleConfig() {
