@@ -122,6 +122,26 @@ export function CompanyMapWorkspace({
     );
   };
 
+  // Open entity corresponding to node type
+  const handleOpenNode = React.useCallback(
+    (node: GraphNode) => {
+      if (node.type === "page") {
+        router.push(`/dashboard/pages/${node.id}`);
+      } else if (node.type === "task") {
+        router.push("/dashboard/tasks");
+      } else if (node.type === "project") {
+        router.push("/dashboard/projects");
+      } else if (node.type === "meeting") {
+        router.push("/dashboard/meetings");
+      } else if (node.type === "decision") {
+        router.push("/dashboard/decisions");
+      } else {
+        router.push("/dashboard");
+      }
+    },
+    [router]
+  );
+
   // Search filter options
   const searchResults = React.useMemo(() => {
     if (!searchQuery.trim()) return [];
@@ -300,9 +320,7 @@ export function CompanyMapWorkspace({
                 edges={edges}
                 selectedNodeId={selectedNode?.id || null}
                 onSelectNode={(node) => setSelectedNode(node)}
-                onOpenNode={(node) => {
-                  if (node.type === "page") router.push(`/dashboard/pages/${node.id}`);
-                }}
+                onOpenNode={handleOpenNode}
                 focusDepth={focusDepth}
                 highlightedPathNodeIds={highlightedPathNodeIds}
                 highlightedPathEdgeIds={highlightedPathEdgeIds}
@@ -328,6 +346,7 @@ export function CompanyMapWorkspace({
                     edges={edges}
                     selectedNodeId={selectedNode?.id || null}
                     onSelectNode={(node) => setSelectedNode(node)}
+                    onOpenNode={handleOpenNode}
                     focusDepth={focusDepth}
                     highlightedPathNodeIds={highlightedPathNodeIds}
                     highlightedPathEdgeIds={highlightedPathEdgeIds}

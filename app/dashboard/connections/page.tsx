@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { verifyAccessOrRedirect } from "@/lib/organizations/entitlements";
 import { getCompanyGraphData } from "@/lib/connections/queries";
-import { getPagesForOrg } from "@/lib/pages/queries";
 import { createClient } from "@/lib/supabase/server";
 import { CompanyMapWorkspace } from "@/components/dashboard/connections/company-map-workspace";
 import { EntityType } from "@/lib/connections/types";
@@ -26,15 +25,29 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
 
   const supabase = await createClient();
 
-  // Parallel data loading
-  const [graphData, pages, entitiesRes] = await Promise.all([
+  // Parallel data loading with lightweight metadata boundary (no heavy block contents)
+  const [graphData, pagesRes, entitiesRes] = await Promise.all([
     getCompanyGraphData(activeOrg.id),
-    getPagesForOrg(activeOrg.id),
+    supabase
+      .from("pages")
+      .select("id, title, icon, parent_page_id")
+      .eq("organization_id", activeOrg.id)
+      .eq("is_archived", false)
+      .order("is_favorite", { ascending: false })
+      .order("position", { ascending: true })
+      .order("created_at", { ascending: true }),
     supabase
       .from("company_entities")
       .select("id, title, type")
       .eq("organization_id", activeOrg.id),
   ]);
+
+  const pages = (pagesRes.data || []).map((p) => ({
+    id: p.id,
+    title: p.title || "Untitled Page",
+    icon: p.icon || "📄",
+    parent_page_id: p.parent_page_id,
+  }));
 
   const entities = (entitiesRes.data || []).map((e) => ({
     id: e.id,

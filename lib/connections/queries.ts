@@ -86,7 +86,22 @@ export const getCompanyGraphData = cache(
         inDegreeMap.set(conn.target_id, (inDegreeMap.get(conn.target_id) || 0) + 1);
       }
 
-      // Transform Pages to GraphNodes
+      // Sanitize icon to ensure zero image/base64 payloads enter GraphNode
+      const sanitizeGraphIcon = (icon?: string | null, fallback = "📄"): string => {
+        if (!icon) return fallback;
+        if (
+          icon.startsWith("data:image/") ||
+          icon.startsWith("http://") ||
+          icon.startsWith("https://") ||
+          icon.startsWith("blob:") ||
+          icon.length > 8
+        ) {
+          return fallback;
+        }
+        return icon;
+      };
+
+      // Transform Pages to GraphNodes (Strictly Image-Free)
       const pageNodes: GraphNode[] = pages.map((p) => {
         const inDeg = inDegreeMap.get(p.id) || 0;
         const outDeg = outDegreeMap.get(p.id) || 0;
@@ -94,7 +109,7 @@ export const getCompanyGraphData = cache(
           id: p.id,
           type: "page",
           title: p.title || "Untitled Page",
-          icon: p.icon || "📄",
+          icon: sanitizeGraphIcon(p.icon, "📄"),
           organization_id: p.organization_id,
           degree: inDeg + outDeg,
           inDegree: inDeg,
