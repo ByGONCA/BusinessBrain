@@ -15,6 +15,7 @@ import { BlockItem } from "./block-item";
 import { SlashMenu, SlashMenuItem } from "./slash-menu";
 import { MentionMenu, MentionItem } from "./mention-menu";
 import { FloatingFormatToolbar, FormatType, CompanyBrainToolbarAction } from "./floating-format-toolbar";
+import { LinkPreviewPopover } from "./link-preview-popover";
 import { TemplatePicker } from "./template-picker";
 import { EmojiPicker } from "./emoji-picker";
 import { ConnectModal } from "./connect-modal";
@@ -223,6 +224,9 @@ export function BlockEditor({
     position: { top: number; left: number };
     query: string;
   } | null>(null);
+
+  // Link preview popover state
+  const [activeLinkAnchor, setActiveLinkAnchor] = React.useState<HTMLAnchorElement | null>(null);
 
   const blockRefs = React.useRef<Map<string, HTMLElement>>(new Map());
   const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -905,6 +909,33 @@ export function BlockEditor({
       case "link":
         if (value) {
           document.execCommand("createLink", false, value);
+          const selection = window.getSelection();
+          if (selection && !selection.isCollapsed) {
+            const range = selection.getRangeAt(0);
+            let container: Node | null = range.commonAncestorContainer;
+            if (container.nodeType === Node.TEXT_NODE) container = container.parentNode;
+            const anchors = (container as HTMLElement | null)?.querySelectorAll("a");
+            anchors?.forEach((a) => {
+              a.setAttribute("target", "_blank");
+              a.setAttribute("rel", "noopener noreferrer");
+              a.setAttribute("title", `Ctrl + clique para abrir: ${value}`);
+            });
+            const closestAnchor = (container as HTMLElement | null)?.closest("a");
+            if (closestAnchor) {
+              closestAnchor.setAttribute("target", "_blank");
+              closestAnchor.setAttribute("rel", "noopener noreferrer");
+              closestAnchor.setAttribute("title", `Ctrl + clique para abrir: ${value}`);
+            }
+
+            const editable = (
+              range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+                ? range.commonAncestorContainer.parentElement
+                : (range.commonAncestorContainer as HTMLElement)
+            )?.closest("[contenteditable='true']");
+            if (editable) {
+              editable.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+          }
         } else {
           document.execCommand("unlink");
         }
@@ -1299,10 +1330,42 @@ export function BlockEditor({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedBlockIds, handleBatchDelete, handleBatchDuplicate, handleBatchCopy]);
 
+  const handleEditorClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const anchor = target.closest("a");
+
+    if (anchor) {
+      const href = anchor.getAttribute("href");
+      if (href) {
+        // Holding Ctrl or Cmd immediately opens the link in a new tab
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          window.open(href, "_blank", "noopener,noreferrer");
+          return;
+        }
+
+        // Open the interactive preview popover attached to this link
+        e.preventDefault();
+        e.stopPropagation();
+        setActiveLinkAnchor(anchor);
+        return;
+      }
+    }
+
+    if (activeLinkAnchor) {
+      setActiveLinkAnchor(null);
+    }
+  };
+
   const isPageEmpty = blocks.length <= 1 && (!blocks[0].content || blocks[0].content.trim() === "");
 
   return (
-    <div onMouseDown={handleCanvasMouseDown} className="relative w-full max-w-6xl mx-auto pb-32">
+    <div
+      onMouseDown={handleCanvasMouseDown}
+      onClick={handleEditorClick}
+      className="relative w-full max-w-6xl mx-auto pb-32"
+    >
       {/* Connect & Entity Creation Modal */}
       <ConnectModal
         isOpen={connectModalState.isOpen}
@@ -1332,6 +1395,35 @@ export function BlockEditor({
         onFormat={handleFormat}
         onTransformBlock={handleTransformBlock}
         onCompanyBrainAction={handleCompanyBrainToolbarAction}
+      />
+
+      {/* Link Preview & Action Popover */}
+      <LinkPreviewPopover
+        anchorEl={activeLinkAnchor}
+        onClose={() => setActiveLinkAnchor(null)}
+        onEdit={(anchor) => {
+          const selection = window.getSelection();
+          if (selection) {
+            selection.removeAllRanges();
+            const range = document.createRange();
+            range.selectNodeContents(anchor);
+            selection.addRange(range);
+            document.dispatchEvent(new Event("selectionchange"));
+          }
+        }}
+        onUnlink={(anchor) => {
+          const parent = anchor.parentNode;
+          if (parent) {
+            const textNode = document.createTextNode(anchor.textContent || "");
+            parent.replaceChild(textNode, anchor);
+            parent.normalize();
+
+            const editable = textNode.parentElement?.closest("[contenteditable='true']");
+            if (editable) {
+              editable.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+          }
+        }}
       />
 
       {/* Slash Command Palette */}
