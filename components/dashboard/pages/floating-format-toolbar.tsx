@@ -26,6 +26,7 @@ import {
   Sparkles,
   Brain,
   Link2,
+  Unlink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BlockType } from "@/lib/pages/types";
@@ -37,6 +38,7 @@ export type FormatType =
   | "strike"
   | "code"
   | "link"
+  | "unlink"
   | "color"
   | "highlight"
   | "align-left"
@@ -84,8 +86,117 @@ export function FloatingFormatToolbar({
 }: FloatingFormatToolbarProps) {
   const [position, setPosition] = React.useState<{ top: number; left: number } | null>(null);
   const [selectedText, setSelectedText] = React.useState("");
-  const [activeMenu, setActiveMenu] = React.useState<"none" | "color" | "highlight" | "more">("none");
+  const [activeMenu, setActiveMenu] = React.useState<"none" | "color" | "highlight" | "more" | "link">("none");
   const toolbarRef = React.useRef<HTMLDivElement>(null);
+
+  // Link input state
+  const [linkInputUrl, setLinkInputUrl] = React.useState("");
+  const [hasExistingLink, setHasExistingLink] = React.useState(false);
+  const [linkError, setLinkError] = React.useState<string | null>(null);
+  const savedRangeRef = React.useRef<Range | null>(null);
+  const linkInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleOpenLinkMenu = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) return;
+
+    try {
+      const range = selection.getRangeAt(0);
+      savedRangeRef.current = range.cloneRange();
+
+      let container: Node | null = range.commonAncestorContainer;
+      if (container.nodeType === Node.TEXT_NODE) container = container.parentNode;
+      const existingAnchor = (container as HTMLElement | null)?.closest("a");
+
+      if (existingAnchor) {
+        setLinkInputUrl(existingAnchor.getAttribute("href") || "");
+        setHasExistingLink(true);
+      } else {
+        setLinkInputUrl("");
+        setHasExistingLink(false);
+      }
+      setLinkError(null);
+      setActiveMenu((prev) => (prev === "link" ? "none" : "link"));
+    } catch {
+      // Ignore range clone error
+    }
+  };
+
+  React.useEffect(() => {
+    if (activeMenu === "link") {
+      const timer = setTimeout(() => {
+        linkInputRef.current?.focus();
+        linkInputRef.current?.select();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [activeMenu]);
+
+  const handleApplyLink = () => {
+    let url = linkInputUrl.trim();
+    if (!url) {
+      if (hasExistingLink) {
+        handleRemoveLink();
+      } else {
+        setActiveMenu("none");
+      }
+      return;
+    }
+
+    // Auto-prefix https:// if omitted
+    if (
+      !url.startsWith("http://") &&
+      !url.startsWith("https://") &&
+      !url.startsWith("mailto:") &&
+      !url.startsWith("/")
+    ) {
+      url = "https://" + url;
+    }
+
+    // Security: only permit safe URL schemes to prevent javascript:/data: XSS via anchor injection
+    let parsedUrl: URL | null = null;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      if (!url.startsWith("/")) {
+        setLinkError("Invalid URL format");
+        return;
+      }
+    }
+    if (
+      parsedUrl &&
+      parsedUrl.protocol !== "https:" &&
+      parsedUrl.protocol !== "http:" &&
+      parsedUrl.protocol !== "mailto:"
+    ) {
+      setLinkError("Only http://, https://, and mailto: links are permitted.");
+      return;
+    }
+
+    // Restore saved selection
+    const selection = window.getSelection();
+    if (selection && savedRangeRef.current) {
+      selection.removeAllRanges();
+      selection.addRange(savedRangeRef.current);
+    }
+
+    onFormat("link", url);
+    setActiveMenu("none");
+    setLinkInputUrl("");
+    setLinkError(null);
+  };
+
+  const handleRemoveLink = () => {
+    const selection = window.getSelection();
+    if (selection && savedRangeRef.current) {
+      selection.removeAllRanges();
+      selection.addRange(savedRangeRef.current);
+    }
+    onFormat("unlink");
+    setActiveMenu("none");
+    setLinkInputUrl("");
+    setLinkError(null);
+  };
 
   React.useEffect(() => {
     function handleSelectionChange() {
@@ -211,32 +322,14 @@ export function FloatingFormatToolbar({
           type="button"
           onMouseDown={(e) => {
             e.preventDefault();
-            const url = window.prompt("Enter link URL (e.g. https://...):");
-            if (url) {
-              // Security: only permit safe URL schemes to prevent javascript:/data: XSS via anchor injection
-              let parsedUrl: URL | null = null;
-              try {
-                parsedUrl = new URL(url);
-              } catch {
-                // Relative or malformed — block unless it looks like a relative path (no scheme)
-                if (!url.startsWith("/")) {
-                  window.alert("Invalid URL. Only http://, https://, and mailto: links are permitted.");
-                  return;
-                }
-              }
-              if (
-                parsedUrl &&
-                parsedUrl.protocol !== "https:" &&
-                parsedUrl.protocol !== "http:" &&
-                parsedUrl.protocol !== "mailto:"
-              ) {
-                window.alert("Invalid URL scheme. Only http://, https://, and mailto: links are permitted.");
-                return;
-              }
-              onFormat("link", url);
-            }
+            handleOpenLinkMenu();
           }}
-          className="flex h-7 w-7 items-center justify-center rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 transition-colors"
+          className={cn(
+            "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
+            activeMenu === "link"
+              ? "bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-semibold"
+              : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
+          )}
           title="Add Link (Ctrl+K)"
         >
           <LinkIcon className="h-3.5 w-3.5" />
@@ -301,6 +394,65 @@ export function FloatingFormatToolbar({
           <span>More</span>
         </button>
       </div>
+
+      {/* Link Input Dropdown */}
+      {activeMenu === "link" && (
+        <div className="p-2 border-t border-zinc-100 dark:border-zinc-800 flex flex-col gap-1.5 bg-zinc-50/95 dark:bg-zinc-900/95 w-80 animate-in fade-in-50 duration-75">
+          <div className="flex items-center gap-1.5">
+            <div className="relative flex-1">
+              <LinkIcon className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-400 pointer-events-none" />
+              <input
+                ref={linkInputRef}
+                type="text"
+                value={linkInputUrl}
+                onChange={(e) => {
+                  setLinkInputUrl(e.target.value);
+                  if (linkError) setLinkError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleApplyLink();
+                  } else if (e.key === "Escape") {
+                    e.preventDefault();
+                    setActiveMenu("none");
+                  }
+                }}
+                placeholder="Paste URL (e.g. https://...)"
+                className="w-full pl-8 pr-2.5 py-1.5 text-xs rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <button
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleApplyLink();
+              }}
+              className="px-2.5 py-1.5 text-xs font-semibold rounded-md bg-blue-600 hover:bg-blue-500 text-white transition-colors shrink-0 shadow-xs"
+            >
+              Apply
+            </button>
+            {hasExistingLink && (
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleRemoveLink();
+                }}
+                className="p-1.5 text-xs font-medium rounded-md text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors shrink-0"
+                title="Remove Link"
+              >
+                <Unlink className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          {linkError && (
+            <p className="text-[11px] text-red-500 font-medium px-1">
+              {linkError}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Color Dropdown */}
       {activeMenu === "color" && (

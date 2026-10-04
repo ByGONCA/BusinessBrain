@@ -837,19 +837,80 @@ export function BlockEditor({
         const selection = window.getSelection();
         if (selection && !selection.isCollapsed) {
           const range = selection.getRangeAt(0);
-          const codeEl = document.createElement("code");
-          codeEl.className =
-            "px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 font-mono text-xs text-indigo-600 dark:text-indigo-400";
-          codeEl.textContent = range.toString();
-          range.deleteContents();
-          range.insertNode(codeEl);
+
+          let container: Node | null = range.commonAncestorContainer;
+          if (container.nodeType === Node.TEXT_NODE) {
+            container = container.parentNode;
+          }
+          const existingCode = (container as HTMLElement | null)?.closest("code");
+
+          if (existingCode) {
+            // TOGGLE OFF: Unwrap existing <code> tag
+            const parent = existingCode.parentNode;
+            if (parent) {
+              const textNode = document.createTextNode(existingCode.textContent || "");
+              parent.replaceChild(textNode, existingCode);
+              parent.normalize();
+
+              selection.removeAllRanges();
+              const newRange = document.createRange();
+              newRange.selectNodeContents(textNode);
+              selection.addRange(newRange);
+            }
+          } else {
+            // Check if selection wraps around one or more <code> tags
+            const clone = range.cloneContents();
+            const childCodes = clone.querySelectorAll ? clone.querySelectorAll("code") : [];
+            if (childCodes.length > 0) {
+              // Strip code tags inside selection
+              const extracted = range.extractContents();
+              const tempDiv = document.createElement("div");
+              tempDiv.appendChild(extracted);
+              tempDiv.querySelectorAll("code").forEach((c) => {
+                c.replaceWith(...Array.from(c.childNodes));
+              });
+              const frag = document.createDocumentFragment();
+              while (tempDiv.firstChild) {
+                frag.appendChild(tempDiv.firstChild);
+              }
+              range.insertNode(frag);
+            } else {
+              // TOGGLE ON: Wrap in <code>
+              const codeEl = document.createElement("code");
+              codeEl.className =
+                "px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 font-mono text-xs text-indigo-600 dark:text-indigo-400";
+              const extracted = range.extractContents();
+              codeEl.appendChild(extracted);
+              range.insertNode(codeEl);
+
+              selection.removeAllRanges();
+              const newRange = document.createRange();
+              newRange.selectNodeContents(codeEl);
+              selection.addRange(newRange);
+            }
+          }
+
+          // Trigger input on the contentEditable container to notify React state & autosave
+          const editable = (
+            range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+              ? range.commonAncestorContainer.parentElement
+              : (range.commonAncestorContainer as HTMLElement)
+          )?.closest("[contenteditable='true']");
+          if (editable) {
+            editable.dispatchEvent(new Event("input", { bubbles: true }));
+          }
         }
         break;
       }
       case "link":
         if (value) {
           document.execCommand("createLink", false, value);
+        } else {
+          document.execCommand("unlink");
         }
+        break;
+      case "unlink":
+        document.execCommand("unlink");
         break;
       case "color":
         if (value) {

@@ -89,3 +89,22 @@ html.light[data-contrast="high"] {
   }
 }
 
+/* Editor inline rich content styles */
+[contenteditable="true"] a {
+  color: #2563eb;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+html.dark [contenteditable="true"] a {
+  color: #60a5fa;
+}
+[contenteditable="true"] a:hover {
+  color: #1d4ed8;
+}
+html.dark [contenteditable="true"] a:hover {
+  color: #93c5fd;
+}
+
+
