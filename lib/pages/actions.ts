@@ -553,10 +553,10 @@ export async function duplicatePageAction(params: {
 /**
  * Searches active pages by title or content within the active organization.
  */
-export async function searchPagesAction(searchTerm: string): Promise<PageRecord[]> {
+export async function searchPagesAction(searchTerm: string = ""): Promise<PageRecord[]> {
   try {
     const activeOrg = await getActiveOrganization();
-    if (!activeOrg || !searchTerm.trim()) {
+    if (!activeOrg) {
       return [];
     }
 
@@ -564,15 +564,19 @@ export async function searchPagesAction(searchTerm: string): Promise<PageRecord[
 
     // Sanitize: strip PostgREST filter-injection characters before interpolating into .or()
     // Characters , ( ) " \ have special meaning in PostgREST filter syntax
-    const term = searchTerm.trim().replace(/[,()"\\\[\]{}]/g, "");
-    if (!term) return [];
+    const term = (searchTerm || "").trim().replace(/[,()"\\\[\]{}]/g, "");
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("pages")
       .select("id, organization_id, parent_page_id, title, icon, content_text, position, is_archived, archived_at, created_by, created_at, updated_at")
       .eq("organization_id", activeOrg.id)
-      .eq("is_archived", false)
-      .or(`title.ilike.%${term}%,content_text.ilike.%${term}%`)
+      .eq("is_archived", false);
+
+    if (term) {
+      query = query.or(`title.ilike.%${term}%,content_text.ilike.%${term}%`);
+    }
+
+    const { data, error } = await query
       .order("updated_at", { ascending: false })
       .limit(20);
 

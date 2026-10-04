@@ -499,6 +499,20 @@ export function BlockEditor({
         setSlashState(null);
       }
     }
+
+    if (mentionState && mentionState.blockId === id) {
+      const atIndex = content.lastIndexOf("@");
+      if (atIndex >= 0) {
+        const query = content.slice(atIndex + 1);
+        if (query.includes(" ") || query.length > 30) {
+          setMentionState(null);
+        } else {
+          setMentionState((prev) => (prev ? { ...prev, query } : null));
+        }
+      } else {
+        setMentionState(null);
+      }
+    }
   };
 
   // Properties update for specific block
@@ -965,6 +979,20 @@ export function BlockEditor({
 
       handleInsertBelow(index, nextType);
       return;
+    }
+
+    // ESCAPE
+    if (e.key === "Escape") {
+      if (mentionState) {
+        e.preventDefault();
+        setMentionState(null);
+        return;
+      }
+      if (slashState) {
+        e.preventDefault();
+        setSlashState(null);
+        return;
+      }
     }
 
     // BACKSPACE
@@ -1964,7 +1992,11 @@ export function BlockEditor({
                     onSlashTrigger={handleSlashTrigger}
                     onMentionTrigger={handleMentionTrigger}
                     registerRef={registerRef}
-                    onFocusBlock={(id) => setFocusedBlockId(id)}
+                    onFocusBlock={(id) => {
+                      setFocusedBlockId(id);
+                      if (slashState && slashState.blockId !== id) setSlashState(null);
+                      if (mentionState && mentionState.blockId !== id) setMentionState(null);
+                    }}
                     onOpenFilePicker={(blockId, allowedTypes) =>
                       setFilePickerState({ isOpen: true, blockId, allowedTypes })
                     }

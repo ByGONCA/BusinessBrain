@@ -87,7 +87,7 @@ export function MentionMenu({ query, onSelect, onClose, position }: MentionMenuP
         ? all.filter((i) => i.title.toLowerCase().includes(q))
         : all;
 
-      setItems(filtered.slice(0, 15));
+      setItems(filtered.slice(0, 25));
       setLoading(false);
     });
 
@@ -99,6 +99,17 @@ export function MentionMenu({ query, onSelect, onClose, position }: MentionMenuP
   React.useEffect(() => {
     setSelectedIndex(0);
   }, [items]);
+
+  // Scroll active item into view
+  React.useEffect(() => {
+    const activeEl = menuRef.current?.querySelector(`[data-index="${selectedIndex}"]`);
+    if (activeEl) {
+      activeEl.scrollIntoView({ block: "nearest" });
+    }
+  }, [selectedIndex]);
+
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
 
   React.useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -115,24 +126,28 @@ export function MentionMenu({ query, onSelect, onClose, position }: MentionMenuP
         }
       } else if (e.key === "Escape") {
         e.preventDefault();
-        onClose();
+        onCloseRef.current();
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [items, selectedIndex, onSelect, onClose]);
+  }, [items, selectedIndex, onSelect]);
 
   // Click outside to dismiss
   React.useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    function handleClickOutside(e: MouseEvent | TouchEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
+        onCloseRef.current();
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [onClose]);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, []);
 
   return (
     <div
@@ -168,6 +183,7 @@ export function MentionMenu({ query, onSelect, onClose, position }: MentionMenuP
             return (
               <button
                 key={`${item.type}-${item.id}`}
+                data-index={index}
                 type="button"
                 onMouseEnter={() => setSelectedIndex(index)}
                 onClick={() => onSelect(item)}
