@@ -671,7 +671,9 @@ export function BlockItem({
           {/* BULLETED LIST */}
           {block.type === "bullet_list" && (
             <div className="flex items-start gap-2">
-              <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-zinc-700 dark:bg-zinc-300 shrink-0" />
+              <div className="flex items-center justify-center w-5 h-6 shrink-0 select-none">
+                <span className="h-1.5 w-1.5 rounded-full bg-zinc-700 dark:bg-zinc-300" />
+              </div>
               <div
                 ref={setRef}
                 contentEditable
@@ -691,7 +693,7 @@ export function BlockItem({
           {/* NUMBERED LIST */}
           {block.type === "numbered_list" && (
             <div className="flex items-start gap-2">
-              <span className="text-sm font-medium text-zinc-500 shrink-0 select-none w-5 text-right">
+              <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 shrink-0 select-none w-5 text-center leading-relaxed tabular-nums">
                 {listNumber ?? 1}.
               </span>
               <div
@@ -712,13 +714,15 @@ export function BlockItem({
 
           {/* CHECKLIST */}
           {block.type === "checklist" && (
-            <div className="flex items-start gap-2.5">
-              <input
-                type="checkbox"
-                checked={block.properties?.checked || false}
-                onChange={(e) => onUpdateProperties(block.id, { checked: e.target.checked })}
-                className="mt-1 h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
-              />
+            <div className="flex items-start gap-2">
+              <div className="flex items-center justify-center w-5 h-6 shrink-0">
+                <input
+                  type="checkbox"
+                  checked={block.properties?.checked || false}
+                  onChange={(e) => onUpdateProperties(block.id, { checked: e.target.checked })}
+                  className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500/20 cursor-pointer m-0"
+                />
+              </div>
               <div
                 ref={setRef}
                 contentEditable
