@@ -59,6 +59,28 @@ const TYPE_COLORS: Record<EntityType, { bg: string; border: string; glow: string
   page: { bg: "#52525b", border: "#a1a1aa", glow: "rgba(113, 113, 122, 0.4)" }, // zinc
 };
 
+const DEFAULT_FALLBACK_ICONS: Record<EntityType, string> = {
+  project: "📁",
+  task: "✅",
+  decision: "⚖️",
+  meeting: "📅",
+  goal: "🎯",
+  document: "📄",
+  person: "👤",
+  page: "📄",
+};
+
+function isImageIcon(icon: string | null | undefined): boolean {
+  if (!icon) return false;
+  return (
+    icon.startsWith("data:image/") ||
+    icon.startsWith("http://") ||
+    icon.startsWith("https://") ||
+    icon.startsWith("blob:") ||
+    icon.length > 8
+  );
+}
+
 export function InteractiveGraphCanvas({
   nodes,
   edges,
@@ -86,6 +108,9 @@ export function InteractiveGraphCanvas({
   const draggedNodeRef = React.useRef<SimNode | null>(null);
   const lastMousePosRef = React.useRef<{ x: number; y: number } | null>(null);
   const hoveredNodeRef = React.useRef<SimNode | null>(null);
+
+  // Cache for custom image icons (data URIs or URLs)
+  const imageCacheRef = React.useRef<Map<string, HTMLImageElement>>(new Map());
 
   // 1. Initialize or update simulation data when nodes/edges change
   React.useEffect(() => {
@@ -463,14 +488,51 @@ export function InteractiveGraphCanvas({
           : colors.border;
         c.stroke();
 
-        // Node Icon or Initials
-        c.fillStyle = "#ffffff";
-        c.font = `bold ${Math.max(10, n.radius * 0.9)}px sans-serif`;
-        c.textAlign = "center";
-        c.textBaseline = "middle";
+        // Node Icon or Image or Initials
+        const isImage = isImageIcon(n.icon);
 
-        const iconGlyph = n.icon || n.type[0].toUpperCase();
-        c.fillText(iconGlyph, n.x, n.y);
+        if (isImage && n.icon) {
+          let img = imageCacheRef.current.get(n.icon);
+          if (!img) {
+            img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = n.icon;
+            imageCacheRef.current.set(n.icon, img);
+          }
+
+          if (img.complete && img.naturalWidth > 0) {
+            c.save();
+            const iconRadius = n.radius * 0.7;
+            c.beginPath();
+            c.arc(n.x, n.y, iconRadius, 0, Math.PI * 2);
+            c.clip();
+
+            const imgSize = iconRadius * 2;
+            c.drawImage(img, n.x - iconRadius, n.y - iconRadius, imgSize, imgSize);
+            c.restore();
+          } else {
+            // While image is loading or if failed, show clean fallback emoji
+            c.fillStyle = "#ffffff";
+            c.font = `bold ${Math.max(10, n.radius * 0.85)}px sans-serif`;
+            c.textAlign = "center";
+            c.textBaseline = "middle";
+            const fallbackGlyph = DEFAULT_FALLBACK_ICONS[n.type] || "📄";
+            c.fillText(fallbackGlyph, n.x, n.y);
+          }
+        } else {
+          // Standard text / emoji glyph
+          c.fillStyle = "#ffffff";
+          c.font = `bold ${Math.max(10, n.radius * 0.85)}px sans-serif`;
+          c.textAlign = "center";
+          c.textBaseline = "middle";
+
+          let glyph = n.icon || DEFAULT_FALLBACK_ICONS[n.type] || n.type[0].toUpperCase();
+          // Strict safety guard: never render any string longer than 4 characters to avoid canvas overflow
+          if (glyph.length > 4) {
+            glyph = DEFAULT_FALLBACK_ICONS[n.type] || n.type[0].toUpperCase();
+          }
+          c.fillText(glyph, n.x, n.y);
+        }
 
         // Node Label
         if (currentT.scale >= 0.55 || isSelected || isHovered || isPathNode) {

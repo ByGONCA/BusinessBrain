@@ -14,6 +14,7 @@ import {
   RELATIONSHIP_LABELS,
 } from "@/lib/connections/types";
 import { removeConnectionAction } from "@/lib/connections/actions";
+import { PageIcon } from "@/components/dashboard/pages/page-icon";
 import { cn } from "@/lib/utils";
 import {
   X,
@@ -122,8 +123,12 @@ export function NodeDetailsDrawer({
       {/* Header */}
       <div className="flex items-start justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
         <div className="flex items-start gap-3 min-w-0 pr-2">
-          <div className={cn("p-2 rounded-xl border shrink-0", cfg.color)}>
-            <Icon className="h-5 w-5" />
+          <div className={cn("p-2 rounded-xl border shrink-0 flex items-center justify-center", cfg.color)}>
+            {node.type === "page" ? (
+              <PageIcon icon={node.icon} className="text-xl" imgClassName="h-5 w-5 rounded object-cover" />
+            ) : (
+              <Icon className="h-5 w-5" />
+            )}
           </div>
           <div className="min-w-0">
             <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400">
@@ -253,9 +258,14 @@ export function NodeDetailsDrawer({
                       <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 block">
                         → {relLabel}
                       </span>
-                      <p className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
-                        {targetTitle}
-                      </p>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {targetNode?.type === "page" && (
+                          <PageIcon icon={targetNode.icon} className="text-xs shrink-0" imgClassName="h-3.5 w-3.5 rounded object-cover" />
+                        )}
+                        <p className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                          {targetTitle}
+                        </p>
+                      </div>
                     </div>
 
                     <button
@@ -302,9 +312,14 @@ export function NodeDetailsDrawer({
                       <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 block">
                         ← {reverseLabel}
                       </span>
-                      <p className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
-                        {sourceTitle}
-                      </p>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {sourceNode?.type === "page" && (
+                          <PageIcon icon={sourceNode.icon} className="text-xs shrink-0" imgClassName="h-3.5 w-3.5 rounded object-cover" />
+                        )}
+                        <p className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                          {sourceTitle}
+                        </p>
+                      </div>
                     </div>
 
                     <button
