@@ -177,7 +177,28 @@ export async function getOrganizationMembersAction(
     }
 
     let targetOrgId = organizationId;
-    if (!targetOrgId) {
+
+    if (targetOrgId) {
+      // Defense-in-depth: when an explicit organizationId is supplied by the caller,
+      // verify the authenticated user is actually a member before returning any data.
+      if (!isValidUuid(targetOrgId)) {
+        return { success: false, members: [], error: "Invalid organization identifier" };
+      }
+      const { data: membership, error: membershipError } = await supabase
+        .from("organization_members")
+        .select("id")
+        .eq("organization_id", targetOrgId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (membershipError || !membership) {
+        logger.warn("getOrganizationMembersAction: caller is not a member of the requested org", {
+          userId: user.id,
+          organizationId: targetOrgId,
+        });
+        return { success: false, members: [], error: "Unauthorized to access this workspace" };
+      }
+    } else {
       const activeOrg = await getActiveOrganization();
       targetOrgId = activeOrg?.id;
     }

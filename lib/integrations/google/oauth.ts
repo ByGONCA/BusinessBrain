@@ -65,7 +65,10 @@ export function verifyOAuthState(state: string): AuthStatePayload | null {
       .update(base64Data)
       .digest("base64url");
 
-    if (signature !== expectedSignature) return null;
+    // Use timing-safe comparison to prevent timing-oracle attacks
+    const sigBuf = Buffer.from(signature, "base64url");
+    const expBuf = Buffer.from(expectedSignature, "base64url");
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null;
 
     const jsonStr = Buffer.from(base64Data, "base64url").toString("utf8");
     const payload: AuthStatePayload = JSON.parse(jsonStr);

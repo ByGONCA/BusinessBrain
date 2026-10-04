@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getStripeClient } from "@/lib/stripe/client";
 import { createServiceClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/security/logger";
+import { getServerAuthToken } from "@/lib/security/authorization";
 import Stripe from "stripe";
 
 export async function POST(req: Request) {
@@ -39,6 +40,7 @@ export async function POST(req: Request) {
       {
         p_event_id: event.id,
         p_event_type: event.type,
+        p_server_token: getServerAuthToken("stripe-webhook"),
       }
     );
 
@@ -117,6 +119,7 @@ export async function POST(req: Request) {
               p_current_period_start: currentPeriodStart,
               p_current_period_end: currentPeriodEnd,
               p_cancel_at_period_end: sub.cancel_at_period_end,
+              p_server_token: getServerAuthToken("stripe-webhook"),
             });
 
             if (rpcError) {
@@ -166,6 +169,7 @@ export async function POST(req: Request) {
             p_current_period_start: currentPeriodStart,
             p_current_period_end: currentPeriodEnd,
             p_cancel_at_period_end: sub.cancel_at_period_end,
+            p_server_token: getServerAuthToken("stripe-webhook"),
           });
 
           if (rpcError) {
@@ -198,6 +202,7 @@ export async function POST(req: Request) {
         const sub = event.data.object as Stripe.Subscription;
         const { error: rpcError } = await supabase.rpc("cancel_stripe_subscription", {
           p_stripe_subscription_id: sub.id,
+          p_server_token: getServerAuthToken("stripe-webhook"),
         });
 
         if (rpcError) {

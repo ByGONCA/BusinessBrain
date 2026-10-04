@@ -1,10 +1,12 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   PageConnectionRecord,
   EntityType,
 } from "@/lib/pages/types";
+import { RELATIONSHIP_LABELS } from "@/lib/connections/types";
 import {
   CheckSquare,
   Scale,
@@ -18,11 +20,13 @@ import {
   ExternalLink,
   Sparkles,
   Link2,
+  Network,
 } from "lucide-react";
 import { PageIcon } from "./page-icon";
 import { cn } from "@/lib/utils";
 
 interface PageConnectionsViewProps {
+  pageId?: string;
   pageTitle: string;
   pageIcon: string;
   connections: PageConnectionRecord[];
@@ -46,6 +50,7 @@ const ENTITY_GROUP_CONFIG: Record<
 };
 
 export function PageConnectionsView({
+  pageId,
   pageTitle,
   pageIcon,
   connections,
@@ -88,14 +93,26 @@ export function PageConnectionsView({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={onOpenConnectModal}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-medium transition-colors shadow-sm"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          <span>Connect Entity</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {pageId && (
+            <Link
+              href={`/dashboard/connections?node=${pageId}`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 text-xs font-medium transition-colors"
+            >
+              <Network className="h-3.5 w-3.5 text-blue-500" />
+              <span>View in Company Map</span>
+            </Link>
+          )}
+
+          <button
+            type="button"
+            onClick={onOpenConnectModal}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-medium transition-colors shadow-sm"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Connect Entity</span>
+          </button>
+        </div>
       </div>
 
       {/* Content */}
@@ -150,6 +167,11 @@ export function PageConnectionsView({
                             {conn.target_title}
                           </p>
                           <div className="flex items-center gap-2 mt-0.5 text-xs text-zinc-400">
+                            {conn.relationship_type && (
+                              <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                                {RELATIONSHIP_LABELS[conn.relationship_type]?.forward || conn.relationship_type} •
+                              </span>
+                            )}
                             <span>
                               Linked to {conn.source_type === "page" ? "Page" : "Block"}
                             </span>

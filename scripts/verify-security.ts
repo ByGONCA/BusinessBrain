@@ -238,6 +238,259 @@ async function runTests() {
   );
 
   // ---------------------------------------------------------------------------
+  // 8. TIMING-SAFE OAUTH STATE COMPARISON
+  // ---------------------------------------------------------------------------
+  console.log("\n[8] Auditing OAuth State Verification (timing-safe comparison):");
+  const oauthSrc = fs.readFileSync(
+    path.resolve(process.cwd(), "lib/integrations/google/oauth.ts"),
+    "utf8"
+  );
+  assert(
+    oauthSrc.includes("crypto.timingSafeEqual"),
+    "OAuth state verifyOAuthState uses crypto.timingSafeEqual (timing-oracle prevention)"
+  );
+  assert(
+    !oauthSrc.includes("signature !== expectedSignature"),
+    "OAuth state does NOT use plain === string comparison for HMAC signatures"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 9. SSRF PROTECTION IN GOOGLE CLIENT
+  // ---------------------------------------------------------------------------
+  console.log("\n[9] Auditing SSRF Protection in Google API Client:");
+  const googleClientSrc = fs.readFileSync(
+    path.resolve(process.cwd(), "lib/integrations/google/client.ts"),
+    "utf8"
+  );
+  assert(
+    googleClientSrc.includes("SSRF protection"),
+    "googleFetch contains SSRF protection comment/guard"
+  );
+  assert(
+    googleClientSrc.includes("googleapis.com"),
+    "googleFetch enforces googleapis.com allowlist"
+  );
+  assert(
+    googleClientSrc.includes("169.254.169.254"),
+    "googleFetch blocks metadata endpoint (169.254.169.254)"
+  );
+  assert(
+    googleClientSrc.includes("parsedUrl.protocol !== \"https:\""),
+    "googleFetch rejects non-HTTPS requests"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 10. CROSS-TENANT VALIDATION IN CONNECTIONS
+  // ---------------------------------------------------------------------------
+  console.log("\n[10] Auditing Cross-Tenant Validation in Connection Actions:");
+  const connActionsSrc = fs.readFileSync(
+    path.resolve(process.cwd(), "lib/connections/actions.ts"),
+    "utf8"
+  );
+  assert(
+    connActionsSrc.includes("Cross-tenant validation"),
+    "createConnectionAction has cross-tenant source/target ownership check"
+  );
+  assert(
+    connActionsSrc.includes("Source object not found in your workspace"),
+    "createConnectionAction rejects cross-tenant source IDs"
+  );
+  assert(
+    connActionsSrc.includes("Target object not found in your workspace"),
+    "createConnectionAction rejects cross-tenant target IDs"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 11. CROSS-TENANT PARENT PAGE VALIDATION
+  // ---------------------------------------------------------------------------
+  console.log("\n[11] Auditing Cross-Tenant Parent Page Validation in Pages Actions:");
+  const pagesActionsSrc = fs.readFileSync(
+    path.resolve(process.cwd(), "lib/pages/actions.ts"),
+    "utf8"
+  );
+  assert(
+    pagesActionsSrc.includes("Parent page not found in your workspace"),
+    "createPageAction verifies parentPageId belongs to active organization"
+  );
+  assert(
+    pagesActionsSrc.includes("Target parent page not found in your workspace"),
+    "movePageAction verifies targetParentId belongs to active organization"
+  );
+  assert(
+    pagesActionsSrc.includes("Page not found in your workspace"),
+    "connectEntityAction/createEntityAndConnectAction verify pageId belongs to active organization"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 12. SEARCH TERM SANITIZATION
+  // ---------------------------------------------------------------------------
+  console.log("\n[12] Auditing PostgREST Search Term Sanitization:");
+  assert(
+    pagesActionsSrc.includes("PostgREST filter-injection"),
+    "searchPagesAction sanitizes PostgREST special characters before interpolation"
+  );
+  assert(
+    pagesActionsSrc.includes(".replace(/[,()"),
+    "searchPagesAction strips PostgREST special chars with regex replacement"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 13. LINK URL SCHEME VALIDATION
+  // ---------------------------------------------------------------------------
+  console.log("\n[13] Auditing Link URL Scheme Validation in Editor Toolbar:");
+  const toolbarSrc = fs.readFileSync(
+    path.resolve(process.cwd(), "components/dashboard/pages/floating-format-toolbar.tsx"),
+    "utf8"
+  );
+  assert(
+    toolbarSrc.includes("only permit safe URL schemes"),
+    "floating-format-toolbar validates link URL scheme before calling execCommand"
+  );
+  assert(
+    toolbarSrc.includes("parsedUrl.protocol !== \"https:\""),
+    "floating-format-toolbar blocks non-https/http/mailto schemes"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 14. SVG MIME TYPE CONSISTENCY
+  // ---------------------------------------------------------------------------
+  console.log("\n[14] Auditing SVG MIME Type Consistency:");
+  const validationSrc = fs.readFileSync(
+    path.resolve(process.cwd(), "lib/storage/validation.ts"),
+    "utf8"
+  );
+  assert(
+    !validationSrc.includes("image/svg+xml"),
+    "image/svg+xml is NOT in ALLOWED_MIME_TYPES (matches Storage bucket policy)"
+  );
+  assert(
+    validationSrc.includes("SVG excluded"),
+    "SVG exclusion is documented with a comment in storage validation"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 15. ORG MEMBERS IDOR DEFENSE
+  // ---------------------------------------------------------------------------
+  console.log("\n[15] Auditing getOrganizationMembersAction IDOR Defense:");
+  const orgActionsSrc = fs.readFileSync(
+    path.resolve(process.cwd(), "lib/organizations/actions.ts"),
+    "utf8"
+  );
+  assert(
+    orgActionsSrc.includes("Defense-in-depth"),
+    "getOrganizationMembersAction has defense-in-depth membership check when org ID is explicitly supplied"
+  );
+  assert(
+    orgActionsSrc.includes("Unauthorized to access this workspace"),
+    "getOrganizationMembersAction rejects non-member callers for explicit org ID"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 16. MIGRATION 00009 PRESENCE
+  // ---------------------------------------------------------------------------
+  console.log("\n[16] Auditing Migration 00009 (Security Hardening):");
+  const migration9Path = path.resolve(
+    process.cwd(),
+    "database/migrations/00009_security_audit_hardening.sql"
+  );
+  assert(fs.existsSync(migration9Path), "Migration 00009_security_audit_hardening.sql exists");
+
+  const migration9Sql = fs.readFileSync(migration9Path, "utf8");
+  assert(
+    migration9Sql.includes("p_server_token"),
+    "Migration 00009 rewrites billing RPCs with server token guard"
+  );
+  assert(
+    migration9Sql.includes("validate_page_hierarchy"),
+    "Migration 00009 adds cross-tenant page hierarchy trigger"
+  );
+  assert(
+    migration9Sql.includes("validate_company_connection"),
+    "Migration 00009 adds cross-tenant company connection trigger"
+  );
+  assert(
+    migration9Sql.toLowerCase().includes("revoke"),
+    "Migration 00009 revokes default PUBLIC execute on billing RPCs"
+  );
+  assert(
+    migration9Sql.includes("revoke execute on function public.is_org_member(uuid) from public;"),
+    "Migration 00009 revokes public execute on is_org_member helper function"
+  );
+  assert(
+    migration9Sql.includes("revoke execute on function public.has_org_role(uuid, text[]) from public;"),
+    "Migration 00009 revokes public execute on has_org_role helper function"
+  );
+  assert(
+    migration9Sql.includes("revoke execute on function public.shares_organization_with(uuid) from public;"),
+    "Migration 00009 revokes public execute on shares_organization_with helper function"
+  );
+  assert(
+    migration9Sql.includes("grant execute on function public.is_org_member(uuid) to authenticated, service_role, postgres;"),
+    "Migration 00009 grants execution of is_org_member to authenticated, service_role, postgres"
+  );
+  assert(
+    migration9Sql.includes("to authenticated") && migration9Sql.includes("bucket_id = 'organization_files'"),
+    "Migration 00009 restricts organization_files storage policies strictly to authenticated role"
+  );
+  assert(
+    migration9Sql.includes("public.is_org_member((storage.foldername(name))[1]::uuid)") &&
+      migration9Sql.includes("public.has_org_role((storage.foldername(name))[1]::uuid, array['owner', 'admin'])"),
+    "Migration 00009 preserves organization isolation across storage SELECT/INSERT/UPDATE/DELETE policies"
+  );
+  assert(
+    migration9Sql.includes("drop function if exists public.cancel_stripe_subscription(text);"),
+    "Migration 00009 drops obsolete un-guarded cancel_stripe_subscription overload"
+  );
+  assert(
+    migration9Sql.includes("drop function if exists public.record_stripe_webhook_event(text, text);"),
+    "Migration 00009 drops obsolete un-guarded record_stripe_webhook_event overload"
+  );
+  assert(
+    migration9Sql.includes("drop function if exists public.sync_stripe_subscription("),
+    "Migration 00009 drops obsolete un-guarded sync_stripe_subscription overload"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 17. MIGRATION 00010 (REVOKE HELPER FUNCTIONS ANON EXECUTION)
+  // ---------------------------------------------------------------------------
+  console.log("\n[17] Auditing Migration 00010 (Revoke Helper Functions Anon Execution):");
+  const migration10Path = path.resolve(
+    process.cwd(),
+    "database/migrations/00010_revoke_helper_functions_anon.sql"
+  );
+  assert(fs.existsSync(migration10Path), "Migration 00010_revoke_helper_functions_anon.sql exists");
+
+  const migration10Sql = fs.readFileSync(migration10Path, "utf8");
+  assert(
+    migration10Sql.includes("revoke execute on function public.is_org_member(uuid) from anon, public;"),
+    "Migration 00010 revokes anon execute on is_org_member"
+  );
+  assert(
+    migration10Sql.includes("revoke execute on function public.has_org_role(uuid, text[]) from anon, public;"),
+    "Migration 00010 revokes anon execute on has_org_role"
+  );
+  assert(
+    migration10Sql.includes("revoke execute on function public.shares_organization_with(uuid) from anon, public;"),
+    "Migration 00010 revokes anon execute on shares_organization_with"
+  );
+  assert(
+    migration10Sql.includes("grant execute on function public.is_org_member(uuid) to authenticated, service_role, postgres;"),
+    "Migration 00010 preserves execute on is_org_member for authenticated, service_role, postgres"
+  );
+  assert(
+    migration10Sql.includes("grant execute on function public.has_org_role(uuid, text[]) to authenticated, service_role, postgres;"),
+    "Migration 00010 preserves execute on has_org_role for authenticated, service_role, postgres"
+  );
+  assert(
+    migration10Sql.includes("grant execute on function public.shares_organization_with(uuid) to authenticated, service_role, postgres;"),
+    "Migration 00010 preserves execute on shares_organization_with for authenticated, service_role, postgres"
+  );
+  assert(
+    migration10Sql.includes("notify pgrst, 'reload schema';"),
+    "Migration 00010 notifies PostgREST to reload schema cache"
+  );
+
+  // ---------------------------------------------------------------------------
   // SUMMARY
   // ---------------------------------------------------------------------------
   console.log("\n=======================================================");

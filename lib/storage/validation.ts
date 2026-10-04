@@ -16,11 +16,10 @@ export const ALLOWED_MIME_TYPES = [
   "text/markdown",
   "text/csv",
   "application/json",
-  // Images
+  // Images (SVG excluded — not permitted by Storage bucket policy; see migration 00005)
   "image/png",
   "image/jpeg",
   "image/webp",
-  "image/svg+xml",
 ] as const;
 
 export const DEFAULT_MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25 MB

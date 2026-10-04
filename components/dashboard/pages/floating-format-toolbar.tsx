@@ -213,6 +213,26 @@ export function FloatingFormatToolbar({
             e.preventDefault();
             const url = window.prompt("Enter link URL (e.g. https://...):");
             if (url) {
+              // Security: only permit safe URL schemes to prevent javascript:/data: XSS via anchor injection
+              let parsedUrl: URL | null = null;
+              try {
+                parsedUrl = new URL(url);
+              } catch {
+                // Relative or malformed — block unless it looks like a relative path (no scheme)
+                if (!url.startsWith("/")) {
+                  window.alert("Invalid URL. Only http://, https://, and mailto: links are permitted.");
+                  return;
+                }
+              }
+              if (
+                parsedUrl &&
+                parsedUrl.protocol !== "https:" &&
+                parsedUrl.protocol !== "http:" &&
+                parsedUrl.protocol !== "mailto:"
+              ) {
+                window.alert("Invalid URL scheme. Only http://, https://, and mailto: links are permitted.");
+                return;
+              }
               onFormat("link", url);
             }
           }}

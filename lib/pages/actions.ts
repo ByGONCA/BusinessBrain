@@ -7,6 +7,7 @@ import { getActiveOrganization } from "@/lib/organizations/queries";
 import { isValidUuid } from "@/lib/security/authorization";
 import { logger } from "@/lib/security/logger";
 import { EditorBlock, PageRecord, CompanyEntityRecord, PageConnectionRecord, EntityType } from "./types";
+import { RelationshipType } from "@/lib/connections/types";
 import { PAGE_TEMPLATES } from "./templates";
 import { getArchivedPages } from "./queries";
 
@@ -82,6 +83,19 @@ export async function createPageAction(params?: {
     // Determine position: find max position among siblings
     let newPosition = 0;
     const parentId = params?.parentPageId && isValidUuid(params.parentPageId) ? params.parentPageId : null;
+
+    // Cross-tenant parent validation: verify the parent page belongs to the active organization
+    if (parentId) {
+      const { data: parentPage } = await supabase
+        .from("pages")
+        .select("id")
+        .eq("id", parentId)
+        .eq("organization_id", activeOrg.id)
+        .maybeSingle();
+      if (!parentPage) {
+        return { success: false, error: "Parent page not found in your workspace" };
+      }
+    }
 
     const { data: siblings } = await supabase
       .from("pages")
@@ -308,6 +322,19 @@ export async function movePageAction(params: {
     const activeOrg = await getActiveOrganization();
     if (!activeOrg) return { success: false, error: "No active organization" };
 
+    // Cross-tenant parent validation: verify target parent belongs to the active organization
+    if (params.targetParentId) {
+      const { data: parentPage } = await supabase
+        .from("pages")
+        .select("id")
+        .eq("id", params.targetParentId)
+        .eq("organization_id", activeOrg.id)
+        .maybeSingle();
+      if (!parentPage) {
+        return { success: false, error: "Target parent page not found in your workspace" };
+      }
+    }
+
     const updates: Record<string, unknown> = {
       parent_page_id: params.targetParentId,
       updated_at: new Date().toISOString(),
@@ -516,7 +543,11 @@ export async function searchPagesAction(searchTerm: string): Promise<PageRecord[
     }
 
     const supabase = await createClient();
-    const term = searchTerm.trim();
+
+    // Sanitize: strip PostgREST filter-injection characters before interpolating into .or()
+    // Characters , ( ) " \ have special meaning in PostgREST filter syntax
+    const term = searchTerm.trim().replace(/[,()"\\\[\]{}]/g, "");
+    if (!term) return [];
 
     const { data, error } = await supabase
       .from("pages")
@@ -891,6 +922,7 @@ export async function createEntityAndConnectAction(params: {
   type: EntityType;
   title: string;
   content?: string;
+  relationshipType?: RelationshipType;
   metadata?: Record<string, unknown>;
 }): Promise<{
   success: boolean;
@@ -921,6 +953,17 @@ export async function createEntityAndConnectAction(params: {
       return { success: false, error: "No active workspace found" };
     }
 
+    // Cross-tenant page validation: verify pageId belongs to the active organization
+    const { data: pageCheck } = await supabase
+      .from("pages")
+      .select("id")
+      .eq("id", params.pageId)
+      .eq("organization_id", activeOrg.id)
+      .maybeSingle();
+    if (!pageCheck) {
+      return { success: false, error: "Page not found in your workspace" };
+    }
+
     // 1. Insert entity
     const { data: entityData, error: entityError } = await supabase
       .from("company_entities")
@@ -940,7 +983,23 @@ export async function createEntityAndConnectAction(params: {
       return { success: false, error: "Failed to create company entity" };
     }
 
-    // 2. Insert page connection
+    const relType = params.relationshipType || "related_to";
+
+    // 2. Insert into canonical company_connections
+    await supabase.from("company_connections").insert({
+      organization_id: activeOrg.id,
+      source_type: params.sourceType,
+      source_id: params.sourceId,
+      source_title: (params.metadata?.sourceTitle as string) || "Page",
+      target_type: params.type,
+      target_id: entityData.id,
+      target_title: cleanTitle,
+      relationship_type: relType,
+      metadata: params.metadata || {},
+      created_by: user.id,
+    });
+
+    // 3. Insert page connection (legacy compatibility)
     const { data: connData, error: connError } = await supabase
       .from("page_connections")
       .insert({
@@ -951,14 +1010,19 @@ export async function createEntityAndConnectAction(params: {
         target_type: params.type,
         target_id: entityData.id,
         target_title: cleanTitle,
-        metadata: params.metadata || {},
+        metadata: {
+          ...(params.metadata || {}),
+          relationship_type: relType,
+        },
         created_by: user.id,
       })
       .select()
       .single();
 
+    revalidatePath("/dashboard/connections");
+    revalidatePath(`/dashboard/pages/${params.pageId}`);
+
     if (connError || !connData) {
-      logger.error("Error connecting company entity to page", { error: connError });
       return {
         success: true,
         entity: entityData as CompanyEntityRecord,
@@ -969,7 +1033,10 @@ export async function createEntityAndConnectAction(params: {
     return {
       success: true,
       entity: entityData as CompanyEntityRecord,
-      connection: connData as PageConnectionRecord,
+      connection: {
+        ...(connData as PageConnectionRecord),
+        relationship_type: relType,
+      },
     };
   } catch (err: unknown) {
     logger.error("Unexpected error in createEntityAndConnectAction", err);
@@ -987,6 +1054,7 @@ export async function connectEntityAction(params: {
   targetType: EntityType;
   targetId: string;
   targetTitle: string;
+  relationshipType?: RelationshipType;
   metadata?: Record<string, unknown>;
 }): Promise<{
   success: boolean;
@@ -1012,6 +1080,50 @@ export async function connectEntityAction(params: {
       return { success: false, error: "No active workspace found" };
     }
 
+    const relType = params.relationshipType || "related_to";
+
+    // Cross-tenant validation: verify pageId belongs to the active organization
+    const { data: pageCheck } = await supabase
+      .from("pages")
+      .select("id")
+      .eq("id", params.pageId)
+      .eq("organization_id", activeOrg.id)
+      .maybeSingle();
+    if (!pageCheck) {
+      return { success: false, error: "Page not found in your workspace" };
+    }
+
+    // Cross-tenant validation: verify targetId belongs to the active organization (if entity type)
+    if (params.targetType !== "page") {
+      const { data: targetCheck } = await supabase
+        .from("company_entities")
+        .select("id")
+        .eq("id", params.targetId)
+        .eq("organization_id", activeOrg.id)
+        .maybeSingle();
+      if (!targetCheck) {
+        return { success: false, error: "Target entity not found in your workspace" };
+      }
+    }
+
+    // 1. Upsert into canonical company_connections
+    await supabase.from("company_connections").upsert(
+      {
+        organization_id: activeOrg.id,
+        source_type: params.sourceType,
+        source_id: params.sourceId,
+        source_title: (params.metadata?.sourceTitle as string) || "Page",
+        target_type: params.targetType,
+        target_id: params.targetId,
+        target_title: params.targetTitle.trim(),
+        relationship_type: relType,
+        metadata: params.metadata || {},
+        created_by: user.id,
+      },
+      { onConflict: "organization_id,source_type,source_id,target_type,target_id,relationship_type" }
+    );
+
+    // 2. Upsert into page_connections (legacy compatibility)
     const { data, error } = await supabase
       .from("page_connections")
       .upsert(
@@ -1023,7 +1135,10 @@ export async function connectEntityAction(params: {
           target_type: params.targetType,
           target_id: params.targetId,
           target_title: params.targetTitle.trim(),
-          metadata: params.metadata || {},
+          metadata: {
+            ...(params.metadata || {}),
+            relationship_type: relType,
+          },
           created_by: user.id,
         },
         { onConflict: "organization_id,page_id,source_id,target_type,target_id" }
@@ -1031,12 +1146,21 @@ export async function connectEntityAction(params: {
       .select()
       .single();
 
+    revalidatePath("/dashboard/connections");
+    revalidatePath(`/dashboard/pages/${params.pageId}`);
+
     if (error || !data) {
       logger.error("Error in connectEntityAction", { error });
       return { success: false, error: "Failed to connect entity" };
     }
 
-    return { success: true, connection: data as PageConnectionRecord };
+    return {
+      success: true,
+      connection: {
+        ...(data as PageConnectionRecord),
+        relationship_type: relType,
+      },
+    };
   } catch (err: unknown) {
     logger.error("Unexpected error in connectEntityAction", err);
     return { success: false, error: "Failed to connect entity" };
@@ -1069,11 +1193,22 @@ export async function removeConnectionAction(connectionId: string): Promise<{
       return { success: false, error: "No active workspace found" };
     }
 
+    // Delete from company_connections
+    await supabase
+      .from("company_connections")
+      .delete()
+      .eq("id", connectionId)
+      .eq("organization_id", activeOrg.id);
+
+    // Delete from page_connections
     const { error } = await supabase
       .from("page_connections")
       .delete()
       .eq("id", connectionId)
       .eq("organization_id", activeOrg.id);
+
+    revalidatePath("/dashboard/connections");
+    revalidatePath("/dashboard/pages");
 
     if (error) {
       logger.error("Error removing connection", { error });

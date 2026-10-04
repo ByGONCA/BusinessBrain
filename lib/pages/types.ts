@@ -95,6 +95,8 @@ export interface CompanyEntityRecord {
   updated_at: string;
 }
 
+import { RelationshipType } from "@/lib/connections/types";
+
 export interface PageConnectionRecord {
   id: string;
   organization_id: string;
@@ -104,6 +106,7 @@ export interface PageConnectionRecord {
   target_type: EntityType;
   target_id: string;
   target_title: string;
+  relationship_type?: RelationshipType;
   metadata: Record<string, unknown>;
   created_by: string | null;
   created_at: string;

@@ -1181,6 +1181,7 @@ export function BlockEditor({
       {/* VIEW 3: CONNECTIONS */}
       {viewMode === "connections" && (
         <PageConnectionsView
+          pageId={page.id}
           pageTitle={title}
           pageIcon={icon}
           connections={connections}

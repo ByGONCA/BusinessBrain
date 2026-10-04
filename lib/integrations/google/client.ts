@@ -78,6 +78,43 @@ export async function getAuthenticatedGoogleClient(
 
   const googleFetch = async (endpoint: string, init?: RequestInit): Promise<Response> => {
     const url = endpoint.startsWith("http") ? endpoint : `https://www.googleapis.com${endpoint}`;
+
+    // SSRF protection: enforce strict allowlist of Google API origins
+    const ALLOWED_GOOGLE_ORIGINS = [
+      "https://www.googleapis.com",
+      "https://gmail.googleapis.com",
+      "https://accounts.google.com",
+      "https://oauth2.googleapis.com",
+      "https://content.googleapis.com",
+    ];
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      throw new Error("Invalid Google API URL");
+    }
+    if (parsedUrl.protocol !== "https:") {
+      throw new Error("Google API requests must use HTTPS");
+    }
+    const originAllowed = ALLOWED_GOOGLE_ORIGINS.some(
+      (allowed) => parsedUrl.origin === allowed || parsedUrl.hostname.endsWith(".googleapis.com")
+    );
+    if (!originAllowed) {
+      throw new Error(`SSRF protection: URL origin '${parsedUrl.origin}' is not in the Google API allowlist`);
+    }
+    // Block SSRF via metadata/loopback addresses
+    const host = parsedUrl.hostname.toLowerCase();
+    if (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "169.254.169.254" ||
+      host.startsWith("10.") ||
+      host.startsWith("192.168.") ||
+      host.match(/^172\.(1[6-9]|2\d|3[01])\./)
+    ) {
+      throw new Error(`SSRF protection: requests to internal/metadata addresses are not permitted`);
+    }
+
     const headers = new Headers(init?.headers);
     headers.set("Authorization", `Bearer ${accessToken}`);
     headers.set("Accept", "application/json");

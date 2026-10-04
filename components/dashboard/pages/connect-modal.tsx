@@ -19,6 +19,11 @@ import {
 import { cn } from "@/lib/utils";
 import { EntityType, CompanyEntityRecord, PageConnectionRecord } from "@/lib/pages/types";
 import {
+  RelationshipType,
+  RELATIONSHIP_TYPES,
+  RELATIONSHIP_LABELS,
+} from "@/lib/connections/types";
+import {
   getOrganizationEntitiesAction,
   createEntityAndConnectAction,
   connectEntityAction,
@@ -61,6 +66,7 @@ export function ConnectModal({
 }: ConnectModalProps) {
   const [tab, setTab] = React.useState<"create" | "link">("create");
   const [entityType, setEntityType] = React.useState<EntityType>(initialType);
+  const [relationshipType, setRelationshipType] = React.useState<RelationshipType>("related_to");
   const [searchQuery, setSearchQuery] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isLoadingEntities, setIsLoadingEntities] = React.useState(false);
@@ -78,6 +84,10 @@ export function ConnectModal({
   React.useEffect(() => {
     if (isOpen) {
       setEntityType(initialType);
+      if (initialType === "decision") setRelationshipType("decided_in");
+      else if (initialType === "task") setRelationshipType("part_of");
+      else setRelationshipType("related_to");
+
       const text = initialText.trim();
       if (initialType === "decision") {
         setTitle(text ? `Decision: ${text.slice(0, 40)}${text.length > 40 ? "..." : ""}` : "");
@@ -146,6 +156,7 @@ export function ConnectModal({
         type: entityType,
         title: title.trim(),
         content: content.trim(),
+        relationshipType,
         metadata,
       });
 
@@ -169,6 +180,7 @@ export function ConnectModal({
         targetType: entity.type,
         targetId: entity.id,
         targetTitle: entity.title,
+        relationshipType,
         metadata: entity.metadata,
       });
 
@@ -281,6 +293,24 @@ export function ConnectModal({
                     }
                   )}
                 </div>
+              </div>
+
+              {/* Relationship Type Field */}
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  Relationship Type
+                </label>
+                <select
+                  value={relationshipType}
+                  onChange={(e) => setRelationshipType(e.target.value as RelationshipType)}
+                  className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {RELATIONSHIP_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      → {RELATIONSHIP_LABELS[t]?.forward || t}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Title Field */}
@@ -406,6 +436,24 @@ export function ConnectModal({
             </form>
           ) : (
             <div className="space-y-3">
+              {/* Relationship Type Field */}
+              <div>
+                <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                  Relationship Type
+                </label>
+                <select
+                  value={relationshipType}
+                  onChange={(e) => setRelationshipType(e.target.value as RelationshipType)}
+                  className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {RELATIONSHIP_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      → {RELATIONSHIP_LABELS[t]?.forward || t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Search */}
               <div className="relative">
                 <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-zinc-400" />

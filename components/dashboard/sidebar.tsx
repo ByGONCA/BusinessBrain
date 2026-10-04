@@ -18,6 +18,7 @@ import {
   Calendar,
   Inbox,
   PanelLeftClose,
+  Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OrganizationWithRole } from "@/lib/organizations/types";
@@ -134,6 +135,7 @@ export function Sidebar({
     {
       title: t.sidebar.memory,
       items: [
+        { name: "Company Map", href: "/dashboard/connections", icon: Network },
         { name: t.sidebar.brain, href: "/dashboard/brain", icon: Brain, isAi: true },
         { name: t.sidebar.knowledge, href: "/dashboard/knowledge", icon: BookOpen },
         { name: t.sidebar.decisions, href: "/dashboard/decisions", icon: GitBranch },

@@ -74,3 +74,19 @@ export async function requireOrganizationRole(
 
   return { user, activeOrg };
 }
+
+/**
+ * Generates a cryptographic HMAC server token for privileged PostgreSQL RPCs.
+ * Prevents unauthorized client callers from executing server-only database functions.
+ */
+export function getServerAuthToken(purpose: string): string {
+  // Use crypto from node
+  const crypto = require("crypto");
+  const secret =
+    process.env.INTEGRATION_TOKEN_ENCRYPTION_KEY ||
+    process.env.STRIPE_WEBHOOK_SECRET ||
+    process.env.STRIPE_SECRET_KEY ||
+    "company-brain-internal-server-auth-key";
+
+  return crypto.createHmac("sha256", secret).update(`server-auth:${purpose}`).digest("hex");
+}
