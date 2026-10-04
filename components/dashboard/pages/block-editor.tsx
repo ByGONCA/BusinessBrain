@@ -848,32 +848,73 @@ export function BlockEditor({
           }
           const existingCode = (container as HTMLElement | null)?.closest("code");
 
-          if (existingCode) {
-            // TOGGLE OFF: Unwrap existing <code> tag preserving child elements and colors
+          if (existingCode && existingCode.parentNode) {
+            // TOGGLE OFF: The selection is inside an existing <code> element.
+            // Split code so only the selected portion is unwrapped, preserving prefix and suffix in code.
             const parent = existingCode.parentNode;
-            if (parent) {
-              const childNodes = Array.from(existingCode.childNodes);
-              childNodes.forEach((child) => {
-                parent.insertBefore(child, existingCode);
-              });
-              parent.removeChild(existingCode);
-              parent.normalize();
 
-              selection.removeAllRanges();
+            // 1. Clone prefix before selection inside existingCode
+            const preRange = document.createRange();
+            preRange.setStart(existingCode, 0);
+            preRange.setEnd(range.startContainer, range.startOffset);
+            const preFrag = preRange.cloneContents();
+
+            // 2. Clone suffix after selection inside existingCode
+            const postRange = document.createRange();
+            postRange.setStart(range.endContainer, range.endOffset);
+            postRange.setEnd(existingCode, existingCode.childNodes.length);
+            const postFrag = postRange.cloneContents();
+
+            // 3. Extract the selected content (to become plain text outside code)
+            const selFrag = range.extractContents();
+            // Unwrap any code elements if nested inside selFrag
+            if (selFrag.querySelectorAll) {
+              selFrag.querySelectorAll("code").forEach((c) => {
+                c.replaceWith(...Array.from(c.childNodes));
+              });
+            }
+
+            const hasPre = Boolean(preFrag.textContent && preFrag.textContent.length > 0);
+            const hasPost = Boolean(postFrag.textContent && postFrag.textContent.length > 0);
+
+            // Insert prefix code if present
+            if (hasPre) {
+              const preCode = existingCode.cloneNode(false) as HTMLElement;
+              preCode.appendChild(preFrag);
+              parent.insertBefore(preCode, existingCode);
+            }
+
+            // Insert unwrapped selected content as plain text
+            const selNodes = Array.from(selFrag.childNodes);
+            parent.insertBefore(selFrag, existingCode);
+
+            // Insert suffix code if present
+            if (hasPost) {
+              const postCode = existingCode.cloneNode(false) as HTMLElement;
+              postCode.appendChild(postFrag);
+              parent.insertBefore(postCode, existingCode);
+            }
+
+            // Remove the original existingCode
+            parent.removeChild(existingCode);
+
+            // Select the newly unwrapped plain text
+            selection.removeAllRanges();
+            if (selNodes.length > 0) {
               const newRange = document.createRange();
-              if (childNodes.length > 0) {
-                newRange.setStartBefore(childNodes[0]);
-                newRange.setEndAfter(childNodes[childNodes.length - 1]);
-              }
+              newRange.setStartBefore(selNodes[0]);
+              newRange.setEndAfter(selNodes[selNodes.length - 1]);
               selection.addRange(newRange);
             }
           } else {
-            // Check if selection wraps around one or more <code> tags
+            // TOGGLE ON: Wrap selection in <code> and merge with adjacent code siblings
             const clone = range.cloneContents();
             const childCodes = clone.querySelectorAll ? clone.querySelectorAll("code") : [];
+            let extracted: DocumentFragment;
+
             if (childCodes.length > 0) {
-              // Strip code tags inside selection
-              const extracted = range.extractContents();
+              // Strip code tags inside selection so we don't nest them
+              extracted = range.extractContents();
               const tempDiv = document.createElement("div");
               tempDiv.appendChild(extracted);
               tempDiv.querySelectorAll("code").forEach((c) => {
@@ -883,21 +924,47 @@ export function BlockEditor({
               while (tempDiv.firstChild) {
                 frag.appendChild(tempDiv.firstChild);
               }
-              range.insertNode(frag);
+              extracted = frag;
             } else {
-              // TOGGLE ON: Wrap in <code> with white text in dark mode and clear borders
-              const codeEl = document.createElement("code");
-              codeEl.className =
-                "px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800/80 font-mono text-xs text-zinc-900 dark:text-white border border-zinc-200 dark:border-zinc-700/60";
-              const extracted = range.extractContents();
-              codeEl.appendChild(extracted);
-              range.insertNode(codeEl);
-
-              selection.removeAllRanges();
-              const newRange = document.createRange();
-              newRange.selectNodeContents(codeEl);
-              selection.addRange(newRange);
+              extracted = range.extractContents();
             }
+
+            const codeEl = document.createElement("code");
+            codeEl.className =
+              "px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800/80 font-mono text-xs text-zinc-900 dark:text-white border border-zinc-200 dark:border-zinc-700/60";
+            codeEl.appendChild(extracted);
+            range.insertNode(codeEl);
+
+            // MERGE WITH ADJACENT CODE SIBLINGS:
+            // If the code touches an existing code element before or after, merge them into 1 unified code
+            let targetCode: HTMLElement = codeEl;
+
+            // 1. Check previous sibling
+            const prev = targetCode.previousSibling;
+            if (prev && prev.nodeType === Node.ELEMENT_NODE && (prev as HTMLElement).nodeName === "CODE") {
+              const prevCode = prev as HTMLElement;
+              while (targetCode.firstChild) {
+                prevCode.appendChild(targetCode.firstChild);
+              }
+              targetCode.remove();
+              targetCode = prevCode;
+            }
+
+            // 2. Check next sibling
+            const next = targetCode.nextSibling;
+            if (next && next.nodeType === Node.ELEMENT_NODE && (next as HTMLElement).nodeName === "CODE") {
+              const nextCode = next as HTMLElement;
+              while (nextCode.firstChild) {
+                targetCode.appendChild(nextCode.firstChild);
+              }
+              nextCode.remove();
+            }
+
+            // Select the resulting code element
+            selection.removeAllRanges();
+            const newRange = document.createRange();
+            newRange.selectNodeContents(targetCode);
+            selection.addRange(newRange);
           }
 
           // Trigger input on the contentEditable container to notify React state & autosave
