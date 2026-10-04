@@ -58,7 +58,7 @@ import {
   RELATION_LABELS,
 } from "@/lib/pages/types";
 import { EmojiPicker } from "./emoji-picker";
-import { focusBlockCaretEnd, restoreCaretOffset } from "./caret-utils";
+import { focusBlockCaretEnd, restoreCaretOffset, getCaretOffset } from "./caret-utils";
 import { CompanyBrainToolbarAction } from "./floating-format-toolbar";
 import { PdfViewerModal } from "./pdf-viewer-modal";
 import { cn } from "@/lib/utils";
@@ -168,11 +168,19 @@ export function BlockItem({
 
   // Restore caret position during re-renders caused by typing
   React.useLayoutEffect(() => {
-    if (isTypingRef.current && editableRef.current && document.activeElement === editableRef.current) {
+    if (
+      isTypingRef.current &&
+      editableRef.current &&
+      (document.activeElement === editableRef.current || editableRef.current.contains(document.activeElement))
+    ) {
       if (lastCaretOffsetRef.current !== null) {
         restoreCaretOffset(editableRef.current, lastCaretOffsetRef.current);
         requestAnimationFrame(() => {
-          if (editableRef.current && document.activeElement === editableRef.current && lastCaretOffsetRef.current !== null) {
+          if (
+            editableRef.current &&
+            (document.activeElement === editableRef.current || editableRef.current.contains(document.activeElement)) &&
+            lastCaretOffsetRef.current !== null
+          ) {
             restoreCaretOffset(editableRef.current, lastCaretOffsetRef.current);
           }
         });
@@ -233,8 +241,10 @@ export function BlockItem({
 
   // Input change with Markdown auto-formatting shortcuts and slash/@ detection
   const handleInput = (e: React.FormEvent<HTMLElement>) => {
-    const text = e.currentTarget.innerText;
+    const target = e.currentTarget;
+    const text = target.innerText;
     isTypingRef.current = true;
+    lastCaretOffsetRef.current = getCaretOffset(target);
 
     // Check for inline markdown shortcuts when on a paragraph
     if (block.type === "paragraph") {

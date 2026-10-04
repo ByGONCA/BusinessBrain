@@ -22,7 +22,7 @@ import { ConnectModal } from "./connect-modal";
 import { PageOutlineView } from "./page-outline-view";
 import { PageConnectionsView } from "./page-connections-view";
 import { PageHeaderActions } from "./page-header-actions";
-import { focusBlockCaretEnd } from "./caret-utils";
+import { focusBlockCaretEnd, getCaretOffset } from "./caret-utils";
 import {
   savePageContentAction,
   createPageAction,
@@ -970,8 +970,10 @@ export function BlockEditor({
     // BACKSPACE
     if (e.key === "Backspace") {
       const sel = typeof window !== "undefined" ? window.getSelection() : null;
+      const targetEl = (e.currentTarget || (e.target as HTMLElement)?.closest?.('[contenteditable="true"]') || blockRefs.current.get(block.id)) as HTMLElement | null;
       const isEmpty = !block.content || block.content.trim() === "";
-      const isStartOfBlock = isEmpty || (sel ? sel.anchorOffset === 0 : false);
+      const caretOffset = targetEl ? getCaretOffset(targetEl) : (sel ? sel.anchorOffset : 0);
+      const isStartOfBlock = isEmpty || (caretOffset === 0 && Boolean(sel?.isCollapsed));
 
       if (isStartOfBlock) {
         // If not a paragraph, convert back to paragraph
@@ -992,8 +994,9 @@ export function BlockEditor({
 
     // ARROW NAVIGATION
     if (e.key === "ArrowUp" && index > 0) {
-      const sel = window.getSelection();
-      if (sel && sel.anchorOffset === 0) {
+      const targetEl = (e.currentTarget || (e.target as HTMLElement)?.closest?.('[contenteditable="true"]') || blockRefs.current.get(block.id)) as HTMLElement | null;
+      const caretOffset = targetEl ? getCaretOffset(targetEl) : 0;
+      if (caretOffset === 0) {
         const prevBlock = blocks[index - 1];
         const prevEl = blockRefs.current.get(prevBlock.id);
         if (prevEl) {
@@ -1004,10 +1007,10 @@ export function BlockEditor({
     }
 
     if (e.key === "ArrowDown" && index < blocks.length - 1) {
-      const el = blockRefs.current.get(block.id);
-      const sel = window.getSelection();
-      const contentLen = el?.innerText?.length || 0;
-      if (sel && (sel.anchorOffset >= contentLen || !contentLen)) {
+      const targetEl = (e.currentTarget || (e.target as HTMLElement)?.closest?.('[contenteditable="true"]') || blockRefs.current.get(block.id)) as HTMLElement | null;
+      const caretOffset = targetEl ? getCaretOffset(targetEl) : 0;
+      const contentLen = targetEl?.innerText?.length || 0;
+      if (caretOffset >= contentLen || !contentLen) {
         const nextBlock = blocks[index + 1];
         const nextEl = blockRefs.current.get(nextBlock.id);
         if (nextEl) {
