@@ -44,6 +44,8 @@ import {
   X,
   Sparkles,
   ChevronDown,
+  ArrowUp,
+  ArrowDown,
   Heading1,
   Heading2,
   Heading3,
@@ -636,6 +638,14 @@ export function BlockEditor({
       setDropTarget(null);
       return;
     }
+    const draggedBlock = blocks[draggingBlockIndex];
+    if (draggedBlock && selectedBlockIds.has(draggedBlock.id) && selectedBlockIds.size > 1) {
+      const targetBlock = blocks[targetIndex];
+      if (targetBlock && selectedBlockIds.has(targetBlock.id)) {
+        setDropTarget(null);
+        return;
+      }
+    }
     setDropTarget({ index: targetIndex, position });
   };
 
@@ -651,8 +661,7 @@ export function BlockEditor({
   };
 
   const handleDropBlock = (targetIndex: number, position: "before" | "after") => {
-    if (draggingBlockIndex === null || draggingBlockIndex === targetIndex) {
-      setDraggingBlockIndex(null);
+    if (draggingBlockIndex === null) {
       setDropTarget(null);
       return;
     }
@@ -661,22 +670,47 @@ export function BlockEditor({
     setDraggingBlockIndex(null);
     setDropTarget(null);
 
+    const draggedBlock = blocks[fromIndex];
+    if (!draggedBlock) return;
+
+    const isMultiDrag = selectedBlockIds.has(draggedBlock.id) && selectedBlockIds.size > 1;
+
     pushHistorySnapshot();
     setBlocks((prev) => {
-      const next = [...prev];
-      const [moved] = next.splice(fromIndex, 1);
-      if (!moved) return prev;
+      const targetBlock = prev[targetIndex];
+      if (!targetBlock) return prev;
 
-      let insertIndex = targetIndex;
-      if (fromIndex < targetIndex) {
-        insertIndex = position === "before" ? targetIndex - 1 : targetIndex;
+      if (isMultiDrag) {
+        if (selectedBlockIds.has(targetBlock.id)) return prev;
+
+        const selectedBlocks = prev.filter((b) => selectedBlockIds.has(b.id));
+        const remainingBlocks = prev.filter((b) => !selectedBlockIds.has(b.id));
+
+        const newTargetIdx = remainingBlocks.findIndex((b) => b.id === targetBlock.id);
+        if (newTargetIdx === -1) return prev;
+
+        const insertIndex = position === "before" ? newTargetIdx : newTargetIdx + 1;
+        const next = [...remainingBlocks];
+        next.splice(insertIndex, 0, ...selectedBlocks);
+        triggerAutosave(next);
+        return next;
       } else {
-        insertIndex = position === "before" ? targetIndex : targetIndex + 1;
-      }
+        if (fromIndex === targetIndex) return prev;
+        const next = [...prev];
+        const [moved] = next.splice(fromIndex, 1);
+        if (!moved) return prev;
 
-      next.splice(insertIndex, 0, moved);
-      triggerAutosave(next);
-      return next;
+        let insertIndex = targetIndex;
+        if (fromIndex < targetIndex) {
+          insertIndex = position === "before" ? targetIndex - 1 : targetIndex;
+        } else {
+          insertIndex = position === "before" ? targetIndex : targetIndex + 1;
+        }
+
+        next.splice(insertIndex, 0, moved);
+        triggerAutosave(next);
+        return next;
+      }
     });
   };
 
@@ -1435,6 +1469,58 @@ export function BlockEditor({
     await navigator.clipboard.writeText(plainText);
   }, [blocks, selectedBlockIds]);
 
+  // Batch move selected blocks up
+  const handleBatchMoveUp = React.useCallback(() => {
+    if (selectedBlockIds.size === 0) return;
+    pushHistorySnapshot();
+    setBlocks((prev) => {
+      const selectedIndices = prev
+        .map((b, idx) => (selectedBlockIds.has(b.id) ? idx : -1))
+        .filter((idx) => idx !== -1)
+        .sort((a, b) => a - b);
+
+      if (selectedIndices.length === 0 || selectedIndices[0] === 0) {
+        return prev;
+      }
+
+      const next = [...prev];
+      for (const idx of selectedIndices) {
+        const temp = next[idx];
+        next[idx] = next[idx - 1];
+        next[idx - 1] = temp;
+      }
+
+      triggerAutosave(next);
+      return next;
+    });
+  }, [pushHistorySnapshot, selectedBlockIds, triggerAutosave]);
+
+  // Batch move selected blocks down
+  const handleBatchMoveDown = React.useCallback(() => {
+    if (selectedBlockIds.size === 0) return;
+    pushHistorySnapshot();
+    setBlocks((prev) => {
+      const selectedIndices = prev
+        .map((b, idx) => (selectedBlockIds.has(b.id) ? idx : -1))
+        .filter((idx) => idx !== -1)
+        .sort((a, b) => b - a);
+
+      if (selectedIndices.length === 0 || selectedIndices[0] === prev.length - 1) {
+        return prev;
+      }
+
+      const next = [...prev];
+      for (const idx of selectedIndices) {
+        const temp = next[idx];
+        next[idx] = next[idx + 1];
+        next[idx + 1] = temp;
+      }
+
+      triggerAutosave(next);
+      return next;
+    });
+  }, [pushHistorySnapshot, selectedBlockIds, triggerAutosave]);
+
   // Page-Wide MouseDown: initiates Marquee (drag-to-select) anywhere on the page, except sidebar
   React.useEffect(() => {
     const handleGlobalMouseDown = (e: MouseEvent) => {
@@ -1610,11 +1696,32 @@ export function BlockEditor({
         handleBatchDuplicate();
         return;
       }
+
+      // Alt+ArrowUp -> Move selected blocks up
+      if (e.altKey && e.key === "ArrowUp") {
+        e.preventDefault();
+        handleBatchMoveUp();
+        return;
+      }
+
+      // Alt+ArrowDown -> Move selected blocks down
+      if (e.altKey && e.key === "ArrowDown") {
+        e.preventDefault();
+        handleBatchMoveDown();
+        return;
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedBlockIds, handleBatchDelete, handleBatchDuplicate, handleBatchCopy]);
+  }, [
+    selectedBlockIds,
+    handleBatchDelete,
+    handleBatchDuplicate,
+    handleBatchCopy,
+    handleBatchMoveUp,
+    handleBatchMoveDown,
+  ]);
 
   const handleEditorClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -1827,7 +1934,13 @@ export function BlockEditor({
                     listNumber={listNumber}
                     totalBlocks={blocks.length}
                     isFocused={focusedBlockId === block.id}
-                    isDragging={draggingBlockIndex === idx}
+                    isDragging={
+                      draggingBlockIndex === idx ||
+                      (draggingBlockIndex !== null &&
+                        blocks[draggingBlockIndex] &&
+                        selectedBlockIds.has(blocks[draggingBlockIndex].id) &&
+                        selectedBlockIds.has(block.id))
+                    }
                     dropIndicatorPosition={dropTarget?.index === idx ? dropTarget.position : null}
                     isSelected={selectedBlockIds.has(block.id)}
                     connections={connections}
@@ -1990,6 +2103,28 @@ export function BlockEditor({
               </div>
             )}
           </div>
+
+          {/* Move Up */}
+          <button
+            type="button"
+            onClick={handleBatchMoveUp}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            title="Move selected lines up (Alt+↑)"
+          >
+            <ArrowUp className="h-3.5 w-3.5 text-zinc-400" />
+            <span>Move Up</span>
+          </button>
+
+          {/* Move Down */}
+          <button
+            type="button"
+            onClick={handleBatchMoveDown}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            title="Move selected lines down (Alt+↓)"
+          >
+            <ArrowDown className="h-3.5 w-3.5 text-zinc-400" />
+            <span>Move Down</span>
+          </button>
 
           {/* Duplicate */}
           <button
