@@ -728,10 +728,7 @@ export function BlockItem({
                 onBlur={handleBlur}
                 onKeyDown={(e) => onKeyDown(e, block, index)}
                 data-placeholder={showPlaceholder ? "To-do..." : ""}
-                className={cn(
-                  "flex-1 outline-none min-h-[1.5rem] text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none",
-                  block.properties?.checked && "line-through text-zinc-400 dark:text-zinc-500"
-                )}
+                className="flex-1 outline-none min-h-[1.5rem] text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none"
               >
                 {block.content}
               </div>
