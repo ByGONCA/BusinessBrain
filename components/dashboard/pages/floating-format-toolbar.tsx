@@ -27,6 +27,7 @@ import {
   Brain,
   Link2,
   Unlink,
+  Pipette,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BlockType } from "@/lib/pages/types";
@@ -61,13 +62,18 @@ interface FloatingFormatToolbarProps {
 }
 
 const TEXT_COLORS = [
-  { label: "Default", value: "" },
-  { label: "Indigo", value: "#6366f1" },
-  { label: "Blue", value: "#3b82f6" },
-  { label: "Emerald", value: "#10b981" },
-  { label: "Amber", value: "#f59e0b" },
-  { label: "Rose", value: "#f43f5e" },
-  { label: "Purple", value: "#a855f7" },
+  { label: "Padrão", value: "", hex: "transparent" },
+  { label: "Branco", value: "#ffffff", hex: "#ffffff" },
+  { label: "Cinzento", value: "#a1a1aa", hex: "#a1a1aa" },
+  { label: "Vermelho", value: "#ef4444", hex: "#ef4444" },
+  { label: "Laranja", value: "#f97316", hex: "#f97316" },
+  { label: "Âmbar", value: "#f59e0b", hex: "#f59e0b" },
+  { label: "Verde", value: "#10b981", hex: "#10b981" },
+  { label: "Azul Céu", value: "#0ea5e9", hex: "#0ea5e9" },
+  { label: "Azul", value: "#3b82f6", hex: "#3b82f6" },
+  { label: "Índigo", value: "#6366f1", hex: "#6366f1" },
+  { label: "Roxo", value: "#a855f7", hex: "#a855f7" },
+  { label: "Rosa", value: "#ec4899", hex: "#ec4899" },
 ];
 
 const HIGHLIGHT_COLORS = [
@@ -120,6 +126,26 @@ export function FloatingFormatToolbar({
     } catch {
       // Ignore range clone error
     }
+  };
+
+  const handleOpenColorMenu = () => {
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) {
+      try {
+        savedRangeRef.current = selection.getRangeAt(0).cloneRange();
+      } catch {}
+    }
+    setActiveMenu((prev) => (prev === "color" ? "none" : "color"));
+  };
+
+  const handleApplyColor = (colorValue: string) => {
+    const selection = window.getSelection();
+    if (selection && savedRangeRef.current) {
+      selection.removeAllRanges();
+      selection.addRange(savedRangeRef.current);
+    }
+    onFormat("color", colorValue);
+    setActiveMenu("none");
   };
 
   React.useEffect(() => {
@@ -342,7 +368,7 @@ export function FloatingFormatToolbar({
           type="button"
           onMouseDown={(e) => {
             e.preventDefault();
-            setActiveMenu(activeMenu === "color" ? "none" : "color");
+            handleOpenColorMenu();
           }}
           className={cn(
             "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
@@ -350,7 +376,7 @@ export function FloatingFormatToolbar({
               ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100"
               : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
           )}
-          title="Text Color"
+          title="Paleta de Cores"
         >
           <Palette className="h-3.5 w-3.5" />
         </button>
@@ -456,22 +482,60 @@ export function FloatingFormatToolbar({
 
       {/* Color Dropdown */}
       {activeMenu === "color" && (
-        <div className="p-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center gap-1.5 bg-zinc-50/50 dark:bg-zinc-900/50 w-full animate-in fade-in-50 duration-75">
-          <span className="text-[11px] font-medium text-zinc-500 mr-1">Color:</span>
-          {TEXT_COLORS.map((col) => (
+        <div className="p-2.5 border-t border-zinc-100 dark:border-zinc-800 flex flex-col gap-2 bg-zinc-50/95 dark:bg-zinc-900/95 w-80 animate-in fade-in-50 duration-75">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-300">
+              Paleta de Cores do Texto
+            </span>
             <button
-              key={col.label}
               type="button"
               onMouseDown={(e) => {
                 e.preventDefault();
-                onFormat("color", col.value);
-                setActiveMenu("none");
+                handleApplyColor("");
               }}
-              className="h-5 w-5 rounded-full border border-zinc-300 dark:border-zinc-700 hover:scale-110 transition-transform"
-              style={{ backgroundColor: col.value || "#27272a" }}
-              title={col.label}
-            />
-          ))}
+              className="text-[10px] text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors px-1.5 py-0.5 rounded hover:bg-zinc-200 dark:hover:bg-zinc-800"
+              title="Restaurar cor padrão"
+            >
+              Restaurar Padrão
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {TEXT_COLORS.map((col) => (
+              <button
+                key={col.label}
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleApplyColor(col.value);
+                }}
+                className={cn(
+                  "h-5 w-5 rounded-full border border-zinc-300 dark:border-zinc-700 hover:scale-125 transition-transform flex items-center justify-center shadow-xs",
+                  col.value === "" && "bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-[9px] font-bold"
+                )}
+                style={col.value ? { backgroundColor: col.hex } : undefined}
+                title={col.label}
+              >
+                {col.value === "" ? "A" : null}
+              </button>
+            ))}
+
+            {/* Custom Color Picker via input type="color" */}
+            <label
+              className="relative h-5 w-5 rounded-full border border-zinc-300 dark:border-zinc-700 hover:scale-125 transition-transform cursor-pointer overflow-hidden shadow-xs flex items-center justify-center bg-gradient-to-tr from-rose-500 via-amber-400 via-emerald-400 via-sky-500 to-purple-600"
+              title="Escolher qualquer cor (Paleta personalizada)"
+            >
+              <input
+                type="color"
+                defaultValue="#6366f1"
+                onChange={(e) => {
+                  handleApplyColor(e.target.value);
+                }}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              />
+              <Pipette className="h-2.5 w-2.5 text-white drop-shadow-xs pointer-events-none" />
+            </label>
+          </div>
         </div>
       )}
 

@@ -849,16 +849,22 @@ export function BlockEditor({
           const existingCode = (container as HTMLElement | null)?.closest("code");
 
           if (existingCode) {
-            // TOGGLE OFF: Unwrap existing <code> tag
+            // TOGGLE OFF: Unwrap existing <code> tag preserving child elements and colors
             const parent = existingCode.parentNode;
             if (parent) {
-              const textNode = document.createTextNode(existingCode.textContent || "");
-              parent.replaceChild(textNode, existingCode);
+              const childNodes = Array.from(existingCode.childNodes);
+              childNodes.forEach((child) => {
+                parent.insertBefore(child, existingCode);
+              });
+              parent.removeChild(existingCode);
               parent.normalize();
 
               selection.removeAllRanges();
               const newRange = document.createRange();
-              newRange.selectNodeContents(textNode);
+              if (childNodes.length > 0) {
+                newRange.setStartBefore(childNodes[0]);
+                newRange.setEndAfter(childNodes[childNodes.length - 1]);
+              }
               selection.addRange(newRange);
             }
           } else {
@@ -879,10 +885,10 @@ export function BlockEditor({
               }
               range.insertNode(frag);
             } else {
-              // TOGGLE ON: Wrap in <code>
+              // TOGGLE ON: Wrap in <code> with white text in dark mode and clear borders
               const codeEl = document.createElement("code");
               codeEl.className =
-                "px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 font-mono text-xs text-indigo-600 dark:text-indigo-400";
+                "px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800/80 font-mono text-xs text-zinc-900 dark:text-white border border-zinc-200 dark:border-zinc-700/60";
               const extracted = range.extractContents();
               codeEl.appendChild(extracted);
               range.insertNode(codeEl);
@@ -943,13 +949,33 @@ export function BlockEditor({
       case "unlink":
         document.execCommand("unlink");
         break;
-      case "color":
-        if (value) {
-          document.execCommand("foreColor", false, value);
-        } else {
-          document.execCommand("removeFormat");
+      case "color": {
+        const selection = window.getSelection();
+        if (selection && !selection.isCollapsed) {
+          try {
+            document.execCommand("styleWithCSS", false, "true");
+          } catch {}
+
+          if (value && value !== "inherit" && value !== "default") {
+            document.execCommand("foreColor", false, value);
+          } else {
+            document.execCommand("foreColor", false, "inherit");
+          }
+
+          const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+          if (range) {
+            const editable = (
+              range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+                ? range.commonAncestorContainer.parentElement
+                : (range.commonAncestorContainer as HTMLElement)
+            )?.closest("[contenteditable='true']");
+            if (editable) {
+              editable.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+          }
         }
         break;
+      }
       case "highlight":
         if (value && value !== "transparent") {
           document.execCommand("hiliteColor", false, value);

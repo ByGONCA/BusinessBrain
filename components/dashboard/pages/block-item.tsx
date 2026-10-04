@@ -825,7 +825,7 @@ export function BlockItem({
                   onBlur={handleBlur}
                   onKeyDown={(e) => onKeyDown(e, block, index)}
                   data-placeholder={showPlaceholder ? "// write code snippet here..." : ""}
-                  className="outline-none block min-h-[2.5rem] empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-600 empty:before:pointer-events-none whitespace-pre"
+                  className="outline-none block min-h-[2.5rem] empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-600 empty:before:pointer-events-none whitespace-pre text-white"
                 >
                   {block.content}
                 </code>
