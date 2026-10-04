@@ -1806,7 +1806,7 @@ export function BlockEditor({
           />
 
           {/* Block Stream */}
-          <div className="space-y-0.5">
+          <div className="space-y-2">
             {(() => {
               let currentListNumber = 0;
               return blocks.map((block, idx) => {

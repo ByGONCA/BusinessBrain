@@ -351,7 +351,7 @@ export function BlockItem({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={cn(
-        "group relative flex flex-col -ml-10 pl-10 py-0.5 transition-all duration-150 rounded-lg",
+        "group relative flex flex-col -ml-10 pl-10 pr-2 py-1 transition-all duration-150 rounded-lg",
         index > 0 && block.type === "heading_1" && "mt-5",
         index > 0 && block.type === "heading_2" && "mt-3.5",
         index > 0 && block.type === "heading_3" && "mt-2",
