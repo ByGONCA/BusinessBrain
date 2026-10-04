@@ -847,12 +847,15 @@ export function BlockItem({
 
           {/* CALLOUT */}
           {block.type === "callout" && (
-            <div className="flex items-start gap-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40 p-3 my-1">
-              <EmojiPicker
-                currentEmoji={block.properties?.calloutIcon || "💡"}
-                onSelectEmoji={(emoji) => onUpdateProperties(block.id, { calloutIcon: emoji })}
-                triggerClassName="h-7 w-7 text-lg"
-              />
+            <div className="flex items-start gap-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40 p-3 my-1">
+              <div className="flex items-center justify-center shrink-0 w-6 h-6 select-none">
+                <EmojiPicker
+                  currentEmoji={block.properties?.calloutIcon || "💡"}
+                  onSelectEmoji={(emoji) => onUpdateProperties(block.id, { calloutIcon: emoji })}
+                  className="flex items-center justify-center"
+                  triggerClassName="h-6 w-6 text-base p-0 flex items-center justify-center rounded-md hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60 transition-colors"
+                />
+              </div>
               <div
                 ref={setRef}
                 contentEditable
@@ -862,7 +865,7 @@ export function BlockItem({
                 onBlur={handleBlur}
                 onKeyDown={(e) => onKeyDown(e, block, index)}
                 data-placeholder={showPlaceholder ? "Type callout context..." : ""}
-                className="flex-1 outline-none min-h-[1.5rem] text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none"
+                className="flex-1 outline-none min-h-[1.5rem] text-sm text-zinc-800 dark:text-zinc-200 leading-6 empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none"
               >
                 {block.content}
               </div>
