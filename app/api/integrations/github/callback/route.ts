@@ -8,6 +8,8 @@ import {
 import { encryptToken } from "@/lib/crypto/encryption";
 import { rateLimit, getClientIp, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
+import { sanitizeRedirectUrl } from "@/lib/security/redirects";
+import { hasPermission } from "@/lib/permissions/resolver";
 
 export async function GET(request: Request) {
   const clientIp = await getClientIp();
@@ -42,9 +44,8 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${defaultRedirect}&error=invalid_state`);
   }
 
-  const redirectTarget = statePayload.returnUrl
-    ? (statePayload.returnUrl.startsWith("http") ? statePayload.returnUrl : `${baseUrl}${statePayload.returnUrl}`)
-    : defaultRedirect;
+  const safePath = sanitizeRedirectUrl(statePayload.returnUrl, "/dashboard?settings=integrations");
+  const redirectTarget = `${baseUrl}${safePath}`;
 
   // 2. Verify Authenticated User matches state
   const currentUser = await getCurrentUser();
@@ -58,7 +59,7 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
 
-  // 3. Verify user has owner/admin membership in the target organization
+  // 3. Verify user has owner/admin membership or manage permission in the target organization
   const { data: member } = await supabase
     .from("organization_members")
     .select("role")
@@ -66,7 +67,14 @@ export async function GET(request: Request) {
     .eq("user_id", currentUser.id)
     .single();
 
-  if (!member || (member.role !== "owner" && member.role !== "admin")) {
+  const isAuthorized =
+    member &&
+    (member.role === "owner" ||
+      member.role === "admin" ||
+      (await hasPermission(currentUser.id, statePayload.organizationId, "github.manage_connection")) ||
+      (await hasPermission(currentUser.id, statePayload.organizationId, "integrations.connect")));
+
+  if (!isAuthorized) {
     return NextResponse.redirect(`${redirectTarget}&error=insufficient_permissions`);
   }
 

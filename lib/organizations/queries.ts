@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { cookies, headers } from "next/headers";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-import { OrganizationWithRole, OrganizationMember, Organization } from "./types";
+import { OrganizationWithRole, OrganizationMember, Organization, Profile } from "./types";
 import { isValidUuid } from "@/lib/security/authorization";
 import { logger } from "@/lib/security/logger";
 
@@ -90,7 +90,8 @@ export const getActiveOrganization = cache(async (): Promise<OrganizationWithRol
 
 /**
  * Retrieves member list for a specific organization with user profiles.
- * Decouples members and profiles lookup to prevent PostgREST cross-schema relationship errors.
+ * Uses a single PostgREST join query to fetch members and profiles in one round-trip.
+ * Falls back to a 2-query path if PostgREST cannot resolve the FK join.
  * Memoized per request using React cache().
  */
 export const getOrganizationMembers = cache(async (
@@ -102,6 +103,65 @@ export const getOrganizationMembers = cache(async (
 
   const supabase = await createClient();
 
+  // Attempt single round-trip join: organization_members + profiles via user_id FK
+  const { data: joined, error: joinError } = await supabase
+    .from("organization_members")
+    .select(`
+      id, organization_id, user_id, role, job_title, department, created_at, updated_at,
+      profiles!user_id (
+        id, email, full_name, avatar_url, job_title, department, bio, location, created_at, updated_at
+      )
+    `)
+    .eq("organization_id", organizationId);
+
+  // If the join succeeds, map and return in one pass
+  if (!joinError && joined) {
+    return joined.map((row) => {
+      const rawProf = row.profiles as unknown;
+      const prof = (Array.isArray(rawProf) ? rawProf[0] : rawProf) as Profile | null | undefined;
+
+      return {
+        id: row.id,
+        organization_id: row.organization_id,
+        user_id: row.user_id,
+        role: row.role as OrganizationMember["role"],
+        job_title: row.job_title || prof?.job_title || "",
+        department: row.department || prof?.department || "",
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        profile: prof ?? undefined,
+      };
+    });
+  }
+
+  // PostgREST could not resolve the FK join (PGRST200 or schema not yet reflected) —
+  // fall back to the original sequential 2-query approach transparently.
+  const isJoinResolutionError =
+    joinError?.code === "PGRST200" ||
+    joinError?.code === "42703" ||
+    joinError?.message?.includes("Could not find") ||
+    joinError?.message?.includes("does not exist");
+
+  if (isJoinResolutionError) {
+    logger.warn("getOrganizationMembers: FK join unavailable, falling back to 2-query path", {
+      organizationId,
+      code: joinError?.code,
+    });
+    return getOrganizationMembersFallback(organizationId, supabase);
+  }
+
+  logger.error("Error fetching organization members", joinError, { organizationId });
+  return [];
+});
+
+/**
+ * Fallback implementation using two sequential queries.
+ * Used when the PostgREST join in getOrganizationMembers cannot resolve the FK path.
+ */
+async function getOrganizationMembersFallback(
+  organizationId: string,
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<OrganizationMember[]> {
   let members: Array<{
     id: string;
     organization_id: string;
@@ -172,4 +232,4 @@ export const getOrganizationMembers = cache(async (
       profile: prof,
     };
   });
-});
+}

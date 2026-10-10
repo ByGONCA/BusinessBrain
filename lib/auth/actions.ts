@@ -133,15 +133,17 @@ export async function signUpAction(
  * Initiates Supabase OAuth authentication for GitHub with rate limiting.
  * Note: Google OAuth is deferred to future phases and not supported here.
  */
-export async function initiateOAuthAction(provider: "github" = "github") {
+export async function initiateOAuthAction(
+  provider: "github" = "github"
+): Promise<{ success: boolean; url?: string; error?: string }> {
   if (provider !== "github") {
-    throw new Error("Only GitHub OAuth is supported in this phase.");
+    return { success: false, error: "Only GitHub OAuth is supported in this phase." };
   }
 
   const clientIp = await getClientIp();
   const rl = await rateLimit("oauth-init", clientIp, RATE_LIMIT_PRESETS.INTEGRATIONS);
   if (!rl.success) {
-    throw new Error("Too many authentication requests. Please try again shortly.");
+    return { success: false, error: "Too many authentication requests. Please try again shortly." };
   }
 
   const supabase = await createClient();
@@ -156,12 +158,14 @@ export async function initiateOAuthAction(provider: "github" = "github") {
 
   if (error) {
     logger.error("Failed to initiate OAuth with Supabase", error);
-    throw new Error(error.message);
+    return { success: false, error: error.message };
   }
 
   if (data?.url) {
-    redirect(data.url);
+    return { success: true, url: data.url };
   }
+
+  return { success: false, error: "Failed to obtain authorization URL from provider." };
 }
 
 /**

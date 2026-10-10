@@ -17,8 +17,13 @@ import {
   Eye,
   FileText,
   Download,
+  AlertTriangle,
 } from "lucide-react";
-import { OrganizationIntegration, EmailMessageItem } from "@/lib/integrations/types";
+import {
+  OrganizationIntegration,
+  EmailMessageItem,
+  EmailAttachmentItem,
+} from "@/lib/integrations/types";
 import { useLanguage } from "@/lib/i18n";
 import { useSettings } from "@/components/dashboard/settings/settings-context";
 import {
@@ -420,6 +425,47 @@ function cleanHtmlEntities(str?: string): string {
 }
 
 /**
+ * Strips executable scripts, forms, dangerous protocols, and meta refreshes
+ * from untrusted incoming email HTML while preserving safe styling and formatting.
+ */
+export function sanitizeEmailHtml(html: string): string {
+  if (!html || typeof html !== "string") return "";
+
+  let sanitized = html;
+
+  // 1. Strip script tags and their contents
+  sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+
+  // 2. Strip object, embed, applet tags and their contents
+  sanitized = sanitized.replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, "");
+  sanitized = sanitized.replace(/<embed\b[^>]*>/gi, "");
+  sanitized = sanitized.replace(/<applet\b[^<]*(?:(?!<\/applet>)<[^<]*)*<\/applet>/gi, "");
+
+  // 3. Strip forms and form elements to prevent phishing credential harvesting
+  sanitized = sanitized.replace(/<form\b[^<]*(?:(?!<\/form>)<[^<]*)*<\/form>/gi, "");
+
+  // 4. Strip dangerous meta tags (meta refresh, redirects, CSP override) and base tags
+  sanitized = sanitized.replace(/<meta[^>]*http-equiv[^>]*>/gi, "");
+  sanitized = sanitized.replace(/<base[^>]*>/gi, "");
+
+  // 5. Strip inline event handlers (e.g. onload, onerror, onclick, onmouseover)
+  sanitized = sanitized.replace(/\s+on[a-z]{3,20}\s*=\s*(['"][^'"]*['"]|[^\s>]+)/gi, "");
+
+  // 6. Neutralize dangerous URL schemes in href, src, action (javascript:, vbscript:, data:text/html)
+  sanitized = sanitized.replace(
+    /\b(href|src)\s*=\s*(['"])\s*(?:javascript|vbscript|data:\s*text\/html)[^'"]*\2/gi,
+    '$1="#"'
+  );
+
+  // 7. Completely neutralize dark-mode media queries from the incoming HTML
+  sanitized = sanitized
+    .replace(/@media\s*\([^{}]*prefers-color-scheme\s*:\s*dark[^{}]*\)/gi, "@media (max-width: 0px)")
+    .replace(/prefers-color-scheme\s*:\s*dark/gi, "prefers-color-scheme: disabled");
+
+  return sanitized;
+}
+
+/**
  * Isolated sandboxed iframe viewer for rich HTML emails.
  * Guarantees zero CSS leakage, native performance, safe script blocking,
  * and automatic responsive sizing.
@@ -473,11 +519,8 @@ function EmailHtmlViewer({ html }: { html: string }) {
       </style>
     `;
 
-    // 1. Completely neutralize dark-mode media queries from the incoming HTML
-    // This stops templates (like Revolut MJML) from evaluating prefers-color-scheme: dark
-    const sanitizedHtml = html
-      .replace(/@media\s*\([^{}]*prefers-color-scheme\s*:\s*dark[^{}]*\)/gi, "@media (max-width: 0px)")
-      .replace(/prefers-color-scheme\s*:\s*dark/gi, "prefers-color-scheme: disabled");
+    // 1. Sanitize incoming untrusted HTML against XSS and dangerous protocols
+    const sanitizedHtml = sanitizeEmailHtml(html);
 
     // 2. Inject meta at top of head and strong styles at bottom of head (highest cascade priority)
     const metaHeader = `${metaColor}${metaReferrer}${baseTag}`;
@@ -634,6 +677,15 @@ export function EmailView({
   const [selectedEmail, setSelectedEmail] = React.useState<EmailMessageItem | null>(null);
   const [readerViewMode, setReaderViewMode] = React.useState<"html" | "text">("html");
   const [isLoadingBody, setIsLoadingBody] = React.useState(false);
+  const [reauthNeeded, setReauthNeeded] = React.useState<boolean>(false);
+
+  // In-memory cache for full email contents to avoid redundant network round-trips
+  const bodyCacheRef = React.useRef<
+    Map<string, { body: string; htmlBody?: string; attachments?: EmailAttachmentItem[] }>
+  >(new Map());
+
+  // Active message ID ref to prevent race conditions when switching emails quickly
+  const currentOpeningIdRef = React.useRef<string | null>(null);
 
   // Keep selectedAccount in sync if integrations load or change
   React.useEffect(() => {
@@ -673,6 +725,12 @@ export function EmailView({
             pageToken: targetToken,
           });
 
+          if (res.error === "needs_reauth") {
+            setReauthNeeded(true);
+          } else {
+            setReauthNeeded(false);
+          }
+
           setCurrentEmails(res.messages);
           setCurrentNextPageToken(res.nextPageToken);
           setPageIndex(targetPageIndex);
@@ -680,6 +738,7 @@ export function EmailView({
             setPageTokens((prev) => ({ ...prev, [targetPageIndex + 1]: res.nextPageToken }));
           }
         } else {
+          setReauthNeeded(false);
           // Fallback dataset pagination (10 items per page without live credentials)
           const allAccountEmails = EXPANDED_SAMPLE_EMAILS.map((msg) => ({
             ...msg,
@@ -742,7 +801,32 @@ export function EmailView({
     if (msg.unread) {
       handleToggleRead(msg.id);
     }
+
+    currentOpeningIdRef.current = msg.id;
     setSelectedEmail(msg);
+
+    // If already in client cache, use cached body immediately with zero network latency
+    if (bodyCacheRef.current.has(msg.id)) {
+      const cached = bodyCacheRef.current.get(msg.id)!;
+      setSelectedEmail((prev) =>
+        prev && prev.id === msg.id
+          ? {
+              ...prev,
+              body: cached.body || prev.body,
+              htmlBody: cached.htmlBody,
+              attachments:
+                cached.attachments && cached.attachments.length > 0
+                  ? cached.attachments
+                  : prev.attachments,
+            }
+          : prev
+      );
+      if (cached.htmlBody) {
+        setReaderViewMode("html");
+      }
+      setIsLoadingBody(false);
+      return;
+    }
 
     // If message is live and body is empty or just snippet, load full body on-demand
     if (isLiveConnected && msg.source === "Gmail") {
@@ -752,9 +836,12 @@ export function EmailView({
           messageId: msg.id,
           accountEmail: selectedAccount,
         });
-        if (fullContent) {
+
+        // Guard against race conditions: only update if user is still viewing this exact message
+        if (fullContent && currentOpeningIdRef.current === msg.id) {
+          bodyCacheRef.current.set(msg.id, fullContent);
           setSelectedEmail((prev) =>
-            prev
+            prev && prev.id === msg.id
               ? {
                   ...prev,
                   body: fullContent.body || prev.body,
@@ -773,7 +860,9 @@ export function EmailView({
       } catch (err) {
         console.warn("Failed to fetch full email body on-demand:", err);
       } finally {
-        setIsLoadingBody(false);
+        if (currentOpeningIdRef.current === msg.id) {
+          setIsLoadingBody(false);
+        }
       }
     }
   };
@@ -961,6 +1050,25 @@ export function EmailView({
           )}
         </div>
       </div>
+
+      {/* Re-authentication Warning Banner when token is expired */}
+      {reauthNeeded && (
+        <div className="flex items-center justify-between p-3.5 rounded-xl border border-amber-300 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 text-xs shadow-2xs animate-in fade-in-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <p className="truncate">
+              A sua sessão do Gmail expirou ou precisa de reautorização. Reconecte a conta para aceder aos emails mais recentes.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => openSettings("integrations")}
+            className="ml-3 shrink-0 rounded-lg bg-amber-600 dark:bg-amber-500 px-2.5 py-1 text-xs font-semibold text-white hover:bg-amber-700 dark:hover:bg-amber-600 transition-colors shadow-2xs"
+          >
+            Reconectar
+          </button>
+        </div>
+      )}
 
       {/* Main Content: Email List or Full Email Reader */}
       {selectedEmail ? (

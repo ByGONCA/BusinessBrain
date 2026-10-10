@@ -162,3 +162,53 @@ export async function exchangeGitHubCodeForToken(code: string): Promise<GitHubTo
 
   return data as GitHubTokenExchangeResult;
 }
+
+/**
+ * Revokes a GitHub access token or application grant via GitHub's REST API.
+ */
+export async function revokeGitHubToken(accessToken: string): Promise<boolean> {
+  if (!accessToken) return false;
+
+  const { clientId, clientSecret } = getGitHubConfig();
+  if (!clientId || !clientSecret) {
+    return false;
+  }
+
+  try {
+    const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+    // GitHub provides DELETE /applications/{client_id}/grant to revoke user authorization,
+    // or DELETE /applications/{client_id}/token to revoke the specific token.
+    const response = await fetch(`https://api.github.com/applications/${clientId}/grant`, {
+      method: "DELETE",
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Basic ${credentials}`,
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ access_token: accessToken }),
+    });
+
+    if (response.status === 204 || response.ok) {
+      return true;
+    }
+
+    // Fallback: try deleting the token specifically if grant delete wasn't supported
+    const tokenResponse = await fetch(`https://api.github.com/applications/${clientId}/token`, {
+      method: "DELETE",
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Basic ${credentials}`,
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ access_token: accessToken }),
+    });
+
+    return tokenResponse.status === 204 || tokenResponse.ok;
+  } catch {
+    // Non-fatal if GitHub is unreachable during local dev or testing
+    return false;
+  }
+}
+

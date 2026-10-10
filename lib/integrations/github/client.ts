@@ -16,6 +16,9 @@ import {
   GitHubRelease,
   GitHubContributor,
   GitHubActivityEvent,
+  GitHubContentItem,
+  GitHubReadme,
+  GitHubFileContent,
 } from "./types";
 
 /**
@@ -53,6 +56,13 @@ export async function getDecryptedGitHubToken(organizationId: string): Promise<{
   }
 }
 
+export class GitHubAuthExpiredError extends Error {
+  constructor(message = "GitHub authentication token is expired or revoked.") {
+    super(message);
+    this.name = "GitHubAuthExpiredError";
+  }
+}
+
 /**
  * Secure fetch wrapper for GitHub REST API with SSRF protection.
  */
@@ -68,7 +78,7 @@ async function githubFetch<T>(
 
   const tokenData = await getDecryptedGitHubToken(organizationId);
   if (!tokenData) {
-    throw new Error("GitHub integration is not connected or token is unavailable.");
+    throw new GitHubAuthExpiredError("GitHub integration is not connected or token is unavailable.");
   }
 
   const url = endpoint.startsWith("http") ? endpoint : `${GITHUB_API_BASE_URL}${endpoint}`;
@@ -91,6 +101,25 @@ async function githubFetch<T>(
       status: response.status,
       errorBody,
     });
+
+    if (response.status === 401) {
+      try {
+        const supabase = await createClient();
+        await supabase
+          .from("organization_integrations")
+          .update({
+            status: "disconnected",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("organization_id", organizationId)
+          .eq("provider", "github");
+      } catch (dbErr) {
+        logger.warn("Failed to mark GitHub integration as disconnected after 401", { dbErr });
+      }
+
+      throw new GitHubAuthExpiredError(`GitHub API request failed (401): ${errorBody}`);
+    }
+
     throw new Error(`GitHub API request failed (${response.status}): ${errorBody}`);
   }
 
@@ -397,7 +426,196 @@ export async function getRecentActivity(organizationId: string): Promise<GitHubA
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .slice(0, 15);
   } catch (err) {
-    logger.error("Failed to generate recent GitHub activity", err, { organizationId });
+    logger.warn("Failed to generate recent GitHub activity", { err });
     return [];
   }
 }
+
+/**
+ * Lists contents (files and directories) in a repository path.
+ */
+export async function listRepositoryContents(
+  organizationId: string,
+  owner: string,
+  repo: string,
+  path = ""
+): Promise<GitHubContentItem[]> {
+  const cleanPath = path ? `/${path.replace(/^\/+/, "")}` : "";
+  const endpoint = `/repos/${owner}/${repo}/contents${cleanPath}`;
+  const data = await githubFetch<GitHubContentItem[] | GitHubContentItem>(organizationId, endpoint);
+  const items = Array.isArray(data) ? data : [data];
+  // Sort directories first, then alphabetically
+  return items.sort((a, b) => {
+    if (a.type === "dir" && b.type !== "dir") return -1;
+    if (a.type !== "dir" && b.type === "dir") return 1;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+/**
+ * Retrieves the decoded README of a repository.
+ */
+export async function getRepositoryReadme(
+  organizationId: string,
+  owner: string,
+  repo: string
+): Promise<GitHubReadme | null> {
+  try {
+    const data = await githubFetch<{
+      name: string;
+      content: string;
+      encoding: string;
+      html_url: string;
+    }>(organizationId, `/repos/${owner}/${repo}/readme`);
+
+    if (data && data.content) {
+      const decoded = Buffer.from(data.content, "base64").toString("utf-8");
+      return {
+        name: data.name,
+        content: decoded,
+        html_url: data.html_url,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Retrieves file contents decoded on-demand directly from the GitHub repository API.
+ * Never stores file code in the database.
+ */
+export async function getRepositoryFileContent(
+  organizationId: string,
+  owner: string,
+  repo: string,
+  path: string
+): Promise<GitHubFileContent | null> {
+  const cleanPath = path ? `/${path.replace(/^\/+/, "")}` : "";
+  try {
+    const data = await githubFetch<{
+      name: string;
+      path: string;
+      sha: string;
+      size: number;
+      type: string;
+      content?: string;
+      encoding?: string;
+      html_url: string;
+      download_url?: string | null;
+    }>(organizationId, `/repos/${owner}/${repo}/contents${cleanPath}`);
+
+    if (!data || data.type !== "file") {
+      return null;
+    }
+
+    const binaryExts = [
+      "png", "jpg", "jpeg", "gif", "webp", "ico", "bmp", "tiff",
+      "pdf", "zip", "tar", "gz", "7z", "rar", "exe", "dll", "so", "dylib",
+      "bin", "iso", "mp3", "mp4", "mov", "avi", "woff", "woff2", "ttf", "eot"
+    ];
+    const ext = data.name.split(".").pop()?.toLowerCase() || "";
+    const isBinaryByExt = binaryExts.includes(ext);
+
+    let decodedContent = "";
+    let isBinary = isBinaryByExt;
+
+    if (data.content && data.encoding === "base64" && !isBinaryByExt) {
+      try {
+        const buf = Buffer.from(data.content, "base64");
+        if (buf.includes(0x00)) {
+          isBinary = true;
+        } else {
+          decodedContent = buf.toString("utf-8");
+        }
+      } catch {
+        isBinary = true;
+      }
+    } else if (data.content && data.encoding !== "base64") {
+      decodedContent = data.content;
+    }
+
+    return {
+      name: data.name,
+      path: data.path,
+      sha: data.sha,
+      size: data.size,
+      content: decodedContent,
+      html_url: data.html_url,
+      download_url: data.download_url,
+      isBinary,
+    };
+  } catch (err) {
+    logger.warn("Failed to fetch repository file content", { owner, repo, path, err });
+    return null;
+  }
+}
+
+/**
+ * Generates recent activity feed exclusively for a specific repository.
+ */
+export async function getRepositoryRecentActivity(
+  organizationId: string,
+  owner: string,
+  repo: string
+): Promise<GitHubActivityEvent[]> {
+  const fullName = `${owner}/${repo}`;
+  const events: GitHubActivityEvent[] = [];
+  try {
+    const [prs, issues, commits] = await Promise.all([
+      listPullRequests(organizationId, owner, repo, { per_page: 5 }).catch(() => []),
+      listIssues(organizationId, owner, repo, { per_page: 5 }).catch(() => []),
+      listCommits(organizationId, owner, repo, { per_page: 10 }).catch(() => []),
+    ]);
+
+    prs.forEach((pr) => {
+      events.push({
+        id: `pr-${pr.id}`,
+        type: pr.merged ? "pr_merged" : "pr_opened",
+        actor: { login: pr.user.login, avatar_url: pr.user.avatar_url },
+        repoName: fullName,
+        title: pr.title,
+        url: pr.html_url,
+        number: pr.number,
+        timestamp: pr.updated_at || pr.created_at,
+      });
+    });
+
+    issues.forEach((iss) => {
+      events.push({
+        id: `issue-${iss.id}`,
+        type: iss.state === "closed" ? "issue_closed" : "issue_opened",
+        actor: { login: iss.user.login, avatar_url: iss.user.avatar_url },
+        repoName: fullName,
+        title: iss.title,
+        url: iss.html_url,
+        number: iss.number,
+        timestamp: iss.updated_at || iss.created_at,
+      });
+    });
+
+    commits.forEach((com) => {
+      events.push({
+        id: `commit-${com.sha.slice(0, 7)}`,
+        type: "commit_pushed",
+        actor: {
+          login: com.author?.login || com.commit.author.name || "contributor",
+          avatar_url: com.author?.avatar_url || "",
+        },
+        repoName: fullName,
+        title: com.commit.message.split("\n")[0],
+        url: com.html_url,
+        timestamp: com.commit.author.date,
+      });
+    });
+
+    return events.sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+  } catch (err) {
+    logger.warn("Failed to fetch repository specific activity", { owner, repo, err });
+    return [];
+  }
+}
+

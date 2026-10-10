@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getActiveOrganization } from "@/lib/organizations/queries";
+import { getOrganizationIntegrations } from "@/lib/integrations/queries";
 import {
   isGitHubConnectedAction,
   getGitHubOverviewAction,
@@ -49,7 +50,7 @@ export default async function GitHubPage() {
           </div>
 
           <a
-            href="/api/integrations/github/connect"
+            href={`/api/integrations/github/connect?returnUrl=${encodeURIComponent("/dashboard/github")}`}
             className="flex items-center justify-center gap-2 w-full rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-500 transition-colors shadow-sm"
           >
             <span>Connect GitHub Workspace</span>
@@ -60,16 +61,50 @@ export default async function GitHubPage() {
     );
   }
 
-  const [overviewRes, reposRes] = await Promise.all([
+  const [overviewRes, reposRes, integrations] = await Promise.all([
     getGitHubOverviewAction(activeOrg.id),
     getGitHubRepositoriesAction(activeOrg.id),
+    getOrganizationIntegrations(activeOrg.id),
   ]);
+
+  const githubIntegration = integrations.find((i) => i.provider === "github");
+  const defaultRepository = (githubIntegration?.metadata as Record<string, unknown> | undefined)?.default_repository as string | undefined;
+
+  if (overviewRes.authExpired || reposRes.authExpired) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6 bg-background text-foreground">
+        <div className="max-w-md w-full rounded-2xl border border-amber-500/30 bg-card p-8 text-center space-y-6 shadow-xl">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500 shadow-lg border border-amber-500/20">
+            <Github className="h-8 w-8" />
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-xl font-bold tracking-tight text-foreground">
+              GitHub Session Expired
+            </h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Your GitHub authentication token expired or was revoked. Reconnect your account to resume syncing repositories, pull requests, and activity.
+            </p>
+          </div>
+
+          <a
+            href={`/api/integrations/github/connect?returnUrl=${encodeURIComponent("/dashboard/github")}`}
+            className="flex items-center justify-center gap-2 w-full rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-500 transition-colors shadow-sm"
+          >
+            <span>Reconnect GitHub Account</span>
+            <ArrowRight className="h-4 w-4" />
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <GitHubWorkspaceHome
       initialOverview={overviewRes.data}
       initialRepositories={reposRes.repositories}
       organizationId={activeOrg.id}
+      defaultRepository={defaultRepository}
     />
   );
 }

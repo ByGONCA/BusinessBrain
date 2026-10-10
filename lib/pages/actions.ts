@@ -28,6 +28,7 @@ import {
   getPageVersions,
   getPageComments,
 } from "./queries";
+import { hasPermission } from "@/lib/permissions/resolver";
 
 const pageTitleSchema = z.string().trim().max(255, "Page title too long");
 // Support Unicode emojis, custom image URLs, and compressed base64 data URIs (up to 500KB)
@@ -70,6 +71,11 @@ export async function createPageAction(params?: {
     const activeOrg = await getActiveOrganization();
     if (!activeOrg) {
       return { success: false, error: "No active organization found" };
+    }
+
+    const canCreate = await hasPermission(user.id, activeOrg.id, "pages.create");
+    if (!canCreate) {
+      return { success: false, error: "Forbidden: You do not have permission to create pages." };
     }
 
     let initialBlocks: EditorBlock[] = [{
@@ -217,6 +223,11 @@ export async function savePageContentAction(params: {
       return { success: false, error: "No active organization" };
     }
 
+    const canEdit = await hasPermission(user.id, activeOrg.id, "pages.edit");
+    if (!canEdit) {
+      return { success: false, error: "Forbidden: You do not have permission to edit pages." };
+    }
+
     const updates: Record<string, unknown> = {
       content: params.blocks,
       content_text: extractPlainText(params.blocks),
@@ -354,8 +365,15 @@ export async function updatePageTitleAction(params: {
       data: { user },
     } = await supabase.auth.getUser();
 
+    if (!user) return { success: false, error: "Unauthorized" };
+
     const activeOrg = await getActiveOrganization();
     if (!activeOrg) return { success: false, error: "No active organization" };
+
+    const canEdit = await hasPermission(user.id, activeOrg.id, "pages.edit");
+    if (!canEdit) {
+      return { success: false, error: "Forbidden: You do not have permission to edit pages." };
+    }
 
     const { data: currentPage } = await supabase
       .from("pages")
@@ -583,8 +601,21 @@ export async function archivePageAction(params: {
     }
 
     const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "Unauthorized" };
+
     const activeOrg = await getActiveOrganization();
     if (!activeOrg) return { success: false, error: "No active organization" };
+
+    const canArchive =
+      (await hasPermission(user.id, activeOrg.id, "pages.archive")) ||
+      (await hasPermission(user.id, activeOrg.id, "pages.delete"));
+    if (!canArchive) {
+      return { success: false, error: "Forbidden: You do not have permission to archive pages." };
+    }
 
     const { error } = await supabase
       .from("pages")
@@ -619,8 +650,21 @@ export async function restorePageAction(params: {
     }
 
     const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "Unauthorized" };
+
     const activeOrg = await getActiveOrganization();
     if (!activeOrg) return { success: false, error: "No active organization" };
+
+    const canRestore =
+      (await hasPermission(user.id, activeOrg.id, "pages.restore")) ||
+      (await hasPermission(user.id, activeOrg.id, "pages.edit"));
+    if (!canRestore) {
+      return { success: false, error: "Forbidden: You do not have permission to restore pages." };
+    }
 
     const { error } = await supabase
       .from("pages")
@@ -655,8 +699,19 @@ export async function deletePagePermanentlyAction(params: {
     }
 
     const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "Unauthorized" };
+
     const activeOrg = await getActiveOrganization();
     if (!activeOrg) return { success: false, error: "No active organization" };
+
+    const canDelete = await hasPermission(user.id, activeOrg.id, "pages.delete");
+    if (!canDelete) {
+      return { success: false, error: "Forbidden: You do not have permission to delete pages." };
+    }
 
     const { error } = await supabase
       .from("pages")
@@ -1471,6 +1526,11 @@ export async function getPageAction(pageId: string): Promise<{
       return { success: false, error: "No active workspace found" };
     }
 
+    const canView = await hasPermission(user.id, activeOrg.id, "pages.view");
+    if (!canView) {
+      return { success: false, error: "Forbidden: You do not have permission to view pages." };
+    }
+
     const { data: page, error } = await supabase
       .from("pages")
       .select("*")
@@ -1709,8 +1769,32 @@ export async function deletePageCommentAction(params: {
     }
 
     const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "Unauthorized" };
+
     const activeOrg = await getActiveOrganization();
     if (!activeOrg) return { success: false, error: "No active workspace" };
+
+    // Verify authorship or owner/admin role before deleting
+    const { data: comment, error: fetchError } = await supabase
+      .from("page_comments")
+      .select("author_id")
+      .eq("id", params.commentId)
+      .eq("page_id", params.pageId)
+      .eq("organization_id", activeOrg.id)
+      .maybeSingle();
+
+    if (fetchError || !comment) {
+      return { success: false, error: "Comment not found" };
+    }
+
+    const isOwnerOrAdmin = activeOrg.role === "owner" || activeOrg.role === "admin";
+    if (comment.author_id !== user.id && !isOwnerOrAdmin) {
+      return { success: false, error: "You can only delete your own comments." };
+    }
 
     const { error } = await supabase
       .from("page_comments")

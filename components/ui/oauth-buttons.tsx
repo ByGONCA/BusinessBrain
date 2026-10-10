@@ -6,19 +6,33 @@ import { Button } from "./button";
 
 export function OAuthButtons() {
   const [isLoading, setIsLoading] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
   const handleGitHubOAuth = async () => {
     setIsLoading(true);
+    setErrorMessage(null);
     try {
-      await initiateOAuthAction("github");
-    } catch (err) {
+      const res = await initiateOAuthAction("github");
+      if (res.success && res.url) {
+        window.location.href = res.url;
+      } else {
+        setErrorMessage(res.error || "Failed to initiate GitHub authentication.");
+        setIsLoading(false);
+      }
+    } catch (err: any) {
       console.error("Failed to initiate GitHub OAuth:", err);
+      setErrorMessage(err?.message || "Failed to initiate GitHub authentication.");
       setIsLoading(false);
     }
   };
 
   return (
     <div className="space-y-2.5">
+      {errorMessage && (
+        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-2.5 text-xs text-red-400">
+          {errorMessage}
+        </div>
+      )}
       <Button
         type="button"
         variant="secondary"

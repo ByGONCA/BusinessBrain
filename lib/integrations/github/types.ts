@@ -185,3 +185,30 @@ export interface EntityCommentRecord {
     avatar_url: string | null;
   };
 }
+
+export interface GitHubContentItem {
+  name: string;
+  path: string;
+  sha: string;
+  size: number;
+  type: "file" | "dir" | "symlink" | "submodule";
+  html_url: string;
+  download_url: string | null;
+}
+
+export interface GitHubReadme {
+  name: string;
+  content: string;
+  html_url: string;
+}
+
+export interface GitHubFileContent {
+  name: string;
+  path: string;
+  sha: string;
+  size: number;
+  content: string;
+  html_url: string;
+  download_url?: string | null;
+  isBinary?: boolean;
+}

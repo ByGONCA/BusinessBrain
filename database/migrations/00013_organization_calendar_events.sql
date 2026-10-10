@@ -61,7 +61,10 @@ create policy "org_members_delete_calendar_events"
 
 -- Trigger to keep updated_at accurate
 create or replace function public.update_calendar_events_updated_at()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql
+security definer
+set search_path = public
+as $$
 begin
   new.updated_at = now();
   return new;
@@ -71,4 +74,4 @@ $$;
 drop trigger if exists trigger_update_calendar_events_timestamp on public.organization_calendar_events;
 create trigger trigger_update_calendar_events_timestamp
   before update on public.organization_calendar_events
-  for each row execute function public.update_calendar_events_updated_at();
+  for each row execute function public.handle_updated_at();

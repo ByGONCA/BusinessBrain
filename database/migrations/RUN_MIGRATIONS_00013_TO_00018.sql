@@ -66,6 +66,11 @@ create policy "org_members_delete_calendar_events"
   to authenticated
   using (public.is_org_member(organization_id));
 
+drop trigger if exists trigger_update_calendar_events_timestamp on public.organization_calendar_events;
+create trigger trigger_update_calendar_events_timestamp
+  before update on public.organization_calendar_events
+  for each row execute function public.handle_updated_at();
+
 -- ------------------------------------------------------------------------------
 -- MIGRATION 00014: Settings & Notifications
 -- ------------------------------------------------------------------------------
@@ -318,6 +323,7 @@ create policy "Authors and admins can update comments"
   )
   with check (
     public.is_org_member(organization_id)
+    and auth.uid() = author_id
   );
 
 drop policy if exists "Authors and admins can delete comments" on public.page_comments;
@@ -410,6 +416,7 @@ create policy "Authors and admins can update entity comments"
   )
   with check (
     public.is_org_member(organization_id)
+    and auth.uid() = author_id
   );
 
 drop policy if exists "Authors and admins can delete entity comments" on public.entity_comments;
@@ -477,23 +484,26 @@ create policy "Members can view teams in active org"
   using (public.is_org_member(organization_id));
 
 drop policy if exists "Members with team permissions can insert teams" on public.organization_teams;
-create policy "Members with team permissions can insert teams"
+drop policy if exists "Owners and admins can insert teams" on public.organization_teams;
+create policy "Owners and admins can insert teams"
   on public.organization_teams for insert
   to authenticated
-  with check (public.is_org_member(organization_id));
+  with check (public.has_org_role(organization_id, array['owner', 'admin']));
 
 drop policy if exists "Members with team permissions can update teams" on public.organization_teams;
-create policy "Members with team permissions can update teams"
+drop policy if exists "Owners and admins can update teams" on public.organization_teams;
+create policy "Owners and admins can update teams"
   on public.organization_teams for update
   to authenticated
-  using (public.is_org_member(organization_id))
-  with check (public.is_org_member(organization_id));
+  using (public.has_org_role(organization_id, array['owner', 'admin']))
+  with check (public.has_org_role(organization_id, array['owner', 'admin']));
 
 drop policy if exists "Members with team permissions can delete teams" on public.organization_teams;
-create policy "Members with team permissions can delete teams"
+drop policy if exists "Owners and admins can delete teams" on public.organization_teams;
+create policy "Owners and admins can delete teams"
   on public.organization_teams for delete
   to authenticated
-  using (public.is_org_member(organization_id));
+  using (public.has_org_role(organization_id, array['owner', 'admin']));
 
 -- ------------------------------------------------------------------------------
 -- 3. ORGANIZATION TEAM MEMBERS TABLE
@@ -521,16 +531,18 @@ create policy "Members can view team members in active org"
   using (public.is_org_member(organization_id));
 
 drop policy if exists "Authorized members can manage team memberships" on public.organization_team_members;
-create policy "Authorized members can manage team memberships"
+drop policy if exists "Owners and admins can manage team memberships" on public.organization_team_members;
+create policy "Owners and admins can manage team memberships"
   on public.organization_team_members for insert
   to authenticated
-  with check (public.is_org_member(organization_id));
+  with check (public.has_org_role(organization_id, array['owner', 'admin']));
 
 drop policy if exists "Authorized members can remove team memberships" on public.organization_team_members;
-create policy "Authorized members can remove team memberships"
+drop policy if exists "Owners and admins can remove team memberships" on public.organization_team_members;
+create policy "Owners and admins can remove team memberships"
   on public.organization_team_members for delete
   to authenticated
-  using (public.is_org_member(organization_id));
+  using (public.has_org_role(organization_id, array['owner', 'admin']));
 
 -- ------------------------------------------------------------------------------
 -- 4. TEAM PERMISSIONS TABLE
@@ -558,16 +570,18 @@ create policy "Members can view team permissions in active org"
   using (public.is_org_member(organization_id));
 
 drop policy if exists "Authorized members can insert team permissions" on public.team_permissions;
-create policy "Authorized members can insert team permissions"
+drop policy if exists "Owners and admins can insert team permissions" on public.team_permissions;
+create policy "Owners and admins can insert team permissions"
   on public.team_permissions for insert
   to authenticated
-  with check (public.is_org_member(organization_id));
+  with check (public.has_org_role(organization_id, array['owner', 'admin']));
 
 drop policy if exists "Authorized members can delete team permissions" on public.team_permissions;
-create policy "Authorized members can delete team permissions"
+drop policy if exists "Owners and admins can delete team permissions" on public.team_permissions;
+create policy "Owners and admins can delete team permissions"
   on public.team_permissions for delete
   to authenticated
-  using (public.is_org_member(organization_id));
+  using (public.has_org_role(organization_id, array['owner', 'admin']));
 
 -- ------------------------------------------------------------------------------
 -- 5. MEMBER PERMISSION OVERRIDES TABLE
@@ -597,23 +611,26 @@ create policy "Members can view permission overrides in active org"
   using (public.is_org_member(organization_id));
 
 drop policy if exists "Authorized members can insert permission overrides" on public.member_permission_overrides;
-create policy "Authorized members can insert permission overrides"
+drop policy if exists "Owners and admins can insert permission overrides" on public.member_permission_overrides;
+create policy "Owners and admins can insert permission overrides"
   on public.member_permission_overrides for insert
   to authenticated
-  with check (public.is_org_member(organization_id));
+  with check (public.has_org_role(organization_id, array['owner', 'admin']));
 
 drop policy if exists "Authorized members can update permission overrides" on public.member_permission_overrides;
-create policy "Authorized members can update permission overrides"
+drop policy if exists "Owners and admins can update permission overrides" on public.member_permission_overrides;
+create policy "Owners and admins can update permission overrides"
   on public.member_permission_overrides for update
   to authenticated
-  using (public.is_org_member(organization_id))
-  with check (public.is_org_member(organization_id));
+  using (public.has_org_role(organization_id, array['owner', 'admin']))
+  with check (public.has_org_role(organization_id, array['owner', 'admin']));
 
 drop policy if exists "Authorized members can delete permission overrides" on public.member_permission_overrides;
-create policy "Authorized members can delete permission overrides"
+drop policy if exists "Owners and admins can delete permission overrides" on public.member_permission_overrides;
+create policy "Owners and admins can delete permission overrides"
   on public.member_permission_overrides for delete
   to authenticated
-  using (public.is_org_member(organization_id));
+  using (public.has_org_role(organization_id, array['owner', 'admin']));
 
 -- ------------------------------------------------------------------------------
 -- 6. RESOURCE PERMISSIONS TABLE (OPTIONAL / EXTENSIBLE)
@@ -643,16 +660,18 @@ create policy "Members can view resource permissions in active org"
   using (public.is_org_member(organization_id));
 
 drop policy if exists "Authorized members can manage resource permissions" on public.resource_permissions;
-create policy "Authorized members can manage resource permissions"
+drop policy if exists "Owners and admins can manage resource permissions" on public.resource_permissions;
+create policy "Owners and admins can manage resource permissions"
   on public.resource_permissions for insert
   to authenticated
-  with check (public.is_org_member(organization_id));
+  with check (public.has_org_role(organization_id, array['owner', 'admin']));
 
 drop policy if exists "Authorized members can delete resource permissions" on public.resource_permissions;
-create policy "Authorized members can delete resource permissions"
+drop policy if exists "Owners and admins can delete resource permissions" on public.resource_permissions;
+create policy "Owners and admins can delete resource permissions"
   on public.resource_permissions for delete
   to authenticated
-  using (public.is_org_member(organization_id));
+  using (public.has_org_role(organization_id, array['owner', 'admin']));
 
 -- Reload PostgREST schema cache
 notify pgrst, 'reload schema';

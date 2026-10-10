@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/security/logger";
+import { isValidUuid } from "@/lib/security/authorization";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 
 const emailSchema = z.string().trim().email("Please provide a valid email address");
@@ -567,6 +568,10 @@ export async function getOrganizationAuditLogsAction(
   }>;
   error?: string;
 }> {
+  if (!orgId || !isValidUuid(orgId)) {
+    return { success: false, error: "Invalid organization ID format." };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -574,6 +579,18 @@ export async function getOrganizationAuditLogsAction(
 
   if (!user) {
     return { success: false, error: "Authentication required." };
+  }
+
+  // Verify caller membership and administrative role (Owner / Admin)
+  const { data: member } = await supabase
+    .from("organization_members")
+    .select("role")
+    .eq("organization_id", orgId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!member || !["owner", "admin"].includes(member.role)) {
+    return { success: false, error: "Forbidden: Only owners and admins can view audit logs." };
   }
 
   try {
@@ -600,6 +617,64 @@ export async function getOrganizationAuditLogsAction(
  * Retrieves storage usage information for an organization
  */
 export async function getOrganizationStorageStatsAction(orgId: string) {
+  if (!orgId || !isValidUuid(orgId)) {
+    return {
+      success: false,
+      error: "Invalid organization ID format.",
+      quota: {
+        usedBytes: 0,
+        limitBytes: 5242880000,
+        remainingBytes: 5242880000,
+        usagePercentage: 0,
+        isQuotaExceeded: false,
+        plan: "Starter",
+      },
+    };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      success: false,
+      error: "Authentication required.",
+      quota: {
+        usedBytes: 0,
+        limitBytes: 5242880000,
+        remainingBytes: 5242880000,
+        usagePercentage: 0,
+        isQuotaExceeded: false,
+        plan: "Starter",
+      },
+    };
+  }
+
+  // Verify caller membership in the target organization
+  const { data: member } = await supabase
+    .from("organization_members")
+    .select("id")
+    .eq("organization_id", orgId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!member) {
+    return {
+      success: false,
+      error: "Unauthorized: not a member of this workspace.",
+      quota: {
+        usedBytes: 0,
+        limitBytes: 5242880000,
+        remainingBytes: 5242880000,
+        usagePercentage: 0,
+        isQuotaExceeded: false,
+        plan: "Starter",
+      },
+    };
+  }
+
   const { getOrganizationStorageQuota } = await import("@/lib/files/quotas");
   try {
     const quota = await getOrganizationStorageQuota(orgId);

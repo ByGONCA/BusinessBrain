@@ -89,6 +89,7 @@ export interface GetEmailMessagesResponse {
   messages: EmailMessageItem[];
   nextPageToken?: string;
   isLive: boolean;
+  error?: "unauthorized" | "forbidden" | "rate_limited" | "needs_reauth" | "provider_error";
 }
 
 export interface GoogleCalendarSummary {

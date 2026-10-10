@@ -30,21 +30,26 @@ export const getCompanyGraphData = cache(
     try {
       const supabase = await createClient();
 
-      // Parallel batch query for performance
+      // Parallel batch query for performance.
+      // Limits are large safety ceilings — not pagination — to prevent unbounded
+      // full-table scans from growing with org size. Adjust if orgs routinely exceed these.
       const [pagesRes, entitiesRes, connectionsRes] = await Promise.all([
         supabase
           .from("pages")
           .select("id, title, icon, created_at, organization_id")
           .eq("organization_id", organizationId)
-          .eq("is_archived", false),
+          .eq("is_archived", false)
+          .limit(1000),
         supabase
           .from("company_entities")
           .select("id, type, title, metadata, created_at, organization_id")
-          .eq("organization_id", organizationId),
+          .eq("organization_id", organizationId)
+          .limit(1000),
         supabase
           .from("company_connections")
-          .select("*")
-          .eq("organization_id", organizationId),
+          .select("id, source_id, source_type, source_title, target_id, target_type, target_title, relationship_type, metadata, created_by, created_at, updated_at")
+          .eq("organization_id", organizationId)
+          .limit(2000),
       ]);
 
       const pages = pagesRes.data || [];

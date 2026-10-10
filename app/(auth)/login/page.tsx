@@ -2,11 +2,35 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Sparkles, ArrowRight, Loader2 } from "lucide-react";
 import { signInAction, AuthState } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OAuthButtons } from "@/components/ui/oauth-buttons";
+
+function AuthQueryError() {
+  const searchParams = useSearchParams();
+  const errorParam = searchParams.get("error");
+  if (!errorParam) return null;
+
+  let message = "An authentication error occurred. Please try again.";
+  if (errorParam === "auth-code-error") {
+    message = "GitHub authentication was canceled or the authentication code was invalid.";
+  } else if (errorParam === "too-many-requests") {
+    message = "Too many authentication attempts. Please try again in a few minutes.";
+  } else if (errorParam === "oauth_cancelled") {
+    message = "GitHub authorization was canceled.";
+  } else if (errorParam === "rate_limit_exceeded") {
+    message = "Rate limit exceeded. Please wait a moment before trying again.";
+  }
+
+  return (
+    <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
+      {message}
+    </div>
+  );
+}
 
 export default function LoginPage() {
   const [state, formAction, isPending] = React.useActionState<AuthState, FormData>(
@@ -32,6 +56,10 @@ export default function LoginPage() {
 
         {/* Auth Card */}
         <div className="mt-8 rounded-xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl backdrop-blur-sm">
+          <React.Suspense fallback={null}>
+            <AuthQueryError />
+          </React.Suspense>
+
           {/* OAuth Providers */}
           <OAuthButtons />
 

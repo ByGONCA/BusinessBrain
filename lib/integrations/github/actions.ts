@@ -16,6 +16,11 @@ import {
   listContributors,
   getRecentActivity,
   getDecryptedGitHubToken,
+  GitHubAuthExpiredError,
+  listRepositoryContents,
+  getRepositoryReadme,
+  getRepositoryFileContent,
+  getRepositoryRecentActivity,
 } from "./client";
 import {
   GitHubOverviewStats,
@@ -25,6 +30,10 @@ import {
   GitHubCommit,
   GitHubRelease,
   GitHubContributor,
+  GitHubActivityEvent,
+  GitHubContentItem,
+  GitHubReadme,
+  GitHubFileContent,
   EntityCommentRecord,
 } from "./types";
 
@@ -82,12 +91,22 @@ export async function isGitHubConnectedAction(orgId?: string): Promise<boolean> 
   }
 }
 
+function isAuthExpired(err: any): boolean {
+  return Boolean(
+    err instanceof GitHubAuthExpiredError ||
+    err?.name === "GitHubAuthExpiredError" ||
+    err?.message?.includes("401") ||
+    err?.message?.includes("Bad credentials") ||
+    err?.message?.includes("not connected or token is unavailable")
+  );
+}
+
 /**
  * Fetches high-level GitHub overview statistics and recent activity.
  */
 export async function getGitHubOverviewAction(
   orgId?: string
-): Promise<{ success: boolean; data?: GitHubOverviewStats; error?: string }> {
+): Promise<{ success: boolean; data?: GitHubOverviewStats; authExpired?: boolean; error?: string }> {
   try {
     const targetOrgId = await resolveAuthorizedOrgId(orgId, "github.view");
     const viewer = await getGitHubViewer(targetOrgId);
@@ -113,6 +132,15 @@ export async function getGitHubOverviewAction(
       },
     };
   } catch (err: any) {
+    if (isAuthExpired(err)) {
+      logger.warn("GitHub session expired or revoked during overview fetch", { error: err.message });
+      return {
+        success: false,
+        authExpired: true,
+        error: "GitHub authentication expired. Please reconnect your account.",
+      };
+    }
+
     logger.error("Failed to fetch GitHub overview", err);
     return { success: false, error: err.message || "Failed to load GitHub overview" };
   }
@@ -124,7 +152,7 @@ export async function getGitHubOverviewAction(
 export async function getGitHubRepositoriesAction(
   orgId?: string,
   params?: { page?: number; per_page?: number; search?: string }
-): Promise<{ success: boolean; repositories: GitHubRepository[]; error?: string }> {
+): Promise<{ success: boolean; repositories: GitHubRepository[]; authExpired?: boolean; error?: string }> {
   try {
     const targetOrgId = await resolveAuthorizedOrgId(orgId, "github.view");
     const repos = await listRepositories(targetOrgId, {
@@ -146,6 +174,16 @@ export async function getGitHubRepositoriesAction(
 
     return { success: true, repositories: filtered };
   } catch (err: any) {
+    if (isAuthExpired(err)) {
+      logger.warn("GitHub session expired or revoked during repositories fetch", { error: err.message });
+      return {
+        success: false,
+        authExpired: true,
+        repositories: [],
+        error: "GitHub authentication expired. Please reconnect your account.",
+      };
+    }
+
     logger.error("Failed to fetch GitHub repositories", err);
     return { success: false, repositories: [], error: err.message || "Failed to load repositories" };
   }
@@ -158,12 +196,16 @@ export async function getGitHubRepositoryDetailsAction(
   owner: string,
   repo: string,
   orgId?: string
-): Promise<{ success: boolean; repository?: GitHubRepository; error?: string }> {
+): Promise<{ success: boolean; repository?: GitHubRepository; authExpired?: boolean; error?: string }> {
   try {
-    const targetOrgId = await resolveAuthorizedOrgId(orgId);
+    const targetOrgId = await resolveAuthorizedOrgId(orgId, "github.view");
     const repository = await getRepository(targetOrgId, owner, repo);
     return { success: true, repository };
   } catch (err: any) {
+    if (isAuthExpired(err)) {
+      logger.warn("GitHub session expired during repository details fetch", { error: err.message });
+      return { success: false, authExpired: true, error: "GitHub session expired." };
+    }
     logger.error("Failed to fetch GitHub repository details", err);
     return { success: false, error: err.message || "Failed to load repository" };
   }
@@ -177,12 +219,16 @@ export async function getGitHubPullRequestsAction(
   repo: string,
   params?: { state?: "open" | "closed" | "all"; page?: number; per_page?: number },
   orgId?: string
-): Promise<{ success: boolean; pullRequests: GitHubPullRequest[]; error?: string }> {
+): Promise<{ success: boolean; pullRequests: GitHubPullRequest[]; authExpired?: boolean; error?: string }> {
   try {
-    const targetOrgId = await resolveAuthorizedOrgId(orgId);
+    const targetOrgId = await resolveAuthorizedOrgId(orgId, "github.view");
     const prs = await listPullRequests(targetOrgId, owner, repo, params);
     return { success: true, pullRequests: prs };
   } catch (err: any) {
+    if (isAuthExpired(err)) {
+      logger.warn("GitHub session expired during PRs fetch", { error: err.message });
+      return { success: false, authExpired: true, pullRequests: [], error: "GitHub session expired." };
+    }
     logger.error("Failed to fetch GitHub PRs", err);
     return { success: false, pullRequests: [], error: err.message || "Failed to load pull requests" };
   }
@@ -196,12 +242,16 @@ export async function getGitHubIssuesAction(
   repo: string,
   params?: { state?: "open" | "closed" | "all"; page?: number; per_page?: number },
   orgId?: string
-): Promise<{ success: boolean; issues: GitHubIssue[]; error?: string }> {
+): Promise<{ success: boolean; issues: GitHubIssue[]; authExpired?: boolean; error?: string }> {
   try {
-    const targetOrgId = await resolveAuthorizedOrgId(orgId);
+    const targetOrgId = await resolveAuthorizedOrgId(orgId, "github.view");
     const issues = await listIssues(targetOrgId, owner, repo, params);
     return { success: true, issues };
   } catch (err: any) {
+    if (isAuthExpired(err)) {
+      logger.warn("GitHub session expired during issues fetch", { error: err.message });
+      return { success: false, authExpired: true, issues: [], error: "GitHub session expired." };
+    }
     logger.error("Failed to fetch GitHub Issues", err);
     return { success: false, issues: [], error: err.message || "Failed to load issues" };
   }
@@ -217,7 +267,7 @@ export async function getGitHubCommitsAction(
   orgId?: string
 ): Promise<{ success: boolean; commits: GitHubCommit[]; error?: string }> {
   try {
-    const targetOrgId = await resolveAuthorizedOrgId(orgId);
+    const targetOrgId = await resolveAuthorizedOrgId(orgId, "github.view");
     const commits = await listCommits(targetOrgId, owner, repo, params);
     return { success: true, commits };
   } catch (err: any) {
@@ -236,7 +286,7 @@ export async function getGitHubReleasesAction(
   orgId?: string
 ): Promise<{ success: boolean; releases: GitHubRelease[]; error?: string }> {
   try {
-    const targetOrgId = await resolveAuthorizedOrgId(orgId);
+    const targetOrgId = await resolveAuthorizedOrgId(orgId, "github.view");
     const releases = await listReleases(targetOrgId, owner, repo, params);
     return { success: true, releases };
   } catch (err: any) {
@@ -255,12 +305,104 @@ export async function getGitHubContributorsAction(
   orgId?: string
 ): Promise<{ success: boolean; contributors: GitHubContributor[]; error?: string }> {
   try {
-    const targetOrgId = await resolveAuthorizedOrgId(orgId);
+    const targetOrgId = await resolveAuthorizedOrgId(orgId, "github.view");
     const contributors = await listContributors(targetOrgId, owner, repo, params);
     return { success: true, contributors };
   } catch (err: any) {
+    if (isAuthExpired(err)) {
+      logger.warn("GitHub session expired during contributors fetch", { error: err.message });
+      return { success: false, contributors: [], error: "GitHub session expired." };
+    }
     logger.error("Failed to fetch GitHub Contributors", err);
     return { success: false, contributors: [], error: err.message || "Failed to load contributors" };
+  }
+}
+
+/**
+ * Lists contents (files/folders) for a specific repository path.
+ */
+export async function getRepositoryContentsAction(
+  owner: string,
+  repo: string,
+  path = "",
+  orgId?: string
+): Promise<{ success: boolean; contents: GitHubContentItem[]; authExpired?: boolean; error?: string }> {
+  try {
+    const targetOrgId = await resolveAuthorizedOrgId(orgId, "github.view");
+    const contents = await listRepositoryContents(targetOrgId, owner, repo, path);
+    return { success: true, contents };
+  } catch (err: any) {
+    if (isAuthExpired(err)) {
+      logger.warn("GitHub session expired during contents fetch", { error: err.message });
+      return { success: false, authExpired: true, contents: [], error: "GitHub session expired." };
+    }
+    logger.warn("Failed to fetch repository contents", { owner, repo, path, err: err.message });
+    return { success: false, contents: [], error: err.message || "Failed to load repository contents" };
+  }
+}
+
+/**
+ * Retrieves the decoded README of a repository.
+ */
+export async function getRepositoryReadmeAction(
+  owner: string,
+  repo: string,
+  orgId?: string
+): Promise<{ success: boolean; readme?: GitHubReadme | null; authExpired?: boolean; error?: string }> {
+  try {
+    const targetOrgId = await resolveAuthorizedOrgId(orgId, "github.view");
+    const readme = await getRepositoryReadme(targetOrgId, owner, repo);
+    return { success: true, readme };
+  } catch (err: any) {
+    if (isAuthExpired(err)) {
+      logger.warn("GitHub session expired during readme fetch", { error: err.message });
+      return { success: false, authExpired: true, error: "GitHub session expired." };
+    }
+    return { success: false, error: err.message || "Failed to load README" };
+  }
+}
+
+/**
+ * Fetches file content on-demand directly from the GitHub repository API.
+ * Never stores code in the database.
+ */
+export async function getGitHubFileContentAction(
+  owner: string,
+  repo: string,
+  path: string,
+  orgId?: string
+): Promise<{ success: boolean; file?: GitHubFileContent | null; authExpired?: boolean; error?: string }> {
+  try {
+    const targetOrgId = await resolveAuthorizedOrgId(orgId, "github.view");
+    const file = await getRepositoryFileContent(targetOrgId, owner, repo, path);
+    return { success: true, file };
+  } catch (err: any) {
+    if (isAuthExpired(err)) {
+      logger.warn("GitHub session expired during file content fetch", { error: err.message });
+      return { success: false, authExpired: true, error: "GitHub session expired." };
+    }
+    return { success: false, error: err.message || "Failed to load file content" };
+  }
+}
+
+/**
+ * Fetches recent activity exclusively for a specific repository.
+ */
+export async function getRepositoryRecentActivityAction(
+  owner: string,
+  repo: string,
+  orgId?: string
+): Promise<{ success: boolean; events: GitHubActivityEvent[]; authExpired?: boolean; error?: string }> {
+  try {
+    const targetOrgId = await resolveAuthorizedOrgId(orgId, "github.view");
+    const events = await getRepositoryRecentActivity(targetOrgId, owner, repo);
+    return { success: true, events };
+  } catch (err: any) {
+    if (isAuthExpired(err)) {
+      logger.warn("GitHub session expired during repo activity fetch", { error: err.message });
+      return { success: false, authExpired: true, events: [], error: "GitHub session expired." };
+    }
+    return { success: false, events: [], error: err.message || "Failed to load repository activity" };
   }
 }
 
@@ -279,7 +421,7 @@ export async function connectGitHubObjectAction(input: {
   metadata?: Record<string, unknown>;
 }): Promise<{ success: boolean; error?: string }> {
   try {
-    const targetOrgId = await resolveAuthorizedOrgId();
+    const targetOrgId = await resolveAuthorizedOrgId(undefined, "github.manage_repositories");
     const supabase = await createClient();
     const { data: user } = await supabase.auth.getUser();
 
@@ -422,4 +564,86 @@ export async function addEntityCommentAction(
   } catch (err: any) {
     return { success: false, error: err.message };
   }
+}
+
+/**
+ * Sets the default workspace repository for the organization.
+ * Stored in organization_integrations.metadata.default_repository.
+ * Enforces owner/admin role or github.manage_repositories permission.
+ */
+export async function setDefaultGitHubRepositoryAction(
+  organizationId: string,
+  repositoryFullName: string
+): Promise<{ success: boolean; error?: string }> {
+  if (!isValidUuid(organizationId)) {
+    return { success: false, error: "Invalid organization ID format." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  // Verify caller membership and role
+  const { data: member } = await supabase
+    .from("organization_members")
+    .select("role")
+    .eq("organization_id", organizationId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!member) {
+    return { success: false, error: "Forbidden: You are not a member of this workspace." };
+  }
+
+  // Check if owner/admin or has permission
+  const isOwnerOrAdmin = member.role === "owner" || member.role === "admin";
+  const canManage =
+    isOwnerOrAdmin ||
+    (await hasPermission(user.id, organizationId, "github.manage_repositories")) ||
+    (await hasPermission(user.id, organizationId, "integrations.configure"));
+
+  if (!canManage) {
+    return {
+      success: false,
+      error: "Forbidden: You do not have permission to configure default workspace repositories.",
+    };
+  }
+
+  // Fetch current integration record
+  const { data: integration, error: fetchError } = await supabase
+    .from("organization_integrations")
+    .select("id, metadata")
+    .eq("organization_id", organizationId)
+    .eq("provider", "github")
+    .maybeSingle();
+
+  if (fetchError || !integration) {
+    return { success: false, error: "GitHub integration not found for this workspace." };
+  }
+
+  const currentMetadata = (integration.metadata as Record<string, unknown>) || {};
+  const updatedMetadata = {
+    ...currentMetadata,
+    default_repository: repositoryFullName.trim(),
+  };
+
+  const { error: updateError } = await supabase
+    .from("organization_integrations")
+    .update({
+      metadata: updatedMetadata,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", integration.id);
+
+  if (updateError) {
+    logger.error("Failed to update default repository", updateError);
+    return { success: false, error: "Failed to update default repository in database." };
+  }
+
+  revalidatePath("/dashboard/github");
+  return { success: true };
 }

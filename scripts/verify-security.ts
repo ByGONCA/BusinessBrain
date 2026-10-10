@@ -785,6 +785,356 @@ async function runTests() {
   );
 
   // ---------------------------------------------------------------------------
+  // 25. SEC-01: MULTI-TENANT TEAM & PERMISSION RLS HARDENING
+  // ---------------------------------------------------------------------------
+  console.log("\n[25] Auditing Team & Permission RLS Mutation Policies (SEC-01):");
+  const migration18Path = path.resolve(
+    process.cwd(),
+    "database/migrations/00018_teams_and_permissions.sql"
+  );
+  assert(fs.existsSync(migration18Path), "Migration 00018_teams_and_permissions.sql exists");
+  const migration18Sql = fs.readFileSync(migration18Path, "utf8");
+
+  assert(
+    migration18Sql.includes("Owners and admins can insert teams") &&
+      migration18Sql.includes("public.has_org_role(organization_id, array['owner', 'admin'])"),
+    "organization_teams insert policy requires owner or admin role"
+  );
+  assert(
+    migration18Sql.includes("Owners and admins can update teams") &&
+      migration18Sql.includes("public.has_org_role(organization_id, array['owner', 'admin'])"),
+    "organization_teams update policy requires owner or admin role"
+  );
+  assert(
+    migration18Sql.includes("Owners and admins can delete teams") &&
+      migration18Sql.includes("public.has_org_role(organization_id, array['owner', 'admin'])"),
+    "organization_teams delete policy requires owner or admin role"
+  );
+  assert(
+    migration18Sql.includes("Owners and admins can manage team memberships") &&
+      migration18Sql.includes("public.has_org_role(organization_id, array['owner', 'admin'])"),
+    "organization_team_members insert policy requires owner or admin role"
+  );
+  assert(
+    migration18Sql.includes("Owners and admins can insert team permissions") &&
+      migration18Sql.includes("public.has_org_role(organization_id, array['owner', 'admin'])"),
+    "team_permissions mutation policies require owner or admin role"
+  );
+  assert(
+    migration18Sql.includes("Owners and admins can insert permission overrides") &&
+      migration18Sql.includes("public.has_org_role(organization_id, array['owner', 'admin'])"),
+    "member_permission_overrides mutation policies require owner or admin role"
+  );
+  assert(
+    migration18Sql.includes("Owners and admins can manage resource permissions") &&
+      migration18Sql.includes("public.has_org_role(organization_id, array['owner', 'admin'])"),
+    "resource_permissions mutation policies require owner or admin role"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 26. SEC-04: COMMENT AUTHORSHIP & DELETION PROTECTION
+  // ---------------------------------------------------------------------------
+  console.log("\n[26] Auditing Comment Authorship & Deletion Protection (SEC-04):");
+  const migration16Path = path.resolve(
+    process.cwd(),
+    "database/migrations/00016_page_authorship_and_activity.sql"
+  );
+  const migration16Sql = fs.readFileSync(migration16Path, "utf8");
+
+  assert(
+    migration16Sql.includes("Users can update comments for their organization") &&
+      migration16Sql.includes("author_id = auth.uid()"),
+    "page_comments update policy enforces author_id = auth.uid()"
+  );
+  assert(
+    migration16Sql.includes("Users can delete comments for their organization") &&
+      migration16Sql.includes("author_id = auth.uid()") &&
+      migration16Sql.includes("public.has_org_role(organization_id, array['owner', 'admin'])"),
+    "page_comments delete policy enforces author_id = auth.uid() or owner/admin"
+  );
+
+  const migration17Path = path.resolve(
+    process.cwd(),
+    "database/migrations/00017_github_integration_and_connections.sql"
+  );
+  const migration17Sql = fs.readFileSync(migration17Path, "utf8");
+
+  assert(
+    migration17Sql.includes("Users can update entity comments in their organization") &&
+      migration17Sql.includes("author_id = auth.uid()"),
+    "entity_comments update policy enforces author_id = auth.uid()"
+  );
+  assert(
+    migration17Sql.includes("Users can delete entity comments in their organization") &&
+      migration17Sql.includes("author_id = auth.uid()") &&
+      migration17Sql.includes("public.has_org_role(organization_id, array['owner', 'admin'])"),
+    "entity_comments delete policy enforces author_id = auth.uid() or owner/admin"
+  );
+
+  assert(
+    pageActionsSrc.includes("comment.author_id !== user.id") &&
+      pageActionsSrc.includes("!isOwnerOrAdmin"),
+    "deletePageCommentAction in lib/pages/actions.ts enforces author ownership or admin role"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 27. SEC-02: OPEN REDIRECT PREVENTIONS IN OAUTH
+  // ---------------------------------------------------------------------------
+  console.log("\n[27] Auditing Open Redirect Prevention in OAuth Flows (SEC-02):");
+  const ghConnectPath = path.resolve(process.cwd(), "app/api/integrations/github/connect/route.ts");
+  const ghConnectSrc = fs.readFileSync(ghConnectPath, "utf8");
+  assert(
+    ghConnectSrc.includes("sanitizeRedirectUrl(rawReturnUrl") &&
+      ghConnectSrc.includes('hasPermission(user.id, activeOrg.id, "github.manage_connection")'),
+    "GitHub connect route sanitizes returnUrl and enforces github.manage_connection"
+  );
+
+  const ghCallbackPath = path.resolve(process.cwd(), "app/api/integrations/github/callback/route.ts");
+  const ghCallbackSrc = fs.readFileSync(ghCallbackPath, "utf8");
+  assert(
+    ghCallbackSrc.includes("sanitizeRedirectUrl(statePayload.returnUrl"),
+    "GitHub callback route sanitizes destination via sanitizeRedirectUrl"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 28. SEC-03: GMAIL ATTACHMENT SVG XSS MITIGATION
+  // ---------------------------------------------------------------------------
+  console.log("\n[28] Auditing Gmail Attachment SVG XSS Mitigation (SEC-03):");
+  const gmailAttachmentPath = path.resolve(
+    process.cwd(),
+    "app/api/integrations/google/gmail/attachment/route.ts"
+  );
+  const gmailAttachmentSrc = fs.readFileSync(gmailAttachmentPath, "utf8");
+  assert(
+    gmailAttachmentSrc.includes("isSvg") &&
+      gmailAttachmentSrc.includes("Content-Disposition") &&
+      gmailAttachmentSrc.includes('"attachment"') &&
+      gmailAttachmentSrc.includes("Content-Security-Policy") &&
+      gmailAttachmentSrc.includes("sandbox"),
+    "Gmail attachment route forces attachment disposition and CSP sandbox on SVG files"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 29. SEC-05: FINE-GRAINED PERMISSION CHECKS ON GITHUB ACTIONS
+  // ---------------------------------------------------------------------------
+  console.log("\n[29] Auditing GitHub Action Permission Scopes (SEC-05):");
+  const ghActionsPath = path.resolve(process.cwd(), "lib/integrations/github/actions.ts");
+  const ghActionsSrc = fs.readFileSync(ghActionsPath, "utf8");
+  assert(
+    ghActionsSrc.includes('resolveAuthorizedOrgId(orgId, "github.view")'),
+    "GitHub actions enforce github.view permission scope on repository data reads"
+  );
+  assert(
+    ghActionsSrc.includes('resolveAuthorizedOrgId(undefined, "github.manage_repositories")'),
+    "connectGitHubObjectAction enforces github.manage_repositories permission scope"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 30. SEC-06 & SEC-07: STORAGE STATS TENANT SCOPING & TOKEN REVOCATION
+  // ---------------------------------------------------------------------------
+  console.log("\n[30] Auditing Storage Stats Tenant Scoping & Token Revocation (SEC-06 & SEC-07):");
+  const settingsActionsPath = path.resolve(process.cwd(), "lib/settings/actions.ts");
+  const settingsActionsSrc = fs.readFileSync(settingsActionsPath, "utf8");
+  assert(
+    settingsActionsSrc.includes("getOrganizationStorageStatsAction") &&
+      settingsActionsSrc.includes("organization_members") &&
+      settingsActionsSrc.includes("Unauthorized: not a member of this workspace."),
+    "getOrganizationStorageStatsAction validates user session and membership"
+  );
+  assert(
+    settingsActionsSrc.includes("getOrganizationAuditLogsAction") &&
+      settingsActionsSrc.includes('["owner", "admin"].includes(member.role)'),
+    "getOrganizationAuditLogsAction enforces owner/admin role verification"
+  );
+
+  const ghOauthPath = path.resolve(process.cwd(), "lib/integrations/github/oauth.ts");
+  const ghOauthSrc = fs.readFileSync(ghOauthPath, "utf8");
+  assert(
+    ghOauthSrc.includes("export async function revokeGitHubToken"),
+    "revokeGitHubToken is exported from lib/integrations/github/oauth.ts"
+  );
+
+  const integrationsActionsPath = path.resolve(process.cwd(), "lib/integrations/actions.ts");
+  const integrationsActionsSrc = fs.readFileSync(integrationsActionsPath, "utf8");
+  assert(
+    integrationsActionsSrc.includes("revokeGitHubToken(accessToken)") &&
+      integrationsActionsSrc.includes('integration.provider === "github"'),
+    "Integration actions invoke revokeGitHubToken on disconnect and delete"
+  );
+
+  const migration13Path = path.resolve(
+    process.cwd(),
+    "database/migrations/00013_organization_calendar_events.sql"
+  );
+  const migration13Sql = fs.readFileSync(migration13Path, "utf8");
+  assert(
+    migration13Sql.includes("set search_path = public") &&
+      migration13Sql.includes("update_calendar_events_updated_at"),
+    "Migration 00013 sets explicit search_path on update_calendar_events_updated_at (SEC-08)"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 31. SERVER-SIDE GRANULAR PERMISSION ENFORCEMENT ON CONTENT ACTIONS
+  // ---------------------------------------------------------------------------
+  console.log("\n[31] Auditing Server-Side Granular Permission Enforcement on Actions:");
+  const freshPageActionsSrc = fs.readFileSync(pageActionsPath, "utf8");
+  assert(
+    freshPageActionsSrc.includes('hasPermission(user.id, activeOrg.id, "pages.create")'),
+    "createPageAction enforces pages.create permission"
+  );
+  assert(
+    freshPageActionsSrc.includes('hasPermission(user.id, activeOrg.id, "pages.edit")'),
+    "updatePageTitleAction and savePageContentAction enforce pages.edit permission"
+  );
+  assert(
+    freshPageActionsSrc.includes('hasPermission(user.id, activeOrg.id, "pages.delete")'),
+    "deletePagePermanentlyAction and archivePageAction enforce pages.delete permission"
+  );
+  assert(
+    freshPageActionsSrc.includes('hasPermission(user.id, activeOrg.id, "pages.view")'),
+    "getPageAction enforces pages.view permission"
+  );
+
+  const filesActionsPath = path.resolve(process.cwd(), "lib/files/actions.ts");
+  const filesActionsSrc = fs.readFileSync(filesActionsPath, "utf8");
+  assert(
+    filesActionsSrc.includes('hasPermission(user.id, activeOrg.id, "files.upload")'),
+    "requestUploadAuthorizationAction enforces files.upload permission"
+  );
+  assert(
+    filesActionsSrc.includes('hasPermission(user.id, activeOrg.id, "files.delete")'),
+    "deleteOrganizationFileAction enforces files.delete permission"
+  );
+
+  const calendarActionsPath = path.resolve(process.cwd(), "lib/calendar/actions.ts");
+  const calendarActionsSrc = fs.readFileSync(calendarActionsPath, "utf8");
+  assert(
+    calendarActionsSrc.includes("options.explicitOrgId && (!activeOrg || activeOrg.id !== options.explicitOrgId)") &&
+      calendarActionsSrc.includes('eq("organization_id", options.explicitOrgId)'),
+    "getOrganizationCalendarEventsAction enforces caller membership check on explicitOrgId"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 32. Auditing Repository-Centric Workspace & In-App File Viewer Security
+  // ---------------------------------------------------------------------------
+  console.log("\n[32] Auditing Repository-Centric Workspace & In-App File Viewer Security:");
+
+  const nextConfigPath = path.resolve(process.cwd(), "next.config.ts");
+  const nextConfigSrc = fs.readFileSync(nextConfigPath, "utf8");
+  assert(
+    nextConfigSrc.includes("remotePatterns:") &&
+      nextConfigSrc.includes('hostname: "avatars.githubusercontent.com"') &&
+      nextConfigSrc.includes('protocol: "https"'),
+    "next.config.ts configures narrow HTTPS remotePatterns for avatars.githubusercontent.com"
+  );
+
+  const ghWorkspaceHomePath = path.resolve(
+    process.cwd(),
+    "components/dashboard/github/github-workspace-home.tsx"
+  );
+  const ghWorkspaceHomeSrc = fs.readFileSync(ghWorkspaceHomePath, "utf8");
+  assert(
+    ghWorkspaceHomeSrc.includes("handleOpenFile") &&
+      ghWorkspaceHomeSrc.includes("viewingFile") &&
+      ghWorkspaceHomeSrc.includes("fileContent"),
+    "github-workspace-home.tsx implements in-app file viewer state and handlers"
+  );
+  assert(
+    ghWorkspaceHomeSrc.includes("bg-white dark:bg-[#161618]") &&
+      ghWorkspaceHomeSrc.includes("shadow-2xl z-50"),
+    "github-workspace-home.tsx uses opaque solid styling for repository dropdown"
+  );
+  assert(
+    !ghWorkspaceHomeSrc.includes("fetchReadme"),
+    "github-workspace-home.tsx removes README preview from dashboard bottom"
+  );
+
+  assert(
+    ghActionsSrc.includes("getGitHubFileContentAction") &&
+      ghActionsSrc.includes('resolveAuthorizedOrgId(orgId, "github.view")'),
+    "getGitHubFileContentAction enforces authentication and github.view permission"
+  );
+  assert(
+    ghActionsSrc.includes("setDefaultGitHubRepositoryAction") &&
+      ghActionsSrc.includes('hasPermission(user.id, organizationId, "github.manage_repositories")'),
+    "setDefaultGitHubRepositoryAction enforces role or github.manage_repositories permission"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 33. Auditing Defense-in-Depth in Permissions & Teams Actions
+  // ---------------------------------------------------------------------------
+  console.log("\n[33] Auditing Defense-in-Depth in Permissions & Teams Actions:");
+
+  const permActionsPath = path.resolve(process.cwd(), "lib/permissions/actions.ts");
+  const permActionsSrc = fs.readFileSync(permActionsPath, "utf8");
+
+  assert(
+    permActionsSrc.includes("organizationId && (!activeOrg || activeOrg.id !== organizationId)") &&
+      permActionsSrc.includes('hasPermission(user.id, targetOrgId, "teams.view")'),
+    "getTeamsWithDetailsAction enforces caller membership on explicit orgId and verifies teams.view"
+  );
+
+  assert(
+    permActionsSrc.includes("if (user.id !== userId)") &&
+      permActionsSrc.includes('hasPermission(user.id, activeOrg.id, "people.view")'),
+    "getMemberDetailsAction restricts cross-member permission inspection to callers with people.view"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 34. Auditing Mail Module Security, Authorization & XSS Defenses
+  // ---------------------------------------------------------------------------
+  console.log("\n[34] Auditing Mail Module Security, Authorization & XSS Defenses:");
+
+  assert(
+    integrationsActionsSrc.includes("export async function getEmailMessagesAction") &&
+      integrationsActionsSrc.includes('hasPermission(user.id, activeOrg.id, "integrations.view")'),
+    "getEmailMessagesAction enforces integrations.view permission"
+  );
+  assert(
+    integrationsActionsSrc.includes("export async function getEmailMessageContentAction") &&
+      integrationsActionsSrc.includes('hasPermission(user.id, activeOrg.id, "integrations.view")'),
+    "getEmailMessageContentAction enforces integrations.view permission"
+  );
+  assert(
+    integrationsActionsSrc.includes("isValidGmailId(params.messageId)"),
+    "getEmailMessageContentAction enforces strict ID format validation via isValidGmailId"
+  );
+
+  assert(
+    gmailAttachmentSrc.includes("getCurrentUser()") &&
+      gmailAttachmentSrc.includes('hasPermission(user.id, activeOrg.id, "integrations.view")'),
+    "Attachment route enforces session and integrations.view permission check"
+  );
+  assert(
+    gmailAttachmentSrc.includes("isValidGmailId(messageId)") &&
+      gmailAttachmentSrc.includes("isValidGmailId(attachmentId, 1024)"),
+    "Attachment route enforces isValidGmailId on messageId and attachmentId"
+  );
+  assert(
+    gmailAttachmentSrc.includes('const dispositionType = isSafeInline ? "inline" : "attachment"') &&
+      gmailAttachmentSrc.includes('"X-Content-Type-Options": "nosniff"') &&
+      gmailAttachmentSrc.includes("default-src 'none'; sandbox"),
+    "Attachment route enforces safe Content-Disposition, nosniff, and sandboxed CSP"
+  );
+
+  const emailViewCheckPath = path.resolve(
+    process.cwd(),
+    "components/dashboard/email/email-view.tsx"
+  );
+  const emailViewCheckSrc = fs.readFileSync(emailViewCheckPath, "utf8");
+  assert(
+    emailViewCheckSrc.includes("export function sanitizeEmailHtml") &&
+      emailViewCheckSrc.includes("<script\\b[^<]*(?:(?!<\\/script>)<[^<]*)*<\\/script>") &&
+      emailViewCheckSrc.includes("javascript|vbscript"),
+    "email-view.tsx exports sanitizeEmailHtml stripping executable scripts, dangerous tags and pseudo-protocols"
+  );
+  assert(
+    emailViewCheckSrc.includes('sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"') &&
+      !emailViewCheckSrc.includes("allow-scripts"),
+    "EmailHtmlViewer iframe sandbox omits allow-scripts to strictly prevent script execution"
+  );
+
+  // ---------------------------------------------------------------------------
   // SUMMARY
   // ---------------------------------------------------------------------------
   console.log("\n=======================================================");

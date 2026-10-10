@@ -32,6 +32,7 @@ import {
   FileText,
   Settings2,
   Shield,
+  FolderGit2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OrganizationWithRole, OrganizationMember } from "@/lib/organizations/types";
@@ -51,6 +52,11 @@ import {
   getOrganizationIntegrationsAction,
   deleteIntegrationAction,
 } from "@/lib/integrations/actions";
+import {
+  getGitHubRepositoriesAction,
+  setDefaultGitHubRepositoryAction,
+} from "@/lib/integrations/github/actions";
+import { GitHubRepository } from "@/lib/integrations/github/types";
 import { ProfileTab } from "./profile-tab";
 import { PreferencesTab } from "./preferences-tab";
 import { AppearanceTab } from "./appearance-tab";
@@ -188,6 +194,32 @@ export function SettingsModal({
       loadIntegrations();
     }
   }, [isOpen, activeTab, loadIntegrations]);
+
+  // GitHub default repository configuration state
+  const [githubRepos, setGithubRepos] = React.useState<GitHubRepository[]>([]);
+  const [loadingGithubRepos, setLoadingGithubRepos] = React.useState(false);
+  const [isSavingDefaultRepo, setIsSavingDefaultRepo] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isOpen || activeTab !== "integrations" || !activeOrg) return;
+    const isGithubConnected = integrations.some(
+      (i) => i.provider === "github" && i.status === "connected"
+    );
+    if (isGithubConnected && githubRepos.length === 0 && !loadingGithubRepos) {
+      setLoadingGithubRepos(true);
+      getGitHubRepositoriesAction(activeOrg.id)
+        .then((res) => {
+          if (res.success && res.repositories) {
+            setGithubRepos(res.repositories);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoadingGithubRepos(false));
+    }
+  }, [isOpen, activeTab, activeOrg, integrations, githubRepos.length, loadingGithubRepos]);
+
+  // Permissions
+  const canManageIntegrations = activeOrg?.role === "owner" || activeOrg?.role === "admin";
 
   // User details
   const userName =
@@ -648,18 +680,119 @@ export function SettingsModal({
                             </div>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={handleConfigureClick}
-                            className="shrink-0 flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 px-2.5 py-1 text-xs font-medium text-zinc-800 dark:text-zinc-200 transition-colors shadow-2xs"
-                          >
-                            <span>{t.settings.integrationsTab.configure || "Configure"}</span>
-                            <ExternalLink className="h-3 w-3 text-zinc-400" />
-                          </button>
+                          {item.id === "github" && connectedAccounts.length > 0 ? (
+                            <div className="shrink-0 flex items-center gap-2">
+                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                <span className="font-mono text-[11px] font-medium text-zinc-800 dark:text-zinc-200">
+                                  @{(connectedAccounts[0].metadata as any)?.github_login || connectedAccounts[0].accountEmail || connectedAccounts[0].providerAccountId}
+                                </span>
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-wider ml-1">
+                                  Connected
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                disabled={deletingIntegrationId === connectedAccounts[0].id}
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const name = (connectedAccounts[0].metadata as any)?.github_login || connectedAccounts[0].accountEmail || connectedAccounts[0].providerAccountId;
+                                  if (confirm(`Deseja desconectar a conta do GitHub (@${name})?`)) {
+                                    setDeletingIntegrationId(connectedAccounts[0].id);
+                                    try {
+                                      await deleteIntegrationAction(connectedAccounts[0].id);
+                                      await loadIntegrations();
+                                      window.dispatchEvent(
+                                        new CustomEvent("cb-integration-changed", {
+                                          detail: { provider: "github", status: "disconnected" },
+                                        })
+                                      );
+                                    } catch (err) {
+                                      console.error("Erro ao remover conta:", err);
+                                    } finally {
+                                      setDeletingIntegrationId(null);
+                                    }
+                                  }
+                                }}
+                                className="p-1 rounded-md text-zinc-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-40"
+                                title="Desconectar conta"
+                              >
+                                {deletingIntegrationId === connectedAccounts[0].id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />
+                                ) : (
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={handleConfigureClick}
+                              className="shrink-0 flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 px-2.5 py-1 text-xs font-medium text-zinc-800 dark:text-zinc-200 transition-colors shadow-2xs"
+                            >
+                              <span>{item.id === "github" ? "Conectar" : (t.settings.integrationsTab.configure || "Configure")}</span>
+                              <ExternalLink className="h-3 w-3 text-zinc-400" />
+                            </button>
+                          )}
                         </div>
 
-                        {/* Connected Accounts List */}
-                        {connectedAccounts.length > 0 && (
+                        {/* GitHub Default Repository Selector for Workspace */}
+                        {item.id === "github" && connectedAccounts.length > 0 && (
+                          <div className="mt-2.5 pt-2 border-t border-zinc-200/80 dark:border-zinc-800/80 space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+                              <span>Repositório Principal do Workspace</span>
+                              {isSavingDefaultRepo && (
+                                <span className="text-[10px] text-zinc-400 flex items-center gap-1 font-normal">
+                                  <Loader2 className="h-2.5 w-2.5 animate-spin" /> A guardar...
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                              Define o repositório apresentado por predefinição a todos os membros no separador GitHub.
+                            </p>
+                            {canManageIntegrations ? (
+                              <div className="flex items-center gap-2">
+                                <select
+                                  disabled={loadingGithubRepos || isSavingDefaultRepo}
+                                  value={
+                                    ((connectedAccounts[0].metadata as any)?.default_repository as string) || ""
+                                  }
+                                  onChange={async (e) => {
+                                    const newRepo = e.target.value;
+                                    if (!activeOrg) return;
+                                    setIsSavingDefaultRepo(true);
+                                    try {
+                                      const res = await setDefaultGitHubRepositoryAction(activeOrg.id, newRepo);
+                                      if (res.success) {
+                                        await loadIntegrations();
+                                      }
+                                    } finally {
+                                      setIsSavingDefaultRepo(false);
+                                    }
+                                  }}
+                                  className="w-full text-xs font-mono rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#161618] px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 shadow-2xs focus:border-zinc-500 focus:outline-hidden"
+                                >
+                                  <option value="">-- Selecionar repositório predefinido --</option>
+                                  {githubRepos.map((repo) => (
+                                    <option key={repo.id} value={repo.full_name}>
+                                      {repo.full_name} {repo.private ? "(Privado)" : "(Público)"}
+                                    </option>
+                                  ))}
+                                </select>
+                                {loadingGithubRepos && (
+                                  <Loader2 className="h-4 w-4 animate-spin text-zinc-400 shrink-0" />
+                                )}
+                              </div>
+                            ) : (
+                              <div className="text-xs font-mono px-2.5 py-1.5 rounded-lg bg-zinc-100/70 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-700/60 text-zinc-700 dark:text-zinc-300">
+                                {((connectedAccounts[0].metadata as any)?.default_repository as string) || "Nenhum repositório predefinido configurado"}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Connected Accounts List (for other multi-account integrations) */}
+                        {connectedAccounts.length > 0 && item.id !== "github" && (
                           <div className="mt-2.5 pt-2 border-t border-zinc-200/80 dark:border-zinc-800/80 space-y-1.5">
                             <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
                               <span>Contas conectadas ({connectedAccounts.length})</span>

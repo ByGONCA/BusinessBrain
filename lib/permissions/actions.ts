@@ -86,6 +86,35 @@ export async function getTeamsWithDetailsAction(organizationId?: string): Promis
     }
 
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, teams: [], error: "Unauthorized" };
+    }
+
+    // Defense-in-depth: If organizationId is explicitly provided and differs from activeOrg,
+    // verify the caller is actually a member of targetOrgId.
+    if (organizationId && (!activeOrg || activeOrg.id !== organizationId)) {
+      const { data: member } = await supabase
+        .from("organization_members")
+        .select("id")
+        .eq("organization_id", targetOrgId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!member) {
+        logger.warn("Unauthorized attempt to access organization teams", {
+          userId: user.id,
+          targetOrgId,
+        });
+        return { success: false, teams: [], error: "Unauthorized to access workspace." };
+      }
+    }
+
+    // Verify caller has permission to view teams (Owners bypass automatically)
+    const canView = await hasPermission(user.id, targetOrgId, "teams.view");
+    if (!canView) {
+      return { success: false, teams: [], error: "Forbidden: You do not have permission to view teams." };
+    }
 
     // 1. Fetch teams
     const { data: rawTeams, error: teamsError } = await supabase
@@ -405,6 +434,19 @@ export async function getMemberDetailsAction(userId: string): Promise<{
     if (!isValidUuid(userId)) return { success: false, error: "Invalid user ID" };
 
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    // If querying another member's details, require people.view permission or owner role
+    if (user.id !== userId) {
+      const canView = await hasPermission(user.id, activeOrg.id, "people.view");
+      if (!canView) {
+        return {
+          success: false,
+          error: "Forbidden: You do not have permission to view member details.",
+        };
+      }
+    }
 
     // 1. Fetch organization member record
     const { data: member, error: memberError } = await supabase

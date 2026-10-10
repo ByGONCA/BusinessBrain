@@ -62,6 +62,24 @@ export async function getOrganizationCalendarEventsAction(
   if (!orgId) return [];
 
   const supabase = await createClient();
+
+  // Defense-in-depth: if explicitOrgId is provided and differs from active workspace, verify caller membership
+  if (options.explicitOrgId && (!activeOrg || activeOrg.id !== options.explicitOrgId)) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data: member } = await supabase
+      .from("organization_members")
+      .select("id")
+      .eq("organization_id", options.explicitOrgId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!member) return [];
+  }
+
   const aggregatedEvents: CalendarEventItem[] = [];
 
   // 1. Fetch organization calendar events (bounded by active date range if provided)
@@ -121,7 +139,9 @@ export async function getOrganizationCalendarEventsAction(
       .from("company_entities")
       .select("id, organization_id, type, title, metadata, created_at, updated_at")
       .eq("organization_id", orgId)
-      .in("type", ["meeting", "task", "project", "goal"]);
+      .in("type", ["meeting", "task", "project", "goal"])
+      .order("created_at", { ascending: false })
+      .limit(500);
 
     if (!entError && entities) {
       for (const ent of entities as CompanyEntityRow[]) {

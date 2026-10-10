@@ -221,7 +221,8 @@ export async function getArchivedPages(organizationId: string): Promise<PageReco
     .select("*")
     .eq("organization_id", organizationId)
     .eq("is_archived", true)
-    .order("archived_at", { ascending: false });
+    .order("archived_at", { ascending: false })
+    .limit(200);
 
   if (error || !data) {
     return [];

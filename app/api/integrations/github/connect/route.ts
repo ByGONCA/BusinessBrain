@@ -4,6 +4,8 @@ import { getActiveOrganization } from "@/lib/organizations/queries";
 import { generateGitHubAuthUrl } from "@/lib/integrations/github/oauth";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
+import { sanitizeRedirectUrl } from "@/lib/security/redirects";
+import { hasPermission } from "@/lib/permissions/resolver";
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();
@@ -25,15 +27,22 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/onboarding", request.url));
   }
 
-  // Only workspace owners and admins can connect integrations
-  if (activeOrg.role !== "owner" && activeOrg.role !== "admin") {
+  // Workspace owners/admins or members with github.manage_connection or integrations.connect can connect
+  const hasManagePermission =
+    activeOrg.role === "owner" ||
+    activeOrg.role === "admin" ||
+    (await hasPermission(user.id, activeOrg.id, "github.manage_connection")) ||
+    (await hasPermission(user.id, activeOrg.id, "integrations.connect"));
+
+  if (!hasManagePermission) {
     return NextResponse.redirect(
       new URL("/dashboard?settings=integrations&error=insufficient_permissions", request.url)
     );
   }
 
   const { searchParams } = new URL(request.url);
-  const returnUrl = searchParams.get("returnUrl") || "/dashboard?settings=integrations";
+  const rawReturnUrl = searchParams.get("returnUrl");
+  const returnUrl = sanitizeRedirectUrl(rawReturnUrl, "/dashboard?settings=integrations");
 
   try {
     const authUrl = generateGitHubAuthUrl({

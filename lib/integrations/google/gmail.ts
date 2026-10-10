@@ -9,6 +9,17 @@ export interface GmailProfile {
 }
 
 /**
+ * Validates that an identifier does not contain path traversal, protocol injection, or whitespace.
+ */
+export function isValidGmailId(id: string, maxLen = 128): boolean {
+  if (!id || typeof id !== "string") return false;
+  const trimmed = id.trim();
+  if (trimmed.length === 0 || trimmed.length > maxLen) return false;
+  // Allow only alphanumeric, hyphen, underscore, and standard base64/hex characters
+  return /^[a-zA-Z0-9_\-\.]+$/.test(trimmed);
+}
+
+/**
  * Retrieves the connected Gmail account profile (email address, message count).
  */
 export async function getGmailProfile(organizationId: string): Promise<GmailProfile> {
@@ -187,8 +198,9 @@ async function extractMimeContent(
   // If no HTML found inline or if an attachment is a larger text/html part, fetch the attachment body
   for (const att of pendingAttachments) {
     try {
+      if (!isValidGmailId(att.attachmentId)) continue;
       const attRes = await googleFetch(
-        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/attachments/${att.attachmentId}`
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(att.attachmentId)}`
       );
       if (attRes.ok) {
         const attData = await attRes.json();
@@ -273,13 +285,18 @@ export async function getGmailMessage(
   messageId: string,
   accountEmail?: string
 ): Promise<GmailFullMessage> {
+  if (!isValidGmailId(messageId)) {
+    throw new Error("Invalid Gmail message identifier.");
+  }
+
   const { googleFetch } = await getAuthenticatedGoogleClient(organizationId, {
     accountEmail,
     service: "gmail",
   });
 
+  const safeMessageId = encodeURIComponent(messageId.trim());
   const response = await googleFetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=full`
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${safeMessageId}?format=full`
   );
 
   if (!response.ok) {
@@ -329,13 +346,23 @@ export async function getGmailAttachment(
   attachmentId: string,
   accountEmail?: string
 ): Promise<{ buffer: Buffer; size: number }> {
+  if (!isValidGmailId(messageId)) {
+    throw new Error("Invalid Gmail message identifier.");
+  }
+  if (!isValidGmailId(attachmentId)) {
+    throw new Error("Invalid Gmail attachment identifier.");
+  }
+
   const { googleFetch } = await getAuthenticatedGoogleClient(organizationId, {
     accountEmail,
     service: "gmail",
   });
 
+  const safeMessageId = encodeURIComponent(messageId.trim());
+  const safeAttachmentId = encodeURIComponent(attachmentId.trim());
+
   const response = await googleFetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/attachments/${attachmentId}`
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${safeMessageId}/attachments/${safeAttachmentId}`
   );
 
   if (!response.ok) {

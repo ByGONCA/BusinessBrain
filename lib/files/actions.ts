@@ -6,6 +6,7 @@ import { requireActiveOrganization, isValidUuid, assertValidUuid } from "@/lib/s
 import { validateFileMetadata, sanitizeFilename } from "@/lib/storage/validation";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
+import { hasPermission } from "@/lib/permissions/resolver";
 import { assertStorageQuotaAvailable } from "./quotas";
 import { getFileProvider } from "./providers/registry";
 import { CompanyBrainStorageProvider } from "./providers/company-brain";
@@ -31,6 +32,11 @@ export async function requestUploadAuthorizationAction(
   input: UploadAuthorizationRequest
 ): Promise<UploadAuthorizationResponse> {
   const { user, activeOrg } = await requireActiveOrganization();
+
+  const canUpload = await hasPermission(user.id, activeOrg.id, "files.upload");
+  if (!canUpload) {
+    throw new Error("Forbidden: You do not have permission to upload files.");
+  }
 
   // Rate limit upload requests per user
   const rl = await rateLimit("upload-auth", user.id, RATE_LIMIT_PRESETS.MUTATIONS);
@@ -316,7 +322,12 @@ export async function detachFileFromPageAction(
  */
 export async function deleteOrganizationFileAction(fileId: string): Promise<void> {
   assertValidUuid(fileId, "File ID");
-  const { activeOrg } = await requireActiveOrganization();
+  const { user, activeOrg } = await requireActiveOrganization();
+
+  const canDelete = await hasPermission(user.id, activeOrg.id, "files.delete");
+  if (!canDelete) {
+    throw new Error("Forbidden: You do not have permission to delete files.");
+  }
 
   const supabase = await createClient();
 

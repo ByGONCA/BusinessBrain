@@ -93,14 +93,26 @@ create policy "Users can update entity comments in their organization"
   on public.entity_comments
   for update
   to authenticated
-  using (public.is_org_member(organization_id))
-  with check (public.is_org_member(organization_id));
+  using (
+    public.is_org_member(organization_id)
+    and author_id = auth.uid()
+  )
+  with check (
+    public.is_org_member(organization_id)
+    and author_id = auth.uid()
+  );
 
 create policy "Users can delete entity comments in their organization"
   on public.entity_comments
   for delete
   to authenticated
-  using (public.is_org_member(organization_id));
+  using (
+    public.is_org_member(organization_id)
+    and (
+      author_id = auth.uid()
+      or public.has_org_role(organization_id, array['owner', 'admin'])
+    )
+  );
 
 -- Notify PostgREST to reload schema cache
 notify pgrst, 'reload schema';
