@@ -156,8 +156,10 @@ async function runTests() {
   // 5. SECRETS & CLIENT BUNDLE AUDIT
   // ---------------------------------------------------------------------------
   console.log("\n[5] Auditing Environment Variables & Public Keys:");
-  const envContent = fs.readFileSync(path.resolve(process.cwd(), ".env"), "utf8");
-  const lines = envContent.split("\n");
+  const envCandidates = [".env", ".env.local", ".env.example"];
+  const matchedEnv = envCandidates.find((f) => fs.existsSync(path.resolve(process.cwd(), f)));
+  const envContent = matchedEnv ? fs.readFileSync(path.resolve(process.cwd(), matchedEnv), "utf8") : "";
+  const lines = envContent ? envContent.split("\n") : [];
 
   const publicLines = lines.filter((l) => l.startsWith("NEXT_PUBLIC_"));
   const invalidPublic = publicLines.filter((l) => {
@@ -170,7 +172,7 @@ async function runTests() {
     );
   });
 
-  assert(invalidPublic.length === 0, "Zero private secrets prefixed with NEXT_PUBLIC_ in .env");
+  assert(invalidPublic.length === 0, "Zero private secrets prefixed with NEXT_PUBLIC_ in environment file");
 
   // Check that STRIPE_SECRET_KEY is NOT public
   assert(!envContent.includes("NEXT_PUBLIC_STRIPE_SECRET_KEY"), "STRIPE_SECRET_KEY is strictly private");
@@ -180,6 +182,16 @@ async function runTests() {
     !envContent.includes("NEXT_PUBLIC_INTEGRATION_TOKEN_ENCRYPTION_KEY"),
     "INTEGRATION_TOKEN_ENCRYPTION_KEY is strictly private"
   );
+
+  // Check process.env keys as well for defense in depth
+  const processPublicKeys = Object.keys(process.env).filter((k) => k.startsWith("NEXT_PUBLIC_"));
+  const invalidProcessPublic = processPublicKeys.filter((key) =>
+    key.includes("SECRET") ||
+    key.includes("PRIVATE") ||
+    key.includes("SERVICE_ROLE") ||
+    key.includes("ENCRYPTION")
+  );
+  assert(invalidProcessPublic.length === 0, "Zero private secrets prefixed with NEXT_PUBLIC_ in process.env");
 
   // ---------------------------------------------------------------------------
   // 6. SQL MIGRATION POLICIES AUDIT
