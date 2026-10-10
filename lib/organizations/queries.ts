@@ -102,13 +102,44 @@ export const getOrganizationMembers = cache(async (
 
   const supabase = await createClient();
 
-  const { data: members, error: membersError } = await supabase
+  let members: Array<{
+    id: string;
+    organization_id: string;
+    user_id: string;
+    role: OrganizationMember["role"];
+    job_title?: string | null;
+    department?: string | null;
+    created_at: string;
+    updated_at: string;
+  }> | null = null;
+
+  const { data: fullMembers, error: membersError } = await supabase
     .from("organization_members")
     .select("id, organization_id, user_id, role, job_title, department, created_at, updated_at")
     .eq("organization_id", organizationId);
 
-  if (membersError || !members) {
-    logger.error("Error fetching organization members", membersError, { organizationId });
+  if (membersError) {
+    // If job_title or department does not exist yet (code 42703), fallback gracefully
+    if (membersError.code === "42703" || membersError.message?.includes("does not exist")) {
+      const { data: basicMembers, error: basicError } = await supabase
+        .from("organization_members")
+        .select("id, organization_id, user_id, role, created_at, updated_at")
+        .eq("organization_id", organizationId);
+
+      if (basicError || !basicMembers) {
+        logger.error("Error fetching organization members (fallback)", basicError, { organizationId });
+        return [];
+      }
+      members = basicMembers.map((m) => ({ ...m, job_title: "", department: "" }));
+    } else {
+      logger.error("Error fetching organization members", membersError, { organizationId });
+      return [];
+    }
+  } else {
+    members = fullMembers;
+  }
+
+  if (!members) {
     return [];
   }
 
