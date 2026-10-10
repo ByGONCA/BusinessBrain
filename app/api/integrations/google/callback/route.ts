@@ -15,11 +15,11 @@ export async function GET(request: Request) {
 
   const { searchParams, origin } = new URL(request.url);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
-  const redirectTarget = `${baseUrl}/dashboard/settings/integrations`;
+  const redirectTarget = `${baseUrl}/dashboard?settings=integrations`;
 
   if (!rl.success) {
     logger.warn("Rate limit exceeded on Google callback", { clientIp });
-    return NextResponse.redirect(`${redirectTarget}?error=rate_limit_exceeded`);
+    return NextResponse.redirect(`${redirectTarget}&error=rate_limit_exceeded`);
   }
 
   const code = searchParams.get("code");
@@ -29,18 +29,18 @@ export async function GET(request: Request) {
   // Handle Google OAuth error or user cancellation safely
   if (errorParam) {
     logger.warn("Google OAuth provider returned error", { error: errorParam });
-    return NextResponse.redirect(`${redirectTarget}?error=oauth_cancelled`);
+    return NextResponse.redirect(`${redirectTarget}&error=oauth_cancelled`);
   }
 
   if (!code || !state) {
-    return NextResponse.redirect(`${redirectTarget}?error=missing_parameters`);
+    return NextResponse.redirect(`${redirectTarget}&error=missing_parameters`);
   }
 
   // 1. Verify CSRF HMAC State
   const statePayload = verifyOAuthState(state);
   if (!statePayload) {
     logger.warn("Invalid or expired OAuth state token received");
-    return NextResponse.redirect(`${redirectTarget}?error=invalid_state`);
+    return NextResponse.redirect(`${redirectTarget}&error=invalid_state`);
   }
 
   // 2. Verify Authenticated User matches state
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
       stateUserId: statePayload.userId,
       currentUserId: currentUser?.id,
     });
-    return NextResponse.redirect(`${redirectTarget}?error=user_mismatch`);
+    return NextResponse.redirect(`${redirectTarget}&error=user_mismatch`);
   }
 
   const supabase = await createClient();
@@ -64,7 +64,7 @@ export async function GET(request: Request) {
     .single();
 
   if (!member || (member.role !== "owner" && member.role !== "admin")) {
-    return NextResponse.redirect(`${redirectTarget}?error=insufficient_permissions`);
+    return NextResponse.redirect(`${redirectTarget}&error=insufficient_permissions`);
   }
 
   try {
@@ -114,7 +114,7 @@ export async function GET(request: Request) {
       logger.error("Failed to store Google integration in database", upsertError, {
         organizationId: statePayload.organizationId,
       });
-      return NextResponse.redirect(`${redirectTarget}?error=database_error`);
+      return NextResponse.redirect(`${redirectTarget}&error=database_error`);
     }
 
     // Restore any previously disconnected external Google Drive file references to 'ready'
@@ -134,13 +134,13 @@ export async function GET(request: Request) {
       accountEmail: userInfo.email,
     });
 
-    return NextResponse.redirect(`${redirectTarget}?status=connected`);
+    return NextResponse.redirect(`${redirectTarget}&status=connected`);
   } catch (err: unknown) {
     logger.error("Google OAuth callback exception", err, {
       organizationId: statePayload.organizationId,
       userId: currentUser.id,
     });
     // Return a generic error code without leaking stack trace or internal exception strings
-    return NextResponse.redirect(`${redirectTarget}?error=exchange_failed`);
+    return NextResponse.redirect(`${redirectTarget}&error=exchange_failed`);
   }
 }

@@ -124,6 +124,8 @@ export function PageBreadcrumbs({
                 >
                   <PageIcon
                     icon={crumb.icon}
+                    pageId={crumb.id}
+                    iconFileId={crumb.icon_file_id}
                     className="h-3.5 w-3.5 text-xs select-none shrink-0"
                     imgClassName="h-3.5 w-3.5 rounded object-cover shrink-0"
                   />
@@ -137,6 +139,8 @@ export function PageBreadcrumbs({
                 >
                   <PageIcon
                     icon={crumb.icon}
+                    pageId={crumb.id}
+                    iconFileId={crumb.icon_file_id}
                     className="h-3.5 w-3.5 text-xs select-none shrink-0"
                     imgClassName="h-3.5 w-3.5 rounded object-cover shrink-0"
                   />

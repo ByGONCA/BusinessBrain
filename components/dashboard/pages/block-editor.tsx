@@ -10,6 +10,9 @@ import {
   PageViewMode,
   PageConnectionRecord,
   EntityType,
+  PageActivityRecord,
+  PageVersionRecord,
+  PageCommentRecord,
 } from "@/lib/pages/types";
 import { BlockItem } from "./block-item";
 import { SlashMenu, SlashMenuItem } from "./slash-menu";
@@ -22,6 +25,10 @@ import { ConnectModal } from "./connect-modal";
 import { PageOutlineView } from "./page-outline-view";
 import { PageConnectionsView } from "./page-connections-view";
 import { PageHeaderActions } from "./page-header-actions";
+import { PageInfoModal } from "./page-info-modal";
+import { PageActivityDrawer } from "./page-activity-drawer";
+import { PageCommentsPanel } from "./page-comments-panel";
+import { formatRelativeTime, formatExactDateTime } from "@/lib/utils/time";
 import { focusBlockCaretEnd, getCaretOffset } from "./caret-utils";
 import {
   savePageContentAction,
@@ -29,6 +36,9 @@ import {
   getPageConnectionsAction,
   removeConnectionAction,
   togglePageFavoriteAction,
+  getPageActivityAction,
+  getPageVersionsAction,
+  getPageCommentsAction,
 } from "@/lib/pages/actions";
 import { FilePickerModal } from "./file-picker-modal";
 import { PageAttachmentsPanel } from "./page-attachments-panel";
@@ -66,12 +76,19 @@ interface HistoryEntry {
 
 interface BlockEditorProps {
   page: PageRecord;
+  currentUser?: {
+    id: string;
+    email?: string;
+    name?: string;
+    avatar_url?: string | null;
+  };
   onPageTitleChange?: (newTitle: string) => void;
   onPageIconChange?: (newIcon: string) => void;
 }
 
 export function BlockEditor({
   page,
+  currentUser,
   onPageTitleChange,
   onPageIconChange,
 }: BlockEditorProps) {
@@ -88,6 +105,111 @@ export function BlockEditor({
   const [viewMode, setViewMode] = React.useState<PageViewMode>("editor");
   const [connections, setConnections] = React.useState<PageConnectionRecord[]>([]);
   const [isFavorite, setIsFavorite] = React.useState(Boolean(page.is_favorite));
+
+  // Author Spotlight & GitLens Blame State
+  const [highlightedAuthorKey, setHighlightedAuthorKey] = React.useState<string | null>(null);
+
+  const toggleAuthorHighlight = React.useCallback((authorKey: string) => {
+    setHighlightedAuthorKey((prev) => (prev === authorKey ? null : authorKey));
+  }, []);
+
+  const currentAuthorMeta = React.useMemo(
+    () => ({
+      userId: currentUser?.id,
+      name: currentUser?.name || currentUser?.email?.split("@")[0] || "You",
+      email: currentUser?.email || "",
+      avatarUrl: currentUser?.avatar_url || null,
+      editedAt: new Date().toISOString(),
+    }),
+    [currentUser]
+  );
+
+  const isBlockAuthorHighlighted = React.useCallback(
+    (b: EditorBlock) => {
+      if (!highlightedAuthorKey) return false;
+      const bKey =
+        b.author?.userId ||
+        b.author?.name ||
+        b.author?.email ||
+        page.last_edited_by ||
+        page.created_by ||
+        page.last_edited_by_profile?.id ||
+        page.created_by_profile?.id ||
+        page.last_edited_by_profile?.full_name ||
+        page.created_by_profile?.full_name ||
+        page.last_edited_by_profile?.email?.split("@")[0] ||
+        page.created_by_profile?.email?.split("@")[0];
+      return bKey === highlightedAuthorKey;
+    },
+    [highlightedAuthorKey, page]
+  );
+
+  const highlightedInfo = React.useMemo(() => {
+    if (!highlightedAuthorKey) return null;
+    let name = "Author";
+    let count = 0;
+    for (const b of blocks) {
+      const bKey =
+        b.author?.userId ||
+        b.author?.name ||
+        b.author?.email ||
+        page.last_edited_by ||
+        page.created_by ||
+        page.last_edited_by_profile?.id ||
+        page.created_by_profile?.id ||
+        page.last_edited_by_profile?.full_name ||
+        page.created_by_profile?.full_name ||
+        page.last_edited_by_profile?.email?.split("@")[0] ||
+        page.created_by_profile?.email?.split("@")[0];
+      if (bKey === highlightedAuthorKey && b.content && b.content.trim().length > 0) {
+        count++;
+        if (b.author?.name) name = b.author.name;
+        else if (page.last_edited_by_profile?.full_name) name = page.last_edited_by_profile.full_name;
+        else if (page.created_by_profile?.full_name) name = page.created_by_profile.full_name;
+      }
+    }
+    return { name, count };
+  }, [highlightedAuthorKey, blocks, page]);
+
+  // Collaborative & Authorship states
+  const [infoModalOpen, setInfoModalOpen] = React.useState(false);
+  const [activityDrawerOpen, setActivityDrawerOpen] = React.useState(false);
+  const [commentsDrawerOpen, setCommentsDrawerOpen] = React.useState(false);
+  const [activities, setActivities] = React.useState<PageActivityRecord[]>([]);
+  const [versions, setVersions] = React.useState<PageVersionRecord[]>([]);
+  const [comments, setComments] = React.useState<PageCommentRecord[]>([]);
+
+  const loadActivitiesAndVersions = React.useCallback(async () => {
+    try {
+      const [actRes, verRes] = await Promise.all([
+        getPageActivityAction(page.id),
+        getPageVersionsAction(page.id),
+      ]);
+      if (actRes.success) setActivities(actRes.activities);
+      if (verRes.success) setVersions(verRes.versions);
+    } catch (err) {
+      console.error("Failed to load activity & versions:", err);
+    }
+  }, [page.id]);
+
+  const loadComments = React.useCallback(async () => {
+    try {
+      const comRes = await getPageCommentsAction(page.id);
+      if (comRes.success) setComments(comRes.comments);
+    } catch (err) {
+      console.error("Failed to load comments:", err);
+    }
+  }, [page.id]);
+
+  React.useEffect(() => {
+    loadComments();
+  }, [loadComments]);
+
+  React.useEffect(() => {
+    if (activityDrawerOpen) {
+      loadActivitiesAndVersions();
+    }
+  }, [activityDrawerOpen, loadActivitiesAndVersions]);
 
   React.useEffect(() => {
     setIsFavorite(Boolean(page.is_favorite));
@@ -285,6 +407,13 @@ export function BlockEditor({
   // Trigger debounced autosave
   const triggerAutosave = React.useCallback(
     (newBlocks: EditorBlock[], newTitle?: string, newIcon?: string) => {
+      // Synchronously update pendingSaveRef so fast navigation/unmount always saves the newest data
+      pendingSaveRef.current = {
+        title: newTitle !== undefined ? newTitle : pendingSaveRef.current.title,
+        icon: newIcon !== undefined ? newIcon : pendingSaveRef.current.icon,
+        blocks: newBlocks,
+      };
+
       setSaveStatus("saving");
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
@@ -485,7 +614,15 @@ export function BlockEditor({
     }
 
     setBlocks((prev) => {
-      const next = prev.map((b) => (b.id === id ? { ...b, content } : b));
+      const next = prev.map((b) =>
+        b.id === id
+          ? {
+              ...b,
+              content,
+              author: { ...currentAuthorMeta, editedAt: new Date().toISOString() },
+            }
+          : b
+      );
       triggerAutosave(next);
       return next;
     });
@@ -528,7 +665,7 @@ export function BlockEditor({
   };
 
   // Convert block type
-  const handleConvertType = (id: string, newType: BlockType) => {
+  const handleConvertType = (id: string, newType: BlockType, newContent?: string) => {
     pushHistorySnapshot();
     setBlocks((prev) => {
       const next = prev.map((b) => {
@@ -536,6 +673,7 @@ export function BlockEditor({
           return {
             ...b,
             type: newType,
+            content: newContent !== undefined ? newContent : b.content,
             properties: newType === "callout" ? { calloutIcon: "💡" } : (newType === "paragraph" ? undefined : b.properties),
           };
         }
@@ -563,6 +701,7 @@ export function BlockEditor({
       type,
       content: "",
       properties: type === "callout" ? { calloutIcon: "💡" } : undefined,
+      author: { ...currentAuthorMeta, editedAt: new Date().toISOString() },
     };
 
     setBlocks((prev) => {
@@ -953,6 +1092,57 @@ export function BlockEditor({
 
   // Keyboard navigation & Enter/Backspace splitting
   const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>, block: EditorBlock, index: number) => {
+    // SPACE: Instant markdown trigger for # (H1), ## (H2), ### (H3), lists, etc.
+    if (e.key === " " && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      const targetEl = (e.currentTarget || (e.target as HTMLElement)?.closest?.('[contenteditable="true"]') || blockRefs.current.get(block.id)) as HTMLElement | null;
+      if (targetEl) {
+        const rawText = (targetEl.textContent || targetEl.innerText || "").replace(/\u00a0/g, " ").trim();
+
+        // Headings: # -> H1, ## -> H2, ### -> H3
+        if (["paragraph", "heading_1", "heading_2", "heading_3"].includes(block.type)) {
+          if (rawText === "#") {
+            e.preventDefault();
+            handleConvertType(block.id, "heading_1", "");
+            return;
+          }
+          if (rawText === "##") {
+            e.preventDefault();
+            handleConvertType(block.id, "heading_2", "");
+            return;
+          }
+          if (rawText === "###") {
+            e.preventDefault();
+            handleConvertType(block.id, "heading_3", "");
+            return;
+          }
+        }
+
+        // Other standard Notion markdown block shortcuts
+        if (block.type === "paragraph") {
+          if (rawText === "-" || rawText === "*") {
+            e.preventDefault();
+            handleConvertType(block.id, "bullet_list", "");
+            return;
+          }
+          if (/^\d+\.$/.test(rawText)) {
+            e.preventDefault();
+            handleConvertType(block.id, "numbered_list", "");
+            return;
+          }
+          if (rawText === "[]" || rawText === "[ ]") {
+            e.preventDefault();
+            handleConvertType(block.id, "checklist", "");
+            return;
+          }
+          if (rawText === ">") {
+            e.preventDefault();
+            handleConvertType(block.id, "quote", "");
+            return;
+          }
+        }
+      }
+    }
+
     // ENTER
     if (e.key === "Enter" && !e.shiftKey) {
       if (block.type === "code") {
@@ -1037,7 +1227,7 @@ export function BlockEditor({
     if (e.key === "ArrowDown" && index < blocks.length - 1) {
       const targetEl = (e.currentTarget || (e.target as HTMLElement)?.closest?.('[contenteditable="true"]') || blockRefs.current.get(block.id)) as HTMLElement | null;
       const caretOffset = targetEl ? getCaretOffset(targetEl) : 0;
-      const contentLen = targetEl?.innerText?.length || 0;
+      const contentLen = targetEl?.textContent?.length ?? targetEl?.innerText?.length ?? 0;
       if (caretOffset >= contentLen || !contentLen) {
         const nextBlock = blocks[index + 1];
         const nextEl = blockRefs.current.get(nextBlock.id);
@@ -1872,28 +2062,53 @@ export function BlockEditor({
 
       {/* Clean Company Brain Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 pb-6 border-b border-zinc-100 dark:border-zinc-800/80 mb-6">
-        <div className="flex items-center gap-4 min-w-0 flex-1">
+        <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1">
           <EmojiPicker
             currentEmoji={icon}
             onSelectEmoji={handleIconChange}
+            pageId={page.id}
+            iconFileId={page.icon_file_id}
             triggerClassName="h-14 w-14 sm:h-16 sm:w-16 text-4xl sm:text-5xl shrink-0 rounded-2xl hover:bg-zinc-100 dark:hover:bg-zinc-800/60 transition-all"
           />
 
-          {/* Page Title Input */}
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => handleTitleChange(e.target.value)}
-            placeholder="Untitled"
-            className="w-full bg-transparent text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50 placeholder:text-zinc-300 dark:placeholder:text-zinc-700 outline-none border-none p-0 focus:ring-0 truncate py-1"
-          />
+          <div className="flex flex-col min-w-0 flex-1 justify-center">
+            {/* Page Title Input */}
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => handleTitleChange(e.target.value)}
+              placeholder="Untitled"
+              className="w-full bg-transparent text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50 placeholder:text-zinc-300 dark:placeholder:text-zinc-700 outline-none border-none p-0 focus:ring-0 truncate py-1"
+            />
+
+            {/* Subtle Authorship & Relative Timestamp */}
+            <div className="flex items-center gap-1.5 mt-0.5 text-xs text-zinc-400 dark:text-zinc-500 font-normal">
+              <button
+                type="button"
+                onClick={() => setInfoModalOpen(true)}
+                className="inline-flex items-center gap-1 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors cursor-pointer group text-left"
+                title={formatExactDateTime(page.updated_at || page.created_at)}
+              >
+                <span className="font-medium text-zinc-500 dark:text-zinc-400 group-hover:text-zinc-800 dark:group-hover:text-zinc-200 transition-colors">
+                  {page.last_edited_by_profile?.full_name ||
+                    page.last_edited_by_profile?.email ||
+                    page.created_by_profile?.full_name ||
+                    page.created_by_profile?.email ||
+                    (page.created_by ? "Team member" : "System")}
+                </span>
+                <span>·</span>
+                <span>{formatRelativeTime(page.updated_at || page.created_at)}</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {/* Header Action Controls [⭐] [+ Add] [Connect] [View] [...] */}
+          {/* Header Action Controls [⭐] [+ Add] [Connect] [View] [💬] [🕐] [...] */}
           <PageHeaderActions
             currentView={viewMode}
             connectionsCount={connections.length}
+            commentsCount={comments.filter((c) => !c.is_resolved).length}
             isFavorite={isFavorite}
             onToggleFavorite={handleToggleFavorite}
             onViewChange={(view) => setViewMode(view)}
@@ -1921,6 +2136,9 @@ export function BlockEditor({
             onCopyPageLink={async () => {
               await navigator.clipboard.writeText(window.location.href);
             }}
+            onOpenComments={() => setCommentsDrawerOpen(true)}
+            onOpenActivity={() => setActivityDrawerOpen(true)}
+            onOpenPageInfo={() => setInfoModalOpen(true)}
           />
 
           {/* Unobtrusive Save Error Indicator only if save fails */}
@@ -1975,6 +2193,11 @@ export function BlockEditor({
                     dropIndicatorPosition={dropTarget?.index === idx ? dropTarget.position : null}
                     isSelected={selectedBlockIds.has(block.id)}
                     connections={connections}
+                    fallbackAuthorProfile={page.last_edited_by_profile || page.created_by_profile}
+                    fallbackAuthorDate={page.updated_at || page.created_at}
+                    isAuthorHighlighted={isBlockAuthorHighlighted(block)}
+                    onToggleAuthorHighlight={toggleAuthorHighlight}
+                    highlightedAuthorKey={highlightedAuthorKey}
                     onUpdateContent={handleUpdateContent}
                     onUpdateProperties={handleUpdateProperties}
                     onConvertType={handleConvertType}
@@ -2021,6 +2244,8 @@ export function BlockEditor({
       {/* VIEW 2: OUTLINE */}
       {viewMode === "outline" && (
         <PageOutlineView
+          pageId={page.id}
+          iconFileId={page.icon_file_id}
           pageTitle={title}
           pageIcon={icon}
           blocks={blocks}
@@ -2041,6 +2266,7 @@ export function BlockEditor({
       {viewMode === "connections" && (
         <PageConnectionsView
           pageId={page.id}
+          iconFileId={page.icon_file_id}
           pageTitle={title}
           pageIcon={icon}
           connections={connections}
@@ -2210,6 +2436,31 @@ export function BlockEditor({
           </button>
         </div>
       )}
+
+      {/* Collaborative Page Modals & Drawers */}
+      <PageInfoModal
+        page={page}
+        isOpen={infoModalOpen}
+        onClose={() => setInfoModalOpen(false)}
+        connectionsCount={connections.length}
+      />
+
+      <PageActivityDrawer
+        pageId={page.id}
+        isOpen={activityDrawerOpen}
+        onClose={() => setActivityDrawerOpen(false)}
+        activities={activities}
+        versions={versions}
+        onRefresh={loadActivitiesAndVersions}
+      />
+
+      <PageCommentsPanel
+        pageId={page.id}
+        isOpen={commentsDrawerOpen}
+        onClose={() => setCommentsDrawerOpen(false)}
+        comments={comments}
+        onRefresh={loadComments}
+      />
     </div>
   );
 }

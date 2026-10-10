@@ -10,7 +10,7 @@ interface PageDetailProps {
 
 export default async function PageDetailPage({ params }: PageDetailProps) {
   const { id } = await params;
-  const { activeOrg } = await verifyAccessOrRedirect();
+  const { activeOrg, user } = await verifyAccessOrRedirect();
 
   if (!activeOrg) {
     notFound();
@@ -28,6 +28,17 @@ export default async function PageDetailPage({ params }: PageDetailProps) {
       ? breadcrumbs
       : [{ id: page.id, title: page.title, icon: page.icon }];
 
+  const currentUser = {
+    id: user.id,
+    email: user.email || "",
+    name:
+      user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      user.email?.split("@")[0] ||
+      "You",
+    avatar_url: user.user_metadata?.avatar_url || null,
+  };
+
   return (
     <div className="relative min-h-full flex flex-col -mt-6 md:-mt-8 -mx-6 md:-mx-8">
       {/* Top VS Code-Style Breadcrumbs Path Bar */}
@@ -39,7 +50,7 @@ export default async function PageDetailPage({ params }: PageDetailProps) {
 
       {/* Editor Content Canvas */}
       <div className="flex-1 w-full p-6 md:p-8 flex flex-col min-h-full">
-        <BlockEditor page={page} />
+        <BlockEditor page={page} currentUser={currentUser} />
       </div>
     </div>
   );

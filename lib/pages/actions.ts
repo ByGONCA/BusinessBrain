@@ -6,10 +6,28 @@ import { createClient } from "@/lib/supabase/server";
 import { getActiveOrganization } from "@/lib/organizations/queries";
 import { isValidUuid } from "@/lib/security/authorization";
 import { logger } from "@/lib/security/logger";
-import { EditorBlock, PageRecord, CompanyEntityRecord, PageConnectionRecord, EntityType, RelationType, PageBreadcrumbItem } from "./types";
+import {
+  EditorBlock,
+  PageRecord,
+  CompanyEntityRecord,
+  PageConnectionRecord,
+  EntityType,
+  RelationType,
+  PageBreadcrumbItem,
+  PageActivityAction,
+  PageActivityRecord,
+  PageCommentRecord,
+  PageVersionRecord,
+} from "./types";
 import { RelationshipType } from "@/lib/connections/types";
 import { PAGE_TEMPLATES } from "./templates";
-import { getArchivedPages, getPageBreadcrumbs } from "./queries";
+import {
+  getArchivedPages,
+  getPageBreadcrumbs,
+  getPageActivity,
+  getPageVersions,
+  getPageComments,
+} from "./queries";
 
 const pageTitleSchema = z.string().trim().max(255, "Page title too long");
 // Support Unicode emojis, custom image URLs, and compressed base64 data URIs (up to 500KB)
@@ -123,6 +141,7 @@ export async function createPageAction(params?: {
         position: newPosition,
         is_archived: false,
         created_by: user.id,
+        last_edited_by: user.id,
       })
       .select("*")
       .single();
@@ -136,6 +155,29 @@ export async function createPageAction(params?: {
       }
       logger.error("Failed to create page", error, { organizationId: activeOrg.id });
       return { success: false, error: error?.message || "Could not create page" };
+    }
+
+    // Record creation activity & initial version 1 (non-blocking)
+    try {
+      await supabase.from("page_activity").insert({
+        organization_id: activeOrg.id,
+        page_id: data.id,
+        actor_id: user.id,
+        action: "page_created",
+        metadata: { title: initialTitle },
+      });
+
+      await supabase.from("page_versions").insert({
+        organization_id: activeOrg.id,
+        page_id: data.id,
+        version_number: 1,
+        title: initialTitle,
+        content: initialBlocks,
+        content_text: contentText,
+        created_by: user.id,
+      });
+    } catch {
+      // Activity logging does not block page creation
     }
 
     revalidatePath("/dashboard/pages");
@@ -153,6 +195,7 @@ export async function savePageContentAction(params: {
   pageId: string;
   title?: string;
   icon?: string;
+  iconFileId?: string | null;
   blocks: EditorBlock[];
 }): Promise<{ success: boolean; error?: string }> {
   try {
@@ -177,6 +220,7 @@ export async function savePageContentAction(params: {
     const updates: Record<string, unknown> = {
       content: params.blocks,
       content_text: extractPlainText(params.blocks),
+      last_edited_by: user.id,
       updated_at: new Date().toISOString(),
     };
 
@@ -187,6 +231,23 @@ export async function savePageContentAction(params: {
       }
     }
 
+    if (params.iconFileId !== undefined) {
+      if (params.iconFileId === null) {
+        updates.icon_file_id = null;
+      } else if (isValidUuid(params.iconFileId)) {
+        const { data: fileRecord } = await supabase
+          .from("organization_files")
+          .select("id")
+          .eq("id", params.iconFileId)
+          .eq("organization_id", activeOrg.id)
+          .maybeSingle();
+
+        if (fileRecord) {
+          updates.icon_file_id = params.iconFileId;
+        }
+      }
+    }
+
     if (typeof params.icon === "string") {
       const parsedIcon = pageIconSchema.safeParse(params.icon);
       if (parsedIcon.success) {
@@ -194,15 +255,74 @@ export async function savePageContentAction(params: {
       }
     }
 
-    const { error } = await supabase
+    let { error } = await supabase
       .from("pages")
       .update(updates)
       .eq("id", params.pageId)
       .eq("organization_id", activeOrg.id);
 
+    // Resilience fallback: If the database does not have `last_edited_by` column yet (migration 00016 pending in Supabase)
+    if (error && (error.message?.includes("last_edited_by") || (error as { code?: string }).code === "PGRST204")) {
+      const fallbackUpdates = { ...updates };
+      delete fallbackUpdates.last_edited_by;
+      const retryResult = await supabase
+        .from("pages")
+        .update(fallbackUpdates)
+        .eq("id", params.pageId)
+        .eq("organization_id", activeOrg.id);
+      error = retryResult.error;
+    }
+
     if (error) {
       logger.error("Failed to save page content", error, { pageId: params.pageId });
       return { success: false, error: error.message };
+    }
+
+    // Throttle content_edited activity & version snapshotting (at most once every 5 minutes per user)
+    try {
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data: recentActivity } = await supabase
+        .from("page_activity")
+        .select("id")
+        .eq("page_id", params.pageId)
+        .eq("actor_id", user.id)
+        .eq("action", "content_edited")
+        .gte("created_at", fiveMinutesAgo)
+        .limit(1);
+
+      if (!recentActivity || recentActivity.length === 0) {
+        await supabase.from("page_activity").insert({
+          organization_id: activeOrg.id,
+          page_id: params.pageId,
+          actor_id: user.id,
+          action: "content_edited",
+          metadata: {
+            block_count: params.blocks.length,
+          },
+        });
+
+        const { data: latestVersion } = await supabase
+          .from("page_versions")
+          .select("version_number")
+          .eq("page_id", params.pageId)
+          .order("version_number", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const nextVersionNum = (latestVersion?.version_number || 0) + 1;
+
+        await supabase.from("page_versions").insert({
+          organization_id: activeOrg.id,
+          page_id: params.pageId,
+          version_number: nextVersionNum,
+          title: (updates.title as string) || "Untitled",
+          content: params.blocks,
+          content_text: (updates.content_text as string) || "",
+          created_by: user.id,
+        });
+      }
+    } catch {
+      // Activity logging does not block autosave
     }
 
     return { success: true };
@@ -230,20 +350,64 @@ export async function updatePageTitleAction(params: {
     }
 
     const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     const activeOrg = await getActiveOrganization();
     if (!activeOrg) return { success: false, error: "No active organization" };
 
-    const { error } = await supabase
+    const { data: currentPage } = await supabase
+      .from("pages")
+      .select("title")
+      .eq("id", params.pageId)
+      .eq("organization_id", activeOrg.id)
+      .maybeSingle();
+
+    const previousTitle = currentPage?.title || "Untitled";
+    const nextTitle = parsed.data || "Untitled";
+
+    let { error } = await supabase
       .from("pages")
       .update({
-        title: parsed.data || "Untitled",
+        title: nextTitle,
+        last_edited_by: user?.id || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", params.pageId)
       .eq("organization_id", activeOrg.id);
 
+    if (error && (error.message?.includes("last_edited_by") || (error as { code?: string }).code === "PGRST204")) {
+      const retry = await supabase
+        .from("pages")
+        .update({
+          title: nextTitle,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", params.pageId)
+        .eq("organization_id", activeOrg.id);
+      error = retry.error;
+    }
+
     if (error) {
       return { success: false, error: error.message };
+    }
+
+    if (previousTitle !== nextTitle && user?.id) {
+      try {
+        await supabase.from("page_activity").insert({
+          organization_id: activeOrg.id,
+          page_id: params.pageId,
+          actor_id: user.id,
+          action: "page_renamed",
+          metadata: {
+            previous_title: previousTitle,
+            new_title: nextTitle,
+          },
+        });
+      } catch {
+        // Activity logging does not block title update
+      }
     }
 
     revalidatePath(`/dashboard/pages/${params.pageId}`);
@@ -255,32 +419,59 @@ export async function updatePageTitleAction(params: {
 }
 
 /**
- * Updates the page icon emoji.
+ * Updates the page icon emoji or links an uploaded organization file.
  */
 export async function updatePageIconAction(params: {
   pageId: string;
-  icon: string;
+  icon?: string | null;
+  iconFileId?: string | null;
 }): Promise<{ success: boolean; error?: string }> {
   try {
     if (!isValidUuid(params.pageId)) {
       return { success: false, error: "Invalid page ID" };
     }
 
-    const parsed = pageIconSchema.safeParse(params.icon);
-    if (!parsed.success) {
-      return { success: false, error: "Invalid icon" };
-    }
-
     const supabase = await createClient();
     const activeOrg = await getActiveOrganization();
     if (!activeOrg) return { success: false, error: "No active organization" };
 
+    const updates: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (params.iconFileId) {
+      if (!isValidUuid(params.iconFileId)) {
+        return { success: false, error: "Invalid icon file ID" };
+      }
+
+      // Cross-tenant validation: ensure file belongs to active organization
+      const { data: fileRecord, error: fileErr } = await supabase
+        .from("organization_files")
+        .select("id, organization_id")
+        .eq("id", params.iconFileId)
+        .eq("organization_id", activeOrg.id)
+        .maybeSingle();
+
+      if (fileErr || !fileRecord) {
+        return { success: false, error: "Icon file not found in your workspace" };
+      }
+
+      updates.icon_file_id = params.iconFileId;
+      updates.icon = params.icon || "";
+    } else {
+      if (typeof params.icon === "string") {
+        const parsed = pageIconSchema.safeParse(params.icon);
+        if (!parsed.success) {
+          return { success: false, error: "Invalid icon" };
+        }
+        updates.icon = parsed.data;
+      }
+      updates.icon_file_id = null;
+    }
+
     const { error } = await supabase
       .from("pages")
-      .update({
-        icon: parsed.data,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updates)
       .eq("id", params.pageId)
       .eq("organization_id", activeOrg.id);
 
@@ -1324,4 +1515,369 @@ export async function getPageBreadcrumbsAction(pageId: string): Promise<{
     return { success: false, breadcrumbs: [], error: "Failed to load breadcrumbs" };
   }
 }
+
+/**
+ * Records a page activity event (e.g. link copied, page connected, file added).
+ */
+export async function recordPageActivityAction(params: {
+  pageId: string;
+  action: PageActivityAction;
+  metadata?: Record<string, unknown>;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!isValidUuid(params.pageId)) {
+      return { success: false, error: "Invalid page ID" };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    const activeOrg = await getActiveOrganization();
+    if (!activeOrg) return { success: false, error: "No active workspace" };
+
+    const { error } = await supabase.from("page_activity").insert({
+      organization_id: activeOrg.id,
+      page_id: params.pageId,
+      actor_id: user.id,
+      action: params.action,
+      metadata: params.metadata || {},
+    });
+
+    if (error) {
+      logger.error("Failed to record page activity", error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true };
+  } catch (err: unknown) {
+    logger.error("Unexpected error in recordPageActivityAction", err);
+    return { success: false, error: "Failed to record activity" };
+  }
+}
+
+/**
+ * Creates a comment on a page.
+ */
+export async function createPageCommentAction(params: {
+  pageId: string;
+  content: string;
+}): Promise<{ success: boolean; comment?: PageCommentRecord; error?: string }> {
+  try {
+    if (!isValidUuid(params.pageId)) {
+      return { success: false, error: "Invalid page ID" };
+    }
+
+    const cleanContent = params.content?.trim();
+    if (!cleanContent) {
+      return { success: false, error: "Comment content cannot be empty" };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    const activeOrg = await getActiveOrganization();
+    if (!activeOrg) return { success: false, error: "No active workspace" };
+
+    const { data, error } = await supabase
+      .from("page_comments")
+      .insert({
+        organization_id: activeOrg.id,
+        page_id: params.pageId,
+        author_id: user.id,
+        content: cleanContent,
+      })
+      .select("*")
+      .single();
+
+    if (error || !data) {
+      logger.error("Failed to insert page comment", error);
+      return { success: false, error: error?.message || "Failed to create comment" };
+    }
+
+    // Record activity for comment creation
+    try {
+      await supabase.from("page_activity").insert({
+        organization_id: activeOrg.id,
+        page_id: params.pageId,
+        actor_id: user.id,
+        action: "comment_added",
+        metadata: {
+          comment_preview: cleanContent.slice(0, 100),
+        },
+      });
+    } catch {
+      // Activity logging is non-blocking
+    }
+
+    // Fetch author profile
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, avatar_url")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const commentRecord: PageCommentRecord = {
+      ...(data as PageCommentRecord),
+      author_profile: profile || null,
+    };
+
+    revalidatePath(`/dashboard/pages/${params.pageId}`);
+    return { success: true, comment: commentRecord };
+  } catch (err: unknown) {
+    logger.error("Unexpected error in createPageCommentAction", err);
+    return { success: false, error: "Failed to post comment" };
+  }
+}
+
+/**
+ * Resolves or unresolves a comment.
+ */
+export async function resolvePageCommentAction(params: {
+  pageId: string;
+  commentId: string;
+  isResolved: boolean;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!isValidUuid(params.pageId) || !isValidUuid(params.commentId)) {
+      return { success: false, error: "Invalid parameters" };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    const activeOrg = await getActiveOrganization();
+    if (!activeOrg) return { success: false, error: "No active workspace" };
+
+    const { error } = await supabase
+      .from("page_comments")
+      .update({
+        is_resolved: params.isResolved,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", params.commentId)
+      .eq("page_id", params.pageId)
+      .eq("organization_id", activeOrg.id);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    if (params.isResolved) {
+      try {
+        await supabase.from("page_activity").insert({
+          organization_id: activeOrg.id,
+          page_id: params.pageId,
+          actor_id: user.id,
+          action: "comment_resolved",
+          metadata: { comment_id: params.commentId },
+        });
+      } catch {
+        // Non-blocking
+      }
+    }
+
+    revalidatePath(`/dashboard/pages/${params.pageId}`);
+    return { success: true };
+  } catch (err: unknown) {
+    logger.error("Unexpected error in resolvePageCommentAction", err);
+    return { success: false, error: "Failed to update comment" };
+  }
+}
+
+/**
+ * Deletes a comment.
+ */
+export async function deletePageCommentAction(params: {
+  pageId: string;
+  commentId: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!isValidUuid(params.pageId) || !isValidUuid(params.commentId)) {
+      return { success: false, error: "Invalid parameters" };
+    }
+
+    const supabase = await createClient();
+    const activeOrg = await getActiveOrganization();
+    if (!activeOrg) return { success: false, error: "No active workspace" };
+
+    const { error } = await supabase
+      .from("page_comments")
+      .delete()
+      .eq("id", params.commentId)
+      .eq("page_id", params.pageId)
+      .eq("organization_id", activeOrg.id);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath(`/dashboard/pages/${params.pageId}`);
+    return { success: true };
+  } catch (err: unknown) {
+    logger.error("Unexpected error in deletePageCommentAction", err);
+    return { success: false, error: "Failed to delete comment" };
+  }
+}
+
+/**
+ * Restores a historical version of a page.
+ */
+export async function restorePageVersionAction(params: {
+  pageId: string;
+  versionId: string;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!isValidUuid(params.pageId) || !isValidUuid(params.versionId)) {
+      return { success: false, error: "Invalid parameters" };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    const activeOrg = await getActiveOrganization();
+    if (!activeOrg) return { success: false, error: "No active workspace" };
+
+    const { data: version, error: verErr } = await supabase
+      .from("page_versions")
+      .select("*")
+      .eq("id", params.versionId)
+      .eq("page_id", params.pageId)
+      .eq("organization_id", activeOrg.id)
+      .maybeSingle();
+
+    if (verErr || !version) {
+      return { success: false, error: "Version not found" };
+    }
+
+    // Update active page content
+    const { error: updateErr } = await supabase
+      .from("pages")
+      .update({
+        title: version.title,
+        content: version.content,
+        content_text: version.content_text,
+        last_edited_by: user.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", params.pageId)
+      .eq("organization_id", activeOrg.id);
+
+    if (updateErr) {
+      return { success: false, error: updateErr.message };
+    }
+
+    // Record activity for restoration
+    try {
+      await supabase.from("page_activity").insert({
+        organization_id: activeOrg.id,
+        page_id: params.pageId,
+        actor_id: user.id,
+        action: "version_restored",
+        metadata: {
+          restored_version_number: version.version_number,
+          version_id: version.id,
+        },
+      });
+    } catch {
+      // Non-blocking
+    }
+
+    revalidatePath(`/dashboard/pages/${params.pageId}`);
+    return { success: true };
+  } catch (err: unknown) {
+    logger.error("Unexpected error in restorePageVersionAction", err);
+    return { success: false, error: "Failed to restore version" };
+  }
+}
+
+/**
+ * Fetches page activity records for the active organization.
+ */
+export async function getPageActivityAction(
+  pageId: string,
+  limit = 50
+): Promise<{ success: boolean; activities: PageActivityRecord[]; error?: string }> {
+  try {
+    if (!isValidUuid(pageId)) {
+      return { success: false, activities: [], error: "Invalid page ID" };
+    }
+
+    const activeOrg = await getActiveOrganization();
+    if (!activeOrg) {
+      return { success: false, activities: [], error: "No active workspace" };
+    }
+
+    const activities = await getPageActivity(pageId, activeOrg.id, limit);
+    return { success: true, activities };
+  } catch (err: unknown) {
+    logger.error("Error in getPageActivityAction", err);
+    return { success: false, activities: [], error: "Failed to load activity" };
+  }
+}
+
+/**
+ * Fetches saved page versions for the active organization.
+ */
+export async function getPageVersionsAction(
+  pageId: string
+): Promise<{ success: boolean; versions: PageVersionRecord[]; error?: string }> {
+  try {
+    if (!isValidUuid(pageId)) {
+      return { success: false, versions: [], error: "Invalid page ID" };
+    }
+
+    const activeOrg = await getActiveOrganization();
+    if (!activeOrg) {
+      return { success: false, versions: [], error: "No active workspace" };
+    }
+
+    const versions = await getPageVersions(pageId, activeOrg.id);
+    return { success: true, versions };
+  } catch (err: unknown) {
+    logger.error("Error in getPageVersionsAction", err);
+    return { success: false, versions: [], error: "Failed to load versions" };
+  }
+}
+
+/**
+ * Fetches comments for a page within the active organization.
+ */
+export async function getPageCommentsAction(
+  pageId: string
+): Promise<{ success: boolean; comments: PageCommentRecord[]; error?: string }> {
+  try {
+    if (!isValidUuid(pageId)) {
+      return { success: false, comments: [], error: "Invalid page ID" };
+    }
+
+    const activeOrg = await getActiveOrganization();
+    if (!activeOrg) {
+      return { success: false, comments: [], error: "No active workspace" };
+    }
+
+    const comments = await getPageComments(pageId, activeOrg.id);
+    return { success: true, comments };
+  } catch (err: unknown) {
+    logger.error("Error in getPageCommentsAction", err);
+    return { success: false, comments: [], error: "Failed to load comments" };
+  }
+}
+
+
 

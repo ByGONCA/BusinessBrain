@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { TypographyProvider } from "@/components/theme/typography-provider";
 import { LanguageProvider } from "@/lib/i18n/context";
 
 export const metadata: Metadata = {
@@ -15,6 +16,7 @@ const themeScript = `
       var saved = localStorage.getItem('cb_theme_mode');
       var contrast = localStorage.getItem('cb_contrast_mode');
       var locale = localStorage.getItem('cb_locale');
+      var typo = localStorage.getItem('cb_typography_settings');
       var isDark = true;
       if (saved === 'light') {
         isDark = false;
@@ -39,6 +41,15 @@ const themeScript = `
       if (locale) {
         root.lang = locale;
       }
+      if (typo) {
+        try {
+          var parsed = JSON.parse(typo);
+          if (parsed.baseFontSize) root.style.setProperty('--cb-font-base', parsed.baseFontSize);
+          if (parsed.h1Size) root.style.setProperty('--cb-h1-size', parsed.h1Size);
+          if (parsed.h2Size) root.style.setProperty('--cb-h2-size', parsed.h2Size);
+          if (parsed.h3Size) root.style.setProperty('--cb-h3-size', parsed.h3Size);
+        } catch (e) {}
+      }
     } catch (e) {}
   })();
 `;
@@ -55,7 +66,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-background text-foreground antialiased selection:bg-blue-600/30 transition-colors duration-150">
         <ThemeProvider>
-          <LanguageProvider>{children}</LanguageProvider>
+          <TypographyProvider>
+            <LanguageProvider>{children}</LanguageProvider>
+          </TypographyProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -49,6 +49,7 @@ import {
   Upload,
   FileSpreadsheet,
   FileCode,
+  Github,
 } from "lucide-react";
 import {
   EditorBlock,
@@ -56,11 +57,15 @@ import {
   PageConnectionRecord,
   RelationType,
   RELATION_LABELS,
+  PageAuthorProfile,
 } from "@/lib/pages/types";
+import { formatRelativeTime, formatExactDateTime } from "@/lib/utils/time";
 import { EmojiPicker } from "./emoji-picker";
 import { focusBlockCaretEnd, restoreCaretOffset, getCaretOffset } from "./caret-utils";
 import { CompanyBrainToolbarAction } from "./floating-format-toolbar";
 import { PdfViewerModal } from "./pdf-viewer-modal";
+import { useSettings } from "@/components/dashboard/settings/settings-context";
+import { PageCalendarBlock } from "@/components/dashboard/calendar/page-calendar-block";
 import { cn } from "@/lib/utils";
 
 interface BlockItemProps {
@@ -76,9 +81,14 @@ interface BlockItemProps {
   dropIndicatorPosition?: "before" | "after" | null;
   isSelected?: boolean;
   connections?: PageConnectionRecord[];
+  fallbackAuthorProfile?: PageAuthorProfile | null;
+  fallbackAuthorDate?: string;
+  isAuthorHighlighted?: boolean;
+  onToggleAuthorHighlight?: (authorKey: string) => void;
+  highlightedAuthorKey?: string | null;
   onUpdateContent: (id: string, content: string) => void;
   onUpdateProperties: (id: string, properties: Partial<EditorBlock["properties"]>) => void;
-  onConvertType: (id: string, newType: BlockType) => void;
+  onConvertType: (id: string, newType: BlockType, newContent?: string) => void;
   onInsertBelow: (index: number) => void;
   onDeleteBlock: (id: string) => void;
   onMoveUp: (index: number) => void;
@@ -133,7 +143,35 @@ export function BlockItem({
   onDragBlockLeave,
   onDragBlockEnd,
   onDropBlock,
-}: BlockItemProps) {
+  fallbackAuthorProfile,
+  fallbackAuthorDate,
+  isAuthorHighlighted = false,
+  onToggleAuthorHighlight,
+  highlightedAuthorKey,
+  onOpenSettings,
+}: BlockItemProps & { onOpenSettings?: () => void }) {
+  const authorName =
+    block.author?.name ||
+    fallbackAuthorProfile?.full_name ||
+    block.author?.email?.split("@")[0] ||
+    fallbackAuthorProfile?.email?.split("@")[0] ||
+    "Author";
+
+  const authorKey =
+    block.author?.userId ||
+    block.author?.name ||
+    block.author?.email ||
+    fallbackAuthorProfile?.id ||
+    fallbackAuthorProfile?.full_name ||
+    authorName;
+
+  const authorAvatarUrl = block.author?.avatarUrl || fallbackAuthorProfile?.avatar_url || null;
+  const authorDate = block.author?.editedAt || fallbackAuthorDate || new Date().toISOString();
+  const authorRelativeTime = formatRelativeTime(authorDate);
+  const authorExactTime = formatExactDateTime(authorDate);
+  const hasContent = Boolean(block.content && block.content.trim().length > 0);
+
+  const { openSettings } = useSettings();
   const [copied, setCopied] = React.useState(false);
   const [linkCopied, setLinkCopied] = React.useState(false);
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -208,6 +246,47 @@ export function BlockItem({
 
   const showPlaceholder = isSelfFocused || isFocused || (index === 0 && totalBlocks === 1 && !block.content);
 
+  const isLineActive = isSelfFocused || isFocused || isAuthorHighlighted;
+
+  const renderBlame = () => {
+    if (!hasContent) return null;
+
+    return (
+      <button
+        type="button"
+        contentEditable={false}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleAuthorHighlight?.(authorKey);
+        }}
+        className={cn(
+          "items-center gap-1.5 ml-2.5 px-1 py-0.5 text-[11px] font-sans transition-all duration-150 select-none cursor-pointer align-baseline shrink-0",
+          isLineActive ? "inline-flex" : "hidden group-hover:inline-flex",
+          isAuthorHighlighted
+            ? "opacity-100 text-blue-600 dark:text-blue-400 font-semibold"
+            : "opacity-40 hover:opacity-100 text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+        )}
+        title={`Edited by ${authorName} · ${authorRelativeTime} (${authorExactTime})\nClick to highlight all edits by ${authorName} on this page`}
+      >
+        {authorAvatarUrl ? (
+          <img
+            src={authorAvatarUrl}
+            alt={authorName}
+            className="h-3.5 w-3.5 rounded-full object-cover shrink-0"
+          />
+        ) : (
+          <span className="h-3.5 w-3.5 rounded-full bg-blue-600/20 text-blue-400 text-[9px] font-bold flex items-center justify-center uppercase shrink-0 border border-blue-500/30">
+            {authorName.charAt(0)}
+          </span>
+        )}
+        <span className="font-medium truncate max-w-[130px]">{authorName}</span>
+        <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-normal">
+          · {authorRelativeTime}
+        </span>
+      </button>
+    );
+  };
+
   // Sync ref registration
   const setRef = React.useCallback(
     (el: HTMLElement | null) => {
@@ -242,64 +321,69 @@ export function BlockItem({
   // Input change with Markdown auto-formatting shortcuts and slash/@ detection
   const handleInput = (e: React.FormEvent<HTMLElement>) => {
     const target = e.currentTarget;
-    const text = target.innerText;
+    // Extract text safely: textContent preserves all spaces and doesn't collapse trailing spaces
+    let rawText = target.textContent || "";
+    if (target.innerHTML.includes("<br") || target.innerHTML.includes("<div") || target.innerHTML.includes("<p")) {
+      const inner = target.innerText || "";
+      if (rawText.endsWith(" ") && !inner.endsWith(" ")) {
+        rawText = inner + " ";
+      } else {
+        rawText = inner;
+      }
+    }
+    const text = rawText.replace(/\u00a0/g, " ");
     isTypingRef.current = true;
     lastCaretOffsetRef.current = getCaretOffset(target);
 
-    // Check for inline markdown shortcuts when on a paragraph
-    if (block.type === "paragraph") {
-      if (text.startsWith("# ")) {
+    // Check for inline markdown shortcuts on paragraphs or headings (# -> H1, ## -> H2, ### -> H3)
+    if (["paragraph", "heading_1", "heading_2", "heading_3"].includes(block.type)) {
+      if (text.startsWith("### ")) {
         e.preventDefault();
-        onConvertType(block.id, "heading_1");
-        onUpdateContent(block.id, text.slice(2));
+        onConvertType(block.id, "heading_3", text.slice(4));
         return;
       }
       if (text.startsWith("## ")) {
         e.preventDefault();
-        onConvertType(block.id, "heading_2");
-        onUpdateContent(block.id, text.slice(3));
+        onConvertType(block.id, "heading_2", text.slice(3));
         return;
       }
-      if (text.startsWith("### ")) {
+      if (text.startsWith("# ")) {
         e.preventDefault();
-        onConvertType(block.id, "heading_3");
-        onUpdateContent(block.id, text.slice(4));
+        onConvertType(block.id, "heading_1", text.slice(2));
         return;
       }
+    }
+
+    // Additional standard markdown shortcuts on paragraphs
+    if (block.type === "paragraph") {
       if (text.startsWith("- ") || text.startsWith("* ")) {
         e.preventDefault();
-        onConvertType(block.id, "bullet_list");
-        onUpdateContent(block.id, text.slice(2));
+        onConvertType(block.id, "bullet_list", text.slice(2));
         return;
       }
       if (/^\d+\.\s/.test(text)) {
         e.preventDefault();
-        onConvertType(block.id, "numbered_list");
-        onUpdateContent(block.id, text.replace(/^\d+\.\s/, ""));
+        onConvertType(block.id, "numbered_list", text.replace(/^\d+\.\s/, ""));
         return;
       }
       if (text.startsWith("[] ") || text.startsWith("[ ] ")) {
         e.preventDefault();
-        onConvertType(block.id, "checklist");
-        onUpdateContent(block.id, text.replace(/^\[\s?\]\s?/, ""));
+        onConvertType(block.id, "checklist", text.replace(/^\[\s?\]\s?/, ""));
         return;
       }
       if (text.startsWith("> ")) {
         e.preventDefault();
-        onConvertType(block.id, "quote");
-        onUpdateContent(block.id, text.slice(2));
+        onConvertType(block.id, "quote", text.slice(2));
         return;
       }
       if (text.startsWith("---")) {
         e.preventDefault();
-        onConvertType(block.id, "divider");
-        onUpdateContent(block.id, "");
+        onConvertType(block.id, "divider", "");
         return;
       }
       if (text.startsWith("```")) {
         e.preventDefault();
-        onConvertType(block.id, "code");
-        onUpdateContent(block.id, text.slice(3).trim());
+        onConvertType(block.id, "code", text.slice(3).trim());
         return;
       }
     }
@@ -612,79 +696,15 @@ export function BlockItem({
         <div className="flex-1 min-w-0">
           {/* PARAGRAPH */}
           {block.type === "paragraph" && (
-            <p
-              ref={setRef}
-              contentEditable
-              suppressContentEditableWarning
-              onInput={handleInput}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              onKeyDown={(e) => onKeyDown(e, block, index)}
-              data-placeholder={showPlaceholder ? "Type '/' for commands or '@' to link..." : ""}
-              className="outline-none min-h-[1.5rem] text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none"
+            <div
+              className="w-full leading-relaxed"
+              onClick={(e) => {
+                if (e.target === e.currentTarget && editableRef.current) {
+                  focusBlockCaretEnd(editableRef.current);
+                }
+              }}
             >
-              {block.content}
-            </p>
-          )}
-
-          {/* HEADING 1 */}
-          {block.type === "heading_1" && (
-            <h1
-              ref={setRef}
-              contentEditable
-              suppressContentEditableWarning
-              onInput={handleInput}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              onKeyDown={(e) => onKeyDown(e, block, index)}
-              data-placeholder={showPlaceholder ? "Heading 1" : ""}
-              className="outline-none min-h-[2rem] text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50 empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none"
-            >
-              {block.content}
-            </h1>
-          )}
-
-          {/* HEADING 2 */}
-          {block.type === "heading_2" && (
-            <h2
-              ref={setRef}
-              contentEditable
-              suppressContentEditableWarning
-              onInput={handleInput}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              onKeyDown={(e) => onKeyDown(e, block, index)}
-              data-placeholder={showPlaceholder ? "Heading 2" : ""}
-              className="outline-none min-h-[1.75rem] text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none"
-            >
-              {block.content}
-            </h2>
-          )}
-
-          {/* HEADING 3 */}
-          {block.type === "heading_3" && (
-            <h3
-              ref={setRef}
-              contentEditable
-              suppressContentEditableWarning
-              onInput={handleInput}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              onKeyDown={(e) => onKeyDown(e, block, index)}
-              data-placeholder={showPlaceholder ? "Heading 3" : ""}
-              className="outline-none min-h-[1.5rem] text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-200 empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none"
-            >
-              {block.content}
-            </h3>
-          )}
-
-          {/* BULLETED LIST */}
-          {block.type === "bullet_list" && (
-            <div className="flex items-start gap-2">
-              <div className="flex items-center justify-center w-5 h-6 shrink-0 select-none">
-                <span className="h-1.5 w-1.5 rounded-full bg-zinc-700 dark:bg-zinc-300" />
-              </div>
-              <div
+              <p
                 ref={setRef}
                 contentEditable
                 suppressContentEditableWarning
@@ -692,39 +712,187 @@ export function BlockItem({
                 onFocus={handleFocus}
                 onBlur={handleBlur}
                 onKeyDown={(e) => onKeyDown(e, block, index)}
-                data-placeholder={showPlaceholder ? "List item..." : ""}
-                className="flex-1 outline-none min-h-[1.5rem] text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none"
+                data-placeholder={showPlaceholder ? "Type '/' for commands or '@' to link..." : ""}
+                className={cn(
+                  "outline-none text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap break-words inline",
+                  !hasContent && "inline-block min-h-[1.5rem] w-full empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none",
+                  isAuthorHighlighted && hasContent && "bg-blue-500/30 dark:bg-blue-400/30 text-blue-950 dark:text-blue-50 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]"
+                )}
               >
                 {block.content}
+              </p>
+              {renderBlame()}
+            </div>
+          )}
+
+          {/* HEADING 1 */}
+          {block.type === "heading_1" && (
+            <div
+              className="w-full leading-tight"
+              onClick={(e) => {
+                if (e.target === e.currentTarget && editableRef.current) {
+                  focusBlockCaretEnd(editableRef.current);
+                }
+              }}
+            >
+              <h1
+                ref={setRef}
+                contentEditable
+                suppressContentEditableWarning
+                onInput={handleInput}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
+                onKeyDown={(e) => onKeyDown(e, block, index)}
+                data-placeholder={showPlaceholder ? "Heading 1" : ""}
+                className={cn(
+                  "outline-none text-2xl font-bold tracking-tight text-zinc-950 dark:text-zinc-50 whitespace-pre-wrap break-words inline",
+                  !hasContent && "inline-block min-h-[2rem] w-full empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none",
+                  isAuthorHighlighted && hasContent && "bg-blue-500/30 dark:bg-blue-400/30 text-blue-950 dark:text-blue-50 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]"
+                )}
+              >
+                {block.content}
+              </h1>
+              {renderBlame()}
+            </div>
+          )}
+
+          {/* HEADING 2 */}
+          {block.type === "heading_2" && (
+            <div
+              className="w-full leading-snug"
+              onClick={(e) => {
+                if (e.target === e.currentTarget && editableRef.current) {
+                  focusBlockCaretEnd(editableRef.current);
+                }
+              }}
+            >
+              <h2
+                ref={setRef}
+                contentEditable
+                suppressContentEditableWarning
+                onInput={handleInput}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
+                onKeyDown={(e) => onKeyDown(e, block, index)}
+                data-placeholder={showPlaceholder ? "Heading 2" : ""}
+                className={cn(
+                  "outline-none text-xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100 whitespace-pre-wrap break-words inline",
+                  !hasContent && "inline-block min-h-[1.75rem] w-full empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none",
+                  isAuthorHighlighted && hasContent && "bg-blue-500/30 dark:bg-blue-400/30 text-blue-950 dark:text-blue-50 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]"
+                )}
+              >
+                {block.content}
+              </h2>
+              {renderBlame()}
+            </div>
+          )}
+
+          {/* HEADING 3 */}
+          {block.type === "heading_3" && (
+            <div
+              className="w-full leading-snug"
+              onClick={(e) => {
+                if (e.target === e.currentTarget && editableRef.current) {
+                  focusBlockCaretEnd(editableRef.current);
+                }
+              }}
+            >
+              <h3
+                ref={setRef}
+                contentEditable
+                suppressContentEditableWarning
+                onInput={handleInput}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
+                onKeyDown={(e) => onKeyDown(e, block, index)}
+                data-placeholder={showPlaceholder ? "Heading 3" : ""}
+                className={cn(
+                  "outline-none text-base font-semibold tracking-tight text-zinc-900 dark:text-zinc-200 whitespace-pre-wrap break-words inline",
+                  !hasContent && "inline-block min-h-[1.5rem] w-full empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none",
+                  isAuthorHighlighted && hasContent && "bg-blue-500/30 dark:bg-blue-400/30 text-blue-950 dark:text-blue-50 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]"
+                )}
+              >
+                {block.content}
+              </h3>
+              {renderBlame()}
+            </div>
+          )}
+
+          {/* BULLETED LIST */}
+          {block.type === "bullet_list" && (
+            <div className="flex items-start gap-2 w-full">
+              <div className="flex items-center justify-center w-5 h-6 shrink-0 select-none">
+                <span className="h-1.5 w-1.5 rounded-full bg-zinc-700 dark:bg-zinc-300" />
+              </div>
+              <div
+                className="flex-1 min-w-0 leading-relaxed"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget && editableRef.current) {
+                    focusBlockCaretEnd(editableRef.current);
+                  }
+                }}
+              >
+                <div
+                  ref={setRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={handleInput}
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                  onKeyDown={(e) => onKeyDown(e, block, index)}
+                  data-placeholder={showPlaceholder ? "List item..." : ""}
+                  className={cn(
+                    "outline-none text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap break-words inline",
+                    !hasContent && "inline-block min-h-[1.5rem] w-full empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none",
+                    isAuthorHighlighted && hasContent && "bg-blue-500/30 dark:bg-blue-400/30 text-blue-950 dark:text-blue-50 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]"
+                  )}
+                >
+                  {block.content}
+                </div>
+                {renderBlame()}
               </div>
             </div>
           )}
 
           {/* NUMBERED LIST */}
           {block.type === "numbered_list" && (
-            <div className="flex items-start gap-2">
+            <div className="flex items-start gap-2 w-full">
               <span className="text-sm font-medium text-zinc-500 dark:text-zinc-400 shrink-0 select-none w-5 text-center leading-relaxed tabular-nums">
                 {listNumber ?? 1}.
               </span>
               <div
-                ref={setRef}
-                contentEditable
-                suppressContentEditableWarning
-                onInput={handleInput}
-                onFocus={handleFocus}
-                onBlur={handleBlur}
-                onKeyDown={(e) => onKeyDown(e, block, index)}
-                data-placeholder={showPlaceholder ? "List item..." : ""}
-                className="flex-1 outline-none min-h-[1.5rem] text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none"
+                className="flex-1 min-w-0 leading-relaxed"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget && editableRef.current) {
+                    focusBlockCaretEnd(editableRef.current);
+                  }
+                }}
               >
-                {block.content}
+                <div
+                  ref={setRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={handleInput}
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                  onKeyDown={(e) => onKeyDown(e, block, index)}
+                  data-placeholder={showPlaceholder ? "List item..." : ""}
+                  className={cn(
+                    "outline-none text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap break-words inline",
+                    !hasContent && "inline-block min-h-[1.5rem] w-full empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none",
+                    isAuthorHighlighted && hasContent && "bg-blue-500/30 dark:bg-blue-400/30 text-blue-950 dark:text-blue-50 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]"
+                  )}
+                >
+                  {block.content}
+                </div>
+                {renderBlame()}
               </div>
             </div>
           )}
 
           {/* CHECKLIST */}
           {block.type === "checklist" && (
-            <div className="flex items-start gap-2">
+            <div className="flex items-start gap-2 w-full">
               <div className="flex items-center justify-center w-5 h-6 shrink-0">
                 <input
                   type="checkbox"
@@ -734,25 +902,39 @@ export function BlockItem({
                 />
               </div>
               <div
-                ref={setRef}
-                contentEditable
-                suppressContentEditableWarning
-                onInput={handleInput}
-                onFocus={handleFocus}
-                onBlur={handleBlur}
-                onKeyDown={(e) => onKeyDown(e, block, index)}
-                data-placeholder={showPlaceholder ? "To-do..." : ""}
-                className="flex-1 outline-none min-h-[1.5rem] text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none"
+                className="flex-1 min-w-0 leading-relaxed"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget && editableRef.current) {
+                    focusBlockCaretEnd(editableRef.current);
+                  }
+                }}
               >
-                {block.content}
+                <div
+                  ref={setRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={handleInput}
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                  onKeyDown={(e) => onKeyDown(e, block, index)}
+                  data-placeholder={showPlaceholder ? "To-do..." : ""}
+                  className={cn(
+                    "outline-none text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap break-words inline",
+                    !hasContent && "inline-block min-h-[1.5rem] w-full empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none",
+                    isAuthorHighlighted && hasContent && "bg-blue-500/30 dark:bg-blue-400/30 text-blue-950 dark:text-blue-50 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]"
+                  )}
+                >
+                  {block.content}
+                </div>
+                {renderBlame()}
               </div>
             </div>
           )}
 
           {/* TOGGLE */}
           {block.type === "toggle" && (
-            <div className="flex flex-col my-1">
-              <div className="flex items-start gap-1.5">
+            <div className="flex flex-col my-1 w-full">
+              <div className="flex items-start gap-1.5 w-full">
                 <button
                   type="button"
                   onClick={() => onUpdateProperties(block.id, { isOpen: !block.properties?.isOpen })}
@@ -766,17 +948,31 @@ export function BlockItem({
                   />
                 </button>
                 <div
-                  ref={setRef}
-                  contentEditable
-                  suppressContentEditableWarning
-                  onInput={handleInput}
-                  onFocus={handleFocus}
-                  onBlur={handleBlur}
-                  onKeyDown={(e) => onKeyDown(e, block, index)}
-                  data-placeholder={showPlaceholder ? "Toggle header..." : ""}
-                  className="flex-1 outline-none min-h-[1.5rem] text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none"
+                  className="flex-1 min-w-0 leading-relaxed"
+                  onClick={(e) => {
+                    if (e.target === e.currentTarget && editableRef.current) {
+                      focusBlockCaretEnd(editableRef.current);
+                    }
+                  }}
                 >
-                  {block.content}
+                  <div
+                    ref={setRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={handleInput}
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
+                    onKeyDown={(e) => onKeyDown(e, block, index)}
+                    data-placeholder={showPlaceholder ? "Toggle header..." : ""}
+                    className={cn(
+                      "outline-none text-sm font-medium text-zinc-900 dark:text-zinc-100 leading-relaxed whitespace-pre-wrap break-words inline",
+                      !hasContent && "inline-block min-h-[1.5rem] w-full empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none",
+                      isAuthorHighlighted && hasContent && "bg-blue-500/30 dark:bg-blue-400/30 text-blue-950 dark:text-blue-50 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]"
+                    )}
+                  >
+                    {block.content}
+                  </div>
+                  {renderBlame()}
                 </div>
               </div>
               {block.properties?.isOpen && (
@@ -789,7 +985,14 @@ export function BlockItem({
 
           {/* QUOTE */}
           {block.type === "quote" && (
-            <blockquote className="border-l-2 border-zinc-400 dark:border-zinc-600 pl-3.5 py-0.5 italic">
+            <blockquote
+              className="border-l-2 border-zinc-400 dark:border-zinc-600 pl-3.5 py-0.5 italic leading-relaxed w-full"
+              onClick={(e) => {
+                if (e.target === e.currentTarget && editableRef.current) {
+                  focusBlockCaretEnd(editableRef.current);
+                }
+              }}
+            >
               <div
                 ref={setRef}
                 contentEditable
@@ -799,10 +1002,15 @@ export function BlockItem({
                 onBlur={handleBlur}
                 onKeyDown={(e) => onKeyDown(e, block, index)}
                 data-placeholder={showPlaceholder ? "Empty quote..." : ""}
-                className="outline-none min-h-[1.5rem] text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none"
+                className={cn(
+                  "outline-none text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap break-words inline",
+                  !hasContent && "inline-block min-h-[1.5rem] w-full empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none",
+                  isAuthorHighlighted && hasContent && "bg-blue-500/30 dark:bg-blue-400/30 text-blue-950 dark:text-blue-50 [box-decoration-break:clone] [-webkit-box-decoration-break:clone]"
+                )}
               >
                 {block.content}
               </div>
+              {renderBlame()}
             </blockquote>
           )}
 
@@ -817,9 +1025,12 @@ export function BlockItem({
           {block.type === "code" && (
             <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-900 text-zinc-100 overflow-hidden my-1">
               <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-950/60 border-b border-zinc-800/80 text-xs text-zinc-400">
-                <span className="font-mono text-[11px] uppercase tracking-wider">
-                  {block.properties?.language || "Code"}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[11px] uppercase tracking-wider">
+                    {block.properties?.language || "Code"}
+                  </span>
+                  {renderBlame()}
+                </div>
                 <button
                   type="button"
                   onClick={handleCopyCode}
@@ -865,7 +1076,7 @@ export function BlockItem({
                 onBlur={handleBlur}
                 onKeyDown={(e) => onKeyDown(e, block, index)}
                 data-placeholder={showPlaceholder ? "Type callout context..." : ""}
-                className="flex-1 outline-none min-h-[1.5rem] text-sm text-zinc-800 dark:text-zinc-200 leading-6 empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none"
+                className="flex-1 outline-none min-h-[1.5rem] text-sm text-zinc-800 dark:text-zinc-200 leading-6 empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-400 empty:before:pointer-events-none whitespace-pre-wrap break-words"
               >
                 {block.content}
               </div>
@@ -881,12 +1092,13 @@ export function BlockItem({
                     <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
                     <span>External image unavailable — reconnect Google Drive to access.</span>
                   </div>
-                  <a
-                    href="/dashboard/settings/integrations"
+                  <button
+                    type="button"
+                    onClick={() => openSettings("integrations")}
                     className="px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-medium text-[11px] transition-colors"
                   >
                     Reconnect
-                  </a>
+                  </button>
                 </div>
               ) : block.properties?.mediaUrl ? (
                 <div className="space-y-1.5">
@@ -962,12 +1174,13 @@ export function BlockItem({
                     <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
                     <span>External video unavailable — reconnect Google Drive to access.</span>
                   </div>
-                  <a
-                    href="/dashboard/settings/integrations"
+                  <button
+                    type="button"
+                    onClick={() => openSettings("integrations")}
                     className="px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-medium text-[11px] transition-colors"
                   >
                     Reconnect
-                  </a>
+                  </button>
                 </div>
               ) : block.properties?.mediaUrl ? (
                 <div className="space-y-1.5">
@@ -1061,12 +1274,13 @@ export function BlockItem({
                     <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
                     <span>External file unavailable — reconnect Google Drive to access.</span>
                   </div>
-                  <a
-                    href="/dashboard/settings/integrations"
+                  <button
+                    type="button"
+                    onClick={() => openSettings("integrations")}
                     className="px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-medium text-[11px] transition-colors"
                   >
                     Reconnect
-                  </a>
+                  </button>
                 </div>
               ) : block.properties?.mediaUrl || block.properties?.fileName ? (
                 <div className="flex items-center justify-between gap-3">
@@ -1488,47 +1702,13 @@ export function BlockItem({
           })()}
 
           {/* CALENDAR */}
-          {block.type === "calendar" && (() => {
-            const calData = block.properties?.calendarData || {
-              events: [{ id: "ev-1", title: "Product Sync", date: new Date().toISOString().split("T")[0] }],
-            };
-
-            const addEvent = () => {
-              onUpdateProperties(block.id, {
-                calendarData: {
-                  events: [
-                    ...calData.events,
-                    { id: crypto.randomUUID(), title: "New Event", date: new Date().toISOString().split("T")[0] },
-                  ],
-                },
-              });
-            };
-
-            return (
-              <div className="my-2 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
-                <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800 mb-2">
-                  <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5 text-indigo-500" /> Event Calendar
-                  </span>
-                  <button
-                    type="button"
-                    onClick={addEvent}
-                    className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
-                  >
-                    + Add event
-                  </button>
-                </div>
-                <div className="space-y-1.5">
-                  {calData.events.map((ev) => (
-                    <div key={ev.id} className="flex items-center justify-between p-2 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700 text-xs">
-                      <span className="font-medium text-zinc-800 dark:text-zinc-200">{ev.title}</span>
-                      <span className="text-[11px] text-zinc-400 font-mono">{ev.date}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
+          {block.type === "calendar" && (
+            <PageCalendarBlock
+              blockId={block.id}
+              properties={block.properties}
+              onUpdateProperties={onUpdateProperties}
+            />
+          )}
 
           {/* EQUATION */}
           {block.type === "equation" && (
@@ -1639,6 +1819,87 @@ export function BlockItem({
               />
             </div>
           )}
+
+          {/* GITHUB REFERENCE BLOCK */}
+          {block.type === "github" && (() => {
+            const gh = block.properties?.githubData || {
+              type: "repo",
+              title: block.content || "GitHub Reference",
+              url: "https://github.com",
+              state: "open",
+              repoFullName: "organization/repository",
+            };
+
+            return (
+              <div className="my-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50 p-3.5 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all shadow-2xs">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-2xs shrink-0">
+                      <Github className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <a
+                          href={gh.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 hover:text-blue-500 transition-colors truncate"
+                        >
+                          {gh.title}
+                        </a>
+                        {gh.number && (
+                          <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400">
+                            #{gh.number}
+                          </span>
+                        )}
+                        {gh.state && (
+                          <span
+                            className={cn(
+                              "text-[10px] font-medium px-2 py-0.5 rounded-full capitalize border",
+                              gh.state === "open"
+                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                                : gh.state === "merged"
+                                ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
+                                : "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20"
+                            )}
+                          >
+                            {gh.state}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
+                        {gh.repoFullName && <span className="font-mono">{gh.repoFullName}</span>}
+                        {gh.authorLogin && (
+                          <>
+                            <span>•</span>
+                            <span>by {gh.authorLogin}</span>
+                          </>
+                        )}
+                        {gh.updatedAt && (
+                          <>
+                            <span>•</span>
+                            <span>{formatRelativeTime(gh.updatedAt)}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <a
+                      href={gh.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800 text-[11px] font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+                    >
+                      <span>GitHub</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Inline Entity Connection Badges */}
           {blockConnections.length > 0 && (

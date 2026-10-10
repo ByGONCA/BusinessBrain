@@ -11,6 +11,8 @@ interface EmojiPickerProps {
   onSelectEmoji: (emoji: string) => void;
   className?: string;
   triggerClassName?: string;
+  pageId?: string | null;
+  iconFileId?: string | null;
 }
 
 type TabType = "emojis" | "upload";
@@ -20,6 +22,8 @@ export function EmojiPicker({
   onSelectEmoji,
   className,
   triggerClassName,
+  pageId,
+  iconFileId,
 }: EmojiPickerProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [activeTab, setActiveTab] = React.useState<TabType>("emojis");
@@ -90,6 +94,25 @@ export function EmojiPicker({
     setErrorMsg(null);
 
     try {
+      if (pageId) {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch(`/api/pages/${pageId}/icon`, {
+          method: "POST",
+          body: formData,
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to upload image");
+        }
+        const data = await res.json();
+        if (data.iconUrl) {
+          onSelectEmoji(data.iconUrl);
+          setIsOpen(false);
+          return;
+        }
+      }
+
       const dataUri = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -133,8 +156,9 @@ export function EmojiPicker({
 
       onSelectEmoji(dataUri);
       setIsOpen(false);
-    } catch {
-      setErrorMsg("Failed to process image. Please try another file.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to process image. Please try another file.";
+      setErrorMsg(msg);
     } finally {
       setIsProcessing(false);
     }
@@ -176,7 +200,11 @@ export function EmojiPicker({
   const isCustomImage =
     currentEmoji?.startsWith("data:image/") ||
     currentEmoji?.startsWith("http://") ||
-    currentEmoji?.startsWith("https://");
+    currentEmoji?.startsWith("https://") ||
+    currentEmoji?.startsWith("/api/pages/") ||
+    currentEmoji === "custom_id" ||
+    currentEmoji?.startsWith("custom_id:") ||
+    Boolean(iconFileId);
 
   return (
     <div className={cn("relative inline-block", className)} ref={popoverRef}>
@@ -190,7 +218,13 @@ export function EmojiPicker({
         )}
         title="Change page icon"
       >
-        <PageIcon icon={currentEmoji} className="text-inherit" imgClassName="w-full h-full p-1 rounded-lg object-cover" />
+        <PageIcon
+          icon={currentEmoji}
+          pageId={pageId}
+          iconFileId={iconFileId}
+          className="text-inherit"
+          imgClassName="w-full h-full p-1 rounded-lg object-cover"
+        />
       </button>
 
       {/* Popover */}
@@ -431,10 +465,12 @@ export function EmojiPicker({
               {isCustomImage && (
                 <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-800">
                   <div className="flex items-center gap-2 min-w-0">
-                    <img
-                      src={currentEmoji}
-                      alt="Current"
-                      className="h-8 w-8 rounded-md object-cover border border-zinc-200 dark:border-zinc-700 shrink-0"
+                    <PageIcon
+                      icon={currentEmoji}
+                      pageId={pageId}
+                      iconFileId={iconFileId}
+                      className="h-8 w-8 shrink-0 text-xl"
+                      imgClassName="h-8 w-8 rounded-md object-cover border border-zinc-200 dark:border-zinc-700 shrink-0"
                     />
                     <div className="text-xs truncate">
                       <div className="font-medium text-zinc-800 dark:text-zinc-200">Current Icon</div>

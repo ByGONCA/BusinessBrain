@@ -91,11 +91,14 @@ export const getCurrentUser = cache(async () => {
 /**
  * Creates a standalone server-side Supabase client without cookie dependency.
  * Suitable for webhook endpoints and background route handlers.
+ * Prioritizes SUPABASE_SERVICE_ROLE_KEY when available to execute privileged operations
+ * within the secure service_role boundary.
  */
 export function createServiceClient() {
   const { supabaseUrl, supabasePublishableKey } = getSupabaseCredentials();
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || supabasePublishableKey;
 
-  return createJsClient(supabaseUrl, supabasePublishableKey, {
+  return createJsClient(supabaseUrl, serviceKey, {
     global: {
       fetch: supabaseFetch,
     },

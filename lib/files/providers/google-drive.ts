@@ -14,7 +14,9 @@ export class GoogleDriveStorageProvider implements FileProvider {
 
   async checkAccess(organizationId: string): Promise<ProviderAccessCheck> {
     try {
-      const client = await getAuthenticatedGoogleClient(organizationId);
+      const client = await getAuthenticatedGoogleClient(organizationId, {
+        service: "google_drive",
+      });
       return {
         isConnected: true,
         accountEmail: client.accountEmail,
@@ -31,7 +33,9 @@ export class GoogleDriveStorageProvider implements FileProvider {
     organizationId: string,
     options?: ListFilesOptions
   ): Promise<ExternalFileListResult> {
-    const client = await getAuthenticatedGoogleClient(organizationId);
+    const client = await getAuthenticatedGoogleClient(organizationId, {
+      service: "google_drive",
+    });
 
     const pageSize = options?.pageSize || 30;
     const queryParts = ["trashed = false"];
@@ -87,7 +91,9 @@ export class GoogleDriveStorageProvider implements FileProvider {
     organizationId: string,
     externalFileId: string
   ): Promise<ExternalFileMetadata> {
-    const client = await getAuthenticatedGoogleClient(organizationId);
+    const client = await getAuthenticatedGoogleClient(organizationId, {
+      service: "google_drive",
+    });
 
     const params = new URLSearchParams({
       fields: "id, name, mimeType, size, iconLink, thumbnailLink, webViewLink, webContentLink, modifiedTime",

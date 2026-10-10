@@ -1,7 +1,4 @@
-import { getActiveOrganization } from "@/lib/organizations/queries";
-import { getOrganizationIntegrations } from "@/lib/integrations/queries";
-import { isGoogleIntegrationConfigured } from "@/lib/integrations/google/config";
-import { IntegrationsView } from "@/components/dashboard/settings/integrations-view";
+import { redirect } from "next/navigation";
 
 interface IntegrationsPageProps {
   searchParams: Promise<{ status?: string; error?: string; open?: string }>;
@@ -9,17 +6,11 @@ interface IntegrationsPageProps {
 
 export default async function IntegrationsPage({ searchParams }: IntegrationsPageProps) {
   const { status, error, open } = await searchParams;
-  const activeOrg = await getActiveOrganization();
-  const integrations = activeOrg ? await getOrganizationIntegrations(activeOrg.id) : [];
-  const isConfigured = isGoogleIntegrationConfigured();
+  const query = new URLSearchParams();
+  query.set("settings", "integrations");
+  if (status) query.set("status", status);
+  if (error) query.set("error", error);
+  if (open) query.set("open", open);
 
-  return (
-    <IntegrationsView
-      integrations={integrations}
-      isGoogleConfigured={isConfigured}
-      statusParam={status}
-      errorParam={error}
-      initialOpenId={open}
-    />
-  );
+  redirect(`/dashboard?${query.toString()}`);
 }

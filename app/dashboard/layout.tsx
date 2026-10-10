@@ -1,5 +1,6 @@
 import { verifyAccessOrRedirect } from "@/lib/organizations/entitlements";
 import { getPageTree, getFavoritePagesForOrg } from "@/lib/pages/queries";
+import { getOrganizationIntegrations } from "@/lib/integrations/queries";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/dashboard/sidebar-context";
 import { SettingsProvider } from "@/components/dashboard/settings/settings-context";
@@ -16,12 +17,13 @@ export default async function DashboardLayout({
 }) {
   const { user, organizations, activeOrg, entitlement } = await verifyAccessOrRedirect();
 
-  const [pageTree, favoritePages] = activeOrg
+  const [pageTree, favoritePages, initialIntegrations] = activeOrg
     ? await Promise.all([
         getPageTree(activeOrg.id),
         getFavoritePagesForOrg(activeOrg.id),
+        getOrganizationIntegrations(activeOrg.id),
       ])
-    : [[], []];
+    : [[], [], []];
 
   return (
     <SidebarProvider>
@@ -40,6 +42,7 @@ export default async function DashboardLayout({
                 entitlement={entitlement}
                 pageTree={pageTree}
                 favoritePages={favoritePages}
+                initialIntegrations={initialIntegrations}
               />
 
               {/* Main Content & Side Peek (Side-by-Side Split View) */}
@@ -51,6 +54,7 @@ export default async function DashboardLayout({
                 organizations={organizations}
                 activeOrg={activeOrg}
                 entitlement={entitlement}
+                initialIntegrations={initialIntegrations}
               />
 
               {/* Inbox Modal Window */}

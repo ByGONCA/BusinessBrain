@@ -9,26 +9,85 @@ export interface AuthenticatedGoogleClient {
   googleFetch: (endpoint: string, init?: RequestInit) => Promise<Response>;
 }
 
+export interface AuthenticatedGoogleClientOptions {
+  accountEmail?: string;
+  userId?: string;
+  service?: "gmail" | "google_calendar" | "google_drive" | "google";
+  requiredScope?: string;
+}
+
 /**
  * Retrieves the organization's Google integration, verifies token freshness,
  * automatically performs an OAuth refresh if the access token is near expiry,
  * and returns an authenticated fetch client.
  */
 export async function getAuthenticatedGoogleClient(
-  organizationId: string
+  organizationId: string,
+  accountEmailOrOptions?: string | AuthenticatedGoogleClientOptions
 ): Promise<AuthenticatedGoogleClient> {
   const supabase = await createClient();
 
-  const { data: integration, error } = await supabase
+  let accountEmail: string | undefined;
+  let userId: string | undefined;
+  let service: "gmail" | "google_calendar" | "google_drive" | "google" | undefined;
+  let requiredScope: string | undefined;
+
+  if (typeof accountEmailOrOptions === "string") {
+    accountEmail = accountEmailOrOptions;
+  } else if (accountEmailOrOptions) {
+    accountEmail = accountEmailOrOptions.accountEmail;
+    userId = accountEmailOrOptions.userId;
+    service = accountEmailOrOptions.service;
+    requiredScope = accountEmailOrOptions.requiredScope;
+  }
+
+  let query = supabase
     .from("organization_integrations")
     .select("*")
     .eq("organization_id", organizationId)
-    .eq("provider", "google")
-    .eq("status", "connected")
-    .maybeSingle();
+    .in("provider", ["google", "gmail", "google_calendar", "google_drive"])
+    .eq("status", "connected");
 
-  if (error || !integration) {
+  if (accountEmail) {
+    query = query.eq("account_email", accountEmail);
+  }
+  if (userId) {
+    query = query.eq("connected_by_user_id", userId);
+  }
+
+  const { data: integrations, error } = await query;
+
+  if (error || !integrations || integrations.length === 0) {
     throw new Error("No active Google integration found for this organization.");
+  }
+
+  // Filter integration by specific service or scope capability if requested
+  let matchedIntegrations = integrations;
+
+  if (service) {
+    matchedIntegrations = integrations.filter((i) => {
+      if (i.provider === service) return true;
+      if (i.provider === "google") {
+        if (service === "google_calendar" && i.scopes?.some((s: string) => s.includes("calendar"))) return true;
+        if (service === "gmail" && i.scopes?.some((s: string) => s.includes("gmail"))) return true;
+        if (service === "google_drive" && i.scopes?.some((s: string) => s.includes("drive"))) return true;
+      }
+      return false;
+    });
+  }
+
+  if (requiredScope) {
+    matchedIntegrations = matchedIntegrations.filter((i) =>
+      i.scopes?.some((s: string) => s.toLowerCase().includes(requiredScope!.toLowerCase()))
+    );
+  }
+
+  const integration = matchedIntegrations[0] || (service || requiredScope ? null : integrations[0]);
+
+  if (!integration) {
+    throw new Error(
+      `No active Google integration found with sufficient permissions for '${service || requiredScope || "google"}'.`
+    );
   }
 
   if (!integration.encrypted_access_token) {
@@ -119,10 +178,54 @@ export async function getAuthenticatedGoogleClient(
     headers.set("Authorization", `Bearer ${accessToken}`);
     headers.set("Accept", "application/json");
 
-    return fetch(url, {
+    const response = await fetch(url, {
       ...init,
       headers,
     });
+
+    // If 401 Unauthorized occurs, attempt a one-time token refresh and retry
+    if (response.status === 401 && integration.encrypted_refresh_token) {
+      try {
+        const refreshToken = decryptToken(integration.encrypted_refresh_token);
+        const refreshResult = await refreshGoogleAccessToken(refreshToken);
+
+        accessToken = refreshResult.access_token;
+        const newExpiresAt = new Date(Date.now() + refreshResult.expires_in * 1000).toISOString();
+        const newEncryptedAccessToken = encryptToken(accessToken);
+
+        // Update stored token in PostgreSQL
+        await supabase
+          .from("organization_integrations")
+          .update({
+            encrypted_access_token: newEncryptedAccessToken,
+            token_expires_at: newExpiresAt,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", integration.id);
+
+        const retryHeaders = new Headers(init?.headers);
+        retryHeaders.set("Authorization", `Bearer ${accessToken}`);
+        retryHeaders.set("Accept", "application/json");
+
+        return fetch(url, {
+          ...init,
+          headers: retryHeaders,
+        });
+      } catch (retryErr) {
+        // If refresh fails (revoked/invalid refresh token), mark integration as needing reconnection
+        await supabase
+          .from("organization_integrations")
+          .update({
+            status: "needs_reauth",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", integration.id);
+
+        return response;
+      }
+    }
+
+    return response;
   };
 
   return {

@@ -28,7 +28,8 @@ export type BlockType =
   | "equation"
   | "table_of_contents"
   | "breadcrumb"
-  | "button";
+  | "button"
+  | "github";
 
 export type RelationType =
   | "related_to"
@@ -120,6 +121,18 @@ export interface ButtonBlockData {
   action?: string;
 }
 
+export interface GitHubBlockData {
+  type: "repo" | "pr" | "issue" | "commit" | "release";
+  title: string;
+  url: string;
+  state?: string;
+  number?: number;
+  repoFullName?: string;
+  authorLogin?: string;
+  authorAvatar?: string;
+  updatedAt?: string;
+}
+
 export interface EditorBlockProperties {
   checked?: boolean; // For checklist items
   language?: string; // For code blocks
@@ -144,7 +157,16 @@ export interface EditorBlockProperties {
   calendarData?: CalendarBlockData;
   equationFormula?: string;
   buttonData?: ButtonBlockData;
+  githubData?: GitHubBlockData;
   [key: string]: unknown;
+}
+
+export interface BlockAuthorMetadata {
+  userId?: string;
+  name?: string;
+  email?: string;
+  avatarUrl?: string | null;
+  editedAt?: string;
 }
 
 export interface EditorBlock {
@@ -152,6 +174,7 @@ export interface EditorBlock {
   type: BlockType;
   content: string; // Markdown/HTML inline text
   properties?: EditorBlockProperties;
+  author?: BlockAuthorMetadata;
 }
 
 export interface PageRecord {
@@ -160,6 +183,7 @@ export interface PageRecord {
   parent_page_id: string | null;
   title: string;
   icon: string;
+  icon_file_id?: string | null;
   content: EditorBlock[];
   content_text: string;
   position: number;
@@ -168,8 +192,67 @@ export interface PageRecord {
   is_archived: boolean;
   archived_at: string | null;
   created_by: string | null;
+  last_edited_by?: string | null;
   created_at: string;
   updated_at: string;
+  created_by_profile?: PageAuthorProfile | null;
+  last_edited_by_profile?: PageAuthorProfile | null;
+}
+
+export interface PageAuthorProfile {
+  id: string;
+  full_name: string | null;
+  email: string;
+  avatar_url: string | null;
+}
+
+export type PageActivityAction =
+  | "page_created"
+  | "page_renamed"
+  | "content_edited"
+  | "comment_added"
+  | "comment_resolved"
+  | "page_moved"
+  | "connection_added"
+  | "file_added"
+  | "file_removed"
+  | "version_restored";
+
+export interface PageActivityRecord {
+  id: string;
+  organization_id: string;
+  page_id: string;
+  actor_id: string | null;
+  action: PageActivityAction;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  actor_profile?: PageAuthorProfile | null;
+}
+
+export interface PageVersionRecord {
+  id: string;
+  organization_id: string;
+  page_id: string;
+  version_number: number;
+  title: string;
+  content: EditorBlock[];
+  content_text: string;
+  created_by: string | null;
+  created_at: string;
+  creator_profile?: PageAuthorProfile | null;
+}
+
+export interface PageCommentRecord {
+  id: string;
+  organization_id: string;
+  page_id: string;
+  author_id: string;
+  content: string;
+  is_resolved: boolean;
+  is_edited: boolean;
+  created_at: string;
+  updated_at: string;
+  author_profile?: PageAuthorProfile | null;
 }
 
 export interface PageTreeNode extends PageRecord {
@@ -180,6 +263,7 @@ export interface PageBreadcrumbItem {
   id: string;
   title: string;
   icon: string;
+  icon_file_id?: string | null;
 }
 
 export interface PageTemplate {

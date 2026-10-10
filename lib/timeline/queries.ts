@@ -54,7 +54,7 @@ export const getCompanyTimelineEvents = cache(
         },
         link: {
           label: "Workspace Settings",
-          href: "/dashboard/settings",
+          href: "/dashboard?settings=workspace",
         },
       });
     }
@@ -94,7 +94,7 @@ export const getCompanyTimelineEvents = cache(
           },
           link: {
             label: "Team Members",
-            href: "/dashboard/settings",
+            href: "/dashboard?settings=people",
           },
         });
       }
@@ -123,7 +123,7 @@ export const getCompanyTimelineEvents = cache(
         },
         link: {
           label: "Manage Billing",
-          href: "/dashboard/settings/billing",
+          href: "/dashboard?settings=billing",
         },
       });
     }
@@ -161,7 +161,7 @@ export const getCompanyTimelineEvents = cache(
           },
           link: {
             label: "Integrations Settings",
-            href: "/dashboard/settings/integrations",
+            href: "/dashboard?settings=integrations",
           },
         });
       }

@@ -1141,26 +1141,6 @@ export function InteractiveGraphCanvas({
     lastMousePosRef.current = null;
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    setTransform((prev) => {
-      const nextScale = Math.min(3.5, Math.max(0.15, prev.scale * zoomFactor));
-      const scaleRatio = nextScale / prev.scale;
-      return {
-        x: mouseX - (mouseX - prev.x) * scaleRatio,
-        y: mouseY - (mouseY - prev.y) * scaleRatio,
-        scale: nextScale,
-      };
-    });
-  };
-
   const handleDoubleClick = (e: React.MouseEvent) => {
     const { x, y } = screenToCanvas(e.clientX, e.clientY);
     const hitNode = getNodeAtPoint(x, y);
@@ -1169,11 +1149,137 @@ export function InteractiveGraphCanvas({
     }
   };
 
+  // Native non-passive Wheel & Gesture listener to prevent browser page zoom and zoom/pan map
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const onNativeWheel = (e: WheelEvent) => {
+      // Prevent browser default actions (including browser viewport zoom and window scroll)
+      e.preventDefault();
+
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      // Trackpad pinch-to-zoom OR Ctrl + mouse wheel
+      if (e.ctrlKey) {
+        let zoomFactor: number;
+        if (Math.abs(e.deltaY) > 40) {
+          // Discrete mouse wheel click with Ctrl
+          zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+        } else {
+          // Fine-grained continuous trackpad pinch gesture
+          zoomFactor = Math.exp(-e.deltaY * 0.012);
+          zoomFactor = Math.min(1.2, Math.max(0.8, zoomFactor));
+        }
+
+        setTransform((prev) => {
+          const nextScale = Math.min(3.5, Math.max(0.15, prev.scale * zoomFactor));
+          const scaleRatio = nextScale / prev.scale;
+          return {
+            x: mouseX - (mouseX - prev.x) * scaleRatio,
+            y: mouseY - (mouseY - prev.y) * scaleRatio,
+            scale: nextScale,
+          };
+        });
+      } else {
+        // Normal wheel / trackpad without Ctrl:
+        // If there is horizontal delta or fine-grained trackpad scroll without Ctrl, pan the canvas
+        if (Math.abs(e.deltaX) > 0 || (Math.abs(e.deltaY) < 40 && e.deltaMode === 0)) {
+          setTransform((prev) => ({
+            ...prev,
+            x: prev.x - e.deltaX,
+            y: prev.y - e.deltaY,
+          }));
+        } else {
+          // Standard mouse wheel click without Ctrl -> zoom canvas (Google Maps style)
+          const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
+          setTransform((prev) => {
+            const nextScale = Math.min(3.5, Math.max(0.15, prev.scale * zoomFactor));
+            const scaleRatio = nextScale / prev.scale;
+            return {
+              x: mouseX - (mouseX - prev.x) * scaleRatio,
+              y: mouseY - (mouseY - prev.y) * scaleRatio,
+              scale: nextScale,
+            };
+          });
+        }
+      }
+    };
+
+    // Safari gesture prevention
+    const onGesture = (e: Event) => {
+      e.preventDefault();
+    };
+
+    // Touch pinch handling for mobile / touchscreen laptops
+    let initialTouchDist = 0;
+    let initialScale = 1;
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        initialTouchDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+        initialScale = transformRef.current.scale;
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && initialTouchDist > 0) {
+        e.preventDefault();
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+        const factor = currentDist / initialTouchDist;
+        const rect = canvas.getBoundingClientRect();
+        const midX = (t1.clientX + t2.clientX) / 2 - rect.left;
+        const midY = (t1.clientY + t2.clientY) / 2 - rect.top;
+
+        setTransform((prev) => {
+          const nextScale = Math.min(3.5, Math.max(0.15, initialScale * factor));
+          const scaleRatio = nextScale / prev.scale;
+          return {
+            x: midX - (midX - prev.x) * scaleRatio,
+            y: midY - (midY - prev.y) * scaleRatio,
+            scale: nextScale,
+          };
+        });
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) {
+        initialTouchDist = 0;
+      }
+    };
+
+    canvas.addEventListener("wheel", onNativeWheel, { passive: false });
+    canvas.addEventListener("gesturestart", onGesture, { passive: false });
+    canvas.addEventListener("gesturechange", onGesture, { passive: false });
+    canvas.addEventListener("gestureend", onGesture, { passive: false });
+    canvas.addEventListener("touchstart", onTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", onTouchMove, { passive: false });
+    canvas.addEventListener("touchend", onTouchEnd, { passive: false });
+
+    return () => {
+      canvas.removeEventListener("wheel", onNativeWheel);
+      canvas.removeEventListener("gesturestart", onGesture);
+      canvas.removeEventListener("gesturechange", onGesture);
+      canvas.removeEventListener("gestureend", onGesture);
+      canvas.removeEventListener("touchstart", onTouchStart);
+      canvas.removeEventListener("touchmove", onTouchMove);
+      canvas.removeEventListener("touchend", onTouchEnd);
+    };
+  }, []);
+
   return (
     <div
       ref={containerRef}
       className={cn(
-        "relative w-full h-full overflow-hidden select-none bg-zinc-50/50 dark:bg-zinc-950/50",
+        "relative w-full h-full overflow-hidden select-none bg-zinc-50/50 dark:bg-zinc-950/50 touch-none",
         className
       )}
     >
@@ -1186,9 +1292,8 @@ export function InteractiveGraphCanvas({
           handleMouseUp();
           setHoverState(null);
         }}
-        onWheel={handleWheel}
         onDoubleClick={handleDoubleClick}
-        className="w-full h-full block"
+        className="w-full h-full block touch-none"
       />
 
       {/* Lightweight Hover Card Tooltip (Strictly Image-Free) */}

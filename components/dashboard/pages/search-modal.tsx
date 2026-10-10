@@ -132,7 +132,13 @@ export function SearchModal({ isOpen, onClose, organizationId }: SearchModalProp
                 )}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <PageIcon icon={page.icon} className="text-base" imgClassName="h-5 w-5 rounded object-cover" />
+                  <PageIcon
+                    icon={page.icon}
+                    pageId={page.id}
+                    iconFileId={(page as unknown as { icon_file_id?: string | null }).icon_file_id}
+                    className="text-base"
+                    imgClassName="h-5 w-5 rounded object-cover"
+                  />
                   <div className="min-w-0">
                     <div className="text-xs font-medium truncate">{page.title || "Untitled"}</div>
                     {page.content_text && (

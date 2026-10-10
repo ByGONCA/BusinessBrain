@@ -38,6 +38,23 @@ function sanitizeValue(key: string, value: unknown): unknown {
     return value;
   }
 
+  if (value instanceof Error) {
+    const errObj: Record<string, unknown> = {
+      name: value.name,
+      message: value.message,
+    };
+    if ("status" in value && typeof (value as { status?: unknown }).status === "number") {
+      errObj.status = (value as { status?: number }).status;
+    }
+    if ("statusCode" in value && typeof (value as { statusCode?: unknown }).statusCode === "number") {
+      errObj.statusCode = (value as { statusCode?: number }).statusCode;
+    }
+    if ("code" in value && (value as { code?: unknown }).code) {
+      errObj.code = (value as { code?: unknown }).code;
+    }
+    return sanitizeValue(key, errObj);
+  }
+
   if (Array.isArray(value)) {
     return value.map((item) => sanitizeValue(key, item));
   }

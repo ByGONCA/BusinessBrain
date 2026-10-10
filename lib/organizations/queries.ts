@@ -104,7 +104,7 @@ export const getOrganizationMembers = cache(async (
 
   const { data: members, error: membersError } = await supabase
     .from("organization_members")
-    .select("id, organization_id, user_id, role, created_at, updated_at")
+    .select("id, organization_id, user_id, role, job_title, department, created_at, updated_at")
     .eq("organization_id", organizationId);
 
   if (membersError || !members) {
@@ -117,7 +117,7 @@ export const getOrganizationMembers = cache(async (
     userIds.length > 0
       ? await supabase
           .from("profiles")
-          .select("id, email, full_name, avatar_url, created_at, updated_at")
+          .select("id, email, full_name, avatar_url, job_title, department, bio, location, created_at, updated_at")
           .in("id", userIds)
       : { data: [], error: null };
 
@@ -127,13 +127,18 @@ export const getOrganizationMembers = cache(async (
 
   const profilesMap = new Map((profiles || []).map((p) => [p.id, p]));
 
-  return members.map((row) => ({
-    id: row.id,
-    organization_id: row.organization_id,
-    user_id: row.user_id,
-    role: row.role,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    profile: profilesMap.get(row.user_id),
-  }));
+  return members.map((row) => {
+    const prof = profilesMap.get(row.user_id);
+    return {
+      id: row.id,
+      organization_id: row.organization_id,
+      user_id: row.user_id,
+      role: row.role,
+      job_title: row.job_title || prof?.job_title || "",
+      department: row.department || prof?.department || "",
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      profile: prof,
+    };
+  });
 });

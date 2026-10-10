@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   if (!rl.success) {
     logger.warn("Rate limit exceeded on Google connect", { userId: user.id });
     return NextResponse.redirect(
-      new URL("/dashboard/settings/integrations?error=rate_limit_exceeded", request.url)
+      new URL("/dashboard?settings=integrations&error=rate_limit_exceeded", request.url)
     );
   }
 
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
   // Only owners and admins can connect integrations
   if (activeOrg.role !== "owner" && activeOrg.role !== "admin") {
     return NextResponse.redirect(
-      new URL("/dashboard/settings/integrations?error=insufficient_permissions", request.url)
+      new URL("/dashboard?settings=integrations&error=insufficient_permissions", request.url)
     );
   }
 
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
       organizationId: activeOrg.id,
       userId: user.id,
       service,
-      returnUrl: "/dashboard/settings/integrations",
+      returnUrl: "/dashboard?settings=integrations",
     });
 
     return NextResponse.redirect(authUrl);
@@ -62,7 +62,7 @@ export async function GET(request: Request) {
       organizationId: activeOrg.id,
     });
     return NextResponse.redirect(
-      new URL("/dashboard/settings/integrations?error=config_error", request.url)
+      new URL("/dashboard?settings=integrations&error=config_error", request.url)
     );
   }
 }

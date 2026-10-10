@@ -16,7 +16,7 @@ const cspDirectives = [
   "default-src 'self'",
   `script-src ${scriptSrcDirectives.join(" ")}`,
   "style-src 'self' 'unsafe-inline'", // Required for Tailwind CSS runtime and Next.js styles
-  "img-src 'self' data: blob: https://*.supabase.co https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://*.stripe.com",
+  "img-src 'self' data: blob: https: http: https://*.supabase.co https://lh3.googleusercontent.com https://avatars.githubusercontent.com https://*.stripe.com",
   "font-src 'self' data:",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://accounts.google.com https://oauth2.googleapis.com",
   "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",

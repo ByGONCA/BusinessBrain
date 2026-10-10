@@ -9,6 +9,8 @@ import { cn } from "@/lib/utils";
 interface PageOutlineViewProps {
   pageTitle: string;
   pageIcon: string;
+  pageId?: string;
+  iconFileId?: string | null;
   blocks: EditorBlock[];
   onSelectHeading: (blockId: string) => void;
 }
@@ -16,6 +18,8 @@ interface PageOutlineViewProps {
 export function PageOutlineView({
   pageTitle,
   pageIcon,
+  pageId,
+  iconFileId,
   blocks,
   onSelectHeading,
 }: PageOutlineViewProps) {
@@ -35,6 +39,8 @@ export function PageOutlineView({
       <div className="flex items-center gap-4 pb-6 border-b border-zinc-200 dark:border-zinc-800">
         <PageIcon
           icon={pageIcon}
+          pageId={pageId}
+          iconFileId={iconFileId}
           className="text-4xl sm:text-5xl select-none"
           imgClassName="h-12 w-12 sm:h-14 sm:w-14 rounded-xl object-cover"
         />

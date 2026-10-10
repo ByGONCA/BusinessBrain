@@ -4,7 +4,15 @@
 
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
-import { PageRecord, PageTreeNode, PageBreadcrumbItem } from "./types";
+import {
+  PageRecord,
+  PageTreeNode,
+  PageBreadcrumbItem,
+  PageActivityRecord,
+  PageVersionRecord,
+  PageCommentRecord,
+  PageAuthorProfile,
+} from "./types";
 import { isValidUuid } from "@/lib/security/authorization";
 import { logger } from "@/lib/security/logger";
 
@@ -87,6 +95,7 @@ export function buildPageTree(pages: PageRecord[]): PageTreeNode[] {
 
 /**
  * Retrieves a single page by its ID, ensuring it belongs to the specified organization.
+ * Resolves creator and last editor profiles.
  */
 export const getPageById = cache(async (pageId: string, organizationId: string): Promise<PageRecord | null> => {
   if (!isValidUuid(pageId) || !isValidUuid(organizationId)) {
@@ -106,7 +115,37 @@ export const getPageById = cache(async (pageId: string, organizationId: string):
     return null;
   }
 
-  return data as PageRecord;
+  const userIdsToFetch: string[] = [];
+  if (data.created_by && isValidUuid(data.created_by)) userIdsToFetch.push(data.created_by);
+  if (data.last_edited_by && isValidUuid(data.last_edited_by) && !userIdsToFetch.includes(data.last_edited_by)) {
+    userIdsToFetch.push(data.last_edited_by);
+  }
+
+  let createdByProfile: PageAuthorProfile | null = null;
+  let lastEditedByProfile: PageAuthorProfile | null = null;
+
+  if (userIdsToFetch.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, avatar_url")
+      .in("id", userIdsToFetch);
+
+    if (profiles && profiles.length > 0) {
+      const pMap = new Map(profiles.map((p) => [p.id, p as PageAuthorProfile]));
+      if (data.created_by && pMap.has(data.created_by)) {
+        createdByProfile = pMap.get(data.created_by)!;
+      }
+      if (data.last_edited_by && pMap.has(data.last_edited_by)) {
+        lastEditedByProfile = pMap.get(data.last_edited_by)!;
+      }
+    }
+  }
+
+  return {
+    ...(data as PageRecord),
+    created_by_profile: createdByProfile,
+    last_edited_by_profile: lastEditedByProfile,
+  };
 });
 
 /**
@@ -129,6 +168,7 @@ export async function getPageBreadcrumbs(pageId: string, organizationId: string)
       id: page.id,
       title: page.title,
       icon: page.icon,
+      icon_file_id: page.icon_file_id,
     });
 
     currentId = page.parent_page_id;
@@ -151,7 +191,7 @@ export async function searchPages(organizationId: string, searchTerm: string): P
 
   const { data, error } = await supabase
     .from("pages")
-    .select("id, organization_id, parent_page_id, title, icon, content_text, position, is_archived, archived_at, created_by, created_at, updated_at")
+    .select("id, organization_id, parent_page_id, title, icon, icon_file_id, content_text, position, is_archived, archived_at, created_by, created_at, updated_at")
     .eq("organization_id", organizationId)
     .eq("is_archived", false)
     .or(`title.ilike.%${term}%,content_text.ilike.%${term}%`)
@@ -188,4 +228,147 @@ export async function getArchivedPages(organizationId: string): Promise<PageReco
   }
 
   return (data as PageRecord[]) || [];
+}
+
+/**
+ * Retrieves activity logs for a page with actor profiles.
+ */
+export async function getPageActivity(
+  pageId: string,
+  organizationId: string,
+  limit = 50
+): Promise<PageActivityRecord[]> {
+  if (!isValidUuid(pageId) || !isValidUuid(organizationId)) {
+    return [];
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("page_activity")
+    .select("*")
+    .eq("page_id", pageId)
+    .eq("organization_id", organizationId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error || !data) {
+    return [];
+  }
+
+  const records = data as PageActivityRecord[];
+  const actorIds = Array.from(
+    new Set(records.map((r) => r.actor_id).filter((id): id is string => Boolean(id && isValidUuid(id))))
+  );
+
+  if (actorIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, avatar_url")
+      .in("id", actorIds);
+
+    if (profiles && profiles.length > 0) {
+      const pMap = new Map(profiles.map((p) => [p.id, p as PageAuthorProfile]));
+      return records.map((r) => ({
+        ...r,
+        actor_profile: r.actor_id ? pMap.get(r.actor_id) || null : null,
+      }));
+    }
+  }
+
+  return records;
+}
+
+/**
+ * Retrieves saved versions for a page with creator profiles.
+ */
+export async function getPageVersions(
+  pageId: string,
+  organizationId: string
+): Promise<PageVersionRecord[]> {
+  if (!isValidUuid(pageId) || !isValidUuid(organizationId)) {
+    return [];
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("page_versions")
+    .select("id, organization_id, page_id, version_number, title, created_by, created_at")
+    .eq("page_id", pageId)
+    .eq("organization_id", organizationId)
+    .order("version_number", { ascending: false });
+
+  if (error || !data) {
+    return [];
+  }
+
+  const records = data as PageVersionRecord[];
+  const creatorIds = Array.from(
+    new Set(records.map((r) => r.created_by).filter((id): id is string => Boolean(id && isValidUuid(id))))
+  );
+
+  if (creatorIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, avatar_url")
+      .in("id", creatorIds);
+
+    if (profiles && profiles.length > 0) {
+      const pMap = new Map(profiles.map((p) => [p.id, p as PageAuthorProfile]));
+      return records.map((r) => ({
+        ...r,
+        creator_profile: r.created_by ? pMap.get(r.created_by) || null : null,
+      }));
+    }
+  }
+
+  return records;
+}
+
+/**
+ * Retrieves comments for a page with author profiles.
+ */
+export async function getPageComments(
+  pageId: string,
+  organizationId: string
+): Promise<PageCommentRecord[]> {
+  if (!isValidUuid(pageId) || !isValidUuid(organizationId)) {
+    return [];
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("page_comments")
+    .select("*")
+    .eq("page_id", pageId)
+    .eq("organization_id", organizationId)
+    .order("created_at", { ascending: true });
+
+  if (error || !data) {
+    return [];
+  }
+
+  const records = data as PageCommentRecord[];
+  const authorIds = Array.from(
+    new Set(records.map((r) => r.author_id).filter((id): id is string => Boolean(id && isValidUuid(id))))
+  );
+
+  if (authorIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, avatar_url")
+      .in("id", authorIds);
+
+    if (profiles && profiles.length > 0) {
+      const pMap = new Map(profiles.map((p) => [p.id, p as PageAuthorProfile]));
+      return records.map((r) => ({
+        ...r,
+        author_profile: r.author_id ? pMap.get(r.author_id) || null : null,
+      }));
+    }
+  }
+
+  return records;
 }

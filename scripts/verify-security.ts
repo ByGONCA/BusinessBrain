@@ -608,6 +608,171 @@ async function runTests() {
   );
 
   // ---------------------------------------------------------------------------
+  // 20. PAGE ICONS & icon_file_id SCHEMA & TENANT ISOLATION
+  // ---------------------------------------------------------------------------
+  console.log("\n[20] Auditing Page Icons & icon_file_id Schema & Tenant Isolation:");
+  const migration11Path = path.resolve(
+    process.cwd(),
+    "database/migrations/00011_page_icons_file_system.sql"
+  );
+  assert(fs.existsSync(migration11Path), "Migration 00011_page_icons_file_system.sql exists");
+
+  const migration11Sql = fs.readFileSync(migration11Path, "utf8");
+  assert(
+    migration11Sql.includes("add column if not exists icon_file_id uuid references public.organization_files(id)"),
+    "Migration 00011 adds icon_file_id foreign key referencing organization_files"
+  );
+  assert(
+    migration11Sql.includes("create index if not exists idx_pages_icon_file_id"),
+    "Migration 00011 creates index on pages(icon_file_id)"
+  );
+  assert(
+    migration11Sql.includes("create or replace function public.check_page_icon_tenant_isolation()"),
+    "Migration 00011 defines check_page_icon_tenant_isolation function"
+  );
+  assert(
+    migration11Sql.includes("Cross-tenant violation: icon file does not belong to the same organization."),
+    "Migration 00011 trigger enforces tenant boundary and rejects cross-tenant icon assignment"
+  );
+  assert(
+    migration11Sql.includes("create trigger trg_check_page_icon_tenant_isolation"),
+    "Migration 00011 attaches trigger to public.pages"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 21. PRIVATE PAGE ICON ROUTE SECURITY (/api/pages/[id]/icon)
+  // ---------------------------------------------------------------------------
+  console.log("\n[21] Auditing Private Page Icon Route Security (/api/pages/[id]/icon):");
+  const iconRoutePath = path.resolve(
+    process.cwd(),
+    "app/api/pages/[id]/icon/route.ts"
+  );
+  assert(fs.existsSync(iconRoutePath), "Private icon route app/api/pages/[id]/icon/route.ts exists");
+
+  const iconRouteSrc = fs.readFileSync(iconRoutePath, "utf8");
+  assert(
+    iconRouteSrc.includes("getCurrentUser") && iconRouteSrc.includes("401"),
+    "Private icon route requires authenticated user session (returns 401)"
+  );
+  assert(
+    iconRouteSrc.includes("getActiveOrganization") && iconRouteSrc.includes("403"),
+    "Private icon route requires active organization membership (returns 403)"
+  );
+  assert(
+    iconRouteSrc.includes(".eq(\"organization_id\", activeOrg.id)"),
+    "Private icon route enforces active organization scoping on page lookup"
+  );
+  assert(
+    iconRouteSrc.includes("organization_files") && iconRouteSrc.includes(".eq(\"organization_id\", activeOrg.id)"),
+    "Private icon route enforces tenant ownership on referenced organization file"
+  );
+  assert(
+    iconRouteSrc.includes("Cache-Control\": \"private"),
+    "Private icon route enforces private cache control header"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 22. LEGACY BASE64 ICONS MIGRATION SCRIPT
+  // ---------------------------------------------------------------------------
+  console.log("\n[22] Auditing Legacy Base64 Icons Migration Script:");
+  const migrateScriptPath = path.resolve(
+    process.cwd(),
+    "scripts/migrate-base64-icons.ts"
+  );
+  assert(fs.existsSync(migrateScriptPath), "Migration script scripts/migrate-base64-icons.ts exists");
+
+  const migrateScriptSrc = fs.readFileSync(migrateScriptPath, "utf8");
+  assert(
+    migrateScriptSrc.includes(".is(\"icon_file_id\", null)") && migrateScriptSrc.includes("data:image/%"),
+    "Migration script filters exclusively for un-migrated base64 pages (idempotency)"
+  );
+  assert(
+    migrateScriptSrc.includes("Buffer.from(base64Data, \"base64\")"),
+    "Migration script decodes base64 binary safely into buffer"
+  );
+  assert(
+    /from\s*\(\s*["']organization_files["']\s*\)\s*\.upload/.test(migrateScriptSrc),
+    "Migration script uploads binary to private organization_files bucket"
+  );
+  assert(
+    /from\s*\(\s*["']organization_files["']\s*\)\s*\.insert/.test(migrateScriptSrc) &&
+      migrateScriptSrc.includes("icon_file_id: fileRecord.id"),
+    "Migration script records file in organization_files and links icon_file_id"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 23. STRIPE BILLING RPC HARDENING 00012 (SERVICE_ROLE LOCKDOWN)
+  // ---------------------------------------------------------------------------
+  console.log("\n[23] Auditing Stripe Billing RPC Hardening 00012 (service_role lockdown):");
+  const migration12Path = path.resolve(
+    process.cwd(),
+    "database/migrations/00012_stripe_billing_rpc_hardening.sql"
+  );
+  assert(fs.existsSync(migration12Path), "Migration 00012_stripe_billing_rpc_hardening.sql exists");
+
+  const migration12Sql = fs.readFileSync(migration12Path, "utf8");
+  assert(
+    migration12Sql.includes("revoke all on function public.sync_stripe_subscription") &&
+      migration12Sql.includes("from public, anon, authenticated;"),
+    "Migration 00012 revokes sync_stripe_subscription execute from anon, public, and authenticated"
+  );
+  assert(
+    migration12Sql.includes("revoke all on function public.cancel_stripe_subscription") &&
+      migration12Sql.includes("from public, anon, authenticated;"),
+    "Migration 00012 revokes cancel_stripe_subscription execute from anon, public, and authenticated"
+  );
+  assert(
+    migration12Sql.includes("grant execute on function public.sync_stripe_subscription") &&
+      migration12Sql.includes("to service_role, postgres;"),
+    "Migration 00012 grants sync_stripe_subscription exclusively to service_role, postgres"
+  );
+  assert(
+    migration12Sql.includes("grant execute on function public.cancel_stripe_subscription") &&
+      migration12Sql.includes("to service_role, postgres;"),
+    "Migration 00012 grants cancel_stripe_subscription exclusively to service_role, postgres"
+  );
+  assert(
+    migration12Sql.includes("coalesce(auth.role(), '') <> 'service_role'"),
+    "Migration 00012 enforces strict service_role boundary inside function body"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 24. SERVICE CLIENT & RATE LIMIT HARDENING
+  // ---------------------------------------------------------------------------
+  console.log("\n[24] Auditing Service Client & Rate Limit Hardening:");
+  assert(
+    migration12Sql.includes("revoke all on function public.check_rate_limit") &&
+      migration12Sql.includes("from public, anon, authenticated;"),
+    "Migration 00012 revokes check_rate_limit from anon, public, and authenticated"
+  );
+  assert(
+    migration12Sql.includes("grant execute on function public.check_rate_limit") &&
+      migration12Sql.includes("to service_role, postgres;"),
+    "Migration 00012 grants check_rate_limit exclusively to service_role, postgres"
+  );
+
+  const serverSupabasePath = path.resolve(process.cwd(), "lib/supabase/server.ts");
+  const serverSupabaseSrc = fs.readFileSync(serverSupabasePath, "utf8");
+  assert(
+    serverSupabaseSrc.includes("process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()"),
+    "createServiceClient in lib/supabase/server.ts prioritizes SUPABASE_SERVICE_ROLE_KEY"
+  );
+
+  const pageIconCompPath = path.resolve(process.cwd(), "components/dashboard/pages/page-icon.tsx");
+  const pageIconCompSrc = fs.readFileSync(pageIconCompPath, "utf8");
+  assert(
+    pageIconCompSrc.includes("iconFileId") && pageIconCompSrc.includes("/api/pages/"),
+    "PageIcon component supports iconFileId and routes through /api/pages/[id]/icon"
+  );
+
+  const pageActionsPath = path.resolve(process.cwd(), "lib/pages/actions.ts");
+  const pageActionsSrc = fs.readFileSync(pageActionsPath, "utf8");
+  assert(
+    pageActionsSrc.includes("updates.icon_file_id = params.iconFileId"),
+    "updatePageIconAction in lib/pages/actions.ts enforces icon_file_id linking and organization check"
+  );
+
+  // ---------------------------------------------------------------------------
   // SUMMARY
   // ---------------------------------------------------------------------------
   console.log("\n=======================================================");

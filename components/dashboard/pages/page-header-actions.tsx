@@ -16,6 +16,9 @@ import {
   Check,
   ChevronDown,
   Star,
+  MessageSquare,
+  History,
+  Info,
 } from "lucide-react";
 import { PageViewMode } from "@/lib/pages/types";
 import { cn } from "@/lib/utils";
@@ -23,6 +26,7 @@ import { cn } from "@/lib/utils";
 interface PageHeaderActionsProps {
   currentView: PageViewMode;
   connectionsCount: number;
+  commentsCount?: number;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
   onViewChange: (view: PageViewMode) => void;
@@ -30,11 +34,15 @@ interface PageHeaderActionsProps {
   onAddSubpage: () => void;
   onOpenConnectModal: (type?: "create" | "link") => void;
   onCopyPageLink: () => void;
+  onOpenComments?: () => void;
+  onOpenActivity?: () => void;
+  onOpenPageInfo?: () => void;
 }
 
 export function PageHeaderActions({
   currentView,
   connectionsCount,
+  commentsCount = 0,
   isFavorite = false,
   onToggleFavorite,
   onViewChange,
@@ -42,6 +50,9 @@ export function PageHeaderActions({
   onAddSubpage,
   onOpenConnectModal,
   onCopyPageLink,
+  onOpenComments,
+  onOpenActivity,
+  onOpenPageInfo,
 }: PageHeaderActionsProps) {
   const [addMenuOpen, setAddMenuOpen] = React.useState(false);
   const [connectMenuOpen, setConnectMenuOpen] = React.useState(false);
@@ -291,7 +302,36 @@ export function PageHeaderActions({
         )}
       </div>
 
-      {/* 4. [···] */}
+      {/* 4. Comments Toggle [💬] */}
+      {onOpenComments && (
+        <button
+          type="button"
+          onClick={onOpenComments}
+          className="relative flex items-center justify-center h-7 px-2 gap-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 text-xs transition-colors"
+          title="Comments"
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+          {commentsCount > 0 && (
+            <span className="text-[10px] font-medium text-indigo-600 dark:text-indigo-400">
+              {commentsCount}
+            </span>
+          )}
+        </button>
+      )}
+
+      {/* 5. Activity & History Toggle [🕐] */}
+      {onOpenActivity && (
+        <button
+          type="button"
+          onClick={onOpenActivity}
+          className="flex items-center justify-center h-7 w-7 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 hover:bg-zinc-50 dark:hover:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 text-xs transition-colors"
+          title="Activity & History"
+        >
+          <History className="h-3.5 w-3.5" />
+        </button>
+      )}
+
+      {/* 6. [···] */}
       <div className="relative">
         <button
           type="button"
@@ -313,7 +353,7 @@ export function PageHeaderActions({
         </button>
 
         {moreMenuOpen && (
-          <div className="absolute right-0 top-8 z-50 w-44 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100">
+          <div className="absolute right-0 top-8 z-50 w-48 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100">
             <button
               type="button"
               onClick={async () => {
@@ -327,6 +367,34 @@ export function PageHeaderActions({
               {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5 text-zinc-400" />}
               <span>{copied ? "Link copied" : "Copy page link"}</span>
             </button>
+
+            {onOpenPageInfo && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMoreMenuOpen(false);
+                  onOpenPageInfo();
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                <Info className="h-3.5 w-3.5 text-zinc-400" />
+                <span>Page information</span>
+              </button>
+            )}
+
+            {onOpenActivity && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMoreMenuOpen(false);
+                  onOpenActivity();
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                <History className="h-3.5 w-3.5 text-zinc-400" />
+                <span>Activity & History</span>
+              </button>
+            )}
           </div>
         )}
       </div>

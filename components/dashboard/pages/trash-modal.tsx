@@ -109,7 +109,13 @@ export function TrashModal({
                 className="flex items-center justify-between p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/50 dark:bg-zinc-800/30 hover:bg-zinc-100/50 dark:hover:bg-zinc-800/50 transition-colors"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <PageIcon icon={page.icon} className="text-base" imgClassName="h-5 w-5 rounded object-cover" />
+                  <PageIcon
+                    icon={page.icon}
+                    pageId={page.id}
+                    iconFileId={page.icon_file_id}
+                    className="text-base"
+                    imgClassName="h-5 w-5 rounded object-cover"
+                  />
                   <div className="min-w-0">
                     <div className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
                       {page.title || "Untitled"}

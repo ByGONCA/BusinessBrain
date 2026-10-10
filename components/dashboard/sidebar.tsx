@@ -4,7 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
   Brain,
   BookOpen,
   FolderKanban,
@@ -14,16 +13,26 @@ import {
   Sparkles,
   Search,
   Home,
-  Mail,
   Calendar,
   Inbox,
   PanelLeftClose,
   Network,
+  Clock,
+  Target,
+  Briefcase,
+  Activity,
+  Sliders,
+  ShieldCheck,
+  CreditCard,
+  History,
+  Mail,
+  Github,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OrganizationWithRole } from "@/lib/organizations/types";
 import { OrganizationEntitlement } from "@/lib/organizations/entitlements";
 import { PageTreeNode, PageRecord } from "@/lib/pages/types";
+import { OrganizationIntegration } from "@/lib/integrations/types";
 import { AccountMenu } from "./account-menu";
 import { SidebarPageTree } from "./sidebar-page-tree";
 import { SearchModal } from "./pages/search-modal";
@@ -49,18 +58,7 @@ interface SidebarProps {
   pageTree?: PageTreeNode[];
   favoritePages?: PageRecord[];
   archivedPages?: PageRecord[];
-}
-
-interface NavItem {
-  name: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  isAi?: boolean;
-}
-
-interface NavSection {
-  title: string | null;
-  items: NavItem[];
+  initialIntegrations?: OrganizationIntegration[];
 }
 
 export function Sidebar({
@@ -71,6 +69,7 @@ export function Sidebar({
   pageTree = [],
   favoritePages = [],
   archivedPages = [],
+  initialIntegrations = [],
 }: SidebarProps) {
   const pathname = usePathname();
   const { formatShortcut } = usePlatform();
@@ -78,6 +77,31 @@ export function Sidebar({
   const { openInbox, isInboxOpen, unreadCount } = useInbox();
   const { isCollapsed, toggleSidebar } = useSidebar();
   const [searchOpen, setSearchOpen] = React.useState(false);
+
+  // Dynamic integration state: GitHub appears under COMPANY when connected
+  const initialGitHub = initialIntegrations.some(
+    (i) => i.provider === "github" && i.status === "connected"
+  );
+  const [isGitHubConnected, setIsGitHubConnected] = React.useState(initialGitHub);
+
+  React.useEffect(() => {
+    setIsGitHubConnected(
+      initialIntegrations.some(
+        (i) => i.provider === "github" && i.status === "connected"
+      )
+    );
+  }, [initialIntegrations]);
+
+  React.useEffect(() => {
+    function handleIntegrationChange(e: Event) {
+      const customEvent = e as CustomEvent<{ provider: string; status: string }>;
+      if (customEvent.detail?.provider === "github") {
+        setIsGitHubConnected(customEvent.detail.status === "connected");
+      }
+    }
+    window.addEventListener("cb-integration-changed", handleIntegrationChange);
+    return () => window.removeEventListener("cb-integration-changed", handleIntegrationChange);
+  }, []);
 
   // Global Cmd+K / Ctrl+K listener
   React.useEffect(() => {
@@ -94,52 +118,32 @@ export function Sidebar({
   const quickNavItems = [
     {
       id: "home",
-      name: t.sidebar.home,
+      name: t.sidebar.home || "Home",
       href: "/dashboard",
       icon: Home,
       isActive: pathname === "/dashboard" || pathname.startsWith("/dashboard/pages"),
     },
     {
       id: "email",
-      name: t.sidebar.email,
+      name: t.sidebar.email || "Email",
       href: "/dashboard/email",
       icon: Mail,
       isActive: pathname === "/dashboard/email" || pathname.startsWith("/dashboard/email/"),
     },
     {
       id: "calendar",
-      name: t.sidebar.calendar,
+      name: t.sidebar.calendar || "Calendar",
       href: "/dashboard/calendar",
       icon: Calendar,
       isActive: pathname === "/dashboard/calendar" || pathname.startsWith("/dashboard/calendar/"),
     },
     {
       id: "inbox",
-      name: t.sidebar.inbox,
+      name: t.sidebar.inbox || "Inbox",
       href: "#inbox",
       icon: Inbox,
       isActive: isInboxOpen,
       hasBadge: unreadCount > 0,
-    },
-  ];
-
-  const navSections: NavSection[] = [
-    {
-      title: t.sidebar.work,
-      items: [
-        { name: t.sidebar.projects, href: "/dashboard/projects", icon: FolderKanban },
-        { name: t.sidebar.tasks, href: "/dashboard/tasks", icon: CheckSquare },
-        { name: t.sidebar.meetings, href: "/dashboard/meetings", icon: Users },
-      ],
-    },
-    {
-      title: t.sidebar.memory,
-      items: [
-        { name: "Company Map", href: "/dashboard/connections", icon: Network },
-        { name: t.sidebar.brain, href: "/dashboard/brain", icon: Brain, isAi: true },
-        { name: t.sidebar.knowledge, href: "/dashboard/knowledge", icon: BookOpen },
-        { name: t.sidebar.decisions, href: "/dashboard/decisions", icon: GitBranch },
-      ],
     },
   ];
 
@@ -154,7 +158,7 @@ export function Sidebar({
           : "w-64 border-r opacity-100"
       )}
     >
-      {/* Brand Header & Quick Navigation (Seamless - no bottom border) */}
+      {/* Brand Header, Global Search & Top Quick-Nav Bar */}
       <div className="flex flex-col gap-2.5 p-3 pb-2 shrink-0">
         <div className="flex items-center justify-between">
           <Link
@@ -174,7 +178,7 @@ export function Sidebar({
             type="button"
             onClick={toggleSidebar}
             className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
-            title="Fechar barra lateral (Ctrl+\)"
+            title="Collapse sidebar (Ctrl+\)"
           >
             <PanelLeftClose className="h-4 w-4" />
           </button>
@@ -187,7 +191,7 @@ export function Sidebar({
           className="flex w-full items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
-          <span>{t.sidebar.searchPlaceholder}</span>
+          <span>{t.sidebar.searchPlaceholder || "Search or ask..."}</span>
           <kbd className="ml-auto rounded border border-border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground font-mono">
             {formatShortcut("K")}
           </kbd>
@@ -222,8 +226,8 @@ export function Sidebar({
                   key={item.id}
                   type="button"
                   onClick={openInbox}
-                  title={item.name}
                   className={itemClassName}
+                  title={item.name}
                 >
                   {content}
                 </button>
@@ -234,9 +238,9 @@ export function Sidebar({
               <Link
                 key={item.id}
                 href={item.href}
-                prefetch={true}
-                title={item.name}
+                prefetch={false}
                 className={itemClassName}
+                title={item.name}
               >
                 {content}
               </Link>
@@ -245,39 +249,19 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* Main Navigation Links (Independently scrollable) */}
-      <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-3 no-scrollbar">
-        {/* 1. HOME Section (Primary workspace section at top) */}
+      {/* Main Canonical Navigation Links (Independently scrollable) */}
+      <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-2 no-scrollbar">
+        {/* ========================================================= */}
+        {/* 1. WORK                                                   */}
+        {/* ========================================================= */}
         <div className="space-y-0.5">
           <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {t.sidebar.home}
+            {t.sidebar.work || "WORK"}
           </div>
 
-          {/* Overview link */}
-          <Link
-            href="/dashboard"
-            prefetch={true}
-            className={cn(
-              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-              pathname === "/dashboard"
-                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
-                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-            )}
-          >
-            <LayoutDashboard
-              className={cn(
-                "h-4 w-4 shrink-0 transition-colors",
-                pathname === "/dashboard"
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-muted-foreground group-hover:text-foreground"
-              )}
-            />
-            <span className="truncate">{t.sidebar.overview}</span>
-          </Link>
-
-          {/* Pages Workspace Tree (Favorites + Pages) */}
+          {/* Nested Pages hierarchy tree */}
           {activeOrg && (
-            <div className="pt-1">
+            <div className="py-0.5">
               <SidebarPageTree
                 initialPages={pageTree}
                 favoritePages={favoritePages}
@@ -286,99 +270,277 @@ export function Sidebar({
               />
             </div>
           )}
+
+          {/* Projects */}
+          <Link
+            href="/dashboard/projects"
+            prefetch={false}
+            className={cn(
+              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+              pathname.startsWith("/dashboard/projects")
+                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
+                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+            )}
+          >
+            <FolderKanban
+              className={cn(
+                "h-4 w-4 shrink-0 transition-colors",
+                pathname.startsWith("/dashboard/projects")
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-muted-foreground group-hover:text-foreground"
+              )}
+            />
+            <span className="truncate">{t.sidebar.projects || "Projects"}</span>
+          </Link>
+
+          {/* Tasks */}
+          <Link
+            href="/dashboard/tasks"
+            prefetch={false}
+            className={cn(
+              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+              pathname.startsWith("/dashboard/tasks")
+                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
+                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+            )}
+          >
+            <CheckSquare
+              className={cn(
+                "h-4 w-4 shrink-0 transition-colors",
+                pathname.startsWith("/dashboard/tasks")
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-muted-foreground group-hover:text-foreground"
+              )}
+            />
+            <span className="truncate">{t.sidebar.tasks || "Tasks"}</span>
+          </Link>
+
+          {/* Goals */}
+          <Link
+            href="/dashboard/goals"
+            prefetch={false}
+            className={cn(
+              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+              pathname.startsWith("/dashboard/goals")
+                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
+                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+            )}
+          >
+            <Target
+              className={cn(
+                "h-4 w-4 shrink-0 transition-colors",
+                pathname.startsWith("/dashboard/goals")
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-muted-foreground group-hover:text-foreground"
+              )}
+            />
+            <span className="truncate">{t.sidebar.goals || "Goals"}</span>
+          </Link>
+
+          {/* Meetings */}
+          <Link
+            href="/dashboard/meetings"
+            prefetch={false}
+            className={cn(
+              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+              pathname.startsWith("/dashboard/meetings")
+                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
+                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+            )}
+          >
+            <Users
+              className={cn(
+                "h-4 w-4 shrink-0 transition-colors",
+                pathname.startsWith("/dashboard/meetings")
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-muted-foreground group-hover:text-foreground"
+              )}
+            />
+            <span className="truncate">{t.sidebar.meetings || "Meetings"}</span>
+          </Link>
         </div>
 
-        {/* 2. WORK Section */}
-        {navSections[0] && (
-          <div key={navSections[0].title || "work"} className="space-y-0.5">
-            {navSections[0].title && (
-              <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {navSections[0].title}
-              </div>
-            )}
-            {navSections[0].items.map((item) => {
-              const isActive = pathname.startsWith(item.href);
-
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  prefetch={true}
-                  className={cn(
-                    "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-                    isActive
-                      ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
-                      : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                  )}
-                >
-                  <item.icon
-                    className={cn(
-                      "h-4 w-4 shrink-0 transition-colors",
-                      isActive
-                        ? "text-blue-600 dark:text-blue-400"
-                        : "text-muted-foreground group-hover:text-foreground"
-                    )}
-                  />
-                  <span className="truncate">{item.name}</span>
-                  {item.isAi && (
-                    <span className="ml-auto rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                      AI
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+        {/* ========================================================= */}
+        {/* 2. BRAIN                                                  */}
+        {/* ========================================================= */}
+        <div className="space-y-0.5">
+          <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {t.sidebar.brain || "BRAIN"}
           </div>
-        )}
 
-        {/* 3. MEMORY Section & any subsequent sections */}
-        {navSections.slice(1).map((section, idx) => (
-          <div key={section.title || `section-${idx + 1}`} className="space-y-0.5">
-            {section.title && (
-              <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {section.title}
-              </div>
+          {/* Brain (AI intelligence layer) */}
+          <Link
+            href="/dashboard/brain"
+            prefetch={false}
+            className={cn(
+              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+              pathname.startsWith("/dashboard/brain")
+                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
+                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             )}
-            {section.items.map((item) => {
-              const isActive =
-                item.href === "/dashboard"
-                  ? pathname === "/dashboard"
-                  : pathname.startsWith(item.href);
+          >
+            <Brain
+              className={cn(
+                "h-4 w-4 shrink-0 transition-colors",
+                pathname.startsWith("/dashboard/brain")
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-muted-foreground group-hover:text-foreground"
+              )}
+            />
+            <span className="truncate">Brain</span>
+            <span className="ml-auto rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400 border border-blue-500/20">
+              AI
+            </span>
+          </Link>
 
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  prefetch={true}
-                  className={cn(
-                    "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-                    isActive
-                      ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
-                      : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                  )}
-                >
-                  <item.icon
-                    className={cn(
-                      "h-4 w-4 shrink-0 transition-colors",
-                      isActive
-                        ? "text-blue-600 dark:text-blue-400"
-                        : "text-muted-foreground group-hover:text-foreground"
-                    )}
-                  />
-                  <span className="truncate">{item.name}</span>
-                  {item.isAi && (
-                    <span className="ml-auto rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                      AI
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+          {/* Decisions */}
+          <Link
+            href="/dashboard/decisions"
+            prefetch={false}
+            className={cn(
+              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+              pathname.startsWith("/dashboard/decisions")
+                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
+                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+            )}
+          >
+            <GitBranch
+              className={cn(
+                "h-4 w-4 shrink-0 transition-colors",
+                pathname.startsWith("/dashboard/decisions")
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-muted-foreground group-hover:text-foreground"
+              )}
+            />
+            <span className="truncate">{t.sidebar.decisions || "Decisions"}</span>
+          </Link>
+
+          {/* Knowledge */}
+          <Link
+            href="/dashboard/knowledge"
+            prefetch={false}
+            className={cn(
+              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+              pathname.startsWith("/dashboard/knowledge")
+                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
+                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+            )}
+          >
+            <BookOpen
+              className={cn(
+                "h-4 w-4 shrink-0 transition-colors",
+                pathname.startsWith("/dashboard/knowledge")
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-muted-foreground group-hover:text-foreground"
+              )}
+            />
+            <span className="truncate">{t.sidebar.knowledge || "Knowledge"}</span>
+          </Link>
+
+          {/* Company Map */}
+          <Link
+            href="/dashboard/connections"
+            prefetch={false}
+            className={cn(
+              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+              pathname.startsWith("/dashboard/connections")
+                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
+                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+            )}
+          >
+            <Network
+              className={cn(
+                "h-4 w-4 shrink-0 transition-colors",
+                pathname.startsWith("/dashboard/connections")
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-muted-foreground group-hover:text-foreground"
+              )}
+            />
+            <span className="truncate">{t.sidebar.companyMap || "Company Map"}</span>
+          </Link>
+
+          {/* Timeline */}
+          <Link
+            href="/dashboard/timeline"
+            prefetch={false}
+            className={cn(
+              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+              pathname.startsWith("/dashboard/timeline")
+                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
+                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+            )}
+          >
+            <Clock
+              className={cn(
+                "h-4 w-4 shrink-0 transition-colors",
+                pathname.startsWith("/dashboard/timeline")
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-muted-foreground group-hover:text-foreground"
+              )}
+            />
+            <span className="truncate">{t.sidebar.timeline || "Timeline"}</span>
+          </Link>
+        </div>
+
+        {/* ========================================================= */}
+        {/* 3. COMPANY                                                */}
+        {/* ========================================================= */}
+        <div className="space-y-0.5">
+          <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {t.sidebar.company || "COMPANY"}
           </div>
-        ))}
+
+          {/* People */}
+          <Link
+            href="/dashboard/people"
+            prefetch={false}
+            className={cn(
+              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
+              pathname.startsWith("/dashboard/people")
+                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
+                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+            )}
+          >
+            <Users
+              className={cn(
+                "h-4 w-4 shrink-0 transition-colors",
+                pathname.startsWith("/dashboard/people")
+                  ? "text-blue-600 dark:text-blue-400"
+                  : "text-muted-foreground group-hover:text-foreground"
+              )}
+            />
+            <span className="truncate">{t.sidebar.people || "People"}</span>
+          </Link>
+
+          {/* GitHub (Appears dynamically only when integration is connected) */}
+          {isGitHubConnected && (
+            <Link
+              href="/dashboard/github"
+              prefetch={false}
+              className={cn(
+                "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors animate-in fade-in duration-200",
+                pathname.startsWith("/dashboard/github")
+                  ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
+                  : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+              )}
+            >
+              <Github
+                className={cn(
+                  "h-4 w-4 shrink-0 transition-colors",
+                  pathname.startsWith("/dashboard/github")
+                    ? "text-blue-600 dark:text-blue-400"
+                    : "text-muted-foreground group-hover:text-foreground"
+                )}
+              />
+              <span className="truncate">GitHub</span>
+            </Link>
+          )}
+        </div>
       </nav>
 
-      {/* Fixed Bottom Section (User Account Control) */}
+      {/* ========================================================= */}
+      {/* 6. ACCOUNT (Fixed bottom user control & settings)         */}
+      {/* ========================================================= */}
       <div className="mt-auto p-2 border-t border-sidebar-border bg-sidebar shrink-0 transition-colors duration-150">
         <AccountMenu
           user={user}

@@ -23,6 +23,15 @@ import {
   ShieldAlert,
   CheckSquare,
   Sparkles,
+  Trash2,
+  Loader2,
+  Palette,
+  Globe,
+  Clock,
+  HardDrive,
+  FileText,
+  Settings2,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OrganizationWithRole, OrganizationMember } from "@/lib/organizations/types";
@@ -31,8 +40,30 @@ import { useSettings } from "./settings-context";
 import { useTheme } from "@/components/theme/theme-provider";
 import { usePlatform } from "@/lib/hooks/use-platform";
 import { useLanguage, SUPPORTED_LOCALES, Locale } from "@/lib/i18n";
-import { INTEGRATION_CATALOG } from "@/lib/integrations/catalog";
+import {
+  INTEGRATION_CATALOG,
+  IntegrationDefinition,
+  getProviderLogoUrl,
+} from "@/lib/integrations/catalog";
+import { OrganizationIntegration } from "@/lib/integrations/types";
 import { getOrganizationMembersAction } from "@/lib/organizations/actions";
+import {
+  getOrganizationIntegrationsAction,
+  deleteIntegrationAction,
+} from "@/lib/integrations/actions";
+import { ProfileTab } from "./profile-tab";
+import { PreferencesTab } from "./preferences-tab";
+import { AppearanceTab } from "./appearance-tab";
+import { SecurityTab } from "./security-tab";
+import { NotificationsTab } from "./notifications-tab";
+import { WorkspaceGeneralTab } from "./workspace-general-tab";
+import { PermissionsTab } from "./permissions-tab";
+import { WorkspaceDefaultsTab } from "./workspace-defaults-tab";
+import { PrivacyDataTab } from "./privacy-data-tab";
+import { AuditLogTab } from "./audit-log-tab";
+import { StorageTab } from "./storage-tab";
+import { UsageBillingTab } from "./usage-billing-tab";
+import { updateUserLocalizationAction } from "@/lib/settings/actions";
 
 interface SettingsModalProps {
   user: {
@@ -49,40 +80,48 @@ interface SettingsModalProps {
   activeOrg: OrganizationWithRole | null;
   entitlement: OrganizationEntitlement | null;
   members?: OrganizationMember[];
+  initialIntegrations?: OrganizationIntegration[];
 }
 
 function renderProviderIcon(id: string) {
-  switch (id) {
-    case "gmail":
-      return <Mail className="h-4 w-4 text-red-500" />;
-    case "google_calendar":
-      return <Calendar className="h-4 w-4 text-blue-500" />;
-    case "outlook":
-      return <Mail className="h-4 w-4 text-sky-500" />;
-    case "outlook_calendar":
-      return <Calendar className="h-4 w-4 text-sky-500" />;
-    case "github":
-      return <Github className="h-4 w-4 text-zinc-800 dark:text-zinc-200" />;
-    case "linear":
-      return <CheckSquare className="h-4 w-4 text-indigo-500" />;
-    case "vercel":
-      return <Layers className="h-4 w-4 text-zinc-900 dark:text-white" />;
-    case "sentry":
-      return <ShieldAlert className="h-4 w-4 text-amber-500" />;
-    case "stripe":
-      return <CreditCard className="h-4 w-4 text-emerald-500" />;
-    case "shopify":
-      return <ShoppingBag className="h-4 w-4 text-teal-500" />;
-    default:
-      return <Sparkles className="h-4 w-4 text-blue-500" />;
+  const logoUrl = getProviderLogoUrl(id);
+  if (logoUrl) {
+    return (
+      <img
+        src={logoUrl}
+        alt={id}
+        className="h-5 w-5 object-contain select-none"
+        loading="lazy"
+      />
+    );
   }
+  return <Sparkles className="h-4 w-4 text-blue-500" />;
 }
+
+const POPULAR_TIMEZONES = [
+  { value: "UTC", label: "UTC (Coordinated Universal Time)" },
+  { value: "Europe/London", label: "Europe/London (GMT / BST)" },
+  { value: "Europe/Lisbon", label: "Europe/Lisbon (WET / WEST)" },
+  { value: "Europe/Paris", label: "Europe/Paris (CET / CEST)" },
+  { value: "Europe/Berlin", label: "Europe/Berlin (CET / CEST)" },
+  { value: "Europe/Madrid", label: "Europe/Madrid (CET / CEST)" },
+  { value: "America/New_York", label: "America/New York (Eastern Time)" },
+  { value: "America/Chicago", label: "America/Chicago (Central Time)" },
+  { value: "America/Denver", label: "America/Denver (Mountain Time)" },
+  { value: "America/Los_Angeles", label: "America/Los Angeles (Pacific Time)" },
+  { value: "America/Sao_Paulo", label: "America/São Paulo (BRT)" },
+  { value: "Asia/Tokyo", label: "Asia/Tokyo (JST)" },
+  { value: "Asia/Singapore", label: "Asia/Singapore (SGT)" },
+  { value: "Asia/Dubai", label: "Asia/Dubai (GST)" },
+  { value: "Australia/Sydney", label: "Australia/Sydney (AEST / AEDT)" },
+];
 
 export function SettingsModal({
   user,
   activeOrg,
   entitlement,
   members = [],
+  initialIntegrations = [],
 }: SettingsModalProps) {
   const { isOpen, activeTab, closeSettings, setActiveTab } = useSettings();
   const { theme, setTheme, contrast, setContrast } = useTheme();
@@ -92,8 +131,63 @@ export function SettingsModal({
   const [searchQuery, setSearchQuery] = React.useState("");
   const [enterToSend, setEnterToSend] = React.useState(true);
   const [timeFormat, setTimeFormat] = React.useState("24h");
-  const [integrationCategory, setIntegrationCategory] = React.useState<string>("all");
+  const [timezone, setTimezone] = React.useState("UTC");
+  const [firstDayOfWeek, setFirstDayOfWeek] = React.useState<"monday" | "sunday">("monday");
   const [integrationSearch, setIntegrationSearch] = React.useState<string>("");
+
+  React.useEffect(() => {
+    try {
+      const savedTz = localStorage.getItem("cb_timezone") || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+      setTimezone(savedTz);
+      const savedDay = (localStorage.getItem("cb_first_day_of_week") as "monday" | "sunday") || "monday";
+      setFirstDayOfWeek(savedDay);
+    } catch {}
+  }, []);
+
+  const handleTimezoneChange = async (tz: string) => {
+    setTimezone(tz);
+    try {
+      localStorage.setItem("cb_timezone", tz);
+      await updateUserLocalizationAction({ timezone: tz });
+    } catch {}
+  };
+
+  const handleFirstDayChange = async (day: "monday" | "sunday") => {
+    setFirstDayOfWeek(day);
+    try {
+      localStorage.setItem("cb_first_day_of_week", day);
+      await updateUserLocalizationAction({ firstDayOfWeek: day });
+    } catch {}
+  };
+
+  const [integrations, setIntegrations] = React.useState<OrganizationIntegration[]>(initialIntegrations);
+  const [loadingIntegrations, setLoadingIntegrations] = React.useState(false);
+  const [deletingIntegrationId, setDeletingIntegrationId] = React.useState<string | null>(null);
+  const [infoModalItem, setInfoModalItem] = React.useState<IntegrationDefinition | null>(null);
+
+  React.useEffect(() => {
+    if (initialIntegrations && initialIntegrations.length > 0) {
+      setIntegrations(initialIntegrations);
+    }
+  }, [initialIntegrations]);
+
+  const loadIntegrations = React.useCallback(async () => {
+    setLoadingIntegrations(true);
+    try {
+      const list = await getOrganizationIntegrationsAction();
+      setIntegrations(list);
+    } catch (err) {
+      console.error("Failed to load integrations", err);
+    } finally {
+      setLoadingIntegrations(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (isOpen && activeTab === "integrations") {
+      loadIntegrations();
+    }
+  }, [isOpen, activeTab, loadIntegrations]);
 
   // User details
   const userName =
@@ -155,11 +249,15 @@ export function SettingsModal({
 
             {/* Section: Account */}
             <div className="space-y-0.5">
+              <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                Account
+              </span>
+
               <button
                 type="button"
                 onClick={() => setActiveTab("profile")}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left",
+                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "profile"
                     ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
                     : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
@@ -173,79 +271,184 @@ export function SettingsModal({
 
               <button
                 type="button"
+                onClick={() => setActiveTab("security")}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
+                  activeTab === "security"
+                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                )}
+              >
+                <Lock className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                <span>Security</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setActiveTab("preferences")}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left",
+                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "preferences"
                     ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
                     : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
                 )}
               >
                 <Sliders className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-                <span>{t.settings.tabs.preferences}</span>
+                <span>Preferences</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("appearance")}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
+                  activeTab === "appearance"
+                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                )}
+              >
+                <Palette className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                <span>Appearance</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab("notifications")}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left",
+                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "notifications"
                     ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
                     : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
                 )}
               >
                 <Bell className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-                <span>{t.settings.tabs.notifications}</span>
+                <span>Notifications</span>
               </button>
             </div>
 
             {/* Section: Workspace */}
             <div className="space-y-0.5 pt-2">
               <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                {t.settings.sections.workspace}
+                Workspace
               </span>
 
               <button
                 type="button"
                 onClick={() => setActiveTab("workspace")}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left",
+                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "workspace"
                     ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
                     : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
                 )}
               >
                 <Building2 className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-                <span>{t.settings.tabs.workspace}</span>
+                <span>General</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab("people")}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left",
+                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "people"
                     ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
                     : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
                 )}
               >
                 <Users className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-                <span>{t.settings.tabs.people}</span>
+                <span>People</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("permissions")}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
+                  activeTab === "permissions"
+                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                )}
+              >
+                <ShieldCheck className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                <span>Permissions</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setActiveTab("integrations")}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left",
+                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "integrations"
                     ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
                     : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
                 )}
               >
                 <Mail className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-                <span>{t.settings.tabs.integrations}</span>
+                <span>Integrations</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("defaults")}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
+                  activeTab === "defaults"
+                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                )}
+              >
+                <Settings2 className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                <span>Defaults</span>
+              </button>
+            </div>
+
+            {/* Section: Data & Security */}
+            <div className="space-y-0.5 pt-2">
+              <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                Data & Security
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("privacy")}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
+                  activeTab === "privacy"
+                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                )}
+              >
+                <FileText className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                <span>Privacy & Data</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("audit_log")}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
+                  activeTab === "audit_log"
+                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                )}
+              >
+                <Clock className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                <span>Audit Log</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("storage")}
+                className={cn(
+                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
+                  activeTab === "storage"
+                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
+                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                )}
+              >
+                <HardDrive className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                <span>Storage</span>
               </button>
             </div>
 
@@ -259,14 +462,14 @@ export function SettingsModal({
                 type="button"
                 onClick={() => setActiveTab("billing")}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left",
+                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "billing"
                     ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
                     : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
                 )}
               >
                 <CreditCard className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-                <span>{t.settings.tabs.billing}</span>
+                <span>Usage & Billing</span>
               </button>
             </div>
           </div>
@@ -292,241 +495,22 @@ export function SettingsModal({
           </button>
 
           {/* TAB: PREFERENCES */}
-          {activeTab === "preferences" && (
-            <div className="space-y-6 max-w-xl">
-              <div>
-                <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">{t.settings.preferences.title}</h2>
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-                  {t.settings.preferences.description}
-                </p>
-              </div>
-
-              {/* Group: Appearance */}
-              <div className="space-y-3 pt-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                  {t.settings.preferences.appearance}
-                </span>
-
-                {/* Theme Selector */}
-                <div className="flex items-center justify-between py-2.5 border-b border-zinc-200 dark:border-zinc-800">
-                  <div>
-                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.settings.preferences.theme}</p>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                      {t.settings.preferences.themeDesc}
-                    </p>
-                  </div>
-                  <div className="relative">
-                    <select
-                      value={theme}
-                      onChange={(e) => setTheme(e.target.value as "system" | "dark" | "light")}
-                      className="appearance-none rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 pr-8 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:outline-none transition-colors cursor-pointer shadow-xs"
-                    >
-                      <option value="system">{t.settings.preferences.themeSystem}</option>
-                      <option value="dark">{t.settings.preferences.themeDark}</option>
-                      <option value="light">{t.settings.preferences.themeLight}</option>
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
-                  </div>
-                </div>
-
-                {/* High Contrast Selector */}
-                <div className="flex items-center justify-between py-2.5 border-b border-zinc-200 dark:border-zinc-800">
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.settings.preferences.highContrast}</p>
-                      <span className="rounded bg-blue-500/10 px-1.5 py-0.2 text-[9px] font-mono font-semibold text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                        {t.common.beta}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                      {t.settings.preferences.highContrastDesc}
-                    </p>
-                  </div>
-                  <div className="relative">
-                    <select
-                      value={contrast}
-                      onChange={(e) => setContrast(e.target.value as "system" | "standard" | "high")}
-                      className="appearance-none rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 pr-8 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:outline-none transition-colors cursor-pointer shadow-xs"
-                    >
-                      <option value="system">{t.settings.preferences.contrastSystem}</option>
-                      <option value="standard">{t.settings.preferences.contrastStandard}</option>
-                      <option value="high">{t.settings.preferences.contrastHigh}</option>
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Group: Input options */}
-              <div className="space-y-3 pt-4">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                  {t.settings.preferences.inputOptions}
-                </span>
-
-                <div className="flex items-center justify-between py-2.5 border-b border-zinc-200 dark:border-zinc-800">
-                  <div>
-                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.settings.preferences.enterNewLine}</p>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                      {interpolate(t.settings.preferences.enterNewLineDesc, { modKey: modKeyName })}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setEnterToSend(!enterToSend)}
-                    className={cn(
-                      "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none",
-                      enterToSend ? "bg-blue-600" : "bg-zinc-300 dark:bg-zinc-700"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition duration-200",
-                        enterToSend ? "translate-x-4" : "translate-x-0"
-                      )}
-                    />
-                  </button>
-                </div>
-              </div>
-
-              {/* Group: Language & time */}
-              <div className="space-y-3 pt-4">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                  {t.settings.preferences.languageAndTime}
-                </span>
-
-                <div className="flex items-center justify-between py-2.5 border-b border-zinc-200 dark:border-zinc-800">
-                  <div>
-                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.settings.preferences.language}</p>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                      {t.settings.preferences.languageDesc}
-                    </p>
-                  </div>
-                  <div className="relative">
-                    <select
-                      value={locale}
-                      onChange={(e) => setLocale(e.target.value as Locale)}
-                      className="appearance-none rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 pr-8 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:outline-none transition-colors cursor-pointer shadow-xs"
-                    >
-                      {SUPPORTED_LOCALES.map((loc) => (
-                        <option key={loc.code} value={loc.code}>
-                          {loc.nativeLabel} ({loc.code.toUpperCase()})
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between py-2.5 border-b border-zinc-200 dark:border-zinc-800">
-                  <div>
-                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.settings.preferences.timeFormat}</p>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5">
-                      {t.settings.preferences.timeFormatDesc}
-                    </p>
-                  </div>
-                  <div className="relative">
-                    <select
-                      value={timeFormat}
-                      onChange={(e) => setTimeFormat(e.target.value)}
-                      className="appearance-none rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 pr-8 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:outline-none transition-colors cursor-pointer shadow-xs"
-                    >
-                      <option value="24h">{t.settings.preferences.format24h}</option>
-                      <option value="12h">{t.settings.preferences.format12h}</option>
-                    </select>
-                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {activeTab === "preferences" && <PreferencesTab />}
 
           {/* TAB: PROFILE */}
-          {activeTab === "profile" && (
-            <div className="space-y-6 max-w-xl">
-              <div>
-                <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">{t.settings.profile.title}</h2>
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-                  {t.settings.profile.description}
-                </p>
-              </div>
+          {activeTab === "profile" && <ProfileTab user={user} />}
 
-              <div className="space-y-4 pt-2">
-                <div className="flex items-center gap-4 py-3 border-b border-zinc-200 dark:border-zinc-800">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600/20 border border-blue-500/30 text-base font-bold text-blue-600 dark:text-blue-400">
-                    {userInitial}
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-zinc-900 dark:text-white">{userName}</p>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">{user.email}</p>
-                  </div>
-                </div>
+          {/* TAB: SECURITY */}
+          {activeTab === "security" && <SecurityTab user={user} />}
 
-                <div className="flex items-center justify-between py-2.5 border-b border-zinc-200 dark:border-zinc-800">
-                  <div>
-                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.settings.profile.email}</p>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{t.settings.profile.emailDesc}</p>
-                  </div>
-                  <span className="font-mono text-xs text-zinc-700 dark:text-zinc-300">{user.email}</span>
-                </div>
+          {/* TAB: APPEARANCE */}
+          {activeTab === "appearance" && <AppearanceTab />}
 
-                <div className="flex items-center justify-between py-2.5 border-b border-zinc-200 dark:border-zinc-800">
-                  <div>
-                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.settings.profile.password}</p>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{t.settings.profile.passwordDesc}</p>
-                  </div>
-                  <Link
-                    href="/reset-password"
-                    onClick={closeSettings}
-                    className="flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
-                  >
-                    <Lock className="h-3 w-3" />
-                    <span>{t.settings.profile.changePassword}</span>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* TAB: NOTIFICATIONS */}
+          {activeTab === "notifications" && <NotificationsTab />}
 
-          {/* TAB: WORKSPACE */}
-          {activeTab === "workspace" && (
-            <div className="space-y-6 max-w-xl">
-              <div>
-                <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">{t.settings.workspaceTab.title}</h2>
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-                  {interpolate(t.settings.workspaceTab.description, { name: activeOrg?.name || "your organization" })}
-                </p>
-              </div>
-
-              <div className="space-y-4 pt-2">
-                <div className="flex items-center justify-between py-2.5 border-b border-zinc-200 dark:border-zinc-800">
-                  <div>
-                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.settings.workspaceTab.orgName}</p>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{t.settings.workspaceTab.orgNameDesc}</p>
-                  </div>
-                  <span className="text-xs font-semibold text-zinc-900 dark:text-white">{activeOrg?.name}</span>
-                </div>
-
-                <div className="flex items-center justify-between py-2.5 border-b border-zinc-200 dark:border-zinc-800">
-                  <div>
-                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.settings.workspaceTab.slug}</p>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{t.settings.workspaceTab.slugDesc}</p>
-                  </div>
-                  <span className="font-mono text-xs text-zinc-700 dark:text-zinc-300">/{activeOrg?.slug}</span>
-                </div>
-
-                <div className="flex items-center justify-between py-2.5 border-b border-zinc-200 dark:border-zinc-800">
-                  <div>
-                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.settings.workspaceTab.security}</p>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{t.settings.workspaceTab.securityDesc}</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                    <ShieldCheck className="h-4 w-4" />
-                    <span>{t.settings.workspaceTab.rlsEnforced}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* TAB: WORKSPACE / GENERAL */}
+          {activeTab === "workspace" && <WorkspaceGeneralTab activeOrg={activeOrg} />}
 
           {/* TAB: PEOPLE */}
           {activeTab === "people" && (
@@ -576,65 +560,28 @@ export function SettingsModal({
                     {t.settings.integrationsTab.description}
                   </p>
                 </div>
-                <Link
-                  href="/dashboard/settings/integrations"
-                  onClick={closeSettings}
-                  className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
-                >
-                  <span>{t.settingsPage.manageIntegrations}</span>
-                  <ExternalLink className="h-3 w-3" />
-                </Link>
               </div>
 
-              {/* Search & Category Filter */}
-              <div className="space-y-2 pt-1">
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
-                  <input
-                    type="text"
-                    value={integrationSearch}
-                    onChange={(e) => setIntegrationSearch(e.target.value)}
-                    placeholder={t.settings.integrationsTab.searchPlaceholder}
-                    className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 pl-8 pr-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500"
-                  />
-                </div>
-
-                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
-                  {[
-                    { id: "all", label: t.settings.integrationsTab.all },
-                    { id: "communication", label: t.settings.integrationsTab.communication },
-                    { id: "calendar", label: t.settings.integrationsTab.calendar },
-                    { id: "engineering", label: t.settings.integrationsTab.engineering },
-                    { id: "operations", label: t.settings.integrationsTab.operations },
-                    { id: "commerce", label: t.settings.integrationsTab.commerce },
-                  ].map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setIntegrationCategory(cat.id)}
-                      className={cn(
-                        "rounded-full px-2.5 py-0.5 text-[11px] font-medium whitespace-nowrap transition-colors",
-                        integrationCategory === cat.id
-                          ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
-                          : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                      )}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
-                </div>
+              {/* Search Bar Only (Filtros removidos) */}
+              <div className="relative pt-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                <input
+                  type="text"
+                  value={integrationSearch}
+                  onChange={(e) => setIntegrationSearch(e.target.value)}
+                  placeholder={t.settings.integrationsTab.searchPlaceholder}
+                  className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 pl-8 pr-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600 transition-colors"
+                />
               </div>
 
               {/* Integrations List */}
-              <div className="space-y-2 max-h-[340px] overflow-y-auto no-scrollbar pr-0.5">
+              <div className="space-y-2.5 max-h-[380px] overflow-y-auto no-scrollbar pr-0.5">
                 {INTEGRATION_CATALOG
                   .filter((item) => {
-                    const matchesCategory =
-                      integrationCategory === "all" || item.category === integrationCategory;
                     const matchesSearch =
                       !integrationSearch ||
                       item.name.toLowerCase().includes(integrationSearch.toLowerCase());
-                    return matchesCategory && matchesSearch;
+                    return matchesSearch;
                   })
                   .map((item) => {
                     const providerTrans =
@@ -646,54 +593,124 @@ export function SettingsModal({
                           : item.id
                       ] || { name: item.name, description: "" };
 
-                    const connectHref =
-                      item.id === "gmail"
-                        ? "/api/integrations/google/connect?service=gmail"
-                        : item.id === "google_calendar"
-                        ? "/api/integrations/google/connect?service=calendar"
-                        : `/dashboard/settings/integrations?open=${item.id}`;
+                    // Find all connected accounts for this specific integration
+                    const connectedAccounts = integrations.filter((i) => {
+                      if (i.status !== "connected") return false;
+                      if (i.provider === item.id) return true;
+                      if (i.provider === "google") {
+                        if (item.id === "gmail" && i.scopes?.some((s) => s.includes("gmail"))) return true;
+                        if (item.id === "google_calendar" && i.scopes?.some((s) => s.includes("calendar"))) return true;
+                        if (item.id === "google_drive" && i.scopes?.some((s) => s.includes("drive"))) return true;
+                      }
+                      if (i.provider === "outlook" || i.provider === "outlook_calendar") {
+                        if (item.id === "outlook" && (i.provider === "outlook" || i.scopes?.some((s) => s.toLowerCase().includes("mail")))) return true;
+                        if (item.id === "outlook_calendar" && (i.provider === "outlook_calendar" || i.scopes?.some((s) => s.toLowerCase().includes("calendar")))) return true;
+                      }
+                      if (item.id === "github" && i.provider === "github") {
+                        return true;
+                      }
+                      return false;
+                    });
+
+                    const handleConfigureClick = () => {
+                      if (item.id === "gmail") {
+                        window.location.href = "/api/integrations/google/connect?service=gmail";
+                      } else if (item.id === "google_calendar") {
+                        window.location.href = "/api/integrations/google/connect?service=calendar";
+                      } else if (item.id === "google_drive") {
+                        window.location.href = "/api/integrations/google/connect?service=drive";
+                      } else if (item.id === "outlook") {
+                        window.location.href = "/api/integrations/microsoft/connect?service=outlook";
+                      } else if (item.id === "outlook_calendar") {
+                        window.location.href = "/api/integrations/microsoft/connect?service=outlook_calendar";
+                      } else if (item.id === "github") {
+                        window.location.href = "/api/integrations/github/connect";
+                      } else {
+                        setInfoModalItem(item);
+                      }
+                    };
 
                     return (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
+                        className="flex flex-col p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
                       >
-                        <div className="flex items-center gap-3 min-w-0 pr-2">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/80 shadow-2xs">
-                            {renderProviderIcon(item.id)}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
+                        {/* Main Item Row */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 min-w-0 pr-2">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/80 shadow-2xs">
+                              {renderProviderIcon(item.id)}
+                            </div>
+                            <div className="min-w-0">
                               <p className="text-xs font-semibold text-zinc-900 dark:text-white truncate">
                                 {providerTrans.name}
                               </p>
-                              <span className="rounded bg-zinc-200/70 dark:bg-zinc-800 px-1.5 py-0.2 text-[9px] font-mono text-zinc-600 dark:text-zinc-400">
-                                {item.badge}
-                              </span>
                             </div>
-                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-1 mt-0.5">
-                              {providerTrans.description}
-                            </p>
                           </div>
+
+                          <button
+                            type="button"
+                            onClick={handleConfigureClick}
+                            className="shrink-0 flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 px-2.5 py-1 text-xs font-medium text-zinc-800 dark:text-zinc-200 transition-colors shadow-2xs"
+                          >
+                            <span>{t.settings.integrationsTab.configure || "Configure"}</span>
+                            <ExternalLink className="h-3 w-3 text-zinc-400" />
+                          </button>
                         </div>
 
-                        {item.id === "gmail" || item.id === "google_calendar" ? (
-                          <a
-                            href={connectHref}
-                            className="shrink-0 flex items-center gap-1 rounded-lg border border-blue-500/40 bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-600 dark:text-blue-300 hover:bg-blue-500/20 transition-colors"
-                          >
-                            <span>{t.settings.integrationsTab.connect}</span>
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        ) : (
-                          <Link
-                            href={connectHref}
-                            onClick={closeSettings}
-                            className="shrink-0 flex items-center gap-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
-                          >
-                            <span>{t.settings.integrationsTab.configure}</span>
-                            <ExternalLink className="h-3 w-3 text-zinc-400" />
-                          </Link>
+                        {/* Connected Accounts List */}
+                        {connectedAccounts.length > 0 && (
+                          <div className="mt-2.5 pt-2 border-t border-zinc-200/80 dark:border-zinc-800/80 space-y-1.5">
+                            <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                              <span>Contas conectadas ({connectedAccounts.length})</span>
+                            </div>
+                            <div className="space-y-1">
+                              {connectedAccounts.map((acc) => (
+                                <div
+                                  key={acc.id}
+                                  className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-zinc-100/70 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-700/60 text-xs"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0 pr-2">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                    <span className="font-mono text-[11px] text-zinc-800 dark:text-zinc-200 truncate">
+                                      {acc.accountEmail || acc.providerAccountId}
+                                    </span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    disabled={deletingIntegrationId === acc.id}
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (confirm(`Deseja remover a integração de ${acc.accountEmail || acc.providerAccountId}?`)) {
+                                        setDeletingIntegrationId(acc.id);
+                                        try {
+                                          await deleteIntegrationAction(acc.id);
+                                          await loadIntegrations();
+                                          window.dispatchEvent(
+                                            new CustomEvent("cb-integration-changed", {
+                                              detail: { provider: acc.provider, status: "disconnected" },
+                                            })
+                                          );
+                                        } catch (err) {
+                                          console.error("Erro ao remover conta:", err);
+                                        } finally {
+                                          setDeletingIntegrationId(null);
+                                        }
+                                      }
+                                    }}
+                                    className="p-1 rounded text-zinc-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-40"
+                                    title="Remover conta"
+                                  >
+                                    {deletingIntegrationId === acc.id ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />
+                                    ) : (
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    )}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </div>
                     );
@@ -702,83 +719,95 @@ export function SettingsModal({
             </div>
           )}
 
-          {/* TAB: BILLING */}
+          {/* TAB: PERMISSIONS */}
+          {activeTab === "permissions" && <PermissionsTab />}
+
+          {/* TAB: DEFAULTS */}
+          {activeTab === "defaults" && <WorkspaceDefaultsTab activeOrg={activeOrg} />}
+
+          {/* TAB: PRIVACY & DATA */}
+          {activeTab === "privacy" && <PrivacyDataTab activeOrg={activeOrg} />}
+
+          {/* TAB: AUDIT LOG */}
+          {activeTab === "audit_log" && <AuditLogTab activeOrg={activeOrg} />}
+
+          {/* TAB: STORAGE */}
+          {activeTab === "storage" && <StorageTab activeOrg={activeOrg} />}
+
+          {/* TAB: USAGE & BILLING */}
           {activeTab === "billing" && (
-            <div className="space-y-6 max-w-xl">
-              <div>
-                <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">{t.settings.billingTab.title}</h2>
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-                  {t.settings.billingTab.description}
-                </p>
-              </div>
-
-              <div className="space-y-4 pt-2">
-                <div className="flex items-center justify-between py-2.5 border-b border-zinc-200 dark:border-zinc-800">
-                  <div>
-                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.settings.billingTab.currentPlan}</p>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{t.settings.billingTab.currentPlanDesc}</p>
-                  </div>
-                  <span className="text-xs font-bold text-zinc-900 dark:text-white capitalize">
-                    {entitlement?.plan || "Starter Plan"}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between py-2.5 border-b border-zinc-200 dark:border-zinc-800">
-                  <div>
-                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.settings.billingTab.status}</p>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{t.settings.billingTab.statusDesc}</p>
-                  </div>
-                  <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
-                    <Check className="h-3.5 w-3.5" />
-                    <span>{entitlement?.isTrial ? t.settings.billingTab.activeTrial : t.settings.billingTab.activeSubscription}</span>
-                  </span>
-                </div>
-
-                <div className="pt-2">
-                  <Link
-                    href="/pricing"
-                    onClick={closeSettings}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
-                  >
-                    <span>{t.settings.billingTab.changePlan}</span>
-                    <ExternalLink className="h-3 w-3 text-zinc-500" />
-                  </Link>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB: NOTIFICATIONS */}
-          {activeTab === "notifications" && (
-            <div className="space-y-6 max-w-xl">
-              <div>
-                <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">{t.settings.notificationsTab.title}</h2>
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-                  {t.settings.notificationsTab.description}
-                </p>
-              </div>
-
-              <div className="space-y-4 pt-2">
-                <div className="flex items-center justify-between py-2.5 border-b border-zinc-200 dark:border-zinc-800">
-                  <div>
-                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.settings.notificationsTab.emailNotifs}</p>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{t.settings.notificationsTab.emailNotifsDesc}</p>
-                  </div>
-                  <span className="text-[11px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">{t.common.enabled}</span>
-                </div>
-
-                <div className="flex items-center justify-between py-2.5 border-b border-zinc-200 dark:border-zinc-800">
-                  <div>
-                    <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">{t.settings.notificationsTab.inAppBadges}</p>
-                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">{t.settings.notificationsTab.inAppBadgesDesc}</p>
-                  </div>
-                  <span className="text-[11px] font-mono font-semibold text-emerald-600 dark:text-emerald-400">{t.common.enabled}</span>
-                </div>
-              </div>
-            </div>
+            <UsageBillingTab entitlement={entitlement} closeSettings={closeSettings} />
           )}
         </main>
       </div>
+
+      {/* Setup Guide / Credentials Modal */}
+      {infoModalItem && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4"
+          onClick={() => setInfoModalItem(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] p-5 shadow-2xl text-zinc-900 dark:text-zinc-100 animate-in fade-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700">
+                  {renderProviderIcon(infoModalItem.id)}
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold leading-tight">{infoModalItem.name}</h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInfoModalItem(null)}
+                className="p-1 rounded-md text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="py-4 space-y-3.5 text-xs">
+              <div>
+                <p className="font-semibold text-zinc-900 dark:text-zinc-100">Environment Variables</p>
+                <p className="text-[11px] text-zinc-500 mt-0.5">
+                  Configure these in your <code className="font-mono text-blue-600 dark:text-blue-400">.env</code> to activate this integration:
+                </p>
+                <div className="mt-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/80 p-2.5 font-mono text-[11px] space-y-1 text-zinc-800 dark:text-zinc-200">
+                  {infoModalItem.envVars.map((v) => (
+                    <div key={v} className="flex items-center justify-between">
+                      <span>{v}</span>
+                      <span className="text-[10px] text-zinc-400 font-sans">Required</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100/70 dark:bg-zinc-800/50 p-3 text-zinc-700 dark:text-zinc-300 space-y-1 text-[11px]">
+                <p className="font-semibold flex items-center gap-1.5 text-zinc-900 dark:text-zinc-100">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  <span>Configured via .env</span>
+                </p>
+                <p className="text-zinc-600 dark:text-zinc-400">
+                  Check your project&apos;s <code className="font-mono">.env.example</code> for credentials and instructions.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setInfoModalItem(null)}
+                className="rounded-lg bg-zinc-900 dark:bg-white px-3 py-1.5 text-xs font-semibold text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

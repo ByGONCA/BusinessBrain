@@ -61,6 +61,36 @@ export interface GmailMessageSummary {
   unread?: boolean;
 }
 
+export interface EmailAttachmentItem {
+  name: string;
+  size: string;
+  attachmentId?: string;
+  mimeType?: string;
+}
+
+export interface EmailMessageItem {
+  id: string;
+  sender: string;
+  senderEmail: string;
+  recipientEmail: string;
+  subject: string;
+  snippet: string;
+  body: string;
+  htmlBody?: string;
+  date: string;
+  time: string;
+  unread: boolean;
+  source: "Gmail" | "Outlook" | "Email";
+  accountEmail: string;
+  attachments?: EmailAttachmentItem[];
+}
+
+export interface GetEmailMessagesResponse {
+  messages: EmailMessageItem[];
+  nextPageToken?: string;
+  isLive: boolean;
+}
+
 export interface GoogleCalendarSummary {
   id: string;
   summary: string;
@@ -85,5 +115,6 @@ export interface GoogleCalendarEvent {
     timeZone?: string;
   };
   htmlLink?: string;
+  hangoutLink?: string;
   status?: string;
 }

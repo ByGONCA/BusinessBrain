@@ -210,6 +210,8 @@ export function MovePageModal({
                   <span className="flex items-center gap-2 truncate">
                     <PageIcon
                       icon={dest.icon}
+                      pageId={dest.id}
+                      iconFileId={(dest as unknown as { icon_file_id?: string | null }).icon_file_id}
                       className="h-3.5 w-3.5 text-xs shrink-0"
                       imgClassName="h-3.5 w-3.5 rounded object-cover"
                     />

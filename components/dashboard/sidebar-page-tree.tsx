@@ -523,6 +523,8 @@ export function SidebarPageTree({
             >
               <PageIcon
                 icon={node.icon}
+                pageId={node.id}
+                iconFileId={node.icon_file_id}
                 className="h-4 w-4 text-sm shrink-0"
                 imgClassName="h-4 w-4 rounded object-cover"
               />
@@ -552,6 +554,8 @@ export function SidebarPageTree({
             >
               <PageIcon
                 icon={node.icon}
+                pageId={node.id}
+                iconFileId={node.icon_file_id}
                 className="h-4 w-4 text-sm shrink-0"
                 imgClassName="h-4 w-4 rounded object-cover"
               />

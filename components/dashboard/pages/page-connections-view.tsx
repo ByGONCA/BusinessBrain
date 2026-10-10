@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 
 interface PageConnectionsViewProps {
   pageId?: string;
+  iconFileId?: string | null;
   pageTitle: string;
   pageIcon: string;
   connections: PageConnectionRecord[];
@@ -54,6 +55,7 @@ const ENTITY_GROUP_CONFIG: Record<
 
 export function PageConnectionsView({
   pageId,
+  iconFileId,
   pageTitle,
   pageIcon,
   connections,
@@ -82,6 +84,8 @@ export function PageConnectionsView({
         <div className="flex items-center gap-4">
           <PageIcon
             icon={pageIcon}
+            pageId={pageId}
+            iconFileId={iconFileId}
             className="text-4xl sm:text-5xl select-none"
             imgClassName="h-12 w-12 sm:h-14 sm:w-14 rounded-xl object-cover"
           />

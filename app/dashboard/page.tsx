@@ -20,11 +20,11 @@ export default async function DashboardOverviewPage() {
 
   return (
     <div className="space-y-8">
-      {/* Overview Header */}
+      {/* Home Header */}
       <div className="flex flex-col gap-1 pb-1">
         <div className="flex items-center gap-2.5">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Overview
+            Home
           </h1>
           {activeOrg && (
             <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400 border border-blue-500/20">
@@ -33,7 +33,7 @@ export default async function DashboardOverviewPage() {
           )}
         </div>
         <p className="text-sm text-muted-foreground">
-          Visão geral do projeto e contexto unificado do workspace.
+          What is happening in your company right now — unified operational overview and entry point.
         </p>
       </div>
 

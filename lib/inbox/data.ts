@@ -14,7 +14,7 @@ export const ADMIN_MESSAGES: AdminMessage[] = [
       "Feel free to explore our new navigation shortcuts (Ctrl+K for search, Ctrl+, for Settings) and start organizing your workspace!",
     ],
     createdAt: "2026-09-30T09:30:00Z",
-    actionUrl: "/dashboard/settings",
+    actionUrl: "/dashboard?settings=workspace",
     actionLabel: "Explore Settings",
   },
   {
@@ -30,7 +30,7 @@ export const ADMIN_MESSAGES: AdminMessage[] = [
       "Check out your .env.example file for all credentials and callback endpoints ready for immediate deployment.",
     ],
     createdAt: "2026-09-30T08:15:00Z",
-    actionUrl: "/dashboard/settings/integrations",
+    actionUrl: "/dashboard?settings=integrations",
     actionLabel: "View Integrations",
   },
   {
@@ -46,7 +46,7 @@ export const ADMIN_MESSAGES: AdminMessage[] = [
       "To test it, press Ctrl+, and navigate to Preferences -> Language & time.",
     ],
     createdAt: "2026-09-29T23:50:00Z",
-    actionUrl: "/dashboard/settings",
+    actionUrl: "/dashboard?settings=preferences",
     actionLabel: "Change Language",
   },
   {
