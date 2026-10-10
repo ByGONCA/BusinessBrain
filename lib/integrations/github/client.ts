@@ -92,7 +92,7 @@ async function githubFetch<T>(
       "User-Agent": "BusinessBrain-Enterprise-Integration",
       ...init?.headers,
     },
-    next: { revalidate: 60 }, // Cache for 60 seconds
+    next: { revalidate: 15 }, // Cache for 15 seconds
   });
 
   if (!response.ok) {
@@ -145,6 +145,8 @@ export async function getGitHubViewer(organizationId: string): Promise<GitHubVie
 
 /**
  * Lists repositories accessible by the connected GitHub user/org.
+ * Uses visibility=all and affiliation=owner,collaborator,organization_member
+ * to guarantee that both public and private repositories (personal and org) are returned.
  */
 export async function listRepositories(
   organizationId: string,
@@ -154,23 +156,57 @@ export async function listRepositories(
     sort?: "updated" | "pushed" | "full_name";
     direction?: "asc" | "desc";
     type?: "all" | "owner" | "public" | "private" | "member";
+    visibility?: "all" | "public" | "private";
+    affiliation?: string;
   }
 ): Promise<GitHubRepository[]> {
   const page = options?.page || 1;
-  const perPage = options?.per_page || 30;
+  const perPage = Math.min(options?.per_page || 100, 100);
   const sort = options?.sort || "updated";
   const direction = options?.direction || "desc";
-  const type = options?.type || "all";
 
   const params = new URLSearchParams({
     page: String(page),
     per_page: String(perPage),
     sort,
     direction,
-    type,
   });
 
-  return githubFetch<GitHubRepository[]>(organizationId, `/user/repos?${params.toString()}`);
+  if (options?.visibility) {
+    params.set("visibility", options.visibility);
+    params.set("affiliation", options?.affiliation || "owner,collaborator,organization_member");
+  } else if (options?.type && options.type !== "all") {
+    params.set("type", options.type);
+  } else {
+    // Official GitHub API parameter combination to fetch both private and public
+    // repositories across personal, collaborative, and organization memberships:
+    params.set("visibility", "all");
+    params.set("affiliation", options?.affiliation || "owner,collaborator,organization_member");
+  }
+
+  const firstPage = await githubFetch<GitHubRepository[]>(
+    organizationId,
+    `/user/repos?${params.toString()}`
+  );
+
+  // If page 1 was full and caller didn't explicitly request a specific page, fetch page 2
+  // to ensure users with many repositories see all their private and public repos
+  if (Array.isArray(firstPage) && firstPage.length === perPage && !options?.page) {
+    try {
+      params.set("page", "2");
+      const secondPage = await githubFetch<GitHubRepository[]>(
+        organizationId,
+        `/user/repos?${params.toString()}`
+      );
+      if (Array.isArray(secondPage) && secondPage.length > 0) {
+        return [...firstPage, ...secondPage];
+      }
+    } catch (pageErr) {
+      logger.warn("Failed to fetch second page of repositories", { pageErr });
+    }
+  }
+
+  return Array.isArray(firstPage) ? firstPage : [];
 }
 
 /**

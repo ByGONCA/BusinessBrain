@@ -31,6 +31,7 @@ import {
   CircleDot,
   GitMerge,
   Clock,
+  ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -86,6 +87,7 @@ export function GitHubWorkspaceHome({
   });
   const [isRepoDropdownOpen, setIsRepoDropdownOpen] = React.useState(false);
   const [repoSearchQuery, setRepoSearchQuery] = React.useState("");
+  const [repoVisibilityFilter, setRepoVisibilityFilter] = React.useState<"all" | "private" | "public">("all");
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
   // Left Side: File Explorer & In-App File Viewer
@@ -348,17 +350,27 @@ export function GitHubWorkspaceHome({
     }
   };
 
-  // Filtered repos for dropdown search
+  const privateCount = React.useMemo(() => repositories.filter((r) => r.private).length, [repositories]);
+  const publicCount = React.useMemo(() => repositories.filter((r) => !r.private).length, [repositories]);
+
+  // Filtered repos for dropdown search and visibility tabs
   const filteredDropdownRepos = React.useMemo(() => {
-    if (!repoSearchQuery.trim()) return repositories;
+    let list = repositories;
+    if (repoVisibilityFilter === "private") {
+      list = list.filter((r) => r.private);
+    } else if (repoVisibilityFilter === "public") {
+      list = list.filter((r) => !r.private);
+    }
+
+    if (!repoSearchQuery.trim()) return list;
     const q = repoSearchQuery.toLowerCase().trim();
-    return repositories.filter(
+    return list.filter(
       (r) =>
         r.name.toLowerCase().includes(q) ||
         r.full_name.toLowerCase().includes(q) ||
         (r.description && r.description.toLowerCase().includes(q))
     );
-  }, [repositories, repoSearchQuery]);
+  }, [repositories, repoSearchQuery, repoVisibilityFilter]);
 
   // Breadcrumbs path parts
   const pathParts = React.useMemo(() => {
@@ -464,18 +476,80 @@ export function GitHubWorkspaceHome({
 
               {/* Dropdown Menu Modal with 100% SOLID OPAQUE BACKGROUND */}
               {isRepoDropdownOpen && (
-                <div className="absolute left-0 top-full mt-1.5 w-80 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] p-2 text-foreground shadow-2xl z-50 animate-in fade-in-0 zoom-in-95">
+                <div className="absolute left-0 top-full mt-1.5 w-88 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] p-2.5 text-foreground shadow-2xl z-50 animate-in fade-in-0 zoom-in-95">
                   <div className="relative mb-2">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                     <input
                       type="text"
                       value={repoSearchQuery}
                       onChange={(e) => setRepoSearchQuery(e.target.value)}
-                      placeholder="Filter repositories..."
+                      placeholder="Filtrar repositórios..."
                       autoFocus
                       className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 py-1.5 pl-8 pr-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-blue-500 focus:outline-none"
                     />
                   </div>
+
+                  {/* Filter Pills: Todos / Privados / Públicos */}
+                  <div className="flex items-center gap-1 mb-2 px-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setRepoVisibilityFilter("all")}
+                      className={cn(
+                        "px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer",
+                        repoVisibilityFilter === "all"
+                          ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      Todos ({repositories.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRepoVisibilityFilter("private")}
+                      className={cn(
+                        "px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer",
+                        repoVisibilityFilter === "private"
+                          ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <Lock className="h-3 w-3" />
+                      Privados ({privateCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRepoVisibilityFilter("public")}
+                      className={cn(
+                        "px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer",
+                        repoVisibilityFilter === "public"
+                          ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <Globe className="h-3 w-3" />
+                      Públicos ({publicCount})
+                    </button>
+                  </div>
+
+                  {/* Notice if 0 private repos found */}
+                  {privateCount === 0 && (
+                    <div className="mb-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300 space-y-1">
+                      <div className="flex items-center gap-1.5 font-semibold">
+                        <Lock className="h-3.5 w-3.5 shrink-0" />
+                        <span>Apenas repositórios públicos visíveis?</span>
+                      </div>
+                      <p className="text-[10px] leading-relaxed text-amber-800/80 dark:text-amber-300/80">
+                        Para o GitHub autorizar repositórios privados da sua conta ou organização, reconecte a integração com permissão total (scope <code className="bg-amber-500/20 px-1 rounded font-mono">repo</code>).
+                      </p>
+                      <a
+                        href={`/api/integrations/github/connect?returnUrl=${encodeURIComponent("/dashboard/github")}`}
+                        className="inline-flex items-center gap-1 font-semibold text-[10px] text-blue-600 dark:text-blue-400 hover:underline pt-0.5"
+                      >
+                        <span>Reconectar com acesso a privados</span>
+                        <ArrowUpRight className="h-3 w-3" />
+                      </a>
+                    </div>
+                  )}
 
                   <div className="max-h-64 overflow-y-auto space-y-1">
                     {filteredDropdownRepos.length === 0 ? (

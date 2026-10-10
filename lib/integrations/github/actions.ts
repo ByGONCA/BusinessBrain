@@ -151,15 +151,31 @@ export async function getGitHubOverviewAction(
  */
 export async function getGitHubRepositoriesAction(
   orgId?: string,
-  params?: { page?: number; per_page?: number; search?: string }
-): Promise<{ success: boolean; repositories: GitHubRepository[]; authExpired?: boolean; error?: string }> {
+  params?: {
+    page?: number;
+    per_page?: number;
+    search?: string;
+    visibility?: "all" | "public" | "private";
+  }
+): Promise<{
+  success: boolean;
+  repositories: GitHubRepository[];
+  hasRepoScope?: boolean;
+  totalPrivateRepos?: number;
+  authExpired?: boolean;
+  error?: string;
+}> {
   try {
     const targetOrgId = await resolveAuthorizedOrgId(orgId, "github.view");
-    const repos = await listRepositories(targetOrgId, {
-      page: params?.page,
-      per_page: params?.per_page || 50,
-      sort: "updated",
-    });
+    const [repos, viewer] = await Promise.all([
+      listRepositories(targetOrgId, {
+        page: params?.page,
+        per_page: params?.per_page || 100,
+        sort: "updated",
+        visibility: params?.visibility,
+      }),
+      getGitHubViewer(targetOrgId).catch(() => null),
+    ]);
 
     let filtered = repos;
     if (params?.search && params.search.trim()) {
@@ -172,7 +188,16 @@ export async function getGitHubRepositoriesAction(
       );
     }
 
-    return { success: true, repositories: filtered };
+    const hasPrivateReposInList = repos.some((r) => r.private);
+    const totalPrivate = viewer?.total_private_repos ?? (hasPrivateReposInList ? 1 : 0);
+    const hasRepoScope = typeof viewer?.total_private_repos === "number" || hasPrivateReposInList;
+
+    return {
+      success: true,
+      repositories: filtered,
+      hasRepoScope,
+      totalPrivateRepos: totalPrivate,
+    };
   } catch (err: any) {
     if (isAuthExpired(err)) {
       logger.warn("GitHub session expired or revoked during repositories fetch", { error: err.message });

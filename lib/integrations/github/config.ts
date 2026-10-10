@@ -6,6 +6,7 @@ export const GITHUB_OAUTH_SCOPES = [
   "repo", // Access public and private repositories (read-only usage in BusinessBrain)
   "read:user", // Read user profile info
   "user:email", // Access primary email for account identification
+  "read:org", // Read organization membership and repos
 ] as const;
 
 export const GITHUB_OAUTH_ENDPOINTS = {
