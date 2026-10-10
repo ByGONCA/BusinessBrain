@@ -85,11 +85,6 @@ export function GitHubWorkspaceHome({
     }
     return initialRepositories.length > 0 ? initialRepositories[0] : null;
   });
-  const [isRepoDropdownOpen, setIsRepoDropdownOpen] = React.useState(false);
-  const [repoSearchQuery, setRepoSearchQuery] = React.useState("");
-  const [repoVisibilityFilter, setRepoVisibilityFilter] = React.useState<"all" | "private" | "public">("all");
-  const dropdownRef = React.useRef<HTMLDivElement>(null);
-
   // Left Side: File Explorer & In-App File Viewer
   const [currentPath, setCurrentPath] = React.useState("");
   const [contents, setContents] = React.useState<GitHubContentItem[]>([]);
@@ -110,10 +105,6 @@ export function GitHubWorkspaceHome({
   const [loadingPulls, setLoadingPulls] = React.useState(false);
   const [repoIssues, setRepoIssues] = React.useState<GitHubIssue[]>([]);
   const [loadingIssues, setLoadingIssues] = React.useState(false);
-
-  // Copied clone URL state
-  const [copiedClone, setCopiedClone] = React.useState(false);
-  const [avatarError, setAvatarError] = React.useState(false);
 
   // Modals state
   const [connectModal, setConnectModal] = React.useState<{
@@ -140,21 +131,16 @@ export function GitHubWorkspaceHome({
     entityTitle: "",
   });
 
-  // Close dropdown when clicking outside
-  React.useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsRepoDropdownOpen(false);
-      }
+  const [copiedClone, setCopiedClone] = React.useState(false);
+  const handleCopyCloneUrl = React.useCallback(() => {
+    if (!selectedRepo) return;
+    const url = selectedRepo.clone_url || selectedRepo.html_url;
+    if (url) {
+      navigator.clipboard.writeText(url);
+      setCopiedClone(true);
+      setTimeout(() => setCopiedClone(false), 2000);
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Reset avatarError if accountAvatar changes
-  React.useEffect(() => {
-    setAvatarError(false);
-  }, [overview?.accountAvatar]);
+  }, [selectedRepo]);
 
   // Sync selectedRepo if initialRepositories changes
   React.useEffect(() => {
@@ -350,28 +336,6 @@ export function GitHubWorkspaceHome({
     }
   };
 
-  const privateCount = React.useMemo(() => repositories.filter((r) => r.private).length, [repositories]);
-  const publicCount = React.useMemo(() => repositories.filter((r) => !r.private).length, [repositories]);
-
-  // Filtered repos for dropdown search and visibility tabs
-  const filteredDropdownRepos = React.useMemo(() => {
-    let list = repositories;
-    if (repoVisibilityFilter === "private") {
-      list = list.filter((r) => r.private);
-    } else if (repoVisibilityFilter === "public") {
-      list = list.filter((r) => !r.private);
-    }
-
-    if (!repoSearchQuery.trim()) return list;
-    const q = repoSearchQuery.toLowerCase().trim();
-    return list.filter(
-      (r) =>
-        r.name.toLowerCase().includes(q) ||
-        r.full_name.toLowerCase().includes(q) ||
-        (r.description && r.description.toLowerCase().includes(q))
-    );
-  }, [repositories, repoSearchQuery, repoVisibilityFilter]);
-
   // Breadcrumbs path parts
   const pathParts = React.useMemo(() => {
     if (!currentPath) return [];
@@ -395,14 +359,6 @@ export function GitHubWorkspaceHome({
       const newPath = pathParts.slice(0, index + 1).join("/");
       setCurrentPath(newPath);
     }
-  };
-
-  const handleCopyCloneUrl = () => {
-    if (!selectedRepo) return;
-    const url = selectedRepo.clone_url || selectedRepo.html_url;
-    navigator.clipboard.writeText(url);
-    setCopiedClone(true);
-    setTimeout(() => setCopiedClone(false), 2000);
   };
 
   const formatRelativeTime = (iso: string) => {
@@ -450,213 +406,22 @@ export function GitHubWorkspaceHome({
               <Github className="h-4 w-4" />
             </div>
 
-            {/* Dropdown Selector */}
-            <div className="relative" ref={dropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsRepoDropdownOpen((prev) => !prev)}
-                className="flex items-center gap-2 rounded-lg border border-border bg-card hover:bg-muted/60 px-3 py-1.5 text-xs font-semibold text-foreground transition-colors shadow-2xs"
-              >
-                <FolderGit2 className="h-4 w-4 text-blue-500 shrink-0" />
-                <span className="font-mono text-xs">
-                  {selectedRepo ? `${selectedRepo.owner.login} / ${selectedRepo.name}` : "Select Repository..."}
+            {/* Repository Info Title (Static - Configured exclusively in Settings) */}
+            <div className="flex items-center gap-2 min-w-0">
+              <FolderGit2 className="h-4 w-4 text-blue-500 shrink-0" />
+              <span className="font-mono text-sm font-semibold text-foreground truncate">
+                {selectedRepo ? `${selectedRepo.owner.login} / ${selectedRepo.name}` : (defaultRepository || "Repositório Principal")}
+              </span>
+              {selectedRepo && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground uppercase font-sans">
+                  {selectedRepo.private ? "Private" : "Public"}
                 </span>
-                {selectedRepo && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground uppercase font-sans">
-                    {selectedRepo.private ? "Private" : "Public"}
-                  </span>
-                )}
-                <ChevronDown
-                  className={cn(
-                    "h-3.5 w-3.5 text-muted-foreground transition-transform duration-150",
-                    isRepoDropdownOpen && "rotate-180"
-                  )}
-                />
-              </button>
-
-              {/* Dropdown Menu Modal with 100% SOLID OPAQUE BACKGROUND */}
-              {isRepoDropdownOpen && (
-                <div className="absolute left-0 top-full mt-1.5 w-88 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] p-2.5 text-foreground shadow-2xl z-50 animate-in fade-in-0 zoom-in-95">
-                  <div className="relative mb-2">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    <input
-                      type="text"
-                      value={repoSearchQuery}
-                      onChange={(e) => setRepoSearchQuery(e.target.value)}
-                      placeholder="Filtrar repositórios..."
-                      autoFocus
-                      className="w-full rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 py-1.5 pl-8 pr-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-blue-500 focus:outline-none"
-                    />
-                  </div>
-
-                  {/* Filter Pills: Todos / Privados / Públicos */}
-                  <div className="flex items-center gap-1 mb-2 px-0.5">
-                    <button
-                      type="button"
-                      onClick={() => setRepoVisibilityFilter("all")}
-                      className={cn(
-                        "px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer",
-                        repoVisibilityFilter === "all"
-                          ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      Todos ({repositories.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRepoVisibilityFilter("private")}
-                      className={cn(
-                        "px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer",
-                        repoVisibilityFilter === "private"
-                          ? "bg-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <Lock className="h-3 w-3" />
-                      Privados ({privateCount})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setRepoVisibilityFilter("public")}
-                      className={cn(
-                        "px-2 py-1 rounded text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer",
-                        repoVisibilityFilter === "public"
-                          ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      <Globe className="h-3 w-3" />
-                      Públicos ({publicCount})
-                    </button>
-                  </div>
-
-                  {/* Notice if 0 private repos found */}
-                  {privateCount === 0 && (
-                    <div className="mb-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300 space-y-1">
-                      <div className="flex items-center gap-1.5 font-semibold">
-                        <Lock className="h-3.5 w-3.5 shrink-0" />
-                        <span>Apenas repositórios públicos visíveis?</span>
-                      </div>
-                      <p className="text-[10px] leading-relaxed text-amber-800/80 dark:text-amber-300/80">
-                        Para o GitHub autorizar repositórios privados da sua conta ou organização, reconecte a integração com permissão total (scope <code className="bg-amber-500/20 px-1 rounded font-mono">repo</code>).
-                      </p>
-                      <a
-                        href={`/api/integrations/github/connect?returnUrl=${encodeURIComponent("/dashboard/github")}`}
-                        className="inline-flex items-center gap-1 font-semibold text-[10px] text-blue-600 dark:text-blue-400 hover:underline pt-0.5"
-                      >
-                        <span>Reconectar com acesso a privados</span>
-                        <ArrowUpRight className="h-3 w-3" />
-                      </a>
-                    </div>
-                  )}
-
-                  <div className="max-h-64 overflow-y-auto space-y-1">
-                    {filteredDropdownRepos.length === 0 ? (
-                      <div className="py-4 text-center text-xs text-muted-foreground">
-                        No matching repositories found.
-                      </div>
-                    ) : (
-                      filteredDropdownRepos.map((repo) => {
-                        const isCurrent = selectedRepo?.id === repo.id;
-                        return (
-                          <button
-                            key={repo.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedRepo(repo);
-                              setCurrentPath("");
-                              setViewingFile(null);
-                              setFileContent(null);
-                              setFileError(null);
-                              setIsRepoDropdownOpen(false);
-                              setRepoSearchQuery("");
-                            }}
-                            className={cn(
-                              "w-full flex items-center justify-between p-2 rounded-lg text-left text-xs transition-colors",
-                              isCurrent
-                                ? "bg-blue-600 text-white font-medium"
-                                : "hover:bg-zinc-100 dark:hover:bg-zinc-800/80 text-foreground"
-                            )}
-                          >
-                            <div className="min-w-0 pr-2">
-                              <p className="font-mono text-xs font-semibold truncate">{repo.name}</p>
-                              <p
-                                className={cn(
-                                  "text-[10px] truncate",
-                                  isCurrent ? "text-blue-100" : "text-muted-foreground"
-                                )}
-                              >
-                                {repo.owner.login}
-                              </p>
-                            </div>
-                            {repo.private ? (
-                              <Lock
-                                className={cn(
-                                  "h-3 w-3 shrink-0",
-                                  isCurrent ? "text-white" : "text-muted-foreground"
-                                )}
-                              />
-                            ) : (
-                              <Globe
-                                className={cn(
-                                  "h-3 w-3 shrink-0",
-                                  isCurrent ? "text-white" : "text-muted-foreground"
-                                )}
-                              />
-                            )}
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
               )}
             </div>
-
-            {/* Metadata badges for selected repo */}
-            {selectedRepo && (
-              <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1 font-mono text-[11px]">
-                  <GitBranch className="h-3 w-3 text-muted-foreground" />
-                  {selectedRepo.default_branch || "main"}
-                </span>
-                <span>•</span>
-                <span className="flex items-center gap-1 text-[11px]">
-                  <Star className="h-3 w-3 text-amber-500" />
-                  {selectedRepo.stargazers_count}
-                </span>
-                <span>•</span>
-                <span className="flex items-center gap-1 text-[11px]">
-                  <GitFork className="h-3 w-3 text-blue-500" />
-                  {selectedRepo.forks_count}
-                </span>
-              </div>
-            )}
           </div>
 
           {/* Right: Actions */}
           <div className="flex items-center gap-2 shrink-0">
-            {selectedRepo && (
-              <button
-                type="button"
-                onClick={handleCopyCloneUrl}
-                className="hidden sm:flex items-center gap-1 rounded-md border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-2xs"
-                title="Copy clone URL"
-              >
-                {copiedClone ? (
-                  <>
-                    <Check className="h-3 w-3 text-emerald-500" />
-                    <span className="text-emerald-500 font-semibold">Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-3 w-3 opacity-70" />
-                    <span>Clone</span>
-                  </>
-                )}
-              </button>
-            )}
 
             <button
               type="button"

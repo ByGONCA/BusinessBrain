@@ -1040,9 +1040,8 @@ async function runTests() {
     "github-workspace-home.tsx implements in-app file viewer state and handlers"
   );
   assert(
-    ghWorkspaceHomeSrc.includes("bg-white dark:bg-[#161618]") &&
-      ghWorkspaceHomeSrc.includes("shadow-2xl z-50"),
-    "github-workspace-home.tsx uses opaque solid styling for repository dropdown"
+    !ghWorkspaceHomeSrc.includes("isRepoDropdownOpen"),
+    "github-workspace-home.tsx removes repository switcher dropdown from workspace header"
   );
   assert(
     !ghWorkspaceHomeSrc.includes("fetchReadme"),

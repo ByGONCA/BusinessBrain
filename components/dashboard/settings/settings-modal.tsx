@@ -10,7 +10,6 @@ import {
   Mail,
   Calendar,
   Building2,
-  Users,
   CreditCard,
   ShieldCheck,
   Check,
@@ -47,7 +46,6 @@ import {
   getProviderLogoUrl,
 } from "@/lib/integrations/catalog";
 import { OrganizationIntegration } from "@/lib/integrations/types";
-import { getOrganizationMembersAction } from "@/lib/organizations/actions";
 import {
   getOrganizationIntegrationsAction,
   deleteIntegrationAction,
@@ -63,7 +61,6 @@ import { AppearanceTab } from "./appearance-tab";
 import { SecurityTab } from "./security-tab";
 import { NotificationsTab } from "./notifications-tab";
 import { WorkspaceGeneralTab } from "./workspace-general-tab";
-import { PermissionsTab } from "./permissions-tab";
 import { WorkspaceDefaultsTab } from "./workspace-defaults-tab";
 import { PrivacyDataTab } from "./privacy-data-tab";
 import { AuditLogTab } from "./audit-log-tab";
@@ -229,27 +226,6 @@ export function SettingsModal({
     "User";
   const userInitial = userName.charAt(0).toUpperCase();
 
-  const [memberList, setMemberList] = React.useState<OrganizationMember[]>(members);
-  const [loadingMembers, setLoadingMembers] = React.useState(false);
-
-  React.useEffect(() => {
-    if (members && members.length > 0) {
-      setMemberList(members);
-    }
-  }, [members]);
-
-  React.useEffect(() => {
-    if (isOpen && activeTab === "people" && memberList.length <= 1) {
-      setLoadingMembers(true);
-      getOrganizationMembersAction(activeOrg?.id).then((res) => {
-        setLoadingMembers(false);
-        if (res.success && res.members && res.members.length > 0) {
-          setMemberList(res.members);
-        }
-      });
-    }
-  }, [isOpen, activeTab, activeOrg?.id, memberList.length]);
-
   if (!isOpen) return null;
 
   return (
@@ -259,7 +235,7 @@ export function SettingsModal({
     >
       {/* Modal Dialog Window - SOLID OPAQUE BACKGROUND */}
       <div
-        className="relative flex h-[620px] max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] text-zinc-900 dark:text-zinc-100 shadow-2xl transition-colors duration-150"
+        className="relative flex h-[780px] max-h-[94vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] text-zinc-900 dark:text-zinc-100 shadow-2xl transition-colors duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ========================================================= */}
@@ -376,34 +352,6 @@ export function SettingsModal({
               >
                 <Building2 className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
                 <span>General</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab("people")}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
-                  activeTab === "people"
-                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
-                )}
-              >
-                <Users className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-                <span>People</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab("permissions")}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
-                  activeTab === "permissions"
-                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
-                )}
-              >
-                <ShieldCheck className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-                <span>Permissions</span>
               </button>
 
               <button
@@ -544,47 +492,9 @@ export function SettingsModal({
           {/* TAB: WORKSPACE / GENERAL */}
           {activeTab === "workspace" && <WorkspaceGeneralTab activeOrg={activeOrg} />}
 
-          {/* TAB: PEOPLE */}
-          {activeTab === "people" && (
-            <div className="space-y-6 max-w-xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">{t.settings.peopleTab.title}</h2>
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-                    {t.settings.peopleTab.description}
-                  </p>
-                </div>
-                <span className="rounded-full bg-zinc-100 dark:bg-zinc-800 px-2.5 py-0.5 text-xs font-medium text-zinc-700 dark:text-zinc-300">
-                  {loadingMembers ? "Loading..." : `${memberList.length || 1} ${t.settings.peopleTab.total}`}
-                </span>
-              </div>
-
-              <div className="divide-y divide-zinc-200 dark:divide-zinc-800 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40">
-                {(memberList.length > 0 ? memberList : [{ id: "self", role: activeOrg?.role || "owner", profile: { email: user.email, full_name: userName } }]).map((m) => (
-                  <div key={m.id} className="flex items-center justify-between p-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                        {m.profile?.full_name ? m.profile.full_name.charAt(0).toUpperCase() : "U"}
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-200">
-                          {m.profile?.full_name || m.profile?.email || "Member"}
-                        </p>
-                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono">{m.profile?.email}</p>
-                      </div>
-                    </div>
-                    <span className="rounded bg-zinc-200 dark:bg-zinc-800 px-2 py-0.5 text-[10px] font-mono uppercase font-semibold text-zinc-600 dark:text-zinc-400">
-                      {m.role === "owner" ? t.settings.peopleTab.owner : m.role === "admin" ? t.settings.peopleTab.admin : t.settings.peopleTab.member}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* TAB: INTEGRATIONS */}
           {activeTab === "integrations" && (
-            <div className="space-y-4 max-w-xl">
+            <div className="space-y-4 w-full max-w-3xl">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">{t.settings.integrationsTab.title}</h2>
@@ -607,7 +517,7 @@ export function SettingsModal({
               </div>
 
               {/* Integrations List */}
-              <div className="space-y-2.5 max-h-[380px] overflow-y-auto no-scrollbar pr-0.5">
+              <div className="space-y-2.5">
                 {INTEGRATION_CATALOG
                   .filter((item) => {
                     const matchesSearch =
@@ -851,9 +761,6 @@ export function SettingsModal({
               </div>
             </div>
           )}
-
-          {/* TAB: PERMISSIONS */}
-          {activeTab === "permissions" && <PermissionsTab />}
 
           {/* TAB: DEFAULTS */}
           {activeTab === "defaults" && <WorkspaceDefaultsTab activeOrg={activeOrg} />}

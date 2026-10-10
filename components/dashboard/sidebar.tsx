@@ -259,18 +259,6 @@ export function Sidebar({
             {t.sidebar.work || "WORK"}
           </div>
 
-          {/* Nested Pages hierarchy tree */}
-          {activeOrg && (
-            <div className="py-0.5">
-              <SidebarPageTree
-                initialPages={pageTree}
-                favoritePages={favoritePages}
-                archivedPages={archivedPages}
-                organizationId={activeOrg.id}
-              />
-            </div>
-          )}
-
           {/* Projects */}
           <Link
             href="/dashboard/projects"
@@ -359,6 +347,20 @@ export function Sidebar({
             <span className="truncate">{t.sidebar.meetings || "Meetings"}</span>
           </Link>
         </div>
+
+        {/* ========================================================= */}
+        {/* 2. PAGES HIERARCHY TREE                                   */}
+        {/* ========================================================= */}
+        {activeOrg && (
+          <div className="py-0.5">
+            <SidebarPageTree
+              initialPages={pageTree}
+              favoritePages={favoritePages}
+              archivedPages={archivedPages}
+              organizationId={activeOrg.id}
+            />
+          </div>
+        )}
 
         {/* ========================================================= */}
         {/* 2. BRAIN                                                  */}
