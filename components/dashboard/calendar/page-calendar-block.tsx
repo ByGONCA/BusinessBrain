@@ -35,6 +35,7 @@ interface PageCalendarBlockProps {
   };
   onUpdateProperties: (id: string, properties: Record<string, unknown>) => void;
   readOnly?: boolean;
+  authorBlame?: React.ReactNode;
 }
 
 const DAYS_SHORT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
@@ -44,6 +45,7 @@ export function PageCalendarBlock({
   properties = {},
   onUpdateProperties,
   readOnly,
+  authorBlame,
 }: PageCalendarBlockProps) {
   const filterTag = (properties.filterTag as string) || "All";
   const viewMode = (properties.viewMode as "month" | "list") || "month";
@@ -238,15 +240,23 @@ export function PageCalendarBlock({
     <div className="my-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] overflow-hidden shadow-2xs select-none">
       {/* Block Header Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2 p-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/40">
-        <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
             <CalendarIcon className="h-4 w-4" />
           </div>
-          <div>
-            <h4 className="text-xs font-bold text-zinc-900 dark:text-white">
-              {title}
-            </h4>
-            <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                disabled={readOnly}
+                value={title}
+                onChange={(e) => onUpdateProperties(blockId, { calendarTitle: e.target.value })}
+                placeholder="Calendar..."
+                className="text-xs font-bold text-zinc-900 dark:text-white bg-transparent border-none outline-none hover:bg-zinc-100 dark:hover:bg-zinc-800/60 rounded px-1 py-0.5 focus:bg-white dark:focus:bg-zinc-800 focus:ring-1 focus:ring-blue-500/40 transition-colors truncate"
+              />
+              {authorBlame}
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 px-1">
               <span>{monthName} {year}</span>
               <span>&bull;</span>
               <span className="font-medium text-blue-600 dark:text-blue-400">

@@ -1108,6 +1108,20 @@ export function BlockEditor({
 
   // Keyboard navigation & Enter/Backspace splitting
   const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>, block: EditorBlock, index: number) => {
+    // If slash menu or mention menu is active, DO NOT navigate lines or insert new blocks!
+    if (slashState || mentionState) {
+      if (["ArrowUp", "ArrowDown", "Enter", "Tab"].includes(e.key)) {
+        e.preventDefault();
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setSlashState(null);
+        setMentionState(null);
+        return;
+      }
+    }
+
     // SPACE: Instant markdown trigger for # (H1), ## (H2), ### (H3), lists, etc.
     if (e.key === " " && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
       const targetEl = (e.currentTarget || (e.target as HTMLElement)?.closest?.('[contenteditable="true"]') || blockRefs.current.get(block.id)) as HTMLElement | null;
@@ -1986,14 +2000,31 @@ export function BlockEditor({
     if (activeLinkAnchor) {
       setActiveLinkAnchor(null);
     }
+
+    // If user clicked in the blank space below the blocks, append or focus bottom line!
+    const isBelowBlocks =
+      target === e.currentTarget ||
+      target.id === "editor-canvas-container" ||
+      target.classList.contains("editor-canvas-bottom-area");
+
+    if (isBelowBlocks) {
+      const lastBlock = blocks[blocks.length - 1];
+      if (lastBlock && lastBlock.type === "paragraph" && !lastBlock.content?.trim()) {
+        const el = blockRefs.current.get(lastBlock.id);
+        el?.focus();
+      } else {
+        handleInsertBelow(blocks.length - 1, "paragraph");
+      }
+    }
   };
 
   const isPageEmpty = blocks.length <= 1 && (!blocks[0].content || blocks[0].content.trim() === "");
 
   return (
     <div
+      id="editor-canvas-container"
       onClick={handleEditorClick}
-      className="relative w-full min-h-[calc(100vh-140px)] flex flex-col flex-1 pb-48"
+      className="relative w-full min-h-[calc(100vh-140px)] flex flex-col flex-1 pb-48 cursor-text"
     >
       <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
       {/* Connect & Entity Creation Modal */}
@@ -2282,6 +2313,22 @@ export function BlockEditor({
               });
             })()}
           </div>
+
+          {/* Clickable bottom canvas area to quickly add a new line below all blocks */}
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              const lastBlock = blocks[blocks.length - 1];
+              if (lastBlock && lastBlock.type === "paragraph" && !lastBlock.content?.trim()) {
+                const el = blockRefs.current.get(lastBlock.id);
+                el?.focus();
+              } else {
+                handleInsertBelow(blocks.length - 1, "paragraph");
+              }
+            }}
+            className="editor-canvas-bottom-area h-32 w-full cursor-text transition-colors"
+            title="Click to add a line below"
+          />
 
           {/* Template Suggestions if Document is Empty - rendered below the first block like Notion */}
           {isPageEmpty && (

@@ -514,12 +514,15 @@ export function SlashMenu({ query, onSelect, onClose, position }: SlashMenuProps
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
+        e.stopPropagation();
         setSelectedIndex((prev) => (prev + 1) % (filteredItems.length || 1));
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
+        e.stopPropagation();
         setSelectedIndex((prev) => (prev - 1 + filteredItems.length) % (filteredItems.length || 1));
-      } else if (e.key === "Enter") {
+      } else if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
+        e.stopPropagation();
         if (filteredItems[selectedIndex]) {
           const item = filteredItems[selectedIndex];
           saveRecent(item.id);
@@ -527,12 +530,13 @@ export function SlashMenu({ query, onSelect, onClose, position }: SlashMenuProps
         }
       } else if (e.key === "Escape") {
         e.preventDefault();
+        e.stopPropagation();
         onClose();
       }
     }
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [filteredItems, selectedIndex, onSelect, onClose, recentIds, saveRecent]);
 
   // Scroll active item into view
@@ -545,13 +549,17 @@ export function SlashMenu({ query, onSelect, onClose, position }: SlashMenuProps
 
   // Click outside to dismiss
   React.useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    function handleClickOutside(e: MouseEvent | TouchEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onClose();
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside, true);
+    document.addEventListener("touchstart", handleClickOutside, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside, true);
+      document.removeEventListener("touchstart", handleClickOutside, true);
+    };
   }, [onClose]);
 
   if (filteredItems.length === 0) {

@@ -115,23 +115,27 @@ export function MentionMenu({ query, onSelect, onClose, position }: MentionMenuP
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
+        e.stopPropagation();
         setSelectedIndex((prev) => (prev + 1) % (items.length || 1));
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
+        e.stopPropagation();
         setSelectedIndex((prev) => (prev - 1 + items.length) % (items.length || 1));
-      } else if (e.key === "Enter") {
+      } else if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
+        e.stopPropagation();
         if (items[selectedIndex]) {
           onSelect(items[selectedIndex]);
         }
       } else if (e.key === "Escape") {
         e.preventDefault();
+        e.stopPropagation();
         onCloseRef.current();
       }
     }
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [items, selectedIndex, onSelect]);
 
   // Click outside to dismiss
@@ -141,11 +145,11 @@ export function MentionMenu({ query, onSelect, onClose, position }: MentionMenuP
         onCloseRef.current();
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("touchstart", handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside, true);
+    document.addEventListener("touchstart", handleClickOutside, true);
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("touchstart", handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside, true);
+      document.removeEventListener("touchstart", handleClickOutside, true);
     };
   }, []);
 

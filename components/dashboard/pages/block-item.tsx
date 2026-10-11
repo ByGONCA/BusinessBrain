@@ -12,6 +12,7 @@ import {
   Sparkles,
   Link2,
   CopyPlus,
+  Plus,
   MessageSquare,
   ChevronRight,
   Heading1,
@@ -97,7 +98,7 @@ interface BlockItemProps {
   onUpdateContent: (id: string, content: string) => void;
   onUpdateProperties: (id: string, properties: Partial<EditorBlock["properties"]>) => void;
   onConvertType: (id: string, newType: BlockType, newContent?: string) => void;
-  onInsertBelow: (index: number) => void;
+  onInsertBelow: (index: number, type?: BlockType) => void;
   onDeleteBlock: (id: string) => void;
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
@@ -285,8 +286,8 @@ export function BlockItem({
 
   const isLineActive = isSelfFocused || isFocused || isAuthorHighlighted;
 
-  const renderBlame = () => {
-    if (!hasContent) return null;
+  const renderBlame = (forceShow = false) => {
+    if (!hasContent && !forceShow) return null;
 
     return (
       <button
@@ -298,7 +299,7 @@ export function BlockItem({
         }}
         className={cn(
           "items-center gap-1.5 ml-2.5 px-1 py-0.5 text-[11px] font-sans transition-all duration-150 select-none cursor-pointer align-baseline shrink-0",
-          isLineActive ? "inline-flex" : "hidden group-hover:inline-flex",
+          isLineActive || forceShow ? "inline-flex" : "hidden group-hover:inline-flex",
           isAuthorHighlighted
             ? "opacity-100 text-blue-600 dark:text-blue-400 font-semibold"
             : "opacity-40 hover:opacity-100 text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
@@ -487,7 +488,11 @@ export function BlockItem({
         index > 0 && block.type === "heading_2" && "mt-3.5",
         index > 0 && block.type === "heading_3" && "mt-2",
         isDragging && "opacity-35",
-        isSelected && "bg-blue-50/80 dark:bg-blue-950/50 ring-1 ring-blue-500/40 dark:ring-blue-400/40 shadow-xs"
+        isSelected && (
+          block.type === "board" || block.type === "calendar" || block.type === "table" || block.type === "gallery"
+            ? "ring-1 ring-blue-500/40 dark:ring-blue-400/40 shadow-xs"
+            : "bg-blue-50/40 dark:bg-blue-950/30 ring-1 ring-blue-500/30 dark:ring-blue-400/30 shadow-xs"
+        )
       )}
     >
       {/* Drop indicator: BEFORE */}
@@ -655,6 +660,18 @@ export function BlockItem({
                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                 >
                   <MessageSquare className="h-3.5 w-3.5 text-zinc-400" /> Comment
+                </button>
+
+                {/* Insert block below */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onInsertBelow(index, "paragraph");
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5 text-zinc-400" /> Insert block below
                 </button>
 
                 {/* Duplicate */}
@@ -1673,6 +1690,33 @@ export function BlockItem({
                 { id: "col-3", title: "Done", cards: [] },
               ],
             };
+            const boardTitle = (block.properties?.boardTitle as string) || "Board";
+
+            const updateBoardTitle = (title: string) => {
+              onUpdateProperties(block.id, { boardTitle: title });
+            };
+
+            const updateColumnTitle = (colId: string, title: string) => {
+              const nextCols = boardData.columns.map((c) => {
+                if (c.id !== colId) return c;
+                return { ...c, title };
+              });
+              onUpdateProperties(block.id, { boardData: { columns: nextCols } });
+            };
+
+            const addColumn = () => {
+              const nextCols = [
+                ...boardData.columns,
+                { id: `col-${crypto.randomUUID()}`, title: "New Column", cards: [] },
+              ];
+              onUpdateProperties(block.id, { boardData: { columns: nextCols } });
+            };
+
+            const deleteColumn = (colId: string) => {
+              if (boardData.columns.length <= 1) return;
+              const nextCols = boardData.columns.filter((c) => c.id !== colId);
+              onUpdateProperties(block.id, { boardData: { columns: nextCols } });
+            };
 
             const addCard = (colId: string) => {
               const nextCols = boardData.columns.map((c) => {
@@ -1708,41 +1752,103 @@ export function BlockItem({
             };
 
             return (
-              <div className="my-2 grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40">
-                {boardData.columns.map((col) => (
-                  <div key={col.id} className="rounded-lg bg-white dark:bg-zinc-800/60 p-2.5 shadow-2xs border border-zinc-200/60 dark:border-zinc-700/60 flex flex-col gap-2">
-                    <div className="flex items-center justify-between text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                      <span>{col.title}</span>
-                      <span className="text-[10px] text-zinc-400 font-normal">{col.cards.length}</span>
-                    </div>
-                    <div className="space-y-1.5 min-h-[4rem]">
-                      {col.cards.map((card) => (
-                        <div key={card.id} className="flex items-center justify-between p-2 rounded-md bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-700 text-xs group/card">
-                          <input
-                            type="text"
-                            value={card.text}
-                            onChange={(e) => updateCardText(col.id, card.id, e.target.value)}
-                            className="bg-transparent border-none outline-none w-full text-zinc-800 dark:text-zinc-200"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => deleteCard(col.id, card.id)}
-                            className="text-zinc-400 hover:text-red-500 opacity-0 group-hover/card:opacity-100 ml-1 text-xs"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => addCard(col.id)}
-                      className="text-[11px] text-zinc-500 hover:text-indigo-600 text-left pt-1"
-                    >
-                      + Add card
-                    </button>
+              <div className="my-2 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 space-y-3">
+                {/* Board Header: Title, Blame & Actions */}
+                <div className="flex items-center justify-between pb-2 border-b border-zinc-200/60 dark:border-zinc-800 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Kanban className="h-4 w-4 text-indigo-500 shrink-0" />
+                    <input
+                      type="text"
+                      value={boardTitle}
+                      onChange={(e) => updateBoardTitle(e.target.value)}
+                      placeholder="Board Title..."
+                      className={cn(
+                        "bg-transparent border-none outline-none font-bold text-xs truncate transition-colors",
+                        isSelected
+                          ? "text-blue-600 dark:text-blue-400 font-bold bg-blue-50/80 dark:bg-blue-950/60 px-1.5 py-0.5 rounded ring-1 ring-blue-500/30"
+                          : "text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 px-1 py-0.5 rounded"
+                      )}
+                    />
                   </div>
-                ))}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {renderBlame(true)}
+                  </div>
+                </div>
+
+                {/* Columns Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {boardData.columns.map((col) => (
+                    <div key={col.id} className="rounded-lg bg-white dark:bg-zinc-800/60 p-2.5 shadow-2xs border border-zinc-200/60 dark:border-zinc-700/60 flex flex-col gap-2 group/col">
+                      <div className="flex items-center justify-between gap-1 text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                        <input
+                          type="text"
+                          value={col.title}
+                          onChange={(e) => updateColumnTitle(col.id, e.target.value)}
+                          placeholder="Column..."
+                          className="bg-transparent border-none outline-none font-semibold text-xs text-zinc-800 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700/50 rounded px-1 py-0.5 w-full focus:bg-white dark:focus:bg-zinc-700 focus:ring-1 focus:ring-blue-500/50 transition-colors"
+                        />
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-[10px] text-zinc-400 font-normal px-1">{col.cards.length}</span>
+                          {boardData.columns.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => deleteColumn(col.id)}
+                              className="text-zinc-400 hover:text-red-500 opacity-0 group-hover/col:opacity-100 text-xs px-1"
+                              title="Delete column"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-1.5 min-h-[4rem]">
+                        {col.cards.map((card) => (
+                          <div key={card.id} className="flex items-center justify-between p-2 rounded-md bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-700 text-xs group/card">
+                            <input
+                              type="text"
+                              value={card.text}
+                              onChange={(e) => updateCardText(col.id, card.id, e.target.value)}
+                              className="bg-transparent border-none outline-none w-full text-zinc-800 dark:text-zinc-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => deleteCard(col.id, card.id)}
+                              className="text-zinc-400 hover:text-red-500 opacity-0 group-hover/card:opacity-100 ml-1 text-xs"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => addCard(col.id)}
+                        className="text-[11px] text-zinc-500 hover:text-indigo-600 text-left pt-1"
+                      >
+                        + Add card
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Footer Controls: Add column & Insert line below */}
+                <div className="flex items-center justify-between pt-1 text-xs text-zinc-400">
+                  <button
+                    type="button"
+                    onClick={addColumn}
+                    className="text-[11px] text-zinc-500 hover:text-indigo-600 transition-colors px-1 py-0.5 rounded hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    + Add column
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onInsertBelow(index, "paragraph")}
+                    className="text-[11px] text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 flex items-center gap-1 transition-colors px-2 py-0.5 rounded border border-dashed border-zinc-300 dark:border-zinc-700 hover:border-zinc-400"
+                    title="Add a new text line below this board"
+                  >
+                    + Insert line below
+                  </button>
+                </div>
               </div>
             );
           })()}
@@ -1856,11 +1962,24 @@ export function BlockItem({
 
           {/* CALENDAR */}
           {block.type === "calendar" && (
-            <PageCalendarBlock
-              blockId={block.id}
-              properties={block.properties}
-              onUpdateProperties={onUpdateProperties}
-            />
+            <div className="space-y-1">
+              <PageCalendarBlock
+                blockId={block.id}
+                properties={block.properties}
+                onUpdateProperties={onUpdateProperties}
+                authorBlame={renderBlame(true)}
+              />
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => onInsertBelow(index, "paragraph")}
+                  className="text-[11px] text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 flex items-center gap-1 transition-colors px-2 py-0.5 rounded border border-dashed border-zinc-300 dark:border-zinc-700 hover:border-zinc-400"
+                  title="Add a new text line below this calendar"
+                >
+                  + Insert line below
+                </button>
+              </div>
+            </div>
           )}
 
           {/* EQUATION */}
