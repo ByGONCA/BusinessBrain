@@ -238,6 +238,7 @@ export function GitHubCommentsDrawer({
     initialCodeSnippet || null
   );
 
+  const inputRef = React.useRef<HTMLInputElement>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const cacheKey = `bb_chat_${entityType}_${entityId}`;
 
@@ -259,12 +260,22 @@ export function GitHubCommentsDrawer({
     }
   }, []);
 
-  // 2. Sync attached code snippet when opened with selection
+  // 2. Sync attached code snippet when opened or when snippet prop updates
   React.useEffect(() => {
     if (initialCodeSnippet) {
       setAttachedSnippet(initialCodeSnippet);
     }
-  }, [initialCodeSnippet]);
+  }, [initialCodeSnippet, isOpen]);
+
+  // 2.1 Auto-focus input when opened with snippet or normally
+  React.useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 80);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, initialCodeSnippet]);
 
   const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -595,6 +606,7 @@ export function GitHubCommentsDrawer({
           {/* Input Form */}
           <form onSubmit={handleSubmit} className="flex items-center gap-2">
             <input
+              ref={inputRef}
               type="text"
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}

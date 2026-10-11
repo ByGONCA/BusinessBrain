@@ -19,11 +19,14 @@ import {
   FilePlus,
   ChevronRight,
   Plus,
+  Eye,
+  Code2,
 } from "lucide-react";
 import { PhosphorFile } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { PageIcon } from "@/components/dashboard/pages/page-icon";
 import { AddToPageModal } from "./add-to-page-modal";
+import { MarkdownViewer } from "./markdown-viewer";
 import { searchPagesAction } from "@/lib/pages/actions";
 import { PageRecord } from "@/lib/pages/types";
 import {
@@ -109,6 +112,29 @@ export function CodeViewer({
     () => detectLanguageFromPath(filePath),
     [filePath]
   );
+
+  // Check if file is Markdown format
+  const isMarkdown = React.useMemo(() => {
+    return (
+      lang === "markdown" ||
+      filePath.toLowerCase().endsWith(".md") ||
+      filePath.toLowerCase().endsWith(".markdown") ||
+      filePath.toLowerCase().endsWith(".mdx")
+    );
+  }, [lang, filePath]);
+
+  const [viewMode, setViewMode] = React.useState<"code" | "preview">(
+    isMarkdown ? "preview" : "code"
+  );
+
+  // Switch to preview mode automatically when opening a markdown file
+  React.useEffect(() => {
+    if (isMarkdown) {
+      setViewMode("preview");
+    } else {
+      setViewMode("code");
+    }
+  }, [filePath, isMarkdown]);
 
   // Tokenize code lines
   const lines: HighlightedLine[] = React.useMemo(() => {
@@ -367,7 +393,40 @@ export function CodeViewer({
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
-          {lines.length > 0 && (
+          {isMarkdown && !isBinary && (
+            <div className="flex items-center rounded-md bg-zinc-200/80 dark:bg-zinc-800 p-0.5 border border-zinc-200 dark:border-zinc-700">
+              <button
+                type="button"
+                onClick={() => setViewMode("code")}
+                className={cn(
+                  "flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer",
+                  viewMode === "code"
+                    ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-2xs"
+                    : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                )}
+                title="Ver código fonte bruto"
+              >
+                <Code2 className="h-3 w-3" />
+                <span>Code</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("preview")}
+                className={cn(
+                  "flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium transition-all cursor-pointer",
+                  viewMode === "preview"
+                    ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-2xs"
+                    : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                )}
+                title="Ver documento renderizado"
+              >
+                <Eye className="h-3 w-3" />
+                <span>Preview</span>
+              </button>
+            </div>
+          )}
+
+          {lines.length > 0 && viewMode === "code" && (
             <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono hidden sm:inline">
               {lines.length} {lines.length === 1 ? "line" : "lines"}
             </span>
@@ -440,13 +499,15 @@ export function CodeViewer({
                 if (!data) {
                   data = {
                     filePath,
-                    selectedCode: "",
+                    selectedCode: content || "",
+                    startLine: 1,
+                    endLine: lines.length > 0 ? lines.length : 1,
                   };
                 }
                 onDiscussSelection(data);
               }}
               className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium border border-blue-500/30 bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors shadow-2xs cursor-pointer"
-              title="Abrir chat do workspace ou comentar seleção"
+              title="Abrir chat do workspace e adicionar à discussão"
             >
               <MessageSquare className="h-3 w-3 shrink-0" />
               <span>Chat</span>
@@ -511,6 +572,21 @@ export function CodeViewer({
           <FileCode className="h-8 w-8 mx-auto opacity-40" />
           <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Ficheiro vazio (0 bytes)</p>
         </div>
+      ) : isMarkdown && viewMode === "preview" ? (
+        <MarkdownViewer
+          content={content}
+          filePath={filePath}
+          onDiscussSelection={(sel) => {
+            if (onDiscussSelection) {
+              onDiscussSelection({
+                filePath: sel.filePath,
+                selectedCode: sel.selectedCode,
+                startLine: sel.startLine,
+                endLine: sel.endLine,
+              });
+            }
+          }}
+        />
       ) : (
         <div
           onContextMenu={handleContextMenu}

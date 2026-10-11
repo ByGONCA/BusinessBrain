@@ -590,17 +590,18 @@ export function GitHubWorkspaceHome({
                   setHighlightRange(null);
                 }}
                 onDiscussSelection={(selection) => {
+                  const targetCode = selection.selectedCode || fileContent?.content || "";
                   setCommentsDrawer({
                     isOpen: true,
                     entityType: "github_repo",
                     entityId: selectedRepo?.full_name || defaultRepository || "workspace",
-                    entityTitle: `${selectedRepo?.name || "Repository"} · ${selection.filePath || "Discussão"}`,
-                    snippet: selection.selectedCode
+                    entityTitle: `${selectedRepo?.name || "Repository"} · ${selection.filePath || viewingFile?.name || "Discussão"}`,
+                    snippet: targetCode
                       ? {
-                          filePath: selection.filePath,
-                          selectedCode: selection.selectedCode,
-                          startLine: selection.startLine,
-                          endLine: selection.endLine,
+                          filePath: selection.filePath || viewingFile?.path || "",
+                          selectedCode: targetCode,
+                          startLine: selection.startLine || 1,
+                          endLine: selection.endLine || (targetCode ? targetCode.split("\n").length : 1),
                         }
                       : null,
                   });
