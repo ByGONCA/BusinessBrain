@@ -49,9 +49,6 @@ export function BrandingTab({ activeOrg }: BrandingTabProps) {
     <div className="space-y-6 max-w-xl">
       <div>
         <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">Branding & Email Settings</h2>
-        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-          Configure whether members can send outbound emails and customize transactional email branding.
-        </p>
       </div>
 
       <form onSubmit={handleSave} className="space-y-4">

@@ -8,7 +8,6 @@ import {
   Check,
   Plus,
   Settings,
-  Users,
   CircleArrowUp,
   MoreHorizontal,
   Loader2,
@@ -143,7 +142,7 @@ export function AccountMenu({
         <div
           role="menu"
           aria-label="Account and workspace options"
-          className="absolute bottom-full left-0 z-50 mb-2 w-64 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] p-1.5 shadow-2xl backdrop-blur-xl focus:outline-none"
+          className="absolute bottom-full left-0 z-50 mb-2 w-full min-w-[240px] rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] p-1.5 shadow-2xl backdrop-blur-xl focus:outline-none"
         >
           {/* Active Workspace / Account Header */}
           <div className="flex items-center gap-2.5 p-2">
@@ -191,18 +190,6 @@ export function AccountMenu({
             >
               <Settings className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
               <span>{t.account.settings}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setIsOpen(false);
-                openSettings("people");
-              }}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 hover:text-zinc-900 dark:hover:text-white transition-colors text-left"
-            >
-              <Users className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
-              <span>{t.account.people}</span>
             </button>
 
             <HelpMenu

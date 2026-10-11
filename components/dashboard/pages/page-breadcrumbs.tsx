@@ -23,6 +23,7 @@ interface PageBreadcrumbsProps {
   onOpenSidePeek?: () => void;
   showSidePeekAction?: boolean;
   onClose?: () => void;
+  closeHref?: string;
   className?: string;
 }
 
@@ -33,6 +34,7 @@ export function PageBreadcrumbs({
   onOpenSidePeek,
   showSidePeekAction = false,
   onClose,
+  closeHref,
   className,
 }: PageBreadcrumbsProps) {
   const [copied, setCopied] = React.useState(false);
@@ -207,18 +209,29 @@ export function PageBreadcrumbs({
           </button>
         )}
 
-        {/* Close Button (for side peek panel) */}
-        {onClose && (
+        {/* Close Button / Return to List */}
+        {(onClose || closeHref) && (
           <>
             <div className="h-3.5 w-px bg-zinc-200 dark:bg-zinc-800 mx-1" />
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
-              title="Close panel"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+            {closeHref ? (
+              <Link
+                href={closeHref}
+                className="flex items-center gap-1 h-7 px-2 rounded-md text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                title="Fechar página e voltar à lista de páginas"
+              >
+                <X className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline text-[11px]">Fechar</span>
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
+                title="Fechar painel"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </>
         )}
       </div>

@@ -10,6 +10,8 @@ import { InboxModal } from "@/components/dashboard/inbox/inbox-modal";
 import { SidePeekProvider } from "@/components/dashboard/pages/side-peek-context";
 import { DashboardSplitLayout } from "@/components/dashboard/dashboard-split-layout";
 
+import { resolveUserPermissions } from "@/lib/permissions/resolver";
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -17,13 +19,14 @@ export default async function DashboardLayout({
 }) {
   const { user, organizations, activeOrg, entitlement } = await verifyAccessOrRedirect();
 
-  const [pageTree, favoritePages, initialIntegrations] = activeOrg
+  const [pageTree, favoritePages, initialIntegrations, userPerms] = activeOrg
     ? await Promise.all([
         getPageTree(activeOrg.id),
         getFavoritePagesForOrg(activeOrg.id),
         getOrganizationIntegrations(activeOrg.id),
+        resolveUserPermissions(user.id, activeOrg.id),
       ])
-    : [[], [], []];
+    : [[], [], [], null];
 
   return (
     <SidebarProvider>
@@ -55,6 +58,8 @@ export default async function DashboardLayout({
                 activeOrg={activeOrg}
                 entitlement={entitlement}
                 initialIntegrations={initialIntegrations}
+                isOwner={userPerms?.isOwner ?? (activeOrg?.role === "owner")}
+                userPermissions={Array.from(userPerms?.effectivePermissions || [])}
               />
 
               {/* Inbox Modal Window */}

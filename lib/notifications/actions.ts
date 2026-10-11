@@ -92,14 +92,6 @@ export async function updateNotificationPreferenceAction(
     return { success: false, error: "Invalid notification type" };
   }
 
-  // Check if locked
-  if (channel === "in_app" && def.lockedInApp && !enabled) {
-    return { success: false, error: "This critical in-app notification cannot be disabled." };
-  }
-  if (channel === "email" && def.lockedEmail && !enabled) {
-    return { success: false, error: "This critical email alert cannot be disabled." };
-  }
-
   try {
     // Check existing record
     const { data: existing } = await supabase
@@ -180,9 +172,9 @@ export async function bulkUpdateCategoryPreferencesAction(
       const currentEmail = existing?.email_enabled ?? item.defaultEmail;
 
       const targetInApp =
-        channel === "in_app" ? (item.lockedInApp ? true : enabled) : currentInApp;
+        channel === "in_app" ? enabled : currentInApp;
       const targetEmail =
-        channel === "email" ? (item.lockedEmail ? true : enabled) : currentEmail;
+        channel === "email" ? enabled : currentEmail;
 
       return {
         user_id: user.id,
@@ -209,3 +201,36 @@ export async function bulkUpdateCategoryPreferencesAction(
     return { success: false, error: "Failed to update category" };
   }
 }
+
+/**
+ * Resets user notification preferences to recommended defaults
+ */
+export async function resetNotificationPreferencesAction(): Promise<NotificationActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Authentication required" };
+  }
+
+  try {
+    const { error } = await supabase
+      .from("notification_preferences")
+      .delete()
+      .eq("user_id", user.id);
+
+    if (error) {
+      logger.error("Failed to reset notification preferences", error, { userId: user.id });
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/dashboard");
+    return { success: true, preferences: getDefaultPreferences() };
+  } catch (err) {
+    logger.error("Reset notification preferences exception", err, { userId: user.id });
+    return { success: false, error: "Failed to reset notification preferences" };
+  }
+}
+

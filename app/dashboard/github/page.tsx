@@ -9,7 +9,18 @@ import {
 import { GitHubWorkspaceHome } from "@/components/dashboard/github/github-workspace-home";
 import { Github, ArrowRight, ShieldCheck, GitPullRequest, GitBranch } from "lucide-react";
 
-export default async function GitHubPage() {
+interface GitHubPageProps {
+  searchParams?: Promise<{
+    repo?: string;
+    file?: string;
+    line?: string;
+    startLine?: string;
+    endLine?: string;
+  }>;
+}
+
+export default async function GitHubPage({ searchParams }: GitHubPageProps) {
+  const resolvedParams = searchParams ? await searchParams : undefined;
   const activeOrg = await getActiveOrganization();
   if (!activeOrg) {
     redirect("/onboarding");
@@ -99,12 +110,29 @@ export default async function GitHubPage() {
     );
   }
 
+  const targetRepo = resolvedParams?.repo || defaultRepository;
+
+  let targetStartLine: number | undefined;
+  let targetEndLine: number | undefined;
+
+  if (resolvedParams?.line) {
+    const parts = resolvedParams.line.replace(/^L/i, "").split("-");
+    targetStartLine = parseInt(parts[0], 10) || undefined;
+    targetEndLine = parts[1] ? parseInt(parts[1].replace(/^L/i, ""), 10) || undefined : targetStartLine;
+  } else if (resolvedParams?.startLine) {
+    targetStartLine = parseInt(resolvedParams.startLine, 10) || undefined;
+    targetEndLine = resolvedParams.endLine ? parseInt(resolvedParams.endLine, 10) || undefined : targetStartLine;
+  }
+
   return (
     <GitHubWorkspaceHome
       initialOverview={overviewRes.data}
       initialRepositories={reposRes.repositories}
       organizationId={activeOrg.id}
-      defaultRepository={defaultRepository}
+      defaultRepository={targetRepo}
+      initialFilePath={resolvedParams?.file}
+      initialStartLine={targetStartLine}
+      initialEndLine={targetEndLine}
     />
   );
 }

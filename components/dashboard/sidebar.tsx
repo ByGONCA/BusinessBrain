@@ -4,30 +4,27 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Brain,
-  BookOpen,
-  FolderKanban,
-  CheckSquare,
-  Users,
-  GitBranch,
   Sparkles,
   Search,
-  Home,
-  Calendar,
   Inbox,
   PanelLeftClose,
-  Network,
-  Clock,
-  Target,
-  Briefcase,
-  Activity,
-  Sliders,
-  ShieldCheck,
-  CreditCard,
-  History,
   Mail,
-  Github,
 } from "lucide-react";
+import {
+  PhosphorHouse,
+  PhosphorFolder,
+  PhosphorCheckSquare,
+  PhosphorTarget,
+  PhosphorCalendarDots,
+  PhosphorBrain,
+  PhosphorGitBranch,
+  PhosphorBookOpen,
+  PhosphorNetwork,
+  PhosphorClock,
+  PhosphorUserList,
+  PhosphorCalendar,
+  PhosphorGithubLogo,
+} from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { OrganizationWithRole } from "@/lib/organizations/types";
 import { OrganizationEntitlement } from "@/lib/organizations/entitlements";
@@ -120,7 +117,7 @@ export function Sidebar({
       id: "home",
       name: t.sidebar.home || "Home",
       href: "/dashboard",
-      icon: Home,
+      icon: PhosphorHouse,
       isActive: pathname === "/dashboard" || pathname.startsWith("/dashboard/pages"),
     },
     {
@@ -134,7 +131,7 @@ export function Sidebar({
       id: "calendar",
       name: t.sidebar.calendar || "Calendar",
       href: "/dashboard/calendar",
-      icon: Calendar,
+      icon: PhosphorCalendar,
       isActive: pathname === "/dashboard/calendar" || pathname.startsWith("/dashboard/calendar/"),
     },
     {
@@ -152,9 +149,9 @@ export function Sidebar({
       id="main-sidebar"
       data-sidebar="true"
       className={cn(
-        "sticky top-0 flex h-screen shrink-0 flex-col border-sidebar-border bg-sidebar select-none z-30 transition-all duration-200 overflow-hidden",
+        "sticky top-0 flex h-screen shrink-0 flex-col border-sidebar-border bg-sidebar select-none z-40 transition-all duration-200",
         isCollapsed
-          ? "w-0 border-r-0 opacity-0 pointer-events-none"
+          ? "w-0 border-r-0 opacity-0 pointer-events-none overflow-hidden"
           : "w-64 border-r opacity-100"
       )}
     >
@@ -270,7 +267,7 @@ export function Sidebar({
                 : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             )}
           >
-            <FolderKanban
+            <PhosphorFolder
               className={cn(
                 "h-4 w-4 shrink-0 transition-colors",
                 pathname.startsWith("/dashboard/projects")
@@ -292,7 +289,7 @@ export function Sidebar({
                 : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             )}
           >
-            <CheckSquare
+            <PhosphorCheckSquare
               className={cn(
                 "h-4 w-4 shrink-0 transition-colors",
                 pathname.startsWith("/dashboard/tasks")
@@ -314,7 +311,7 @@ export function Sidebar({
                 : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             )}
           >
-            <Target
+            <PhosphorTarget
               className={cn(
                 "h-4 w-4 shrink-0 transition-colors",
                 pathname.startsWith("/dashboard/goals")
@@ -336,7 +333,7 @@ export function Sidebar({
                 : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             )}
           >
-            <Users
+            <PhosphorCalendarDots
               className={cn(
                 "h-4 w-4 shrink-0 transition-colors",
                 pathname.startsWith("/dashboard/meetings")
@@ -381,7 +378,7 @@ export function Sidebar({
                 : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             )}
           >
-            <Brain
+            <PhosphorBrain
               className={cn(
                 "h-4 w-4 shrink-0 transition-colors",
                 pathname.startsWith("/dashboard/brain")
@@ -406,7 +403,7 @@ export function Sidebar({
                 : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             )}
           >
-            <GitBranch
+            <PhosphorGitBranch
               className={cn(
                 "h-4 w-4 shrink-0 transition-colors",
                 pathname.startsWith("/dashboard/decisions")
@@ -428,7 +425,7 @@ export function Sidebar({
                 : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             )}
           >
-            <BookOpen
+            <PhosphorBookOpen
               className={cn(
                 "h-4 w-4 shrink-0 transition-colors",
                 pathname.startsWith("/dashboard/knowledge")
@@ -450,7 +447,7 @@ export function Sidebar({
                 : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             )}
           >
-            <Network
+            <PhosphorNetwork
               className={cn(
                 "h-4 w-4 shrink-0 transition-colors",
                 pathname.startsWith("/dashboard/connections")
@@ -472,7 +469,7 @@ export function Sidebar({
                 : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             )}
           >
-            <Clock
+            <PhosphorClock
               className={cn(
                 "h-4 w-4 shrink-0 transition-colors",
                 pathname.startsWith("/dashboard/timeline")
@@ -503,7 +500,7 @@ export function Sidebar({
                 : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
             )}
           >
-            <Users
+            <PhosphorUserList
               className={cn(
                 "h-4 w-4 shrink-0 transition-colors",
                 pathname.startsWith("/dashboard/people")
@@ -526,7 +523,7 @@ export function Sidebar({
                   : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
               )}
             >
-              <Github
+              <PhosphorGithubLogo
                 className={cn(
                   "h-4 w-4 shrink-0 transition-colors",
                   pathname.startsWith("/dashboard/github")

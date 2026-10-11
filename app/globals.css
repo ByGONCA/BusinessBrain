@@ -138,6 +138,26 @@ pre > code[contenteditable="true"] {
   border-radius: 0 !important;
 }
 
-
-
-
+/* VS Code Dark+ & Light+ Syntax Highlighting Token Palette */
+.bb-code-keyword { color: #0000ff !important; font-weight: 500; }
+html.dark .bb-code-keyword, .dark .bb-code-keyword { color: #569cd6 !important; font-weight: 500; }
+.bb-code-string { color: #a31515 !important; }
+html.dark .bb-code-string, .dark .bb-code-string { color: #ce9178 !important; }
+.bb-code-comment { color: #008000 !important; font-style: italic; }
+html.dark .bb-code-comment, .dark .bb-code-comment { color: #6a9955 !important; font-style: italic; }
+.bb-code-function { color: #795e26 !important; }
+html.dark .bb-code-function, .dark .bb-code-function { color: #dcdcaa !important; }
+.bb-code-number { color: #098658 !important; }
+html.dark .bb-code-number, .dark .bb-code-number { color: #b5cea8 !important; }
+.bb-code-property { color: #001080 !important; }
+html.dark .bb-code-property, .dark .bb-code-property { color: #9cdcfe !important; }
+.bb-code-tag { color: #800000 !important; }
+html.dark .bb-code-tag, .dark .bb-code-tag { color: #569cd6 !important; }
+.bb-code-attr-name { color: #ff0000 !important; }
+html.dark .bb-code-attr-name, .dark .bb-code-attr-name { color: #9cdcfe !important; }
+.bb-code-builtin { color: #267f99 !important; }
+html.dark .bb-code-builtin, .dark .bb-code-builtin { color: #4ec9b0 !important; }
+.bb-code-punctuation { color: #24292f !important; }
+html.dark .bb-code-punctuation, .dark .bb-code-punctuation { color: #d4d4d4 !important; }
+.bb-code-regex { color: #811f3f !important; }
+html.dark .bb-code-regex, .dark .bb-code-regex { color: #d16969 !important; }

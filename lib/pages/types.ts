@@ -158,6 +158,12 @@ export interface EditorBlockProperties {
   equationFormula?: string;
   buttonData?: ButtonBlockData;
   githubData?: GitHubBlockData;
+  filePath?: string; // For GitHub code snippet references
+  startLine?: number; // Starting line number in source file
+  endLine?: number; // Ending line number in source file
+  htmlUrl?: string; // Direct link to file/lines on GitHub
+  isGitHubSnippet?: boolean; // True when snippet originates from GitHub
+  repoFullName?: string; // e.g. "owner/repo" for internal site routing
   [key: string]: unknown;
 }
 

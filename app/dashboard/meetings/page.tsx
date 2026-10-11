@@ -1,4 +1,4 @@
-import { Users } from "lucide-react";
+import { PhosphorCalendarDots } from "@/components/icons";
 import { EmptyState } from "@/components/dashboard/empty-state";
 
 export default function MeetingsPage() {
@@ -12,7 +12,7 @@ export default function MeetingsPage() {
       </div>
 
       <EmptyState
-        icon={Users}
+        icon={PhosphorCalendarDots}
         title="No Meetings Logged"
         description="Meeting records and action item linkage will launch in Phase 1, followed by automated AI transcription in Phase 3."
         phaseBadge="Phase 1 Planned"

@@ -6,7 +6,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { decryptToken } from "@/lib/crypto/encryption";
 import { logger } from "@/lib/security/logger";
-import { GITHUB_API_BASE_URL } from "./config";
+import { GITHUB_API_BASE_URL, getGitHubConfig } from "./config";
 import {
   GitHubViewer,
   GitHubRepository,
@@ -19,10 +19,14 @@ import {
   GitHubContentItem,
   GitHubReadme,
   GitHubFileContent,
+  GitHubRepositoryListResult,
+  GitHubDiagnosticStatus,
+  GitHubAppInstallationInfo,
 } from "./types";
 
 /**
  * Retrieves the decrypted access token for the active organization's GitHub integration.
+ * Strictly scoped to the specified tenant organization. No global or ambient fallbacks.
  */
 export async function getDecryptedGitHubToken(organizationId: string): Promise<{
   accessToken: string;
@@ -63,8 +67,32 @@ export class GitHubAuthExpiredError extends Error {
   }
 }
 
+export class GitHubForbiddenError extends Error {
+  constructor(message = "GitHub API access forbidden: insufficient permissions.") {
+    super(message);
+    this.name = "GitHubForbiddenError";
+  }
+}
+
+export class GitHubNotFoundError extends Error {
+  constructor(message = "GitHub resource not found.") {
+    super(message);
+    this.name = "GitHubNotFoundError";
+  }
+}
+
+export class GitHubRateLimitError extends Error {
+  public resetTime?: number;
+  constructor(message = "GitHub API rate limit exceeded.", resetTime?: number) {
+    super(message);
+    this.name = "GitHubRateLimitError";
+    this.resetTime = resetTime;
+  }
+}
+
 /**
  * Secure fetch wrapper for GitHub REST API with SSRF protection.
+ * Strictly uses tenant's decrypted token. Never falls back to ambient PAT.
  */
 async function githubFetch<T>(
   organizationId: string,
@@ -92,7 +120,7 @@ async function githubFetch<T>(
       "User-Agent": "BusinessBrain-Enterprise-Integration",
       ...init?.headers,
     },
-    next: { revalidate: 15 }, // Cache for 15 seconds
+    cache: "no-store",
   });
 
   if (!response.ok) {
@@ -101,6 +129,21 @@ async function githubFetch<T>(
       status: response.status,
       errorBody,
     });
+
+    const isRateLimit =
+      response.status === 429 ||
+      (response.status === 403 &&
+        (response.headers.get("x-ratelimit-remaining") === "0" ||
+          errorBody.toLowerCase().includes("rate limit")));
+
+    if (isRateLimit) {
+      const resetHeader = response.headers.get("x-ratelimit-reset");
+      const resetTime = resetHeader ? parseInt(resetHeader, 10) : undefined;
+      throw new GitHubRateLimitError(
+        `GitHub API rate limit exceeded (${response.status}): ${errorBody}`,
+        resetTime
+      );
+    }
 
     if (response.status === 401) {
       try {
@@ -118,6 +161,14 @@ async function githubFetch<T>(
       }
 
       throw new GitHubAuthExpiredError(`GitHub API request failed (401): ${errorBody}`);
+    }
+
+    if (response.status === 403) {
+      throw new GitHubForbiddenError(`GitHub API request forbidden (403): ${errorBody}`);
+    }
+
+    if (response.status === 404) {
+      throw new GitHubNotFoundError(`GitHub API resource not found (404): ${errorBody}`);
     }
 
     throw new Error(`GitHub API request failed (${response.status}): ${errorBody}`);
@@ -144,9 +195,237 @@ export async function getGitHubViewer(organizationId: string): Promise<GitHubVie
 }
 
 /**
+ * Detailed repository discovery for the connected organization.
+ * Features:
+ * - Multi-page pagination across /user/repos and all GitHub App installations
+ * - Safe loop ceiling (max 10 pages / 1000 repos)
+ * - Rate limit awareness with graceful partial result reporting
+ * - Multi-installation traversal with per-installation repository pagination
+ * - Deduplication and diagnostic status evaluation
+ * - Zero fallback to ambient PAT
+ */
+export async function listRepositoriesDetails(
+  organizationId: string,
+  options?: {
+    page?: number;
+    per_page?: number;
+    sort?: "updated" | "pushed" | "full_name";
+    direction?: "asc" | "desc";
+    type?: "all" | "owner" | "public" | "private" | "member";
+    visibility?: "all" | "public" | "private";
+    affiliation?: string;
+  }
+): Promise<GitHubRepositoryListResult> {
+  const perPage = Math.min(options?.per_page || 100, 100);
+  const sort = options?.sort || "updated";
+  const direction = options?.direction || "desc";
+
+  const allRepos: GitHubRepository[] = [];
+  const installations: GitHubAppInstallationInfo[] = [];
+  let isPartial = false;
+  let diagnosticStatus: GitHubDiagnosticStatus = "ok";
+  let diagnosticMessage: string | undefined;
+
+  const cfg = getGitHubConfig();
+  const appInstallUrl = cfg.appSlug
+    ? `https://github.com/apps/${cfg.appSlug}/installations/new`
+    : "https://github.com/settings/installations";
+
+  // Step 1: Query /user/repos with pagination
+  const baseParams = new URLSearchParams({
+    per_page: String(perPage),
+    sort,
+    direction,
+  });
+
+  if (options?.visibility) {
+    baseParams.set("visibility", options.visibility);
+    baseParams.set("affiliation", options?.affiliation || "owner,collaborator,organization_member");
+  } else if (options?.type && options.type !== "all") {
+    baseParams.set("type", options.type);
+  } else {
+    baseParams.set("visibility", "all");
+    baseParams.set("affiliation", options?.affiliation || "owner,collaborator,organization_member");
+  }
+
+  let currentPage = options?.page || 1;
+  const maxPages = options?.page ? options.page : 10;
+
+  try {
+    while (currentPage <= maxPages) {
+      baseParams.set("page", String(currentPage));
+      try {
+        const pageData = await githubFetch<GitHubRepository[]>(
+          organizationId,
+          `/user/repos?${baseParams.toString()}`
+        );
+
+        if (!Array.isArray(pageData) || pageData.length === 0) break;
+        allRepos.push(...pageData);
+
+        if (pageData.length < perPage || options?.page) break;
+        currentPage++;
+      } catch (pageErr: any) {
+        if (pageErr instanceof GitHubAuthExpiredError) {
+          throw pageErr;
+        }
+        if (pageErr instanceof GitHubRateLimitError) {
+          isPartial = true;
+          diagnosticStatus = allRepos.length > 0 ? "ok" : "rate_limit_exceeded";
+          diagnosticMessage = "Limite de pedidos atingido na API do GitHub.";
+          break;
+        }
+        if (currentPage === 1 && !options?.page) {
+          if (pageErr instanceof GitHubForbiddenError) {
+            diagnosticStatus = "insufficient_permissions";
+            diagnosticMessage = "Permissões insuficientes para consultar /user/repos.";
+          } else {
+            isPartial = true;
+          }
+        } else {
+          isPartial = true;
+        }
+        break;
+      }
+    }
+  } catch (err: any) {
+    if (err instanceof GitHubAuthExpiredError) {
+      return {
+        repositories: [],
+        diagnosticStatus: "auth_expired",
+        diagnosticMessage: "Sessão GitHub expirada ou revogada.",
+        isPartial: false,
+        installationsCount: 0,
+        installations: [],
+        appInstallUrl,
+      };
+    }
+    throw err;
+  }
+
+  // Step 2: Query GitHub App installations (/user/installations) with pagination
+  try {
+    let instPage = 1;
+    const maxInstPages = 5;
+    const rawInstallations: Array<{ id: number; account?: { login?: string }; repository_selection?: "all" | "selected" }> = [];
+
+    while (instPage <= maxInstPages) {
+      try {
+        const instRes = await githubFetch<{
+          total_count: number;
+          installations: Array<{ id: number; account?: { login?: string }; repository_selection?: "all" | "selected" }>;
+        }>(organizationId, `/user/installations?per_page=100&page=${instPage}`);
+
+        if (instRes?.installations && Array.isArray(instRes.installations) && instRes.installations.length > 0) {
+          rawInstallations.push(...instRes.installations);
+          if (instRes.installations.length < 100) break;
+          instPage++;
+        } else {
+          break;
+        }
+      } catch (instFetchErr: any) {
+        if (instFetchErr instanceof GitHubRateLimitError) {
+          isPartial = true;
+        }
+        break;
+      }
+    }
+
+    for (const inst of rawInstallations) {
+      const selection = inst.repository_selection || "all";
+      installations.push({
+        id: inst.id,
+        accountLogin: inst.account?.login || `installation-${inst.id}`,
+        repositorySelection: selection,
+      });
+
+      // Step 3: Query repositories for this installation with pagination
+      let instRepoPage = 1;
+      const maxInstRepoPages = 10;
+      while (instRepoPage <= maxInstRepoPages) {
+        try {
+          const instReposData = await githubFetch<{
+            total_count: number;
+            repository_selection?: string;
+            repositories: GitHubRepository[];
+          }>(organizationId, `/user/installations/${inst.id}/repositories?per_page=100&page=${instRepoPage}`);
+
+          if (instReposData?.repositories && Array.isArray(instReposData.repositories) && instReposData.repositories.length > 0) {
+            allRepos.push(...instReposData.repositories);
+            if (instReposData.repositories.length < 100) break;
+            instRepoPage++;
+          } else {
+            break;
+          }
+        } catch (instRepoErr: any) {
+          if (instRepoErr instanceof GitHubRateLimitError) {
+            isPartial = true;
+          } else {
+            logger.warn("Failed to fetch installation repositories", { installationId: inst.id, page: instRepoPage, instRepoErr });
+          }
+          break;
+        }
+      }
+    }
+  } catch (instErr: any) {
+    if (instErr instanceof GitHubRateLimitError) {
+      isPartial = true;
+    }
+  }
+
+  // Step 4: Deduplicate by repository ID
+  const seen = new Set<number>();
+  const uniqueRepos = allRepos
+    .filter((repo) => {
+      if (seen.has(repo.id)) return false;
+      seen.add(repo.id);
+      return true;
+    })
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+  // Step 5: Evaluate diagnostic status
+  const hasPrivateRepos = uniqueRepos.some((r) => r.private);
+
+  if (uniqueRepos.length === 0) {
+    if (diagnosticStatus === "ok") {
+      if (installations.length === 0) {
+        diagnosticStatus = "app_not_installed";
+        diagnosticMessage = "A GitHub App não está instalada em nenhuma conta ou organização.";
+      } else {
+        diagnosticStatus = "no_repositories";
+        diagnosticMessage = "Nenhum repositório acessível encontrado na conta conectada.";
+      }
+    }
+  } else {
+    if (
+      installations.length > 0 &&
+      installations.every((i) => i.repositorySelection === "selected") &&
+      !hasPrivateRepos
+    ) {
+      diagnosticStatus = "app_installed_limited_access";
+      diagnosticMessage = "A GitHub App está instalada com seleção limitada ('Only select repositories'). Concede acesso aos repositórios privados nas definições do GitHub.";
+    } else if (installations.length === 0 && !hasPrivateRepos) {
+      diagnosticStatus = "app_not_installed";
+      diagnosticMessage = "A GitHub App ainda não foi instalada na conta ou organização para aceder a repositórios privados.";
+    } else {
+      diagnosticStatus = "ok";
+    }
+  }
+
+  return {
+    repositories: uniqueRepos,
+    diagnosticStatus,
+    diagnosticMessage,
+    isPartial,
+    installationsCount: installations.length,
+    installations,
+    appInstallUrl,
+  };
+}
+
+/**
  * Lists repositories accessible by the connected GitHub user/org.
- * Uses visibility=all and affiliation=owner,collaborator,organization_member
- * to guarantee that both public and private repositories (personal and org) are returned.
+ * Uses listRepositoriesDetails and returns array of repositories.
  */
 export async function listRepositories(
   organizationId: string,
@@ -160,53 +439,8 @@ export async function listRepositories(
     affiliation?: string;
   }
 ): Promise<GitHubRepository[]> {
-  const page = options?.page || 1;
-  const perPage = Math.min(options?.per_page || 100, 100);
-  const sort = options?.sort || "updated";
-  const direction = options?.direction || "desc";
-
-  const params = new URLSearchParams({
-    page: String(page),
-    per_page: String(perPage),
-    sort,
-    direction,
-  });
-
-  if (options?.visibility) {
-    params.set("visibility", options.visibility);
-    params.set("affiliation", options?.affiliation || "owner,collaborator,organization_member");
-  } else if (options?.type && options.type !== "all") {
-    params.set("type", options.type);
-  } else {
-    // Official GitHub API parameter combination to fetch both private and public
-    // repositories across personal, collaborative, and organization memberships:
-    params.set("visibility", "all");
-    params.set("affiliation", options?.affiliation || "owner,collaborator,organization_member");
-  }
-
-  const firstPage = await githubFetch<GitHubRepository[]>(
-    organizationId,
-    `/user/repos?${params.toString()}`
-  );
-
-  // If page 1 was full and caller didn't explicitly request a specific page, fetch page 2
-  // to ensure users with many repositories see all their private and public repos
-  if (Array.isArray(firstPage) && firstPage.length === perPage && !options?.page) {
-    try {
-      params.set("page", "2");
-      const secondPage = await githubFetch<GitHubRepository[]>(
-        organizationId,
-        `/user/repos?${params.toString()}`
-      );
-      if (Array.isArray(secondPage) && secondPage.length > 0) {
-        return [...firstPage, ...secondPage];
-      }
-    } catch (pageErr) {
-      logger.warn("Failed to fetch second page of repositories", { pageErr });
-    }
-  }
-
-  return Array.isArray(firstPage) ? firstPage : [];
+  const result = await listRepositoriesDetails(organizationId, options);
+  return result.repositories;
 }
 
 /**

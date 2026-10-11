@@ -32,7 +32,18 @@ import {
   Settings2,
   Shield,
   FolderGit2,
+  RefreshCw,
 } from "lucide-react";
+import {
+  PhosphorGear,
+  PhosphorPlugs,
+  PhosphorBell,
+  PhosphorCreditCard,
+  PhosphorFiles,
+  PhosphorClock,
+  PhosphorWarningOctagon,
+  PhosphorArrowsClockwise,
+} from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { OrganizationWithRole, OrganizationMember } from "@/lib/organizations/types";
 import { OrganizationEntitlement } from "@/lib/organizations/entitlements";
@@ -54,7 +65,7 @@ import {
   getGitHubRepositoriesAction,
   setDefaultGitHubRepositoryAction,
 } from "@/lib/integrations/github/actions";
-import { GitHubRepository } from "@/lib/integrations/github/types";
+import { GitHubRepository, GitHubDiagnosticStatus } from "@/lib/integrations/github/types";
 import { ProfileTab } from "./profile-tab";
 import { PreferencesTab } from "./preferences-tab";
 import { AppearanceTab } from "./appearance-tab";
@@ -84,6 +95,8 @@ interface SettingsModalProps {
   entitlement: OrganizationEntitlement | null;
   members?: OrganizationMember[];
   initialIntegrations?: OrganizationIntegration[];
+  isOwner?: boolean;
+  userPermissions?: string[];
 }
 
 function renderProviderIcon(id: string) {
@@ -125,6 +138,8 @@ export function SettingsModal({
   entitlement,
   members = [],
   initialIntegrations = [],
+  isOwner = false,
+  userPermissions = [],
 }: SettingsModalProps) {
   const { isOpen, activeTab, closeSettings, setActiveTab } = useSettings();
   const { theme, setTheme, contrast, setContrast } = useTheme();
@@ -194,29 +209,98 @@ export function SettingsModal({
 
   // GitHub default repository configuration state
   const [githubRepos, setGithubRepos] = React.useState<GitHubRepository[]>([]);
+  const [githubDiagnostic, setGithubDiagnostic] = React.useState<{
+    status: GitHubDiagnosticStatus;
+    message?: string;
+    isPartial?: boolean;
+    installationsCount?: number;
+    appInstallUrl?: string;
+  } | null>(null);
   const [loadingGithubRepos, setLoadingGithubRepos] = React.useState(false);
   const [isSavingDefaultRepo, setIsSavingDefaultRepo] = React.useState(false);
 
-  React.useEffect(() => {
-    if (!isOpen || activeTab !== "integrations" || !activeOrg) return;
+  const loadGitHubRepos = React.useCallback(async () => {
+    if (!activeOrg) return;
     const isGithubConnected = integrations.some(
       (i) => i.provider === "github" && i.status === "connected"
     );
-    if (isGithubConnected && githubRepos.length === 0 && !loadingGithubRepos) {
-      setLoadingGithubRepos(true);
-      getGitHubRepositoriesAction(activeOrg.id)
-        .then((res) => {
-          if (res.success && res.repositories) {
-            setGithubRepos(res.repositories);
-          }
-        })
-        .catch(() => {})
-        .finally(() => setLoadingGithubRepos(false));
+    if (!isGithubConnected) {
+      setGithubRepos([]);
+      setGithubDiagnostic(null);
+      return;
     }
-  }, [isOpen, activeTab, activeOrg, integrations, githubRepos.length, loadingGithubRepos]);
+    setLoadingGithubRepos(true);
+    try {
+      const res = await getGitHubRepositoriesAction(activeOrg.id);
+      if (res.success && res.repositories) {
+        setGithubRepos(res.repositories);
+      }
+      setGithubDiagnostic({
+        status: res.diagnosticStatus || (res.success ? "ok" : "api_error"),
+        message: res.diagnosticMessage || res.error,
+        isPartial: res.isPartial,
+        installationsCount: res.installationsCount,
+        appInstallUrl: res.appInstallUrl,
+      });
+    } catch (err: any) {
+      console.error("Failed to load GitHub repos", err);
+      setGithubDiagnostic({
+        status: "api_error",
+        message: err?.message || "Falha ao carregar repositórios do GitHub.",
+      });
+    } finally {
+      setLoadingGithubRepos(false);
+    }
+  }, [activeOrg, integrations]);
 
-  // Permissions
-  const canManageIntegrations = activeOrg?.role === "owner" || activeOrg?.role === "admin";
+  React.useEffect(() => {
+    if (isOpen && activeTab === "integrations" && activeOrg) {
+      loadGitHubRepos();
+    }
+  }, [isOpen, activeTab, activeOrg, loadGitHubRepos]);
+
+  // Permissions & Governance
+  const userPermSet = React.useMemo(() => new Set(userPermissions), [userPermissions]);
+  const hasRootAccess = isOwner || activeOrg?.role === "owner";
+
+  const hasCompanyView = hasRootAccess || userPermSet.has("company.view_settings");
+  const hasIntegrationsView = hasRootAccess || userPermSet.has("integrations.view");
+  const hasFilesView = hasRootAccess || userPermSet.has("files.view");
+  const hasBillingView = hasRootAccess || userPermSet.has("billing.view");
+  const isAuditAllowed = hasRootAccess || activeOrg?.role === "admin";
+
+  const canManageIntegrations =
+    hasRootAccess ||
+    userPermSet.has("integrations.connect") ||
+    userPermSet.has("integrations.disconnect");
+
+  const canManageGitHubConnection =
+    hasRootAccess ||
+    userPermSet.has("github.manage_connection") ||
+    userPermSet.has("integrations.connect");
+
+  const canManageGitHubRepos =
+    hasRootAccess ||
+    userPermSet.has("github.manage_repositories") ||
+    userPermSet.has("integrations.configure");
+
+  // Fallback if activeTab is not permitted for the user
+  React.useEffect(() => {
+    if (!isOpen) return;
+    if (activeTab === "workspace" && !hasCompanyView) {
+      setActiveTab("preferences");
+    } else if (activeTab === "integrations" && !hasIntegrationsView) {
+      setActiveTab("preferences");
+    } else if (activeTab === "defaults" && !hasCompanyView) {
+      setActiveTab("preferences");
+    } else if (activeTab === "audit_log" && !isAuditAllowed) {
+      setActiveTab("preferences");
+    } else if (activeTab === "storage" && !hasFilesView) {
+      setActiveTab("preferences");
+    } else if (activeTab === "billing" && !hasBillingView) {
+      setActiveTab("preferences");
+    }
+  }, [isOpen, activeTab, hasCompanyView, hasIntegrationsView, isAuditAllowed, hasFilesView, hasBillingView, setActiveTab]);
 
   // User details
   const userName =
@@ -235,7 +319,7 @@ export function SettingsModal({
     >
       {/* Modal Dialog Window - SOLID OPAQUE BACKGROUND */}
       <div
-        className="relative flex h-[780px] max-h-[94vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] text-zinc-900 dark:text-zinc-100 shadow-2xl transition-colors duration-150"
+        className="relative flex h-[820px] max-h-[94vh] w-full max-w-6xl xl:max-w-7xl overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] text-zinc-900 dark:text-zinc-100 shadow-2xl transition-colors duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ========================================================= */}
@@ -287,7 +371,7 @@ export function SettingsModal({
                     : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
                 )}
               >
-                <Lock className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                <PhosphorWarningOctagon className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
                 <span>Security</span>
               </button>
 
@@ -329,59 +413,67 @@ export function SettingsModal({
                     : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
                 )}
               >
-                <Bell className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                <PhosphorBell className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
                 <span>Notifications</span>
               </button>
             </div>
 
             {/* Section: Workspace */}
-            <div className="space-y-0.5 pt-2">
-              <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                Workspace
-              </span>
+            {(hasCompanyView || hasIntegrationsView) && (
+              <div className="space-y-0.5 pt-2">
+                <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                  Workspace
+                </span>
 
-              <button
-                type="button"
-                onClick={() => setActiveTab("workspace")}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
-                  activeTab === "workspace"
-                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                {hasCompanyView && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("workspace")}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
+                      activeTab === "workspace"
+                        ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
+                        : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                    )}
+                  >
+                    <PhosphorGear className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                    <span>General</span>
+                  </button>
                 )}
-              >
-                <Building2 className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-                <span>General</span>
-              </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveTab("integrations")}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
-                  activeTab === "integrations"
-                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                {hasIntegrationsView && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("integrations")}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
+                      activeTab === "integrations"
+                        ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
+                        : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                    )}
+                  >
+                    <PhosphorPlugs className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                    <span>Integrations</span>
+                  </button>
                 )}
-              >
-                <Mail className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-                <span>Integrations</span>
-              </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveTab("defaults")}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
-                  activeTab === "defaults"
-                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                {hasCompanyView && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("defaults")}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
+                      activeTab === "defaults"
+                        ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
+                        : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                    )}
+                  >
+                    <PhosphorGear className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                    <span>Defaults</span>
+                  </button>
                 )}
-              >
-                <Settings2 className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-                <span>Defaults</span>
-              </button>
-            </div>
+              </div>
+            )}
 
             {/* Section: Data & Security */}
             <div className="space-y-0.5 pt-2">
@@ -403,55 +495,61 @@ export function SettingsModal({
                 <span>Privacy & Data</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveTab("audit_log")}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
-                  activeTab === "audit_log"
-                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
-                )}
-              >
-                <Clock className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-                <span>Audit Log</span>
-              </button>
+              {isAuditAllowed && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("audit_log")}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
+                    activeTab === "audit_log"
+                      ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
+                      : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                  )}
+                >
+                  <PhosphorClock className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                  <span>Audit Log</span>
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={() => setActiveTab("storage")}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
-                  activeTab === "storage"
-                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
-                )}
-              >
-                <HardDrive className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-                <span>Storage</span>
-              </button>
+              {hasFilesView && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("storage")}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
+                    activeTab === "storage"
+                      ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
+                      : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                  )}
+                >
+                  <PhosphorFiles className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                  <span>Storage</span>
+                </button>
+              )}
             </div>
 
             {/* Section: Access & Billing */}
-            <div className="space-y-0.5 pt-2">
-              <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                {t.settings.sections.accessAndBilling}
-              </span>
+            {hasBillingView && (
+              <div className="space-y-0.5 pt-2">
+                <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                  {t.settings.sections.accessAndBilling}
+                </span>
 
-              <button
-                type="button"
-                onClick={() => setActiveTab("billing")}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
-                  activeTab === "billing"
-                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
-                )}
-              >
-                <CreditCard className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
-                <span>Usage & Billing</span>
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("billing")}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
+                    activeTab === "billing"
+                      ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
+                      : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                  )}
+                >
+                  <PhosphorCreditCard className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                  <span>Usage & Billing</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Bottom Hint */}
@@ -494,14 +592,9 @@ export function SettingsModal({
 
           {/* TAB: INTEGRATIONS */}
           {activeTab === "integrations" && (
-            <div className="space-y-4 w-full max-w-3xl">
+            <div className="space-y-4 w-full max-w-4xl">
               <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">{t.settings.integrationsTab.title}</h2>
-                  <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-                    {t.settings.integrationsTab.description}
-                  </p>
-                </div>
+                <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">{t.settings.integrationsTab.title}</h2>
               </div>
 
               {/* Search Bar Only (Filtros removidos) */}
@@ -601,48 +694,53 @@ export function SettingsModal({
                                   Connected
                                 </span>
                               </div>
-                              <button
-                                type="button"
-                                disabled={deletingIntegrationId === connectedAccounts[0].id}
-                                onClick={async (e) => {
-                                  e.stopPropagation();
-                                  const name = (connectedAccounts[0].metadata as any)?.github_login || connectedAccounts[0].accountEmail || connectedAccounts[0].providerAccountId;
-                                  if (confirm(`Deseja desconectar a conta do GitHub (@${name})?`)) {
-                                    setDeletingIntegrationId(connectedAccounts[0].id);
-                                    try {
-                                      await deleteIntegrationAction(connectedAccounts[0].id);
-                                      await loadIntegrations();
-                                      window.dispatchEvent(
-                                        new CustomEvent("cb-integration-changed", {
-                                          detail: { provider: "github", status: "disconnected" },
-                                        })
-                                      );
-                                    } catch (err) {
-                                      console.error("Erro ao remover conta:", err);
-                                    } finally {
-                                      setDeletingIntegrationId(null);
+                              {canManageGitHubConnection && (
+                                <button
+                                  type="button"
+                                  disabled={deletingIntegrationId === connectedAccounts[0].id}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const name = (connectedAccounts[0].metadata as any)?.github_login || connectedAccounts[0].accountEmail || connectedAccounts[0].providerAccountId;
+                                    if (confirm(`Deseja desconectar a conta do GitHub (@${name})?`)) {
+                                      setDeletingIntegrationId(connectedAccounts[0].id);
+                                      try {
+                                        await deleteIntegrationAction(connectedAccounts[0].id);
+                                        setGithubRepos([]);
+                                        await loadIntegrations();
+                                        window.dispatchEvent(
+                                          new CustomEvent("cb-integration-changed", {
+                                            detail: { provider: "github", status: "disconnected" },
+                                          })
+                                        );
+                                      } catch (err) {
+                                        console.error("Erro ao remover conta:", err);
+                                      } finally {
+                                        setDeletingIntegrationId(null);
+                                      }
                                     }
-                                  }
-                                }}
-                                className="p-1 rounded-md text-zinc-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-40"
-                                title="Desconectar conta"
-                              >
-                                {deletingIntegrationId === connectedAccounts[0].id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />
-                                ) : (
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                )}
-                              </button>
+                                  }}
+                                  className="p-1 rounded-md text-zinc-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-40"
+                                  title="Desconectar conta"
+                                >
+                                  {deletingIntegrationId === connectedAccounts[0].id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />
+                                  ) : (
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                              )}
                             </div>
                           ) : (
-                            <button
-                              type="button"
-                              onClick={handleConfigureClick}
-                              className="shrink-0 flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 px-2.5 py-1 text-xs font-medium text-zinc-800 dark:text-zinc-200 transition-colors shadow-2xs"
-                            >
-                              <span>{item.id === "github" ? "Conectar" : (t.settings.integrationsTab.configure || "Configure")}</span>
-                              <ExternalLink className="h-3 w-3 text-zinc-400" />
-                            </button>
+                            ((item.id === "github" ? canManageGitHubConnection : canManageIntegrations) ? (
+                              <button
+                                type="button"
+                                onClick={handleConfigureClick}
+                                className="shrink-0 flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 px-2.5 py-1 text-xs font-medium text-zinc-800 dark:text-zinc-200 transition-colors shadow-2xs"
+                              >
+                                <span>{item.id === "github" ? "Conectar" : (t.settings.integrationsTab.configure || "Configure")}</span>
+                                <ExternalLink className="h-3 w-3 text-zinc-400" />
+                              </button>
+                            ) : null)
                           )}
                         </div>
 
@@ -650,7 +748,18 @@ export function SettingsModal({
                         {item.id === "github" && connectedAccounts.length > 0 && (
                           <div className="mt-2.5 pt-2 border-t border-zinc-200/80 dark:border-zinc-800/80 space-y-1.5">
                             <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
-                              <span>Repositório Principal do Workspace</span>
+                              <div className="flex items-center gap-1.5">
+                                <span>Repositório Principal do Workspace</span>
+                                <button
+                                  type="button"
+                                  disabled={loadingGithubRepos}
+                                  onClick={() => loadGitHubRepos()}
+                                  title="Recarregar repositórios do GitHub"
+                                  className="p-0.5 rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+                                >
+                                  <RefreshCw className={cn("h-3 w-3", loadingGithubRepos && "animate-spin")} />
+                                </button>
+                              </div>
                               {isSavingDefaultRepo && (
                                 <span className="text-[10px] text-zinc-400 flex items-center gap-1 font-normal">
                                   <Loader2 className="h-2.5 w-2.5 animate-spin" /> A guardar...
@@ -660,37 +769,138 @@ export function SettingsModal({
                             <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                               Define o repositório apresentado por predefinição a todos os membros no separador GitHub.
                             </p>
-                            {canManageIntegrations ? (
-                              <div className="flex items-center gap-2">
-                                <select
-                                  disabled={loadingGithubRepos || isSavingDefaultRepo}
-                                  value={
-                                    ((connectedAccounts[0].metadata as any)?.default_repository as string) || ""
-                                  }
-                                  onChange={async (e) => {
-                                    const newRepo = e.target.value;
-                                    if (!activeOrg) return;
-                                    setIsSavingDefaultRepo(true);
-                                    try {
-                                      const res = await setDefaultGitHubRepositoryAction(activeOrg.id, newRepo);
-                                      if (res.success) {
-                                        await loadIntegrations();
-                                      }
-                                    } finally {
-                                      setIsSavingDefaultRepo(false);
+                            {canManageGitHubRepos ? (
+                              <div className="space-y-1.5">
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    disabled={loadingGithubRepos || isSavingDefaultRepo}
+                                    value={
+                                      ((connectedAccounts[0].metadata as any)?.default_repository as string) || ""
                                     }
-                                  }}
-                                  className="w-full text-xs font-mono rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#161618] px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 shadow-2xs focus:border-zinc-500 focus:outline-hidden"
-                                >
-                                  <option value="">-- Selecionar repositório predefinido --</option>
-                                  {githubRepos.map((repo) => (
-                                    <option key={repo.id} value={repo.full_name}>
-                                      {repo.full_name} {repo.private ? "(Privado)" : "(Público)"}
-                                    </option>
-                                  ))}
-                                </select>
-                                {loadingGithubRepos && (
-                                  <Loader2 className="h-4 w-4 animate-spin text-zinc-400 shrink-0" />
+                                    onChange={async (e) => {
+                                      const newRepo = e.target.value;
+                                      if (!activeOrg) return;
+                                      setIsSavingDefaultRepo(true);
+                                      try {
+                                        const res = await setDefaultGitHubRepositoryAction(activeOrg.id, newRepo);
+                                        if (res.success) {
+                                          await loadIntegrations();
+                                        }
+                                      } finally {
+                                        setIsSavingDefaultRepo(false);
+                                      }
+                                    }}
+                                    className="w-full text-xs font-mono rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#161618] px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 shadow-2xs focus:border-zinc-500 focus:outline-hidden cursor-pointer"
+                                  >
+                                    <option value="">-- Selecionar repositório predefinido --</option>
+                                    {githubRepos.map((repo) => (
+                                      <option key={repo.id} value={repo.full_name}>
+                                        {repo.full_name} {repo.private ? "(Privado 🔒)" : "(Público 🌐)"}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {loadingGithubRepos && (
+                                    <Loader2 className="h-4 w-4 animate-spin text-zinc-400 shrink-0" />
+                                  )}
+                                </div>
+                                {githubDiagnostic?.status === "auth_expired" && (
+                                  <div className="rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 p-2.5 text-[11px] text-rose-700 dark:text-rose-300 space-y-1">
+                                    <p className="font-semibold flex items-center gap-1.5">
+                                      <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+                                      Sessão GitHub Expirada ou Revogada
+                                    </p>
+                                    <p className="text-[10px]">
+                                      A autenticação com o GitHub expirou. Por favor reconecta a integração para restabelecer as permissões de acesso.
+                                    </p>
+                                  </div>
+                                )}
+
+                                {githubDiagnostic?.status === "rate_limit_exceeded" && (
+                                  <div className="rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 p-2.5 text-[11px] text-amber-700 dark:text-amber-300 space-y-1">
+                                    <p className="font-semibold flex items-center gap-1.5">
+                                      <Clock className="h-3.5 w-3.5 shrink-0" />
+                                      Limite de Pedidos da API Excedido
+                                    </p>
+                                    <p className="text-[10px]">
+                                      O limite temporário de requisições ao GitHub foi atingido. Aguarda alguns minutos e clica no botão de recarregar.
+                                    </p>
+                                  </div>
+                                )}
+
+                                {githubDiagnostic?.status === "insufficient_permissions" && (
+                                  <div className="rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 p-2.5 text-[11px] text-rose-700 dark:text-rose-300 space-y-1">
+                                    <p className="font-semibold flex items-center gap-1.5">
+                                      <Lock className="h-3.5 w-3.5 shrink-0" />
+                                      Permissões Insuficientes
+                                    </p>
+                                    <p className="text-[10px]">
+                                      {githubDiagnostic.message || "A conta conectada não possui autorização para aceder a repositórios nesta organização."}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {githubDiagnostic?.status === "app_not_installed" && (
+                                  <div className="rounded-lg bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 p-2.5 text-[11px] text-amber-800 dark:text-amber-300 space-y-1.5">
+                                    <p className="font-semibold flex items-center gap-1.5">
+                                      <ShieldAlert className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                                      Aplicação GitHub não instalada
+                                    </p>
+                                    <p className="text-[10px] leading-relaxed">
+                                      Para aceder aos teus repositórios privados da conta pessoal ou organização, a GitHub App precisa de ser instalada na tua conta GitHub.
+                                    </p>
+                                    <div className="pt-0.5">
+                                      <a
+                                        href={githubDiagnostic.appInstallUrl || "https://github.com/settings/installations"}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-[10px] font-medium bg-amber-200/70 dark:bg-amber-900/70 text-amber-900 dark:text-amber-100 px-2 py-1 rounded hover:bg-amber-300/80 dark:hover:bg-amber-800 transition-colors"
+                                      >
+                                        Instalar Aplicação no GitHub
+                                        <ExternalLink className="h-2.5 w-2.5" />
+                                      </a>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {githubDiagnostic?.status === "app_installed_limited_access" && (
+                                  <div className="rounded-lg bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 p-2.5 text-[11px] text-amber-800 dark:text-amber-300 space-y-1.5">
+                                    <p className="font-semibold flex items-center gap-1.5">
+                                      <Lock className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                                      Acesso Restrito na Aplicação GitHub
+                                    </p>
+                                    <p className="text-[10px] leading-relaxed">
+                                      A GitHub App está instalada com seleção restrita de repositórios (<em>Only select repositories</em>). Se o teu repositório privado pretendido não surge na lista acima, concede acesso ao mesmo nas definições de instalação do GitHub.
+                                    </p>
+                                    <div className="pt-0.5">
+                                      <a
+                                        href="https://github.com/settings/installations"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-[10px] font-medium bg-amber-200/70 dark:bg-amber-900/70 text-amber-900 dark:text-amber-100 px-2 py-1 rounded hover:bg-amber-300/80 dark:hover:bg-amber-800 transition-colors"
+                                      >
+                                        Gerir Repositórios Autorizados
+                                        <ExternalLink className="h-2.5 w-2.5" />
+                                      </a>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {githubDiagnostic?.status === "no_repositories" && (
+                                  <div className="rounded-lg bg-zinc-100/70 dark:bg-zinc-800/60 p-2 text-[10px] text-zinc-600 dark:text-zinc-400">
+                                    Nenhum repositório acessível encontrado na conta conectada.
+                                  </div>
+                                )}
+
+                                {githubDiagnostic?.isPartial && (
+                                  <p className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                    <span>⚠️</span> Aviso: A listagem de repositórios pode estar incompleta devido a limite temporário de pedidos.
+                                  </p>
+                                )}
+
+                                {githubRepos.some((r) => r.private) && (
+                                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                                    ✓ Repositórios privados e públicos disponíveis.
+                                  </p>
                                 )}
                               </div>
                             ) : (
@@ -719,37 +929,39 @@ export function SettingsModal({
                                       {acc.accountEmail || acc.providerAccountId}
                                     </span>
                                   </div>
-                                  <button
-                                    type="button"
-                                    disabled={deletingIntegrationId === acc.id}
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      if (confirm(`Deseja remover a integração de ${acc.accountEmail || acc.providerAccountId}?`)) {
-                                        setDeletingIntegrationId(acc.id);
-                                        try {
-                                          await deleteIntegrationAction(acc.id);
-                                          await loadIntegrations();
-                                          window.dispatchEvent(
-                                            new CustomEvent("cb-integration-changed", {
-                                              detail: { provider: acc.provider, status: "disconnected" },
-                                            })
-                                          );
-                                        } catch (err) {
-                                          console.error("Erro ao remover conta:", err);
-                                        } finally {
-                                          setDeletingIntegrationId(null);
+                                  {canManageIntegrations && (
+                                    <button
+                                      type="button"
+                                      disabled={deletingIntegrationId === acc.id}
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (confirm(`Deseja remover a integração de ${acc.accountEmail || acc.providerAccountId}?`)) {
+                                          setDeletingIntegrationId(acc.id);
+                                          try {
+                                            await deleteIntegrationAction(acc.id);
+                                            await loadIntegrations();
+                                            window.dispatchEvent(
+                                              new CustomEvent("cb-integration-changed", {
+                                                detail: { provider: acc.provider, status: "disconnected" },
+                                              })
+                                            );
+                                          } catch (err) {
+                                            console.error("Erro ao remover conta:", err);
+                                          } finally {
+                                            setDeletingIntegrationId(null);
+                                          }
                                         }
-                                      }
-                                    }}
-                                    className="p-1 rounded text-zinc-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-40"
-                                    title="Remover conta"
-                                  >
-                                    {deletingIntegrationId === acc.id ? (
-                                      <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />
-                                    ) : (
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    )}
-                                  </button>
+                                      }}
+                                      className="p-1 rounded text-zinc-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-40"
+                                      title="Remover conta"
+                                    >
+                                      {deletingIntegrationId === acc.id ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />
+                                      ) : (
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      )}
+                                    </button>
+                                  )}
                                 </div>
                               ))}
                             </div>

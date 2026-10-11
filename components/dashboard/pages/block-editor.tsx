@@ -555,9 +555,25 @@ export function BlockEditor({
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [handleUndo, handleRedo]);
 
-  // Flush on unmount if saving
+  // Flush on unmount and beforeunload if saving
   React.useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        const { title: t, icon: ic, blocks: b } = pendingSaveRef.current;
+        savePageContentAction({
+          pageId: page.id,
+          title: t,
+          icon: ic,
+          blocks: b,
+        }).catch(() => {});
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
     return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
         const { title: t, icon: ic, blocks: b } = pendingSaveRef.current;
@@ -1768,10 +1784,10 @@ export function BlockEditor({
         return;
       }
 
-      // 3. EXCLUDE INTERACTIVE CONTROLS & TOOLBARS
+      // 3. EXCLUDE INTERACTIVE CONTROLS, CODE CONTAINERS & TOOLBARS
       if (
         target.closest(
-          'button, input, textarea, a, select, [draggable="true"], [role="button"], [data-no-marquee], [data-toolbar]'
+          'button, input, textarea, a, select, [draggable="true"], [role="button"], [data-no-marquee], [data-toolbar], pre, code, [data-code-block], .select-text'
         )
       ) {
         return;
@@ -2141,12 +2157,45 @@ export function BlockEditor({
             onOpenPageInfo={() => setInfoModalOpen(true)}
           />
 
-          {/* Unobtrusive Save Error Indicator only if save fails */}
-          {saveStatus === "error" && (
-            <div className="flex items-center gap-1 text-xs text-red-500" title="Autosave failed">
-              <AlertCircle className="h-3.5 w-3.5" />
-            </div>
-          )}
+          {/* Real-time Autosave & Persistence Status Indicator */}
+          <div className="flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-md bg-zinc-100/70 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/60 select-none">
+            {saveStatus === "saving" && (
+              <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span className="hidden sm:inline">A guardar...</span>
+              </span>
+            )}
+            {saveStatus === "saved" && (
+              <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                <Check className="h-3 w-3" />
+                <span className="hidden sm:inline">Guardado</span>
+              </span>
+            )}
+            {saveStatus === "error" && (
+              <span className="flex items-center gap-1 text-red-500">
+                <AlertCircle className="h-3.5 w-3.5" />
+                <span>Erro ao guardar</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const { title: t, icon: ic, blocks: b } = pendingSaveRef.current;
+                    setSaveStatus("saving");
+                    savePageContentAction({
+                      pageId: page.id,
+                      title: t,
+                      icon: ic,
+                      blocks: b,
+                    })
+                      .then((res) => setSaveStatus(res?.success ? "saved" : "error"))
+                      .catch(() => setSaveStatus("error"));
+                  }}
+                  className="underline ml-1 cursor-pointer font-semibold hover:opacity-80"
+                >
+                  Tentar
+                </button>
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

@@ -5,6 +5,8 @@ import { generateGoogleAuthUrl } from "@/lib/integrations/google/oauth";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
 
+import { hasPermission } from "@/lib/permissions/resolver";
+
 const VALID_SERVICES = ["gmail", "google_calendar", "calendar", "google", "google_drive", "drive"] as const;
 
 export async function GET(request: Request) {
@@ -27,8 +29,9 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/onboarding", request.url));
   }
 
-  // Only owners and admins can connect integrations
-  if (activeOrg.role !== "owner" && activeOrg.role !== "admin") {
+  // Verify permission: requires integrations.connect or Owner
+  const canConnect = await hasPermission(user.id, activeOrg.id, "integrations.connect");
+  if (!canConnect) {
     return NextResponse.redirect(
       new URL("/dashboard?settings=integrations&error=insufficient_permissions", request.url)
     );

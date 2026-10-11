@@ -1,4 +1,4 @@
-import { FolderKanban } from "lucide-react";
+import { PhosphorFolder } from "@/components/icons";
 import { EmptyState } from "@/components/dashboard/empty-state";
 
 export default function ProjectsPage() {
@@ -12,7 +12,7 @@ export default function ProjectsPage() {
       </div>
 
       <EmptyState
-        icon={FolderKanban}
+        icon={PhosphorFolder}
         title="No Active Projects"
         description="Project management with milestone tracking, ownership, and decision links will be available in Phase 1."
         phaseBadge="Phase 1 Planned"

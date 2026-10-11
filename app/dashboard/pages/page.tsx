@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { verifyAccessOrRedirect } from "@/lib/organizations/entitlements";
 import { getPagesForOrg } from "@/lib/pages/queries";
 import { createPageAction } from "@/lib/pages/actions";
+import { PagesHub } from "@/components/dashboard/pages/pages-hub";
 
 export default async function PagesIndexPage() {
   const { activeOrg } = await verifyAccessOrRedirect();
@@ -10,21 +11,19 @@ export default async function PagesIndexPage() {
     redirect("/dashboard");
   }
 
-  const pages = await getPagesForOrg(activeOrg.id);
+  let pages = await getPagesForOrg(activeOrg.id);
 
-  if (pages.length > 0) {
-    redirect(`/dashboard/pages/${pages[0].id}`);
+  // If no pages exist yet in the organization, create the initial Getting Started page
+  if (pages.length === 0) {
+    const result = await createPageAction({
+      title: "Getting Started",
+      icon: "🚀",
+    });
+
+    if (result.success && result.page) {
+      pages = [result.page];
+    }
   }
 
-  // If no pages exist yet in the organization, create the initial page
-  const result = await createPageAction({
-    title: "Getting Started",
-    icon: "🚀",
-  });
-
-  if (result.success && result.page) {
-    redirect(`/dashboard/pages/${result.page.id}`);
-  }
-
-  redirect("/dashboard");
+  return <PagesHub initialPages={pages} organizationId={activeOrg.id} />;
 }

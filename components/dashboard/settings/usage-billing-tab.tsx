@@ -64,9 +64,6 @@ export function UsageBillingTab({ entitlement, closeSettings }: UsageBillingTabP
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">Usage & Billing</h2>
-          <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-            Monitor plan limits, AI token consumption, active subscriptions, and workspace credits.
-          </p>
         </div>
         <button
           type="button"

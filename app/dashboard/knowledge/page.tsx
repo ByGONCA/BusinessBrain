@@ -1,4 +1,5 @@
-import { BookOpen, FileText, Sparkles, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { PhosphorBookOpen, PhosphorFile } from "@/components/icons";
 import Link from "next/link";
 import { verifyAccessOrRedirect } from "@/lib/organizations/entitlements";
 import { createClient } from "@/lib/supabase/server";
@@ -30,7 +31,7 @@ export default async function KnowledgePage() {
         <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-lg bg-blue-600/10 border border-blue-500/20 text-blue-400 flex items-center justify-center">
-              <BookOpen className="h-4 w-4" />
+              <PhosphorBookOpen className="h-4 w-4" />
             </div>
             <div>
               <h2 className="text-sm font-semibold text-white">Durable Company Context</h2>
@@ -46,7 +47,7 @@ export default async function KnowledgePage() {
           <div>
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 rounded-lg bg-purple-600/10 border border-purple-500/20 text-purple-400 flex items-center justify-center">
-                <FileText className="h-4 w-4" />
+                <PhosphorFile className="h-4 w-4" />
               </div>
               <div>
                 <h2 className="text-sm font-semibold text-white">Document Source Layer</h2>

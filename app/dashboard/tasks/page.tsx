@@ -1,4 +1,4 @@
-import { CheckSquare } from "lucide-react";
+import { PhosphorCheckSquare } from "@/components/icons";
 import { EmptyState } from "@/components/dashboard/empty-state";
 
 export default function TasksPage() {
@@ -12,7 +12,7 @@ export default function TasksPage() {
       </div>
 
       <EmptyState
-        icon={CheckSquare}
+        icon={PhosphorCheckSquare}
         title="No Tasks Assigned"
         description="Task tracking, priorities, due dates, and assignments will be available in Phase 1."
         phaseBadge="Phase 1 Planned"

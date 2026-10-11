@@ -1,9 +1,8 @@
 import * as React from "react";
-import { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface EmptyStateProps {
-  icon: LucideIcon;
+  icon: React.ComponentType<{ className?: string }>;
   title: string;
   description: string;
   phaseBadge?: string;

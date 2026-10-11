@@ -212,3 +212,29 @@ export interface GitHubFileContent {
   download_url?: string | null;
   isBinary?: boolean;
 }
+
+export type GitHubDiagnosticStatus =
+  | "ok"
+  | "app_not_installed"
+  | "app_installed_limited_access"
+  | "insufficient_permissions"
+  | "auth_expired"
+  | "rate_limit_exceeded"
+  | "api_error"
+  | "no_repositories";
+
+export interface GitHubAppInstallationInfo {
+  id: number;
+  accountLogin: string;
+  repositorySelection: "all" | "selected";
+}
+
+export interface GitHubRepositoryListResult {
+  repositories: GitHubRepository[];
+  diagnosticStatus: GitHubDiagnosticStatus;
+  diagnosticMessage?: string;
+  isPartial: boolean;
+  installationsCount: number;
+  installations: GitHubAppInstallationInfo[];
+  appInstallUrl?: string;
+}

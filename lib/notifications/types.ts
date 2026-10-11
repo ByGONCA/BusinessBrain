@@ -132,8 +132,6 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     description: "Alert when your account password has been successfully updated.",
     defaultInApp: true,
     defaultEmail: true,
-    lockedInApp: true,
-    lockedEmail: true,
   },
   {
     id: "sec_email_changed",
@@ -142,8 +140,6 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     description: "Immediate alert when an email change request is initiated or confirmed.",
     defaultInApp: true,
     defaultEmail: true,
-    lockedInApp: true,
-    lockedEmail: true,
   },
   {
     id: "sec_phone_changed",
@@ -152,8 +148,6 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     description: "Notification when a two-factor or recovery phone number changes.",
     defaultInApp: true,
     defaultEmail: true,
-    lockedInApp: true,
-    lockedEmail: true,
   },
   {
     id: "sec_signin_method",
@@ -170,8 +164,6 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     description: "Critical alert when multi-factor authentication methods are altered.",
     defaultInApp: true,
     defaultEmail: true,
-    lockedInApp: true,
-    lockedEmail: true,
   },
   {
     id: "sec_new_signin",
@@ -188,8 +180,6 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     description: "Urgent notification for suspicious or blocked access attempts.",
     defaultInApp: true,
     defaultEmail: true,
-    lockedInApp: true,
-    lockedEmail: true,
   },
   {
     id: "sec_sessions_revoked",
@@ -206,8 +196,6 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     description: "Notice when an account closure or deletion procedure has been scheduled.",
     defaultInApp: true,
     defaultEmail: true,
-    lockedInApp: true,
-    lockedEmail: true,
   },
 
   // 2. COMPANY / WORKSPACE
@@ -217,7 +205,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Invited to a company",
     description: "When you receive an invitation to join an organization.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "ws_invitation_accepted",
@@ -225,7 +213,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Invitation accepted",
     description: "When an invitee accepts your invitation to the organization.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "ws_removed",
@@ -233,7 +221,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Removed from a company",
     description: "Notification when your access to a workspace has been terminated.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "ws_role_changed",
@@ -241,7 +229,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Role changed",
     description: "When your organization permissions or role (Owner, Admin, Member) changes.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "ws_member_joined",
@@ -265,7 +253,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Added to a project",
     description: "When you are added as a collaborator or owner of a project.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "ws_project_removed",
@@ -291,7 +279,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Task assigned to me",
     description: "When a teammate assigns an action item or task to you.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "task_unassigned",
@@ -315,7 +303,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Task due date approaching",
     description: "Reminder when a task deadline is arriving within 24 hours.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "task_overdue",
@@ -323,7 +311,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Task overdue",
     description: "Urgent reminder when an assigned task exceeds its due date.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "task_completed",
@@ -347,7 +335,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Mentioned in a task",
     description: "When someone @mentions you inside a task description.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "task_blocked",
@@ -355,7 +343,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Task blocked or unblocked",
     description: "When an obstacle is flagged or cleared on your assigned task.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
 
   // 4. COMMENTS & MENTIONS
@@ -365,7 +353,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Mentioned in comment",
     description: "When a collaborator mentions your name in any conversation or thread.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "comment_reply",
@@ -373,7 +361,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Reply to my comment",
     description: "When someone replies directly to a note or discussion you started.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "comment_on_task",
@@ -381,7 +369,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Comment on my task",
     description: "When someone leaves a comment on a task you own.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "comment_on_page",
@@ -389,7 +377,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Comment on my page",
     description: "When someone comments on a workspace document or page you authored.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "comment_reaction",
@@ -407,7 +395,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Meeting invite received",
     description: "When you receive a new invitation to an internal or external meeting.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "cal_invite_updated",
@@ -415,7 +403,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Meeting updated or cancelled",
     description: "When a scheduled meeting time changes or is called off.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "cal_starting_soon",
@@ -431,7 +419,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Meeting notes and transcript ready",
     description: "When post-meeting summaries or action items are published.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "cal_action_item_assigned",
@@ -439,7 +427,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Action item assigned from meeting",
     description: "When an action item generated during a meeting is assigned to you.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
 
   // 6. GOALS
@@ -449,7 +437,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Goal assigned to me",
     description: "When an OKR or milestone objective is assigned to your ownership.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "goal_progress",
@@ -465,7 +453,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Goal at risk or missed",
     description: "When an objective falls behind trajectory or misses a milestone.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
 
   // 7. COMPANY BRAIN / MEMORY
@@ -483,7 +471,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Knowledge conflict detected",
     description: "When conflicting facts or obsolete policies are discovered.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "brain_review_suggested",
@@ -491,7 +479,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Memory suggested for review",
     description: "When an AI context memory needs human verification or audit.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
 
   // 8. EMAIL & INBOX
@@ -509,7 +497,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Email thread assigned to me",
     description: "When an inbox conversation is delegated to you for resolution.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "mail_reply_received",
@@ -535,7 +523,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Integration sync failed",
     description: "When background synchronization encounters an unexpected error.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "integration_reconnect_req",
@@ -543,7 +531,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Integration reconnect required",
     description: "When an OAuth token expires or requires updated consent.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
 
   // 10. FILES & PAGES
@@ -553,7 +541,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Page shared with me",
     description: "When a document or wiki page is directly shared with your account.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "page_edited",
@@ -569,7 +557,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "File deletion alert",
     description: "Security warning when shared files or documents are deleted.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
 
   // 11. BILLING
@@ -579,7 +567,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Trial ending in 3 days",
     description: "Reminder before your 7-day free trial expires.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "bill_trial_ended",
@@ -587,7 +575,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Trial ended",
     description: "Notice when your trial concludes and requires an active subscription.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "bill_renewed",
@@ -595,7 +583,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Subscription renewed",
     description: "Receipt notification upon successful billing renewal.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
   {
     id: "bill_payment_failed",
@@ -603,9 +591,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Payment failed",
     description: "Urgent alert if a subscription charge fails to process.",
     defaultInApp: true,
-    defaultEmail: false,
-    lockedInApp: true,
-    lockedEmail: true,
+    defaultEmail: true,
   },
   {
     id: "bill_limits_approaching",
@@ -613,7 +599,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     label: "Plan limits approaching (80%, 100%)",
     description: "Alert when members, storage, or AI credits reach quota capacity.",
     defaultInApp: true,
-    defaultEmail: false,
+    defaultEmail: true,
   },
 
   // 12. PRODUCT & MARKETING (Compliant with GDPR: All false by default)

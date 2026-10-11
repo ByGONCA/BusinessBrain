@@ -8,6 +8,7 @@ import { logger } from "@/lib/security/logger";
 import {
   getGitHubViewer,
   listRepositories,
+  listRepositoriesDetails,
   getRepository,
   listPullRequests,
   listIssues,
@@ -17,6 +18,9 @@ import {
   getRecentActivity,
   getDecryptedGitHubToken,
   GitHubAuthExpiredError,
+  GitHubRateLimitError,
+  GitHubForbiddenError,
+  GitHubNotFoundError,
   listRepositoryContents,
   getRepositoryReadme,
   getRepositoryFileContent,
@@ -35,6 +39,7 @@ import {
   GitHubReadme,
   GitHubFileContent,
   EntityCommentRecord,
+  GitHubDiagnosticStatus,
 } from "./types";
 
 import { hasPermission } from "@/lib/permissions/resolver";
@@ -163,12 +168,17 @@ export async function getGitHubRepositoriesAction(
   hasRepoScope?: boolean;
   totalPrivateRepos?: number;
   authExpired?: boolean;
+  diagnosticStatus?: GitHubDiagnosticStatus;
+  diagnosticMessage?: string;
+  isPartial?: boolean;
+  installationsCount?: number;
+  appInstallUrl?: string;
   error?: string;
 }> {
   try {
     const targetOrgId = await resolveAuthorizedOrgId(orgId, "github.view");
-    const [repos, viewer] = await Promise.all([
-      listRepositories(targetOrgId, {
+    const [repoResult, viewer] = await Promise.all([
+      listRepositoriesDetails(targetOrgId, {
         page: params?.page,
         per_page: params?.per_page || 100,
         sort: "updated",
@@ -177,6 +187,7 @@ export async function getGitHubRepositoriesAction(
       getGitHubViewer(targetOrgId).catch(() => null),
     ]);
 
+    const repos = repoResult.repositories;
     let filtered = repos;
     if (params?.search && params.search.trim()) {
       const q = params.search.toLowerCase().trim();
@@ -197,6 +208,11 @@ export async function getGitHubRepositoriesAction(
       repositories: filtered,
       hasRepoScope,
       totalPrivateRepos: totalPrivate,
+      diagnosticStatus: repoResult.diagnosticStatus,
+      diagnosticMessage: repoResult.diagnosticMessage,
+      isPartial: repoResult.isPartial,
+      installationsCount: repoResult.installationsCount,
+      appInstallUrl: repoResult.appInstallUrl,
     };
   } catch (err: any) {
     if (isAuthExpired(err)) {
@@ -204,13 +220,43 @@ export async function getGitHubRepositoriesAction(
       return {
         success: false,
         authExpired: true,
+        diagnosticStatus: "auth_expired",
+        diagnosticMessage: "Sessão GitHub expirada ou revogada. Por favor reconecta a tua conta.",
         repositories: [],
         error: "GitHub authentication expired. Please reconnect your account.",
       };
     }
 
+    if (err instanceof GitHubRateLimitError || err?.name === "GitHubRateLimitError") {
+      logger.warn("GitHub rate limit reached during repositories fetch", { error: err.message });
+      return {
+        success: false,
+        diagnosticStatus: "rate_limit_exceeded",
+        diagnosticMessage: "Limite de pedidos à API do GitHub atingido temporariamente. Tenta novamente mais tarde.",
+        repositories: [],
+        error: "GitHub rate limit exceeded.",
+      };
+    }
+
+    if (err instanceof GitHubForbiddenError || err?.name === "GitHubForbiddenError") {
+      logger.warn("GitHub access forbidden during repositories fetch", { error: err.message });
+      return {
+        success: false,
+        diagnosticStatus: "insufficient_permissions",
+        diagnosticMessage: "Acesso recusado pelo GitHub: permissões insuficientes.",
+        repositories: [],
+        error: "GitHub API access forbidden.",
+      };
+    }
+
     logger.error("Failed to fetch GitHub repositories", err);
-    return { success: false, repositories: [], error: err.message || "Failed to load repositories" };
+    return {
+      success: false,
+      diagnosticStatus: "api_error",
+      diagnosticMessage: err.message || "Falha ao carregar repositórios do GitHub.",
+      repositories: [],
+      error: err.message || "Failed to load repositories",
+    };
   }
 }
 
@@ -513,6 +559,16 @@ export async function getEntityCommentsAction(
     const targetOrgId = await resolveAuthorizedOrgId();
     const supabase = await createClient();
 
+    // 7-day retention limit: messages are only available up to 7 days, then deleted
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Proactively prune expired messages from database
+    void supabase
+      .from("entity_comments")
+      .delete()
+      .eq("organization_id", targetOrgId)
+      .lt("created_at", sevenDaysAgo);
+
     const { data, error } = await supabase
       .from("entity_comments")
       .select(`
@@ -531,6 +587,7 @@ export async function getEntityCommentsAction(
       .eq("organization_id", targetOrgId)
       .eq("entity_type", entityType)
       .eq("entity_id", entityId)
+      .gte("created_at", sevenDaysAgo)
       .order("created_at", { ascending: true });
 
     if (error) throw error;
@@ -624,12 +681,8 @@ export async function setDefaultGitHubRepositoryAction(
     return { success: false, error: "Forbidden: You are not a member of this workspace." };
   }
 
-  // Check if owner/admin or has permission
-  const isOwnerOrAdmin = member.role === "owner" || member.role === "admin";
-  const canManage =
-    isOwnerOrAdmin ||
-    (await hasPermission(user.id, organizationId, "github.manage_repositories")) ||
-    (await hasPermission(user.id, organizationId, "integrations.configure"));
+  // Enforce github.manage_repositories permission with strict precedence (Owner full access, explicit DENY > ALLOW)
+  const canManage = await hasPermission(user.id, organizationId, "github.manage_repositories");
 
   if (!canManage) {
     return {

@@ -4,14 +4,16 @@ import { CompanyTimeline } from "@/components/dashboard/timeline/company-timelin
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  FolderKanban,
-  GitBranch,
-  BookOpen,
-  Users,
   ShieldCheck,
   Sparkles,
   ArrowUpRight,
 } from "lucide-react";
+import {
+  PhosphorFolder,
+  PhosphorGitBranch,
+  PhosphorBookOpen,
+  PhosphorUsers,
+} from "@/components/icons";
 import Link from "next/link";
 
 export default async function DashboardOverviewPage() {
@@ -52,7 +54,7 @@ export default async function DashboardOverviewPage() {
             <CardTitle className="text-xs font-medium text-slate-400">
               Decisions
             </CardTitle>
-            <GitBranch className="h-4 w-4 text-blue-400" />
+            <PhosphorGitBranch className="h-4 w-4 text-blue-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-white">0</div>
@@ -67,7 +69,7 @@ export default async function DashboardOverviewPage() {
             <CardTitle className="text-xs font-medium text-slate-400">
               Projects
             </CardTitle>
-            <FolderKanban className="h-4 w-4 text-blue-400" />
+            <PhosphorFolder className="h-4 w-4 text-blue-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-white">0</div>
@@ -82,7 +84,7 @@ export default async function DashboardOverviewPage() {
             <CardTitle className="text-xs font-medium text-slate-400">
               Knowledge
             </CardTitle>
-            <BookOpen className="h-4 w-4 text-blue-400" />
+            <PhosphorBookOpen className="h-4 w-4 text-blue-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-white">0</div>
@@ -97,7 +99,7 @@ export default async function DashboardOverviewPage() {
             <CardTitle className="text-xs font-medium text-slate-400">
               Team Members
             </CardTitle>
-            <Users className="h-4 w-4 text-blue-400" />
+            <PhosphorUsers className="h-4 w-4 text-blue-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-white">1</div>

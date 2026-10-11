@@ -1134,6 +1134,164 @@ async function runTests() {
   );
 
   // ---------------------------------------------------------------------------
+  // 35. Auditing Organization Settings Taxonomy & Authorization
+  // ---------------------------------------------------------------------------
+  console.log("\n[35] Auditing Organization Settings Taxonomy & Authorization:");
+
+  const settingsTaxonomyPath = path.resolve(process.cwd(), "lib/settings/actions.ts");
+  const settingsTaxonomySrc = fs.readFileSync(settingsTaxonomyPath, "utf8");
+
+  assert(
+    settingsTaxonomySrc.includes("updateOrganizationBrandingAction") &&
+      settingsTaxonomySrc.includes('hasPermission(user.id, orgId, "company.edit_settings")'),
+    "updateOrganizationBrandingAction enforces company.edit_settings permission"
+  );
+  assert(
+    settingsTaxonomySrc.includes("updateWorkspaceGeneralAction") &&
+      settingsTaxonomySrc.includes('hasPermission(user.id, orgId, "company.edit_settings")'),
+    "updateWorkspaceGeneralAction enforces company.edit_settings permission"
+  );
+  assert(
+    settingsTaxonomySrc.includes("updateWorkspaceDefaultsAction") &&
+      settingsTaxonomySrc.includes('hasPermission(user.id, orgId, "company.edit_settings")'),
+    "updateWorkspaceDefaultsAction enforces company.edit_settings permission"
+  );
+  assert(
+    settingsTaxonomySrc.includes("exportWorkspaceDataAction") &&
+      settingsTaxonomySrc.includes('hasPermission(user.id, orgId, "company.view_settings")'),
+    "exportWorkspaceDataAction enforces company.view_settings permission"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 36. Auditing Integration Governance (Least Privilege & Scoping)
+  // ---------------------------------------------------------------------------
+  console.log("\n[36] Auditing Integration Governance (Least Privilege & Scoping):");
+
+  assert(
+    integrationsActionsSrc.includes("disconnectIntegrationAction") &&
+      integrationsActionsSrc.includes('integration.provider === "github"') &&
+      integrationsActionsSrc.includes('"github.manage_connection"') &&
+      integrationsActionsSrc.includes('"integrations.disconnect"'),
+    "disconnectIntegrationAction enforces github.manage_connection for GitHub and integrations.disconnect for others"
+  );
+  assert(
+    integrationsActionsSrc.includes("deleteIntegrationAction") &&
+      integrationsActionsSrc.includes('integration.provider === "github"') &&
+      integrationsActionsSrc.includes('"github.manage_connection"') &&
+      integrationsActionsSrc.includes('"integrations.disconnect"'),
+    "deleteIntegrationAction enforces github.manage_connection for GitHub and integrations.disconnect for others"
+  );
+  assert(
+    integrationsActionsSrc.includes("getOrganizationIntegrationsAction") &&
+      integrationsActionsSrc.includes('hasPermission(user.id, activeOrg.id, "integrations.view")'),
+    "getOrganizationIntegrationsAction enforces integrations.view permission"
+  );
+
+  const ghConnectGovPath = path.resolve(process.cwd(), "app/api/integrations/github/connect/route.ts");
+  const ghConnectGovSrc = fs.readFileSync(ghConnectGovPath, "utf8");
+  assert(
+    ghConnectGovSrc.includes('hasPermission(user.id, activeOrg.id, "github.manage_connection")') &&
+      ghConnectGovSrc.includes('hasPermission(user.id, activeOrg.id, "integrations.connect")'),
+    "GitHub connect route enforces github.manage_connection or integrations.connect"
+  );
+
+  const googleConnectPath = path.resolve(process.cwd(), "app/api/integrations/google/connect/route.ts");
+  const googleConnectSrc = fs.readFileSync(googleConnectPath, "utf8");
+  assert(
+    googleConnectSrc.includes('hasPermission(user.id, activeOrg.id, "integrations.connect")'),
+    "Google connect route enforces integrations.connect"
+  );
+
+  const msConnectPath = path.resolve(process.cwd(), "app/api/integrations/microsoft/connect/route.ts");
+  const msConnectSrc = fs.readFileSync(msConnectPath, "utf8");
+  assert(
+    msConnectSrc.includes('hasPermission(user.id, activeOrg.id, "integrations.connect")'),
+    "Microsoft connect route enforces integrations.connect"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 37. Auditing Member Invitations Architecture & Token Security
+  // ---------------------------------------------------------------------------
+  console.log("\n[37] Auditing Member Invitations Architecture & Token Security:");
+
+  const invitationsSqlPath = path.resolve(process.cwd(), "database/migrations/00020_organization_invitations.sql");
+  assert(fs.existsSync(invitationsSqlPath), "Migration 00020_organization_invitations.sql exists on disk");
+  const invitationsSql = fs.readFileSync(invitationsSqlPath, "utf8");
+  assert(
+    invitationsSql.includes("create table if not exists public.organization_invitations") &&
+      invitationsSql.includes("idx_org_invitations_pending_email") &&
+      invitationsSql.includes("where status = 'pending'"),
+    "00020 migration defines organization_invitations table with partial unique index on pending emails"
+  );
+  assert(
+    invitationsSql.includes("enable row level security") &&
+      invitationsSql.includes("organization_members_select_invitations") &&
+      invitationsSql.includes("authorized_members_insert_invitations"),
+    "00020 migration enforces Row Level Security and scoped tenant policies"
+  );
+
+  const inviteActionsPath = path.resolve(process.cwd(), "lib/invitations/actions.ts");
+  const inviteActionsSrc = fs.readFileSync(inviteActionsPath, "utf8");
+
+  assert(
+    inviteActionsSrc.includes("createInvitationAction") &&
+      inviteActionsSrc.includes('hasPermission(user.id, targetOrgId, "people.invite")'),
+    "createInvitationAction enforces people.invite permission"
+  );
+  assert(
+    inviteActionsSrc.includes("crypto.randomBytes(32).toString(\"hex\")") &&
+      inviteActionsSrc.includes("7 * 24 * 60 * 60 * 1000"),
+    "createInvitationAction generates 64-char cryptographically secure token with 7-day expiration"
+  );
+  assert(
+    inviteActionsSrc.includes(".select(\"id, organization_id, email, role, status, invited_by, expires_at, created_at, updated_at\")") &&
+      !inviteActionsSrc.includes("select(\"*, token\")"),
+    "getOrganizationInvitationsAction masks raw invite token to prevent token leakage"
+  );
+  assert(
+    inviteActionsSrc.includes("acceptInvitationAction") &&
+      inviteActionsSrc.includes(".update({ status: \"accepted\", updated_at: new Date().toISOString() })"),
+    "acceptInvitationAction enforces single-use token acceptance and transitions status to accepted"
+  );
+  assert(
+    inviteActionsSrc.includes("revokeInvitationAction") &&
+      inviteActionsSrc.includes('hasPermission(user.id, activeOrg.id, "people.invite")') &&
+      inviteActionsSrc.includes('hasPermission(user.id, activeOrg.id, "people.remove")'),
+    "revokeInvitationAction requires people.invite or people.remove permission"
+  );
+
+  // ---------------------------------------------------------------------------
+  // 38. Auditing Final Owner Protection & Role Governance
+  // ---------------------------------------------------------------------------
+  console.log("\n[38] Auditing Final Owner Protection & Role Governance:");
+
+  assert(
+    inviteActionsSrc.includes("updateMemberRoleAction") &&
+      inviteActionsSrc.includes("if (user.id === params.targetUserId)") &&
+      inviteActionsSrc.includes('return { success: false, error: "You cannot change your own system role." };'),
+    "updateMemberRoleAction prevents members from modifying their own system role"
+  );
+  assert(
+    inviteActionsSrc.includes('if (targetMember.role === "owner" && params.newRole !== "owner")') &&
+      inviteActionsSrc.includes('eq("role", "owner")') &&
+      inviteActionsSrc.includes("(count !== null && count <= 1)"),
+    "updateMemberRoleAction enforces final Owner protection (refuses demoting the last owner)"
+  );
+  assert(
+    inviteActionsSrc.includes("removeMemberAction") &&
+      inviteActionsSrc.includes('if (targetMember.role === "owner")') &&
+      inviteActionsSrc.includes("(count !== null && count <= 1)") &&
+      inviteActionsSrc.includes("Cannot remove the final Owner of the workspace"),
+    "removeMemberAction enforces final Owner protection (refuses removing the last owner)"
+  );
+  assert(
+    inviteActionsSrc.includes("organization_team_members") &&
+      inviteActionsSrc.includes("member_permission_overrides") &&
+      inviteActionsSrc.includes('.eq("user_id", params.targetUserId)'),
+    "removeMemberAction cleans up team memberships and permission overrides upon member removal"
+  );
+
+  // ---------------------------------------------------------------------------
   // SUMMARY
   // ---------------------------------------------------------------------------
   console.log("\n=======================================================");

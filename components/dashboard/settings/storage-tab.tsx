@@ -59,9 +59,6 @@ export function StorageTab({ activeOrg }: StorageTabProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">Storage & Asset Quotas</h2>
-          <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-            Monitor file uploads, attached assets, and plan storage allocation for this workspace.
-          </p>
         </div>
         <button
           type="button"

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   GripVertical,
   Trash2,
@@ -50,6 +51,8 @@ import {
   FileSpreadsheet,
   FileCode,
   Github,
+  Pencil,
+  Eye,
 } from "lucide-react";
 import {
   EditorBlock,
@@ -59,6 +62,11 @@ import {
   RELATION_LABELS,
   PageAuthorProfile,
 } from "@/lib/pages/types";
+import {
+  detectLanguageFromPath,
+  getTokenClasses,
+  tokenizeCodeToLines,
+} from "@/lib/code-viewer/syntax";
 import { formatRelativeTime, formatExactDateTime } from "@/lib/utils/time";
 import { EmojiPicker } from "./emoji-picker";
 import { focusBlockCaretEnd, restoreCaretOffset, getCaretOffset } from "./caret-utils";
@@ -179,12 +187,41 @@ export function BlockItem({
   const [isSelfFocused, setIsSelfFocused] = React.useState(false);
   const [isPdfOpen, setIsPdfOpen] = React.useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = React.useState(false);
+  const [isEditingCode, setIsEditingCode] = React.useState(!block.content && block.type === "code");
   const blockContainerRef = React.useRef<HTMLDivElement>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
   const editableRef = React.useRef<HTMLElement | null>(null);
   const prevTypeRef = React.useRef(block.type);
   const lastCaretOffsetRef = React.useRef<number | null>(null);
   const isTypingRef = React.useRef(false);
+
+  // GitHub code snippet properties and syntax resolution
+  const isGitHubSnippet = Boolean(
+    block.type === "code" && (block.properties?.isGitHubSnippet || block.properties?.filePath)
+  );
+  const gitHubFilePath = block.properties?.filePath as string | undefined;
+  const gitHubFileName = gitHubFilePath ? gitHubFilePath.split("/").pop() || gitHubFilePath : "";
+  const gitHubHtmlUrl = block.properties?.htmlUrl as string | undefined;
+  const fullFilePath = gitHubFilePath || gitHubFileName || "ficheiro";
+  const repoFullName =
+    (block.properties?.repoFullName as string | undefined) ||
+    (gitHubHtmlUrl ? gitHubHtmlUrl.match(/github\.com\/([^/]+)\/([^/]+)/)?.[0]?.replace("github.com/", "").replace(/\.git$/, "") : undefined);
+  const codeStartLine = typeof block.properties?.startLine === "number" ? block.properties.startLine : 1;
+  const codeEndLine = typeof block.properties?.endLine === "number" ? block.properties.endLine : undefined;
+  const lineQuery = codeStartLine
+    ? `&line=${codeStartLine}${codeEndLine && codeEndLine !== codeStartLine ? `-${codeEndLine}` : ""}`
+    : "";
+  const internalGitHubUrl = gitHubFilePath
+    ? `/dashboard/github?${repoFullName ? `repo=${encodeURIComponent(repoFullName)}&` : ""}file=${encodeURIComponent(gitHubFilePath)}${lineQuery}`
+    : undefined;
+  const codeLanguage =
+    (block.properties?.language as string) ||
+    (gitHubFilePath ? detectLanguageFromPath(gitHubFilePath).lang : "plaintext");
+
+  const tokenizedCodeLines = React.useMemo(() => {
+    if (block.type !== "code") return [];
+    return tokenizeCodeToLines(block.content, codeLanguage);
+  }, [block.type, block.content, codeLanguage]);
 
   // Filter connections belonging directly to this block
   const blockConnections = React.useMemo(() => {
@@ -1023,36 +1060,152 @@ export function BlockItem({
 
           {/* CODE BLOCK */}
           {block.type === "code" && (
-            <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-900 text-zinc-100 overflow-hidden my-1">
-              <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-950/60 border-b border-zinc-800/80 text-xs text-zinc-400">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-[11px] uppercase tracking-wider">
-                    {block.properties?.language || "Code"}
+            <div
+              data-no-marquee="true"
+              data-code-block="true"
+              onMouseDown={(e) => {
+                // Prevent page-level marquee drag from clearing text selection inside code
+                e.stopPropagation();
+              }}
+              className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] overflow-hidden my-2 shadow-xs group/codecard select-text"
+            >
+              {/* Card Header */}
+              <div className="flex items-center justify-between px-3.5 py-2 bg-zinc-100/75 dark:bg-[#121214] border-b border-zinc-200 dark:border-zinc-800/90 text-xs select-none">
+                <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                  {isGitHubSnippet ? (
+                    <>
+                      {internalGitHubUrl ? (
+                        <Link
+                          href={internalGitHubUrl}
+                          onClick={(e) => e.stopPropagation()}
+                          className="group/link flex items-center gap-1.5 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100 hover:text-blue-600 dark:hover:text-blue-400 transition-colors truncate cursor-pointer"
+                          title={fullFilePath ? `Abrir ${fullFilePath} no GitHub` : "Abrir no GitHub"}
+                        >
+                          <FileCode className="h-4 w-4 text-blue-500 shrink-0 group-hover/link:text-blue-600 transition-colors" />
+                          <span className="truncate group-hover/link:underline">
+                            {fullFilePath}
+                          </span>
+                        </Link>
+                      ) : (
+                        <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                          <FileCode className="h-4 w-4 text-blue-500 shrink-0" />
+                          <span className="truncate">
+                            {fullFilePath}
+                          </span>
+                        </div>
+                      )}
+                      {codeStartLine !== undefined && (
+                        <span className="text-[11px] font-mono text-zinc-500 dark:text-zinc-400 font-semibold">
+                          (L{codeStartLine}{codeEndLine !== undefined && codeEndLine !== codeStartLine ? `–${codeEndLine}` : ""})
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <CodeIcon className="h-3.5 w-3.5 text-zinc-500 shrink-0" />
+                      <span className="font-mono text-[11px] uppercase tracking-wider text-zinc-700 dark:text-zinc-300 font-semibold">
+                        {codeLanguage}
+                      </span>
+                    </>
+                  )}
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 shrink-0 uppercase">
+                    {codeLanguage}
                   </span>
                   {renderBlame()}
                 </div>
-                <button
-                  type="button"
-                  onClick={handleCopyCode}
-                  className="flex items-center gap-1 hover:text-zinc-200 transition-colors select-none"
-                >
-                  {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-                  <span className="text-[10px]">{copied ? "Copied" : "Copy"}</span>
-                </button>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleCopyCode}
+                    className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700/80 transition-colors shadow-2xs cursor-pointer select-none"
+                    title="Copiar código"
+                  >
+                    {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3 opacity-70" />}
+                    <span>{copied ? "Copiado" : "Copiar"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingCode(!isEditingCode)}
+                    className="p-1 rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                    title={isEditingCode ? "Ver formatado com sintaxe" : "Editar código"}
+                  >
+                    {isEditingCode ? <Eye className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
               </div>
-              <pre className="px-2 py-1.5 font-mono text-xs overflow-x-auto">
-                <code
-                  ref={setRef}
-                  contentEditable
-                  suppressContentEditableWarning
-                  onInput={handleInput}
-                  onFocus={handleFocus}
-                  onBlur={handleBlur}
-                  onKeyDown={(e) => onKeyDown(e, block, index)}
-                  data-placeholder={showPlaceholder ? "// write code snippet here..." : ""}
-                  className="outline-none block min-h-[1.75rem] empty:before:content-[attr(data-placeholder)] empty:before:text-zinc-600 empty:before:pointer-events-none whitespace-pre text-white p-0 m-0"
-                >{block.content.replace(/^\n\s*/, "")}</code>
-              </pre>
+
+              {/* Card Body */}
+              {isEditingCode ? (
+                <div className="p-3 bg-zinc-950 font-mono text-xs">
+                  <textarea
+                    ref={setRef as unknown as React.Ref<HTMLTextAreaElement>}
+                    value={block.content}
+                    onChange={(e) => onUpdateContent(block.id, e.target.value)}
+                    onFocus={handleFocus}
+                    onBlur={() => {
+                      handleBlur();
+                      if (block.content.trim()) setIsEditingCode(false);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        setIsEditingCode(false);
+                      }
+                    }}
+                    placeholder="// escreve o código aqui..."
+                    rows={Math.max(4, block.content.split("\n").length)}
+                    className="w-full bg-transparent text-zinc-100 outline-none resize-y font-mono text-xs leading-relaxed"
+                    autoFocus
+                  />
+                  <div className="flex justify-end pt-2 border-t border-zinc-800">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingCode(false)}
+                      className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-medium cursor-pointer transition-colors"
+                    >
+                      Concluir edição
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div
+                  ref={setRef as unknown as React.Ref<HTMLDivElement>}
+                  onDoubleClick={() => setIsEditingCode(true)}
+                  className="overflow-x-auto max-h-[640px] overflow-y-auto bg-zinc-50/50 dark:bg-[#1a1a1d] text-zinc-900 dark:text-zinc-100 font-mono text-[12px] leading-relaxed select-text py-1 outline-none"
+                  title="Duplo clique para editar o código"
+                >
+                  <table className="w-full border-collapse select-text">
+                    <tbody>
+                      {tokenizedCodeLines.map((line, idx) => {
+                        const currentLineNum =
+                          isGitHubSnippet && typeof block.properties?.startLine === "number"
+                            ? block.properties.startLine + idx
+                            : idx + 1;
+                        return (
+                          <tr
+                            key={idx}
+                            className="hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 transition-colors group/row"
+                          >
+                            {/* Line Number Column */}
+                            <td className="w-12 min-w-12 select-none pr-4 pl-3 text-right text-zinc-400 dark:text-zinc-600 text-[11px] align-top border-r border-zinc-200/80 dark:border-zinc-800/80 group-hover/row:text-zinc-700 dark:group-hover/row:text-zinc-400">
+                              {currentLineNum}
+                            </td>
+                            {/* Syntax Highlighted Tokens */}
+                            <td className="pl-4 pr-6 py-0.25 whitespace-pre font-mono text-[12px] tracking-normal select-text cursor-text">
+                              {line.tokens.map((token, tIdx) => (
+                                <span key={tIdx} className={cn(getTokenClasses(token.type), "select-text")}>
+                                  {token.content}
+                                </span>
+                              ))}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 

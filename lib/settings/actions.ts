@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/security/logger";
 import { isValidUuid } from "@/lib/security/authorization";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
+import { hasPermission } from "@/lib/permissions/resolver";
 
 const emailSchema = z.string().trim().email("Please provide a valid email address");
 const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
@@ -251,16 +252,10 @@ export async function updateOrganizationBrandingAction(
     return { success: false, error: "Authentication required." };
   }
 
-  // Verify membership and role
-  const { data: membership } = await supabase
-    .from("organization_members")
-    .select("role")
-    .eq("organization_id", orgId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!membership || !["owner", "admin"].includes(membership.role)) {
-    return { success: false, error: "Only organization owners and admins can modify branding settings." };
+  // Verify permission: requires company.edit_settings or Owner
+  const canEdit = await hasPermission(user.id, orgId, "company.edit_settings");
+  if (!canEdit) {
+    return { success: false, error: "Forbidden: You do not have permission to modify branding settings." };
   }
 
   try {
@@ -451,16 +446,10 @@ export async function updateWorkspaceGeneralAction(
     return { success: false, error: "Authentication required." };
   }
 
-  // Verify owner/admin role
-  const { data: membership } = await supabase
-    .from("organization_members")
-    .select("role")
-    .eq("organization_id", orgId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!membership || !["owner", "admin"].includes(membership.role)) {
-    return { success: false, error: "Only owners and admins can edit workspace settings." };
+  // Verify permission: requires company.edit_settings or Owner
+  const canEditGeneral = await hasPermission(user.id, orgId, "company.edit_settings");
+  if (!canEditGeneral) {
+    return { success: false, error: "Forbidden: You do not have permission to edit workspace settings." };
   }
 
   try {
@@ -507,15 +496,10 @@ export async function updateWorkspaceDefaultsAction(
     return { success: false, error: "Authentication required." };
   }
 
-  const { data: membership } = await supabase
-    .from("organization_members")
-    .select("role")
-    .eq("organization_id", orgId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!membership || !["owner", "admin"].includes(membership.role)) {
-    return { success: false, error: "Only owners and admins can configure workspace defaults." };
+  // Verify permission: requires company.edit_settings or Owner
+  const canEditDefaults = await hasPermission(user.id, orgId, "company.edit_settings");
+  if (!canEditDefaults) {
+    return { success: false, error: "Forbidden: You do not have permission to configure workspace defaults." };
   }
 
   try {
@@ -766,15 +750,10 @@ export async function exportWorkspaceDataAction(orgId: string): Promise<{
     return { success: false, error: "Authentication required." };
   }
 
-  const { data: membership } = await supabase
-    .from("organization_members")
-    .select("role")
-    .eq("organization_id", orgId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (!membership || !["owner", "admin"].includes(membership.role)) {
-    return { success: false, error: "Only owners and admins can export workspace data." };
+  // Verify permission: requires company.view_settings or Owner
+  const canExport = await hasPermission(user.id, orgId, "company.view_settings");
+  if (!canExport) {
+    return { success: false, error: "Forbidden: You do not have permission to export workspace data." };
   }
 
   try {

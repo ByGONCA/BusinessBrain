@@ -1,4 +1,4 @@
-import { Target } from "lucide-react";
+import { PhosphorTarget } from "@/components/icons";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { verifyAccessOrRedirect } from "@/lib/organizations/entitlements";
 import { createClient } from "@/lib/supabase/server";
@@ -28,7 +28,7 @@ export default async function GoalsPage() {
 
       {goalsCount === 0 ? (
         <EmptyState
-          icon={Target}
+          icon={PhosphorTarget}
           title="No Active Goals"
           description="Goals track company targets and OKRs across departments, directly linking execution, meetings, and decisions."
           phaseBadge="Phase 1 Planned"

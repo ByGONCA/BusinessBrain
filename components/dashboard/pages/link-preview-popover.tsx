@@ -32,6 +32,34 @@ export function LinkPreviewPopover({
   const [copied, setCopied] = React.useState(false);
   const popoverRef = React.useRef<HTMLDivElement>(null);
 
+  // Close when clicking outside
+  React.useEffect(() => {
+    if (!anchorEl) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(e.target as Node) &&
+        !anchorEl?.contains(e.target as Node)
+      ) {
+        onClose();
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [anchorEl, onClose]);
+
+  // Close on Escape
+  React.useEffect(() => {
+    if (!anchorEl) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [anchorEl, onClose]);
+
   if (!anchorEl) return null;
 
   const url = anchorEl.getAttribute("href") || "";
@@ -56,32 +84,6 @@ export function LinkPreviewPopover({
       onClose();
     }
   };
-
-  // Close when clicking outside
-  React.useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (
-        popoverRef.current &&
-        !popoverRef.current.contains(e.target as Node) &&
-        !anchorEl?.contains(e.target as Node)
-      ) {
-        onClose();
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [anchorEl, onClose]);
-
-  // Close on Escape
-  React.useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        onClose();
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
 
   return (
     <div

@@ -1,4 +1,4 @@
-import { GitBranch } from "lucide-react";
+import { PhosphorGitBranch } from "@/components/icons";
 import { EmptyState } from "@/components/dashboard/empty-state";
 
 export default function DecisionsPage() {
@@ -12,7 +12,7 @@ export default function DecisionsPage() {
       </div>
 
       <EmptyState
-        icon={GitBranch}
+        icon={PhosphorGitBranch}
         title="No Decisions Recorded"
         description="Capture context, options evaluated, and rationale for all major business and technical decisions in Phase 1."
         phaseBadge="Phase 1 Planned"

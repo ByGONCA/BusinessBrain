@@ -37,20 +37,8 @@ export async function disconnectIntegrationAction(integrationId: string) {
 
   const supabase = await createClient();
 
-  // Verify permission: owner has root access, or member must have 'integrations.disconnect'
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
-
-  const canDisconnect = await hasPermission(user.id, activeOrg.id, "integrations.disconnect");
-  if (!canDisconnect) {
-    throw new Error("Forbidden: You do not have permission to disconnect workspace integrations.");
-  }
-
-  // Rate limit mutation per workspace
-  const rl = await rateLimit("disconnect-integration", activeOrg.id, RATE_LIMIT_PRESETS.MUTATIONS);
-  if (!rl.success) {
-    throw new Error("Too many integration changes. Please try again shortly.");
-  }
 
   // Retrieve integration credentials strictly scoped to the active organization (IDOR prevention)
   const { data: integration, error } = await supabase
@@ -66,6 +54,23 @@ export async function disconnectIntegrationAction(integrationId: string) {
       organizationId: activeOrg.id,
     });
     return;
+  }
+
+  // Verify permission: requires integrations.disconnect or github.manage_connection
+  const isGitHub = integration.provider === "github";
+  const canDisconnect = isGitHub
+    ? (await hasPermission(user.id, activeOrg.id, "github.manage_connection")) ||
+      (await hasPermission(user.id, activeOrg.id, "integrations.disconnect"))
+    : await hasPermission(user.id, activeOrg.id, "integrations.disconnect");
+
+  if (!canDisconnect) {
+    throw new Error("Forbidden: You do not have permission to disconnect workspace integrations.");
+  }
+
+  // Rate limit mutation per workspace
+  const rl = await rateLimit("disconnect-integration", activeOrg.id, RATE_LIMIT_PRESETS.MUTATIONS);
+  if (!rl.success) {
+    throw new Error("Too many integration changes. Please try again shortly.");
   }
 
   // Attempt graceful token revocation if supported
@@ -149,17 +154,9 @@ export async function deleteIntegrationAction(integrationId: string) {
     throw new Error("No active organization found.");
   }
 
-  // Only owners and admins can manage integrations
-  if (activeOrg.role !== "owner" && activeOrg.role !== "admin") {
-    throw new Error("You must be an owner or admin to manage organization integrations.");
-  }
-
-  const rl = await rateLimit("delete-integration", activeOrg.id, RATE_LIMIT_PRESETS.MUTATIONS);
-  if (!rl.success) {
-    throw new Error("Too many integration changes. Please try again shortly.");
-  }
-
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Unauthorized");
 
   // Retrieve credentials for graceful token revocation
   const { data: integration } = await supabase
@@ -167,7 +164,27 @@ export async function deleteIntegrationAction(integrationId: string) {
     .select("id, provider, encrypted_refresh_token, encrypted_access_token")
     .eq("id", integrationId)
     .eq("organization_id", activeOrg.id)
-    .single();
+    .maybeSingle();
+
+  if (!integration) {
+    return { success: true };
+  }
+
+  // Verify permission: requires integrations.disconnect or github.manage_connection
+  const isGitHub = integration.provider === "github";
+  const canDelete = isGitHub
+    ? (await hasPermission(user.id, activeOrg.id, "github.manage_connection")) ||
+      (await hasPermission(user.id, activeOrg.id, "integrations.disconnect"))
+    : await hasPermission(user.id, activeOrg.id, "integrations.disconnect");
+
+  if (!canDelete) {
+    throw new Error("Forbidden: You do not have permission to delete workspace integrations.");
+  }
+
+  const rl = await rateLimit("delete-integration", activeOrg.id, RATE_LIMIT_PRESETS.MUTATIONS);
+  if (!rl.success) {
+    throw new Error("Too many integration changes. Please try again shortly.");
+  }
 
   if (integration) {
     try {
@@ -225,10 +242,16 @@ export async function deleteIntegrationAction(integrationId: string) {
 
 /**
  * Retrieves all integrations for the currently active organization.
+ * Enforces integrations.view permission.
  */
 export async function getOrganizationIntegrationsAction(): Promise<OrganizationIntegration[]> {
   const activeOrg = await getActiveOrganization();
   if (!activeOrg) return [];
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+  const canView = await hasPermission(user.id, activeOrg.id, "integrations.view");
+  if (!canView) return [];
   return getOrganizationIntegrations(activeOrg.id);
 }
 

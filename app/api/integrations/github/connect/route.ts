@@ -27,10 +27,8 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/onboarding", request.url));
   }
 
-  // Workspace owners/admins or members with github.manage_connection or integrations.connect can connect
+  // Verify permission: requires github.manage_connection or integrations.connect (Owner full access automatic)
   const hasManagePermission =
-    activeOrg.role === "owner" ||
-    activeOrg.role === "admin" ||
     (await hasPermission(user.id, activeOrg.id, "github.manage_connection")) ||
     (await hasPermission(user.id, activeOrg.id, "integrations.connect"));
 

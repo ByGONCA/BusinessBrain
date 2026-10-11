@@ -33,6 +33,14 @@ import {
   Clock,
   ArrowUpRight,
 } from "lucide-react";
+import {
+  PhosphorFolder,
+  PhosphorFile,
+  PhosphorGitCommit,
+  PhosphorGitMerge,
+  PhosphorGitBranch,
+  PhosphorArrowsClockwise,
+} from "@/components/icons";
 import { cn } from "@/lib/utils";
 import {
   GitHubOverviewStats,
@@ -53,13 +61,17 @@ import {
   getGitHubFileContentAction,
 } from "@/lib/integrations/github/actions";
 import { ConnectGitHubModal } from "./connect-github-modal";
-import { GitHubCommentsDrawer } from "./github-comments-drawer";
+import { GitHubCommentsDrawer, CodeSnippetReference } from "./github-comments-drawer";
+import { CodeViewer } from "./code-viewer";
 
 interface GitHubWorkspaceHomeProps {
   initialOverview?: GitHubOverviewStats;
   initialRepositories?: GitHubRepository[];
   organizationId: string;
   defaultRepository?: string;
+  initialFilePath?: string;
+  initialStartLine?: number;
+  initialEndLine?: number;
 }
 
 export function GitHubWorkspaceHome({
@@ -67,6 +79,9 @@ export function GitHubWorkspaceHome({
   initialRepositories = [],
   organizationId,
   defaultRepository,
+  initialFilePath,
+  initialStartLine,
+  initialEndLine,
 }: GitHubWorkspaceHomeProps) {
   const [overview, setOverview] = React.useState<GitHubOverviewStats | undefined>(initialOverview);
   const [repositories, setRepositories] = React.useState<GitHubRepository[]>(initialRepositories);
@@ -96,6 +111,15 @@ export function GitHubWorkspaceHome({
   const [loadingFile, setLoadingFile] = React.useState(false);
   const [fileError, setFileError] = React.useState<string | null>(null);
   const [copiedFileCode, setCopiedFileCode] = React.useState(false);
+  const [highlightRange, setHighlightRange] = React.useState<{
+    startLine: number;
+    endLine?: number;
+  } | null>(() => {
+    if (initialStartLine) {
+      return { startLine: initialStartLine, endLine: initialEndLine };
+    }
+    return null;
+  });
 
   // Right Side: Scoped Repo Activity, Pulls, Issues & Tools
   const [rightTab, setRightTab] = React.useState<"activity" | "pulls" | "issues" | "tools">("activity");
@@ -124,11 +148,13 @@ export function GitHubWorkspaceHome({
     entityType: string;
     entityId: string;
     entityTitle: string;
+    snippet?: CodeSnippetReference | null;
   }>({
     isOpen: false,
     entityType: "github_repo",
     entityId: "",
     entityTitle: "",
+    snippet: null,
   });
 
   const [copiedClone, setCopiedClone] = React.useState(false);
@@ -142,12 +168,23 @@ export function GitHubWorkspaceHome({
     }
   }, [selectedRepo]);
 
-  // Sync selectedRepo if initialRepositories changes
+  // Sync selectedRepo if initialRepositories or defaultRepository changes
   React.useEffect(() => {
+    if (defaultRepository && repositories.length > 0) {
+      const match = repositories.find(
+        (r) =>
+          r.full_name.toLowerCase() === defaultRepository.toLowerCase() ||
+          r.name.toLowerCase() === defaultRepository.toLowerCase()
+      );
+      if (match && (!selectedRepo || selectedRepo.id !== match.id)) {
+        setSelectedRepo(match);
+        return;
+      }
+    }
     if (!selectedRepo && repositories.length > 0) {
       setSelectedRepo(repositories[0]);
     }
-  }, [repositories, selectedRepo]);
+  }, [defaultRepository, repositories, selectedRepo]);
 
   // Load Repo Contents & README when selectedRepo or currentPath changes
   React.useEffect(() => {
@@ -212,6 +249,33 @@ export function GitHubWorkspaceHome({
     },
     [selectedRepo, organizationId]
   );
+
+  // Auto-open file when initialFilePath is provided
+  const hasAutoOpenedRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!initialFilePath || !selectedRepo) return;
+    if (
+      defaultRepository &&
+      selectedRepo.full_name.toLowerCase() !== defaultRepository.toLowerCase() &&
+      selectedRepo.name.toLowerCase() !== defaultRepository.toLowerCase()
+    ) {
+      return;
+    }
+
+    const key = `${selectedRepo.id}:${initialFilePath}`;
+    if (hasAutoOpenedRef.current !== key) {
+      hasAutoOpenedRef.current = key;
+      handleOpenFile({
+        name: initialFilePath.split("/").pop() || initialFilePath,
+        path: initialFilePath,
+        type: "file",
+        sha: "",
+        size: 0,
+        html_url: "",
+        download_url: null,
+      });
+    }
+  }, [initialFilePath, selectedRepo, defaultRepository, handleOpenFile]);
 
   // Load Repo Activity when selectedRepo changes or Activity tab is active
   React.useEffect(() => {
@@ -381,7 +445,7 @@ export function GitHubWorkspaceHome({
 
   const renderFileIcon = (item: GitHubContentItem) => {
     if (item.type === "dir") {
-      return <Folder className="h-4 w-4 text-blue-500 fill-blue-500/20 shrink-0" />;
+      return <PhosphorFolder className="h-4 w-4 text-blue-500 shrink-0" />;
     }
     const ext = item.name.split(".").pop()?.toLowerCase();
     if (["ts", "tsx", "js", "jsx", "py", "go", "rs", "java", "c", "cpp", "json", "sql"].includes(ext || "")) {
@@ -390,7 +454,7 @@ export function GitHubWorkspaceHome({
     if (["md", "txt", "doc", "pdf"].includes(ext || "")) {
       return <FileText className="h-4 w-4 text-amber-500 shrink-0" />;
     }
-    return <File className="h-4 w-4 text-zinc-400 shrink-0" />;
+    return <PhosphorFile className="h-4 w-4 text-zinc-400 shrink-0" />;
   };
 
   return (
@@ -422,6 +486,25 @@ export function GitHubWorkspaceHome({
 
           {/* Right: Actions */}
           <div className="flex items-center gap-2 shrink-0">
+            {selectedRepo && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCommentsDrawer({
+                    isOpen: true,
+                    entityType: "github_repo",
+                    entityId: selectedRepo.full_name,
+                    entityTitle: `${selectedRepo.name} · Discussão do Workspace`,
+                    snippet: null,
+                  });
+                }}
+                className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-2xs cursor-pointer"
+                title="Abrir chat de discussão do workspace"
+              >
+                <MessageSquare className="h-3 w-3 text-blue-500" />
+                <span>Discussão</span>
+              </button>
+            )}
 
             <button
               type="button"
@@ -487,137 +570,42 @@ export function GitHubWorkspaceHome({
           {/* ========================================================================= */}
           <div className="lg:col-span-7 space-y-4">
             {viewingFile ? (
-              /* ================= IN-APP FILE CONTENT VIEWER (Zero DB writes) ================= */
-              <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
-                {/* Viewer Top Bar */}
-                <div className="bg-muted/40 border-b border-border px-4 py-2.5 flex items-center justify-between gap-3 text-xs">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setViewingFile(null);
-                        setFileContent(null);
-                        setFileError(null);
-                      }}
-                      className="font-semibold text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 py-0.5 px-2 rounded hover:bg-muted"
-                    >
-                      <ArrowLeft className="h-3.5 w-3.5" />
-                      <span>Back to files</span>
-                    </button>
-
-                    <span className="text-muted-foreground font-mono">/</span>
-
-                    <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-foreground truncate">
-                      <FileCode className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                      <span className="truncate">{viewingFile.path}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    {fileContent && (
-                      <span className="text-[11px] text-muted-foreground font-mono">
-                        {formatFileSize(fileContent.size)}
-                      </span>
-                    )}
-
-                    {fileContent && !fileContent.isBinary && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigator.clipboard.writeText(fileContent.content);
-                          setCopiedFileCode(true);
-                          setTimeout(() => setCopiedFileCode(false), 2000);
-                        }}
-                        className="flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium border border-border bg-background hover:bg-muted transition-colors shadow-2xs"
-                        title="Copy file code"
-                      >
-                        {copiedFileCode ? (
-                          <>
-                            <Check className="h-3 w-3 text-emerald-500" />
-                            <span className="text-emerald-500 font-semibold">Copied!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="h-3 w-3 opacity-70" />
-                            <span>Copy</span>
-                          </>
-                        )}
-                      </button>
-                    )}
-
-                    {fileContent?.html_url && (
-                      <a
-                        href={fileContent.html_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors p-1"
-                        title="View on GitHub"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-
-                {/* Content Body */}
-                {loadingFile ? (
-                  <div className="p-12 flex flex-col items-center justify-center text-muted-foreground text-xs gap-3">
-                    <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-                    <span>Fetching file directly from GitHub API...</span>
-                  </div>
-                ) : fileError ? (
-                  <div className="p-8 text-center space-y-3">
-                    <AlertCircle className="h-6 w-6 text-amber-500 mx-auto" />
-                    <p className="text-xs text-foreground font-semibold">{fileError}</p>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        viewingFile &&
-                        handleOpenFile({ path: viewingFile.path, name: viewingFile.name } as any)
-                      }
-                      className="rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-3 py-1.5 text-xs font-semibold"
-                    >
-                      Retry
-                    </button>
-                  </div>
-                ) : fileContent?.isBinary ? (
-                  <div className="p-12 text-center text-muted-foreground space-y-3">
-                    <File className="h-8 w-8 mx-auto opacity-40" />
-                    <p className="text-xs font-semibold text-foreground">Binary file</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      This file format cannot be previewed as text ({formatFileSize(fileContent.size)}).
-                    </p>
-                    {fileContent.html_url && (
-                      <a
-                        href={fileContent.html_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline"
-                      >
-                        <span>Open on GitHub</span>
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                  </div>
-                ) : fileContent ? (
-                  <div className="overflow-x-auto max-h-[720px] overflow-y-auto bg-zinc-950 text-zinc-100 p-4 font-mono text-xs leading-relaxed select-text">
-                    <table className="w-full border-collapse">
-                      <tbody>
-                        {fileContent.content.split("\n").map((line, idx) => (
-                          <tr key={idx} className="hover:bg-zinc-900/60 transition-colors">
-                            <td className="w-12 select-none pr-4 text-right text-zinc-600 dark:text-zinc-500 text-[11px] align-top">
-                              {idx + 1}
-                            </td>
-                            <td className="whitespace-pre font-mono text-[12px] text-zinc-200">
-                              {line || " "}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : null}
-              </div>
+              <CodeViewer
+                filePath={viewingFile.path}
+                content={fileContent?.content || ""}
+                size={fileContent?.size}
+                isBinary={fileContent?.isBinary}
+                htmlUrl={fileContent?.html_url}
+                loading={loadingFile}
+                error={fileError}
+                highlightRange={highlightRange}
+                onRetry={() =>
+                  viewingFile &&
+                  handleOpenFile({ path: viewingFile.path, name: viewingFile.name, download_url: null } as any)
+                }
+                onBack={() => {
+                  setViewingFile(null);
+                  setFileContent(null);
+                  setFileError(null);
+                  setHighlightRange(null);
+                }}
+                onDiscussSelection={(selection) => {
+                  setCommentsDrawer({
+                    isOpen: true,
+                    entityType: "github_repo",
+                    entityId: selectedRepo?.full_name || defaultRepository || "workspace",
+                    entityTitle: `${selectedRepo?.name || "Repository"} · ${selection.filePath || "Discussão"}`,
+                    snippet: selection.selectedCode
+                      ? {
+                          filePath: selection.filePath,
+                          selectedCode: selection.selectedCode,
+                          startLine: selection.startLine,
+                          endLine: selection.endLine,
+                        }
+                      : null,
+                  });
+                }}
+              />
             ) : (
               /* ================= REPO FILE TREE LIST ================= */
               <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
@@ -856,7 +844,7 @@ export function GitHubWorkspaceHome({
                               ) : ev.type.startsWith("issue") ? (
                                 <AlertCircle className="h-4 w-4 text-amber-500" />
                               ) : (
-                                <GitCommit className="h-4 w-4 text-emerald-500" />
+                                <PhosphorGitCommit className="h-4 w-4 text-emerald-500" />
                               )}
                             </div>
                             <div className="min-w-0 flex-1 space-y-0.5">
@@ -902,7 +890,7 @@ export function GitHubWorkspaceHome({
                           <div className="flex items-start gap-2.5 min-w-0">
                             <div className="mt-0.5">
                               {pr.merged ? (
-                                <GitMerge className="h-4 w-4 text-purple-500" />
+                                <PhosphorGitMerge className="h-4 w-4 text-purple-500" />
                               ) : pr.state === "open" ? (
                                 <GitPullRequest className="h-4 w-4 text-emerald-500" />
                               ) : (
@@ -1061,13 +1049,23 @@ export function GitHubWorkspaceHome({
         sourceTitle={connectModal.sourceTitle}
       />
 
-      {/* Internal Comments Drawer */}
+      {/* Internal Comments Drawer with Code Snippet Support */}
       <GitHubCommentsDrawer
         isOpen={commentsDrawer.isOpen}
-        onClose={() => setCommentsDrawer((prev) => ({ ...prev, isOpen: false }))}
+        onClose={() => setCommentsDrawer((prev) => ({ ...prev, isOpen: false, snippet: null }))}
         entityType={commentsDrawer.entityType}
         entityId={commentsDrawer.entityId}
         entityTitle={commentsDrawer.entityTitle}
+        initialCodeSnippet={commentsDrawer.snippet}
+        onClearCodeSnippet={() => setCommentsDrawer((prev) => ({ ...prev, snippet: null }))}
+        onOpenFile={(filePath, startLine, endLine) => {
+          if (startLine) {
+            setHighlightRange({ startLine, endLine });
+          } else {
+            setHighlightRange(null);
+          }
+          handleOpenFile({ path: filePath, name: filePath.split("/").pop() || filePath, download_url: null } as any);
+        }}
       />
     </div>
   );

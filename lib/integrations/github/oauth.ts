@@ -107,7 +107,9 @@ export function generateGitHubAuthUrl(options: {
     returnUrl: options.returnUrl,
   });
 
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/integrations/github/callback`;
+  const redirectUri =
+    process.env.GITHUB_REDIRECT_URI ||
+    `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/integrations/github/callback`;
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -116,7 +118,8 @@ export function generateGitHubAuthUrl(options: {
     state,
   });
 
-  return `${GITHUB_OAUTH_ENDPOINTS.authorize}?${params.toString()}`;
+  const query = params.toString().replace(/\+/g, "%20");
+  return `${GITHUB_OAUTH_ENDPOINTS.authorize}?${query}`;
 }
 
 export interface GitHubTokenExchangeResult {
@@ -134,7 +137,9 @@ export async function exchangeGitHubCodeForToken(code: string): Promise<GitHubTo
     throw new Error("GITHUB_CLIENT_ID or GITHUB_CLIENT_SECRET is not configured.");
   }
 
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/integrations/github/callback`;
+  const redirectUri =
+    process.env.GITHUB_REDIRECT_URI ||
+    `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/integrations/github/callback`;
 
   const response = await fetch(GITHUB_OAUTH_ENDPOINTS.accessToken, {
     method: "POST",

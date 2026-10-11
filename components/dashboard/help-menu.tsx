@@ -97,12 +97,15 @@ export function HelpMenu({
           aria-label={label || t.help.documentation}
           title={label || t.help.documentation}
           className={cn(
-            "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 hover:text-zinc-900 dark:hover:text-white transition-colors text-left",
+            "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 hover:text-zinc-900 dark:hover:text-white transition-colors text-left",
             isOpen && "bg-zinc-100 dark:bg-zinc-800/60 text-zinc-900 dark:text-white"
           )}
         >
-          <HelpCircle className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
-          <span>{label || t.help.documentation}</span>
+          <div className="flex items-center gap-2.5">
+            <HelpCircle className="h-4 w-4 text-zinc-400 dark:text-zinc-500" />
+            <span>{label || t.help.documentation}</span>
+          </div>
+          <ChevronRight className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
         </button>
       ) : triggerVariant === "quick-nav" ? (
         <button
@@ -146,7 +149,7 @@ export function HelpMenu({
           className={cn(
             "absolute w-64 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] p-1.5 shadow-2xl backdrop-blur-2xl text-zinc-800 dark:text-zinc-200 z-50 animate-in fade-in zoom-in-95",
             triggerVariant === "account-item"
-              ? "left-full bottom-0 ml-1.5"
+              ? "left-full bottom-0 ml-2.5 max-h-[calc(100vh-80px)] overflow-y-auto no-scrollbar"
               : placement === "top"
               ? "top-full left-0 mt-2"
               : "bottom-full left-0 mb-2"

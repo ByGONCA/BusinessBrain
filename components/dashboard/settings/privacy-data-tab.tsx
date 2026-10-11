@@ -73,9 +73,6 @@ export function PrivacyDataTab({ activeOrg }: PrivacyDataTabProps) {
     <div className="space-y-6 max-w-xl">
       <div>
         <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">Privacy & Data Management</h2>
-        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-          Request data exports, review compliance guarantees, and govern personal and organization data ownership.
-        </p>
       </div>
 
       {errorMsg && (

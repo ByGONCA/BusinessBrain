@@ -19,10 +19,12 @@ export const GITHUB_API_BASE_URL = "https://api.github.com";
 export function getGitHubConfig() {
   const clientId = process.env.GITHUB_CLIENT_ID;
   const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+  const appSlug = process.env.GITHUB_APP_SLUG || "";
 
   return {
     clientId: clientId || "",
     clientSecret: clientSecret || "",
+    appSlug,
     isConfigured: Boolean(clientId && clientSecret),
   };
 }

@@ -101,9 +101,6 @@ export function PermissionsTab() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">Roles & Permissions Matrix</h2>
-        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-          Overview of role-based access control (RBAC) across Company Brain. Database RLS guarantees policy enforcement.
-        </p>
       </div>
 
       {/* Role Summary Badges */}

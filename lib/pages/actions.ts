@@ -1963,5 +1963,230 @@ export async function getPageCommentsAction(
   }
 }
 
+export interface PageHeadingItem {
+  id: string;
+  text: string;
+  type: "heading_1" | "heading_2" | "heading_3";
+}
+
+/**
+ * Fetches page outline headings for section positioning.
+ */
+export async function getPageHeadingsAction(
+  pageId: string
+): Promise<{ success: boolean; headings: PageHeadingItem[]; error?: string }> {
+  try {
+    if (!isValidUuid(pageId)) {
+      return { success: false, headings: [], error: "Invalid page ID" };
+    }
+    const supabase = await createClient();
+    const activeOrg = await getActiveOrganization();
+    if (!activeOrg) return { success: false, headings: [], error: "No active workspace" };
+
+    const { data: page, error } = await supabase
+      .from("pages")
+      .select("content")
+      .eq("id", pageId)
+      .eq("organization_id", activeOrg.id)
+      .single();
+
+    if (error || !page) {
+      return { success: false, headings: [], error: "Page not found" };
+    }
+
+    const blocks: EditorBlock[] = Array.isArray(page.content) ? (page.content as EditorBlock[]) : [];
+    const headings: PageHeadingItem[] = blocks
+      .filter((b) => b.type === "heading_1" || b.type === "heading_2" || b.type === "heading_3")
+      .map((b) => ({
+        id: b.id,
+        text: (b.content || "").replace(/<[^>]*>?/gm, "").trim() || "Untitled section",
+        type: b.type as "heading_1" | "heading_2" | "heading_3",
+      }));
+
+    return { success: true, headings };
+  } catch (err: unknown) {
+    logger.error("Error in getPageHeadingsAction", err);
+    return { success: false, headings: [], error: "Failed to load headings" };
+  }
+}
+
+/**
+ * Adds a code snippet and reference link to an existing or new page in the active workspace.
+ */
+export async function addCodeSnippetToPageAction(params: {
+  pageId: string;
+  filePath: string;
+  selectedCode: string;
+  language?: string;
+  startLine?: number;
+  endLine?: number;
+  htmlUrl?: string;
+  position?: "end" | "start" | "after_block";
+  targetBlockId?: string;
+  insertIndex?: number;
+}): Promise<{ success: boolean; pageId?: string; blocks?: EditorBlock[]; error?: string }> {
+  try {
+    if (!isValidUuid(params.pageId)) {
+      return { success: false, error: "Invalid page ID" };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const activeOrg = await getActiveOrganization();
+    if (!activeOrg) {
+      return { success: false, error: "No active workspace" };
+    }
+
+    const canEdit = await hasPermission(user.id, activeOrg.id, "pages.edit");
+    if (!canEdit) {
+      return { success: false, error: "Forbidden: You do not have permission to edit pages." };
+    }
+
+    const { data: page, error: fetchErr } = await supabase
+      .from("pages")
+      .select("id, title, content, content_text")
+      .eq("id", params.pageId)
+      .eq("organization_id", activeOrg.id)
+      .single();
+
+    if (fetchErr || !page) {
+      return { success: false, error: "Page not found in this workspace" };
+    }
+
+    const existingBlocks: EditorBlock[] = Array.isArray(page.content)
+      ? (page.content as EditorBlock[])
+      : [];
+
+    const fileName = params.filePath.split("/").pop() || params.filePath;
+    const lineLabel =
+      params.startLine !== undefined
+        ? params.endLine !== undefined && params.endLine !== params.startLine
+          ? ` (L${params.startLine}–${params.endLine})`
+          : ` (L${params.startLine})`
+        : "";
+
+    // Resolve direct GitHub URL with line numbers if available
+    let targetHtmlUrl = params.htmlUrl;
+    if (targetHtmlUrl && params.startLine !== undefined && !targetHtmlUrl.includes("#L")) {
+      targetHtmlUrl = `${targetHtmlUrl}#L${params.startLine}${
+        params.endLine !== undefined && params.endLine !== params.startLine
+          ? `-L${params.endLine}`
+          : ""
+      }`;
+    }
+
+    // Extract repo full name from htmlUrl if available
+    let repoFullName: string | undefined;
+    if (params.htmlUrl) {
+      const match = params.htmlUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
+      if (match) {
+        repoFullName = `${match[1]}/${match[2]}`.replace(/\.git$/, "");
+      }
+    }
+
+    // Unified specialized GitHub code block
+    const codeBlock: EditorBlock = {
+      id: crypto.randomUUID(),
+      type: "code",
+      content: params.selectedCode,
+      properties: {
+        language: params.language || "text",
+        filePath: params.filePath,
+        startLine: params.startLine,
+        endLine: params.endLine,
+        htmlUrl: targetHtmlUrl,
+        repoFullName,
+        isGitHubSnippet: true,
+        caption: `${fileName}${lineLabel}`,
+      },
+    };
+
+    const trailingParagraph: EditorBlock = {
+      id: crypto.randomUUID(),
+      type: "paragraph",
+      content: "",
+    };
+
+    const snippetBlocks: EditorBlock[] = [codeBlock, trailingParagraph];
+
+    let newBlocks: EditorBlock[];
+
+    if (params.insertIndex !== undefined && params.insertIndex >= 0) {
+      const clampedIndex = Math.min(params.insertIndex, existingBlocks.length);
+      newBlocks = [
+        ...existingBlocks.slice(0, clampedIndex),
+        ...snippetBlocks,
+        ...existingBlocks.slice(clampedIndex),
+      ];
+    } else if (params.position === "start") {
+      newBlocks = [...snippetBlocks, ...existingBlocks];
+    } else if (params.position === "after_block" && params.targetBlockId) {
+      const idx = existingBlocks.findIndex((b) => b.id === params.targetBlockId);
+      if (idx !== -1) {
+        newBlocks = [
+          ...existingBlocks.slice(0, idx + 1),
+          ...snippetBlocks,
+          ...existingBlocks.slice(idx + 1),
+        ];
+      } else {
+        newBlocks = [...existingBlocks, ...snippetBlocks];
+      }
+    } else {
+      // Default: append to end
+      newBlocks = [...existingBlocks, ...snippetBlocks];
+    }
+
+    const contentText = extractPlainText(newBlocks);
+
+    const { error: updateErr } = await supabase
+      .from("pages")
+      .update({
+        content: newBlocks,
+        content_text: contentText,
+        last_edited_by: user.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", params.pageId)
+      .eq("organization_id", activeOrg.id);
+
+    if (updateErr) {
+      logger.error("Failed to update page with code snippet", updateErr);
+      return { success: false, error: updateErr.message || "Could not update page" };
+    }
+
+    // Record activity non-blocking
+    try {
+      await supabase.from("page_activity").insert({
+        organization_id: activeOrg.id,
+        page_id: params.pageId,
+        actor_id: user.id,
+        action: "content_updated",
+        metadata: {
+          reason: "code_snippet_added",
+          filePath: params.filePath,
+        },
+      });
+    } catch {
+      // Non-blocking
+    }
+
+    revalidatePath("/dashboard/pages");
+    revalidatePath(`/dashboard/pages/${params.pageId}`);
+
+    return { success: true, pageId: params.pageId, blocks: newBlocks };
+  } catch (err: unknown) {
+    logger.error("Unexpected error in addCodeSnippetToPageAction", err);
+    return { success: false, error: "An unexpected error occurred" };
+  }
+}
+
+
 
 

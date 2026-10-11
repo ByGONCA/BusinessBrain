@@ -279,9 +279,6 @@ export function SecurityTab({ user }: SecurityTabProps) {
     <div className="space-y-6 max-w-xl">
       <div>
         <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">Security & Authentication</h2>
-        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-          Manage your login credentials, two-factor authentication, connected accounts, and active sessions.
-        </p>
       </div>
 
       {/* Account Verification Status */}

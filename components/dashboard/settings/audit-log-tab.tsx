@@ -60,9 +60,6 @@ export function AuditLogTab({ activeOrg }: AuditLogTabProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">Audit Trail & Security Logs</h2>
-          <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-            Immutable log of sensitive administrative actions, member role changes, and integration updates.
-          </p>
         </div>
         <button
           type="button"

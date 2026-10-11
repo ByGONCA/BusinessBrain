@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import {
-  Users,
   Mail,
   Shield,
   Briefcase,
@@ -25,10 +24,35 @@ import {
   ChevronDown,
   ChevronRight,
   Info,
-  UserPlus,
+  Send,
+  Copy,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
+import {
+  PhosphorUsers,
+  PhosphorUserList,
+  PhosphorUserPlus,
+  PhosphorUserMinus,
+  PhosphorUserGear,
+  PhosphorArrowsClockwise,
+} from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { OrganizationMember, OrganizationWithRole, MemberRole } from "@/lib/organizations/types";
+import {
+  OrganizationInvitation,
+  InvitationRole,
+} from "@/lib/invitations/types";
+import {
+  createInvitationAction,
+  getOrganizationInvitationsAction,
+  revokeInvitationAction,
+  resendInvitationAction,
+  updateMemberRoleAction,
+  removeMemberAction,
+} from "@/lib/invitations/actions";
 import {
   TeamRecord,
   MemberDetailRecord,
@@ -62,18 +86,165 @@ const COLOR_MAP: Record<string, { bg: string; text: string; border: string }> = 
 
 interface PeopleHubProps {
   activeOrg: OrganizationWithRole | null;
+  currentUserId?: string;
   initialMembers: OrganizationMember[];
+  initialInvitations?: OrganizationInvitation[];
   currentUserRole?: MemberRole;
+  isOwner?: boolean;
+  userPermissions?: string[];
 }
 
-export function PeopleHub({ activeOrg, initialMembers, currentUserRole = "owner" }: PeopleHubProps) {
+export function PeopleHub({
+  activeOrg,
+  currentUserId,
+  initialMembers,
+  initialInvitations = [],
+  currentUserRole = "owner",
+  isOwner = false,
+  userPermissions = [],
+}: PeopleHubProps) {
   const { openSettings } = useSettings();
-  const [activeTab, setActiveTab] = React.useState<"members" | "teams" | "permissions">("members");
+  const [activeTab, setActiveTab] = React.useState<"members" | "teams" | "permissions" | "invitations">("members");
 
   // Members state
   const [members, setMembers] = React.useState<OrganizationMember[]>(initialMembers);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [roleFilter, setRoleFilter] = React.useState<string>("all");
+
+  // Invitations state
+  const [invitations, setInvitations] = React.useState<OrganizationInvitation[]>(initialInvitations);
+  const [isLoadingInvitations, setIsLoadingInvitations] = React.useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = React.useState(false);
+  const [inviteEmail, setInviteEmail] = React.useState("");
+  const [inviteRole, setInviteRole] = React.useState<InvitationRole>("member");
+  const [isSendingInvite, setIsSendingInvite] = React.useState(false);
+  const [createdInviteLink, setCreatedInviteLink] = React.useState<string | null>(null);
+  const [inviteError, setInviteError] = React.useState<string | null>(null);
+  const [copiedToken, setCopiedToken] = React.useState(false);
+
+  // Member Governance (role / remove) state
+  const [isMutatingMember, setIsMutatingMember] = React.useState(false);
+  const [governanceNotice, setGovernanceNotice] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Permissions & Governance
+  const userPermSet = React.useMemo(() => new Set(userPermissions), [userPermissions]);
+  const hasRootAccess = isOwner || currentUserRole === "owner" || activeOrg?.role === "owner";
+  const canInvite = hasRootAccess || userPermSet.has("people.invite");
+  const canRemove = hasRootAccess || userPermSet.has("people.remove");
+  const canManageOverrides = hasRootAccess || userPermSet.has("people.manage_permissions");
+  const canChangeRole = hasRootAccess;
+
+  const loadInvitations = React.useCallback(async () => {
+    if (!activeOrg) return;
+    setIsLoadingInvitations(true);
+    try {
+      const res = await getOrganizationInvitationsAction(activeOrg.id);
+      if (res.success && res.invitations) {
+        setInvitations(res.invitations);
+      }
+    } finally {
+      setIsLoadingInvitations(false);
+    }
+  }, [activeOrg]);
+
+  const handleSendInvitation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail.trim() || !activeOrg) return;
+    setIsSendingInvite(true);
+    setInviteError(null);
+    setCreatedInviteLink(null);
+    try {
+      const res = await createInvitationAction({
+        organizationId: activeOrg.id,
+        email: inviteEmail.trim(),
+        role: inviteRole,
+      });
+      if (res.success) {
+        setCreatedInviteLink(res.inviteLink || null);
+        await loadInvitations();
+      } else {
+        setInviteError(res.error || "Failed to create invitation.");
+      }
+    } catch (err: any) {
+      setInviteError(err?.message || "An unexpected error occurred.");
+    } finally {
+      setIsSendingInvite(false);
+    }
+  };
+
+  const handleRevokeInvitation = async (invitationId: string) => {
+    if (!activeOrg) return;
+    if (!confirm("Are you sure you want to revoke this invitation?")) return;
+    const res = await revokeInvitationAction(invitationId);
+    if (res.success) {
+      await loadInvitations();
+    } else {
+      alert(res.error || "Failed to revoke invitation.");
+    }
+  };
+
+  const handleResendInvitation = async (invitationId: string) => {
+    const res = await resendInvitationAction(invitationId);
+    if (res.success) {
+      if (res.inviteLink) {
+        navigator.clipboard?.writeText(res.inviteLink);
+        alert(`New invitation link copied to clipboard:\n${res.inviteLink}`);
+      }
+      await loadInvitations();
+    } else {
+      alert(res.error || "Failed to resend invitation.");
+    }
+  };
+
+  const handleUpdateMemberRole = async (targetUserId: string, newRole: MemberRole) => {
+    if (!activeOrg) return;
+    setIsMutatingMember(true);
+    setGovernanceNotice(null);
+    try {
+      const res = await updateMemberRoleAction({
+        organizationId: activeOrg.id,
+        targetUserId,
+        newRole,
+      });
+      if (res.success) {
+        setMembers((prev) =>
+          prev.map((m) =>
+            m.user_id === targetUserId || m.id === targetUserId ? { ...m, role: newRole } : m
+          )
+        );
+        if (selectedMember && selectedMember.user_id === targetUserId) {
+          setSelectedMember({ ...selectedMember, role: newRole, isOwner: newRole === "owner" });
+        }
+        setGovernanceNotice({ type: "success", text: `Role updated to ${newRole}.` });
+      } else {
+        setGovernanceNotice({ type: "error", text: res.error || "Failed to update role." });
+      }
+    } finally {
+      setIsMutatingMember(false);
+    }
+  };
+
+  const handleRemoveMember = async (targetUserId: string, memberName: string) => {
+    if (!activeOrg) return;
+    if (!confirm(`Are you sure you want to remove ${memberName} from this workspace?`)) return;
+    setIsMutatingMember(true);
+    setGovernanceNotice(null);
+    try {
+      const res = await removeMemberAction({
+        organizationId: activeOrg.id,
+        targetUserId,
+      });
+      if (res.success) {
+        setMembers((prev) => prev.filter((m) => m.user_id !== targetUserId && m.id !== targetUserId));
+        setSelectedMember(null);
+        await loadTeams();
+      } else {
+        alert(res.error || "Failed to remove member.");
+      }
+    } finally {
+      setIsMutatingMember(false);
+    }
+  };
 
   // Teams state (fetched from backend)
   const [teams, setTeams] = React.useState<TeamRecord[]>([]);
@@ -254,7 +425,7 @@ export function PeopleHub({ activeOrg, initialMembers, currentUserRole = "owner"
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-zinc-800 pb-5">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <Users className="h-6 w-6 text-blue-500" />
+            <PhosphorUsers className="h-6 w-6 text-blue-500" />
             <span>People & Teams</span>
           </h1>
           <p className="text-xs text-zinc-400 mt-1">
@@ -274,7 +445,7 @@ export function PeopleHub({ activeOrg, initialMembers, currentUserRole = "owner"
                 : "text-zinc-400 hover:text-zinc-200"
             )}
           >
-            <Users className="h-3.5 w-3.5" />
+            <PhosphorUsers className="h-3.5 w-3.5" />
             <span>People</span>
             <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-700/60 text-zinc-300">
               {members.length}
@@ -291,7 +462,7 @@ export function PeopleHub({ activeOrg, initialMembers, currentUserRole = "owner"
                 : "text-zinc-400 hover:text-zinc-200"
             )}
           >
-            <FolderGit2 className="h-3.5 w-3.5" />
+            <PhosphorUserList className="h-3.5 w-3.5" />
             <span>Teams</span>
             <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-zinc-700/60 text-zinc-300">
               {teams.length}
@@ -308,8 +479,27 @@ export function PeopleHub({ activeOrg, initialMembers, currentUserRole = "owner"
                 : "text-zinc-400 hover:text-zinc-200"
             )}
           >
-            <Shield className="h-3.5 w-3.5" />
+            <PhosphorUserGear className="h-3.5 w-3.5" />
             <span>Capabilities</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("invitations")}
+            className={cn(
+              "flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-medium transition-colors",
+              activeTab === "invitations"
+                ? "bg-zinc-800 text-white shadow-xs"
+                : "text-zinc-400 hover:text-zinc-200"
+            )}
+          >
+            <PhosphorUserPlus className="h-3.5 w-3.5" />
+            <span>Invitations</span>
+            {invitations.filter((i) => i.status === "pending").length > 0 && (
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30 font-semibold">
+                {invitations.filter((i) => i.status === "pending").length}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -344,10 +534,27 @@ export function PeopleHub({ activeOrg, initialMembers, currentUserRole = "owner"
             </div>
 
             <div className="flex items-center gap-2">
+              {canInvite && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInviteEmail("");
+                    setInviteRole("member");
+                    setInviteError(null);
+                    setCreatedInviteLink(null);
+                    setCopiedToken(false);
+                    setIsInviteModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white transition-colors shadow-xs cursor-pointer"
+                >
+                  <PhosphorUserPlus className="h-3.5 w-3.5" />
+                  <span>Invite Member</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => openSettings("permissions")}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-800 bg-zinc-900 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-800 bg-zinc-900 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
               >
                 <Settings className="h-3.5 w-3.5 text-zinc-400" />
                 <span>Permissions Setup</span>
@@ -693,6 +900,158 @@ export function PeopleHub({ activeOrg, initialMembers, currentUserRole = "owner"
         </div>
       )}
 
+      {/* TAB 4: INVITATIONS */}
+      {activeTab === "invitations" && (
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-white">Workspace Invitations</h2>
+              <p className="text-xs text-zinc-400">
+                Invitations are single-use, cryptographically secure, and expire after 7 days.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={loadInvitations}
+                disabled={isLoadingInvitations}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-800 bg-zinc-900 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <PhosphorArrowsClockwise className={cn("h-3.5 w-3.5 text-zinc-400", isLoadingInvitations && "animate-spin")} />
+                <span>Refresh</span>
+              </button>
+              {canInvite && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInviteEmail("");
+                    setInviteRole("member");
+                    setInviteError(null);
+                    setCreatedInviteLink(null);
+                    setCopiedToken(false);
+                    setIsInviteModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white transition-colors shadow-xs cursor-pointer"
+                >
+                  <PhosphorUserPlus className="h-3.5 w-3.5" />
+                  <span>Invite Member</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Invitations Table */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-zinc-800 bg-zinc-800/40 text-zinc-400 font-medium">
+                    <th className="py-3 px-4">Invited Email</th>
+                    <th className="py-3 px-4">Role</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4">Invited By</th>
+                    <th className="py-3 px-4">Expires / Date</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/60">
+                  {invitations.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-zinc-500">
+                        No invitations found. Use the &quot;Invite Member&quot; button to send an invite.
+                      </td>
+                    </tr>
+                  ) : (
+                    invitations.map((inv) => {
+                      const isPending = inv.status === "pending";
+                      const isExpired = inv.status === "expired" || (isPending && new Date(inv.expires_at) < new Date());
+                      const effectiveStatus = isExpired && isPending ? "expired" : inv.status;
+
+                      return (
+                        <tr key={inv.id} className="hover:bg-zinc-800/30 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <Mail className="h-4 w-4 text-zinc-400 shrink-0" />
+                              <span className="font-mono text-white">{inv.email}</span>
+                            </div>
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border capitalize bg-zinc-800 text-zinc-300 border-zinc-700">
+                              {inv.role}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border capitalize",
+                                effectiveStatus === "pending"
+                                  ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                                  : effectiveStatus === "accepted"
+                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                                  : effectiveStatus === "expired"
+                                  ? "bg-zinc-800 text-zinc-500 border-zinc-700"
+                                  : "bg-red-500/10 text-red-400 border-red-500/30"
+                              )}
+                            >
+                              {effectiveStatus}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-3 text-zinc-400 text-[11px]">
+                            {inv.invited_by_name || "Workspace Admin"}
+                          </td>
+
+                          <td className="px-4 py-3 text-zinc-500 font-mono text-[11px]">
+                            {new Date(inv.expires_at).toLocaleDateString()}
+                          </td>
+
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              {effectiveStatus === "pending" && canInvite && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResendInvitation(inv.id)}
+                                    className="p-1 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors cursor-pointer"
+                                    title="Resend and copy new invite link"
+                                  >
+                                    <PhosphorArrowsClockwise className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRevokeInvitation(inv.id)}
+                                    className="p-1 rounded-md text-zinc-400 hover:text-red-400 hover:bg-red-950/30 transition-colors cursor-pointer"
+                                    title="Revoke invitation"
+                                  >
+                                    <Ban className="h-3.5 w-3.5" />
+                                  </button>
+                                </>
+                              )}
+                              {effectiveStatus === "expired" && canInvite && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleResendInvitation(inv.id)}
+                                  className="text-[11px] px-2 py-1 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors cursor-pointer"
+                                >
+                                  Re-invite
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* DRAWER / MODAL: MEMBER DETAIL & PERMISSIONS OVERRIDES */}
       {selectedMember && (
         <div
@@ -820,11 +1179,93 @@ export function PeopleHub({ activeOrg, initialMembers, currentUserRole = "owner"
                       type="button"
                       disabled={isSavingJobInfo}
                       onClick={handleSaveJobInfo}
-                      className="px-4 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50"
+                      className="px-4 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 cursor-pointer"
                     >
                       {isSavingJobInfo ? "Saving..." : "Save Job Info"}
                     </button>
                   </div>
+
+                  {/* Governance & Role Management */}
+                  {selectedMember.user_id !== currentUserId && (
+                    <div className="pt-4 mt-4 border-t border-zinc-800 space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4 text-zinc-400" />
+                        <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                          Access & Organization Role
+                        </h3>
+                      </div>
+
+                      {governanceNotice && (
+                        <div
+                          className={cn(
+                            "p-2.5 rounded-xl text-xs flex items-center gap-2",
+                            governanceNotice.type === "success"
+                              ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-300"
+                              : "bg-red-500/10 border border-red-500/20 text-red-300"
+                          )}
+                        >
+                          {governanceNotice.type === "success" ? (
+                            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                          ) : (
+                            <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
+                          )}
+                          <span>{governanceNotice.text}</span>
+                        </div>
+                      )}
+
+                      {canChangeRole ? (
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-semibold text-zinc-300">System Role</label>
+                          <div className="flex items-center gap-2">
+                            <select
+                              disabled={isMutatingMember}
+                              value={selectedMember.role}
+                              onChange={(e) =>
+                                handleUpdateMemberRole(
+                                  selectedMember.user_id,
+                                  e.target.value as MemberRole
+                                )
+                              }
+                              className="text-xs rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-white focus:outline-none focus:border-blue-500 cursor-pointer flex-1"
+                            >
+                              <option value="member">Member (Standard Access)</option>
+                              <option value="admin">Admin (Manager Access)</option>
+                              <option value="owner">Owner (Full Root Authority)</option>
+                            </select>
+                            {isMutatingMember && (
+                              <Loader2 className="h-4 w-4 animate-spin text-zinc-400 shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-zinc-500">
+                            Only workspace Owners can modify member system roles. The final Owner cannot be demoted.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="text-xs text-zinc-400">
+                          Current role: <strong className="capitalize text-zinc-200">{selectedMember.role}</strong>
+                        </div>
+                      )}
+
+                      {canRemove && (
+                        <div className="pt-2">
+                          <button
+                            type="button"
+                            disabled={isMutatingMember}
+                            onClick={() =>
+                              handleRemoveMember(
+                                selectedMember.user_id,
+                                selectedMember.profile?.full_name || selectedMember.profile?.email || "this member"
+                              )
+                            }
+                            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-xs font-semibold text-red-300 transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span>Remove from Organization</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1194,6 +1635,147 @@ export function PeopleHub({ activeOrg, initialMembers, currentUserRole = "owner"
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: INVITE MEMBER */}
+      {isInviteModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4"
+          onClick={() => setIsInviteModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-6 text-zinc-100 shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <PhosphorUserPlus className="h-5 w-5 text-blue-400" />
+                <h3 className="text-base font-bold text-white">Invite New Member</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsInviteModalOpen(false)}
+                className="text-zinc-400 hover:text-white cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {createdInviteLink ? (
+              <div className="space-y-4 py-2">
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 flex items-start gap-2">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
+                  <div>
+                    <span className="font-semibold block">Invitation created successfully!</span>
+                    <span>Share the link below with your team member. It expires in 7 days and can only be used once.</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-zinc-300">Invite Link</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={createdInviteLink}
+                      className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-zinc-700 bg-zinc-950 text-zinc-200 select-all focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(createdInviteLink);
+                        setCopiedToken(true);
+                        setTimeout(() => setCopiedToken(false), 2000);
+                      }}
+                      className="shrink-0 flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors cursor-pointer"
+                    >
+                      {copiedToken ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      <span>{copiedToken ? "Copied" : "Copy"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsInviteModalOpen(false);
+                      setCreatedInviteLink(null);
+                    }}
+                    className="px-4 py-1.5 text-xs font-semibold rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSendInvitation} className="space-y-4">
+                {inviteError && (
+                  <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-300 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
+                    <span>{inviteError}</span>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-zinc-300">Email Address *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="colleague@company.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-zinc-700 bg-zinc-800/80 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-zinc-300">System Role</label>
+                  <select
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value as InvitationRole)}
+                    className="w-full text-xs rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+                  >
+                    <option value="member">Member — Standard access</option>
+                    <option value="admin">Admin — Management access</option>
+                  </select>
+                </div>
+
+                <div className="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800 text-[11px] text-zinc-400 space-y-1">
+                  <p>• Single-use cryptographically secure invitation token.</p>
+                  <p>• Automatically expires in 7 days if unaccepted.</p>
+                </div>
+
+                <div className="pt-2 flex justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsInviteModalOpen(false)}
+                    className="px-3.5 py-1.5 text-xs font-medium rounded-xl border border-zinc-700 hover:bg-zinc-800 text-zinc-300 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSendingInvite || !inviteEmail.trim()}
+                    className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    {isSendingInvite ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Sending...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-3.5 w-3.5" />
+                        <span>Send Invitation</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

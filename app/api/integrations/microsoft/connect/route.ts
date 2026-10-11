@@ -5,6 +5,8 @@ import { generateMicrosoftAuthUrl } from "@/lib/integrations/microsoft/oauth";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
 
+import { hasPermission } from "@/lib/permissions/resolver";
+
 export async function GET(request: Request) {
   const user = await getCurrentUser();
   if (!user) {
@@ -25,8 +27,9 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/onboarding", request.url));
   }
 
-  // Only owners and admins can connect integrations
-  if (activeOrg.role !== "owner" && activeOrg.role !== "admin") {
+  // Verify permission: requires integrations.connect or Owner
+  const canConnect = await hasPermission(user.id, activeOrg.id, "integrations.connect");
+  if (!canConnect) {
     return NextResponse.redirect(
       new URL("/dashboard?settings=integrations&error=insufficient_permissions", request.url)
     );

@@ -22,8 +22,6 @@ import { ShortestPathModal } from "./shortest-path-modal";
 import { CreateConnectionModal } from "./create-connection-modal";
 import { cn } from "@/lib/utils";
 import {
-  Network,
-  GitFork,
   Search,
   Plus,
   Route,
@@ -32,6 +30,7 @@ import {
   Eye,
   Filter,
 } from "lucide-react";
+import { PhosphorNetwork, PhosphorGitFork } from "@/components/icons";
 
 interface CompanyMapWorkspaceProps {
   initialGraph: CompanyGraphData;
@@ -166,7 +165,7 @@ export function CompanyMapWorkspace({
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <Network className="h-3.5 w-3.5" />
+              <PhosphorNetwork className="h-3.5 w-3.5" />
               <span>Company Graph</span>
             </button>
 
@@ -180,7 +179,7 @@ export function CompanyMapWorkspace({
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <GitFork className="h-3.5 w-3.5" />
+              <PhosphorGitFork className="h-3.5 w-3.5" />
               <span>Hierarchy Tree</span>
             </button>
           </div>
@@ -294,7 +293,7 @@ export function CompanyMapWorkspace({
           /* Empty State */
           <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
             <div className="p-4 rounded-2xl bg-blue-500/10 text-blue-500 mb-4 border border-blue-500/20">
-              <Network className="h-10 w-10" />
+              <PhosphorNetwork className="h-10 w-10" />
             </div>
             <h3 className="text-xl font-bold text-foreground">
               Your Company Map is empty

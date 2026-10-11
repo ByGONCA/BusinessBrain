@@ -126,9 +126,6 @@ export function AppearanceTab() {
     <div className="space-y-6 max-w-xl">
       <div>
         <h2 className="text-lg font-bold text-zinc-900 dark:text-white tracking-tight">Appearance & Display</h2>
-        <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
-          Customize how Company Brain looks and feels, including interface themes, accessibility, and customizable typography sizing.
-        </p>
       </div>
 
       {/* Visual Theme Mode Cards */}

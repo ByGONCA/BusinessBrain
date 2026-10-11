@@ -46,6 +46,7 @@ export default async function PageDetailPage({ params }: PageDetailProps) {
         breadcrumbs={fullBreadcrumbs}
         isFavorite={page.is_favorite}
         showSidePeekAction={true}
+        closeHref="/dashboard/pages"
       />
 
       {/* Editor Content Canvas */}
