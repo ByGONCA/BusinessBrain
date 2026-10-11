@@ -54,6 +54,7 @@ import {
   Github,
   Pencil,
   Eye,
+  Loader2,
 } from "lucide-react";
 import {
   EditorBlock,
@@ -63,6 +64,8 @@ import {
   RELATION_LABELS,
   PageAuthorProfile,
 } from "@/lib/pages/types";
+import { FilePreviewInfo } from "@/lib/files/types";
+import { getFilePreviewAction } from "@/lib/files/actions";
 import {
   detectLanguageFromPath,
   getTokenClasses,
@@ -82,6 +85,7 @@ interface BlockItemProps {
   index: number;
   allBlocks?: EditorBlock[];
   pageTitle?: string;
+  filePreview?: FilePreviewInfo;
   onOpenFilePicker?: (blockId: string, allowedTypes: "all" | "image" | "video" | "audio" | "pdf" | "document") => void;
   listNumber?: number;
   totalBlocks: number;
@@ -107,8 +111,8 @@ interface BlockItemProps {
   onCompanyBrainAction?: (actionId: CompanyBrainToolbarAction, text: string) => void;
   onClickConnection?: (connection: PageConnectionRecord) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLElement>, block: EditorBlock, index: number) => void;
-  onSlashTrigger: (blockId: string, rect: DOMRect) => void;
-  onMentionTrigger?: (blockId: string, rect: DOMRect) => void;
+  onSlashTrigger: (blockId: string, rect: DOMRect, initialQuery?: string) => void;
+  onMentionTrigger?: (blockId: string, rect: DOMRect, initialQuery?: string) => void;
   registerRef: (id: string, el: HTMLElement | null) => void;
   onFocusBlock?: (id: string) => void;
   onDragBlockStart?: (index: number, e: React.DragEvent) => void;
@@ -118,11 +122,645 @@ interface BlockItemProps {
   onDropBlock?: (index: number, position: "before" | "after") => void;
 }
 
+interface TableBlockContentProps {
+  block: EditorBlock;
+  onUpdateProperties: (id: string, properties: Record<string, unknown>) => void;
+}
+
+function TableBlockContent({ block, onUpdateProperties }: TableBlockContentProps) {
+  const tableData = block.properties?.tableData || {
+    headers: ["Column 1", "Column 2", "Column 3"],
+    rows: [["", "", ""], ["", "", ""]],
+  };
+
+  const colCount = tableData.headers.length;
+  const defaultShare = Math.round(100 / colCount);
+
+  // Initialize or read colWidths (percentages)
+  const currentWidths = React.useMemo(() => {
+    if (tableData.colWidths && tableData.colWidths.length === colCount) {
+      return tableData.colWidths;
+    }
+    return tableData.headers.map(() => defaultShare);
+  }, [tableData.colWidths, colCount, defaultShare]);
+
+  const [colWidths, setColWidths] = React.useState<number[]>(currentWidths);
+  const colWidthsRef = React.useRef<number[]>(currentWidths);
+  colWidthsRef.current = colWidths;
+
+  React.useEffect(() => {
+    setColWidths(currentWidths);
+  }, [currentWidths]);
+
+  const tableRef = React.useRef<HTMLTableElement | null>(null);
+  const resizingRef = React.useRef<{
+    cIdx: number;
+    startX: number;
+    startWidths: number[];
+    tableWidth: number;
+  } | null>(null);
+
+  const startResize = (cIdx: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const tableWidth = tableRef.current?.getBoundingClientRect().width || 600;
+    resizingRef.current = {
+      cIdx,
+      startX: e.clientX,
+      startWidths: [...colWidthsRef.current],
+      tableWidth,
+    };
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const { cIdx: activeIdx, startX, startWidths, tableWidth: tWidth } = resizingRef.current;
+      const deltaX = moveEvent.clientX - startX;
+      const deltaPercent = Math.round((deltaX / tWidth) * 100);
+
+      const nextWidths = [...startWidths];
+      // Bound column width between 10% and 80%
+      const newWidth = Math.max(10, Math.min(80, startWidths[activeIdx] + deltaPercent));
+      nextWidths[activeIdx] = newWidth;
+
+      colWidthsRef.current = nextWidths;
+      setColWidths(nextWidths);
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      if (resizingRef.current) {
+        onUpdateProperties(block.id, {
+          tableData: {
+            ...tableData,
+            colWidths: colWidthsRef.current,
+          },
+        });
+        resizingRef.current = null;
+      }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+  };
+
+  const updateCell = (rowIndex: number, colIndex: number, value: string) => {
+    const nextRows = tableData.rows.map((row, rIdx) => {
+      if (rIdx !== rowIndex) return row;
+      const nextRow = [...row];
+      nextRow[colIndex] = value;
+      return nextRow;
+    });
+    onUpdateProperties(block.id, { tableData: { ...tableData, rows: nextRows } });
+  };
+
+  const updateHeader = (colIndex: number, value: string) => {
+    const nextHeaders = [...tableData.headers];
+    nextHeaders[colIndex] = value;
+    onUpdateProperties(block.id, { tableData: { ...tableData, headers: nextHeaders } });
+  };
+
+  const addRow = () => {
+    const emptyRow = new Array(tableData.headers.length).fill("");
+    onUpdateProperties(block.id, { tableData: { ...tableData, rows: [...tableData.rows, emptyRow] } });
+  };
+
+  const addColumn = () => {
+    const nextHeaders = [...tableData.headers, `Column ${tableData.headers.length + 1}`];
+    const nextRows = tableData.rows.map((r) => [...r, ""]);
+    const nextShare = Math.round(100 / nextHeaders.length);
+    const nextWidths = nextHeaders.map(() => nextShare);
+    onUpdateProperties(block.id, {
+      tableData: { headers: nextHeaders, rows: nextRows, colWidths: nextWidths },
+    });
+  };
+
+  const deleteRow = (rIdx: number) => {
+    if (tableData.rows.length <= 1) return;
+    const nextRows = tableData.rows.filter((_, idx) => idx !== rIdx);
+    onUpdateProperties(block.id, { tableData: { ...tableData, rows: nextRows } });
+  };
+
+  const deleteColumn = (cIdx: number) => {
+    if (tableData.headers.length <= 1) return;
+    const nextHeaders = tableData.headers.filter((_, idx) => idx !== cIdx);
+    const nextRows = tableData.rows.map((r) => r.filter((_, idx) => idx !== cIdx));
+    const nextShare = Math.round(100 / nextHeaders.length);
+    const nextWidths = nextHeaders.map(() => nextShare);
+    onUpdateProperties(block.id, {
+      tableData: { headers: nextHeaders, rows: nextRows, colWidths: nextWidths },
+    });
+  };
+
+  const resetEqualWidths = () => {
+    const nextShare = Math.round(100 / tableData.headers.length);
+    const nextWidths = tableData.headers.map(() => nextShare);
+    onUpdateProperties(block.id, {
+      tableData: { ...tableData, colWidths: nextWidths },
+    });
+  };
+
+  return (
+    <div className="my-2 overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 p-2 shadow-2xs">
+      <table ref={tableRef} className="w-full min-w-[320px] text-left text-xs border-collapse table-fixed">
+        <colgroup>
+          {tableData.headers.map((_, cIdx) => (
+            <col
+              key={cIdx}
+              style={{
+                width: `${colWidths[cIdx] || defaultShare}%`,
+              }}
+            />
+          ))}
+          <col style={{ width: "32px" }} />
+        </colgroup>
+        <thead>
+          <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40">
+            {tableData.headers.map((h, cIdx) => (
+              <th
+                key={cIdx}
+                style={{ width: `${colWidths[cIdx] || defaultShare}%` }}
+                className="p-2 border-r border-zinc-200 dark:border-zinc-800 last:border-r-0 group/col relative align-top"
+              >
+                <textarea
+                  rows={1}
+                  value={h}
+                  placeholder={`Column ${cIdx + 1}`}
+                  onChange={(e) => {
+                    updateHeader(cIdx, e.target.value);
+                    e.target.style.height = "auto";
+                    e.target.style.height = `${e.target.scrollHeight}px`;
+                  }}
+                  ref={(el) => {
+                    if (el) {
+                      el.style.height = "auto";
+                      el.style.height = `${el.scrollHeight}px`;
+                    }
+                  }}
+                  className="w-full font-semibold text-zinc-700 dark:text-zinc-300 bg-transparent border-none outline-none resize-none leading-snug whitespace-pre-wrap break-words block overflow-hidden p-0 pr-5"
+                />
+                {tableData.headers.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => deleteColumn(cIdx)}
+                    className="absolute right-3 top-2 opacity-0 group-hover/col:opacity-100 text-zinc-400 hover:text-red-500 transition-opacity z-10"
+                    title="Delete column"
+                  >
+                    ×
+                  </button>
+                )}
+                {/* Column Resizer Handle */}
+                <div
+                  role="separator"
+                  aria-orientation="vertical"
+                  onMouseDown={(e) => startResize(cIdx, e)}
+                  className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-indigo-500/30 active:bg-indigo-600 transition-colors z-20 flex items-center justify-center select-none group/resize"
+                  title="Drag to resize column width"
+                >
+                  <div className="w-[1.5px] h-3.5 bg-zinc-300 dark:bg-zinc-600 rounded-full group-hover/resize:h-full group-hover/resize:bg-indigo-500 transition-all" />
+                </div>
+              </th>
+            ))}
+            <th className="w-8 p-1 text-center align-middle">
+              <button
+                type="button"
+                onClick={addColumn}
+                className="h-5 w-5 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 inline-flex items-center justify-center"
+                title="Add column"
+              >
+                +
+              </button>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {tableData.rows.map((row, rIdx) => (
+            <tr key={rIdx} className="border-b border-zinc-100 dark:border-zinc-800/60 last:border-b-0 group/row">
+              {row.map((cell, cIdx) => (
+                <td
+                  key={cIdx}
+                  style={{ width: `${colWidths[cIdx] || defaultShare}%` }}
+                  className="p-2 border-r border-zinc-100 dark:border-zinc-800/60 last:border-r-0 align-top"
+                >
+                  <textarea
+                    rows={1}
+                    value={cell}
+                    placeholder="Type text..."
+                    onChange={(e) => {
+                      updateCell(rIdx, cIdx, e.target.value);
+                      e.target.style.height = "auto";
+                      e.target.style.height = `${e.target.scrollHeight}px`;
+                    }}
+                    ref={(el) => {
+                      if (el) {
+                        el.style.height = "auto";
+                        el.style.height = `${el.scrollHeight}px`;
+                      }
+                    }}
+                    className="w-full bg-transparent border-none outline-none resize-none text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap break-words block overflow-hidden p-0"
+                  />
+                </td>
+              ))}
+              <td className="w-8 p-1 text-center align-middle">
+                {tableData.rows.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => deleteRow(rIdx)}
+                    className="h-5 w-5 rounded opacity-0 group-hover/row:opacity-100 hover:text-red-500 text-zinc-400 transition-opacity"
+                    title="Delete row"
+                  >
+                    ×
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="pt-2 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800 mt-2">
+        <button
+          type="button"
+          onClick={addRow}
+          className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
+        >
+          + Add row
+        </button>
+        <button
+          type="button"
+          onClick={resetEqualWidths}
+          className="text-[10px] text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+          title="Reset all columns to equal width"
+        >
+          ⇋ Equal column sizes
+        </button>
+      </div>
+    </div>
+  );
+}
+
+interface ColumnsBlockContentProps {
+  block: EditorBlock;
+  onUpdateProperties: (id: string, properties: Record<string, unknown>) => void;
+}
+
+function ColumnsBlockContent({ block, onUpdateProperties }: ColumnsBlockContentProps) {
+  const columnsData = block.properties?.columnsData || {
+    leftTitle: "Left Column",
+    rightTitle: "Right Column",
+    leftContent: block.content || "",
+    rightContent: "",
+    splitPercent: 50,
+  };
+  const split = columnsData.splitPercent ?? 50;
+
+  return (
+    <div className="my-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/30 p-2.5">
+      <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-200/60 dark:border-zinc-800 text-[11px] text-zinc-500">
+        <span className="font-semibold flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
+          <LayoutGrid className="h-3.5 w-3.5 text-indigo-500" />
+          Side by Side Columns
+        </span>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => onUpdateProperties(block.id, { columnsData: { ...columnsData, splitPercent: 33 } })}
+            className={cn("px-1.5 py-0.5 rounded text-[10px] transition-colors", split === 33 ? "bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 font-semibold" : "hover:bg-zinc-100 dark:hover:bg-zinc-800")}
+            title="30% / 70% split"
+          >
+            30/70
+          </button>
+          <button
+            type="button"
+            onClick={() => onUpdateProperties(block.id, { columnsData: { ...columnsData, splitPercent: 50 } })}
+            className={cn("px-1.5 py-0.5 rounded text-[10px] transition-colors", split === 50 ? "bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 font-semibold" : "hover:bg-zinc-100 dark:hover:bg-zinc-800")}
+            title="50% / 50% split"
+          >
+            50/50
+          </button>
+          <button
+            type="button"
+            onClick={() => onUpdateProperties(block.id, { columnsData: { ...columnsData, splitPercent: 67 } })}
+            className={cn("px-1.5 py-0.5 rounded text-[10px] transition-colors", split === 67 ? "bg-indigo-100 dark:bg-indigo-950/60 text-indigo-600 font-semibold" : "hover:bg-zinc-100 dark:hover:bg-zinc-800")}
+            title="70% / 30% split"
+          >
+            70/30
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start">
+        {/* Left Column */}
+        <div
+          style={{ gridColumn: `span ${Math.round((split / 100) * 12)}` }}
+          className="rounded-lg border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 p-2.5 shadow-2xs"
+        >
+          <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
+            {columnsData.leftTitle || "Left Side"}
+          </div>
+          <textarea
+            rows={3}
+            value={columnsData.leftContent || ""}
+            placeholder="Type left side content..."
+            onChange={(e) => {
+              onUpdateProperties(block.id, {
+                columnsData: { ...columnsData, leftContent: e.target.value },
+              });
+              e.target.style.height = "auto";
+              e.target.style.height = `${e.target.scrollHeight}px`;
+            }}
+            ref={(el) => {
+              if (el) {
+                el.style.height = "auto";
+                el.style.height = `${el.scrollHeight}px`;
+              }
+            }}
+            className="w-full bg-transparent border-none outline-none resize-none text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap break-words block p-0"
+          />
+        </div>
+
+        {/* Right Column */}
+        <div
+          style={{ gridColumn: `span ${12 - Math.round((split / 100) * 12)}` }}
+          className="rounded-lg border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 p-2.5 shadow-2xs"
+        >
+          <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
+            {columnsData.rightTitle || "Right Side"}
+          </div>
+          <textarea
+            rows={3}
+            value={columnsData.rightContent || ""}
+            placeholder="Type right side content..."
+            onChange={(e) => {
+              onUpdateProperties(block.id, {
+                columnsData: { ...columnsData, rightContent: e.target.value },
+              });
+              e.target.style.height = "auto";
+              e.target.style.height = `${e.target.scrollHeight}px`;
+            }}
+            ref={(el) => {
+              if (el) {
+                el.style.height = "auto";
+                el.style.height = `${el.scrollHeight}px`;
+              }
+            }}
+            className="w-full bg-transparent border-none outline-none resize-none text-xs text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap break-words block p-0"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface ImageBlockContentProps {
+  block: EditorBlock;
+  blockAlign?: "left" | "right" | "full";
+  filePreview?: FilePreviewInfo;
+  onUpdateProperties: (id: string, properties: Partial<EditorBlock["properties"]>) => void;
+  onOpenFilePicker?: (blockId: string, allowedTypes: "all" | "image" | "video" | "audio" | "pdf" | "document") => void;
+  onOpenLightbox: (src: string) => void;
+}
+
+function ImageBlockContent({
+  block,
+  blockAlign = "full",
+  filePreview,
+  onUpdateProperties,
+  onOpenFilePicker,
+  onOpenLightbox,
+}: ImageBlockContentProps) {
+  const [localUrl, setLocalUrl] = React.useState<string | null>(null);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [hasError, setHasError] = React.useState(false);
+  const [retryCount, setRetryCount] = React.useState(0);
+
+  const fileId = block.properties?.fileId;
+  const rawMediaUrl = block.properties?.mediaUrl;
+  const isDirectWebUrl = Boolean(
+    rawMediaUrl &&
+      (rawMediaUrl.startsWith("http://") ||
+        rawMediaUrl.startsWith("https://") ||
+        rawMediaUrl.startsWith("data:") ||
+        rawMediaUrl.startsWith("blob:"))
+  );
+
+  // Determine active display URL:
+  // 1. filePreview.previewUrl if supplied via batch resolution
+  // 2. localUrl if resolved dynamically on mount or retry
+  // 3. rawMediaUrl only if it is a valid web URL (never a raw storage path)
+  const activeUrl = filePreview?.previewUrl || localUrl || (isDirectWebUrl ? rawMediaUrl : null);
+
+  React.useEffect(() => {
+    if (!fileId) return;
+    if (filePreview?.previewUrl) {
+      setLocalUrl(filePreview.previewUrl);
+      setHasError(false);
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoading(true);
+    setHasError(false);
+
+    getFilePreviewAction(fileId)
+      .then((preview) => {
+        if (!isMounted) return;
+        if (preview?.previewUrl) {
+          setLocalUrl(preview.previewUrl);
+          setHasError(false);
+        } else {
+          setHasError(true);
+        }
+      })
+      .catch(() => {
+        if (isMounted) setHasError(true);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [fileId, filePreview?.previewUrl, retryCount]);
+
+  const handleRefresh = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setHasError(false);
+    setRetryCount((c) => c + 1);
+  };
+
+  const handleImageError = () => {
+    if (fileId && retryCount === 0) {
+      setRetryCount(1);
+    } else {
+      setHasError(true);
+    }
+  };
+
+  const isUnavailable = block.properties?.fileStatus === "unavailable";
+  const { openSettings } = useSettings();
+
+  if (isUnavailable) {
+    return (
+      <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between my-2">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+          <span>External image unavailable — reconnect Google Drive to access.</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => openSettings("integrations")}
+          className="px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-medium text-[11px] transition-colors"
+        >
+          Reconnect
+        </button>
+      </div>
+    );
+  }
+
+  if (isLoading && !activeUrl) {
+    return (
+      <div className="my-2 p-8 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 flex flex-col items-center justify-center gap-2 text-zinc-400">
+        <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+        <span className="text-xs">Loading image...</span>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="my-2 p-4 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 text-xs text-red-700 dark:text-red-400 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>Image unavailable or preview expired.</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            className="px-2.5 py-1 rounded-md bg-red-600 hover:bg-red-500 text-white font-medium text-[11px] transition-colors"
+          >
+            Retry
+          </button>
+          {onOpenFilePicker && (
+            <button
+              type="button"
+              onClick={() => onOpenFilePicker(block.id, "image")}
+              className="px-2.5 py-1 rounded-md border border-red-300 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 text-[11px] transition-colors"
+            >
+              Replace
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (activeUrl) {
+    return (
+      <div className="space-y-1.5 py-1 my-2">
+        <div
+          className={cn(
+            "relative group/img flex items-center justify-center transition-all",
+            blockAlign === "left" && "mr-auto max-w-lg",
+            blockAlign === "right" && "ml-auto max-w-lg",
+            blockAlign === "full" && "max-w-2xl mx-auto"
+          )}
+        >
+          <img
+            src={activeUrl}
+            alt={block.properties?.caption || "Image"}
+            className="max-h-96 w-auto rounded-lg object-contain cursor-pointer"
+            onClick={() => onOpenLightbox(activeUrl)}
+            onError={handleImageError}
+          />
+          {/* Side/Alignment Quick Controls on hover */}
+          <div className="absolute top-2 right-2 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center gap-1 bg-black/60 backdrop-blur-sm px-1.5 py-1 rounded-lg text-white text-[10px]">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpdateProperties(block.id, { align: "left" });
+              }}
+              className={cn("px-1 py-0.5 rounded hover:bg-white/20 transition-colors", blockAlign === "left" && "bg-white/30 font-bold")}
+              title="Align Left (50% side)"
+            >
+              ← Left
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpdateProperties(block.id, { align: "full" });
+              }}
+              className={cn("px-1 py-0.5 rounded hover:bg-white/20 transition-colors", blockAlign === "full" && "bg-white/30 font-bold")}
+              title="Center / Full Width"
+            >
+              ↔ Full
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onUpdateProperties(block.id, { align: "right" });
+              }}
+              className={cn("px-1 py-0.5 rounded hover:bg-white/20 transition-colors", blockAlign === "right" && "bg-white/30 font-bold")}
+              title="Align Right (50% side)"
+            >
+              Right →
+            </button>
+          </div>
+        </div>
+        <input
+          type="text"
+          value={block.properties?.caption || ""}
+          onChange={(e) => onUpdateProperties(block.id, { caption: e.target.value })}
+          placeholder="Add a caption..."
+          className="w-full text-center text-xs text-zinc-400 bg-transparent border-none outline-none focus:text-zinc-700 dark:focus:text-zinc-200"
+        />
+      </div>
+    );
+  }
+
+  // Empty state: Attach / Upload
+  return (
+    <div className="my-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 p-6 flex flex-col items-center justify-center gap-3 text-zinc-400">
+      <ImageIcon className="h-8 w-8 text-zinc-300 dark:text-zinc-600" />
+      <div className="flex flex-col sm:flex-row items-center gap-2 max-w-md w-full">
+        {onOpenFilePicker && (
+          <button
+            type="button"
+            onClick={() => onOpenFilePicker(block.id, "image")}
+            className="w-full sm:w-auto px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium flex items-center justify-center gap-1.5 transition-colors shrink-0"
+          >
+            <Upload className="h-3.5 w-3.5" /> Attach / Upload Image
+          </button>
+        )}
+        <div className="flex items-center gap-1.5 w-full">
+          <input
+            type="url"
+            placeholder="Or paste image URL..."
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const val = (e.target as HTMLInputElement).value.trim();
+                if (val) onUpdateProperties(block.id, { mediaUrl: val });
+              }
+            }}
+            className="flex-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-800 dark:text-zinc-200 outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function BlockItem({
   block,
   index,
   allBlocks = [],
   pageTitle = "Page",
+  filePreview,
   listNumber,
   totalBlocks,
   isFocused,
@@ -188,6 +826,7 @@ export function BlockItem({
   const [isSelfFocused, setIsSelfFocused] = React.useState(false);
   const [isPdfOpen, setIsPdfOpen] = React.useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = React.useState(false);
+  const [lightboxSrc, setLightboxSrc] = React.useState<string | null>(null);
   const [isEditingCode, setIsEditingCode] = React.useState(!block.content && block.type === "code");
   const blockContainerRef = React.useRef<HTMLDivElement>(null);
   const menuRef = React.useRef<HTMLDivElement>(null);
@@ -427,15 +1066,17 @@ export function BlockItem({
     }
 
     // Slash command trigger
-    if (text === "/" || text.endsWith(" /")) {
+    const slashMatch = /(?:^|\s)\/([a-zA-Z0-9_-]*)$/.exec(text);
+    if (slashMatch) {
       const rect = e.currentTarget.getBoundingClientRect();
-      onSlashTrigger(block.id, rect);
+      onSlashTrigger(block.id, rect, slashMatch[1]);
     }
 
     // Mention command trigger
-    if (text === "@" || text.endsWith(" @")) {
+    const mentionMatch = /(?:^|\s)@([a-zA-Z0-9_-]*)$/.exec(text);
+    if (mentionMatch) {
       const rect = e.currentTarget.getBoundingClientRect();
-      onMentionTrigger?.(block.id, rect);
+      onMentionTrigger?.(block.id, rect, mentionMatch[1]);
     }
 
     onUpdateContent(block.id, text);
@@ -474,6 +1115,8 @@ export function BlockItem({
       ? "top-1"
       : "top-0.5";
 
+  const blockAlign = (block.properties?.align as "left" | "right" | "full" | undefined) || "full";
+
   return (
     <div
       ref={blockContainerRef}
@@ -484,6 +1127,9 @@ export function BlockItem({
       onDrop={handleDrop}
       className={cn(
         "group relative flex flex-col -ml-10 pl-10 pr-2 py-1 transition-all duration-150 rounded-lg",
+        blockAlign === "left" && "w-full md:w-[48%] md:float-left md:mr-[4%] clear-none mb-2",
+        blockAlign === "right" && "w-full md:w-[48%] md:float-right clear-none mb-2",
+        blockAlign === "full" && "w-full clear-both",
         index > 0 && block.type === "heading_1" && "mt-5",
         index > 0 && block.type === "heading_2" && "mt-3.5",
         index > 0 && block.type === "heading_3" && "mt-2",
@@ -538,6 +1184,61 @@ export function BlockItem({
                   Quick Actions
                 </div>
 
+                {/* Side / Placement (Side-by-side or full width) */}
+                <div className="px-2 pt-1 pb-0.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                  Side / Placement
+                </div>
+                <div className="grid grid-cols-3 gap-1 px-1.5 pb-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdateProperties(block.id, { align: "left" });
+                      setMenuOpen(false);
+                    }}
+                    className={cn(
+                      "flex items-center justify-center gap-0.5 py-1 px-1 rounded text-[11px] border transition-colors",
+                      blockAlign === "left"
+                        ? "bg-indigo-50 border-indigo-300 text-indigo-600 dark:bg-indigo-950/60 dark:border-indigo-700 dark:text-indigo-400 font-semibold"
+                        : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                    )}
+                    title="Place on Left side (50% width)"
+                  >
+                    ← Left
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdateProperties(block.id, { align: "full" });
+                      setMenuOpen(false);
+                    }}
+                    className={cn(
+                      "flex items-center justify-center gap-0.5 py-1 px-1 rounded text-[11px] border transition-colors",
+                      blockAlign === "full"
+                        ? "bg-indigo-50 border-indigo-300 text-indigo-600 dark:bg-indigo-950/60 dark:border-indigo-700 dark:text-indigo-400 font-semibold"
+                        : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                    )}
+                    title="Full Width"
+                  >
+                    ↔ Full
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onUpdateProperties(block.id, { align: "right" });
+                      setMenuOpen(false);
+                    }}
+                    className={cn(
+                      "flex items-center justify-center gap-0.5 py-1 px-1 rounded text-[11px] border transition-colors",
+                      blockAlign === "right"
+                        ? "bg-indigo-50 border-indigo-300 text-indigo-600 dark:bg-indigo-950/60 dark:border-indigo-700 dark:text-indigo-400 font-semibold"
+                        : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                    )}
+                    title="Place on Right side (50% width)"
+                  >
+                    Right →
+                  </button>
+                </div>
+
                 {/* Transform */}
                 <div className="relative">
                   <button
@@ -576,6 +1277,7 @@ export function BlockItem({
                           { type: "calendar", label: "Calendar", icon: Calendar },
                           { type: "equation", label: "Equation", icon: Sigma },
                           { type: "button", label: "Button", icon: MousePointerClick },
+                          { type: "columns", label: "2 Columns (Side by Side)", icon: LayoutGrid },
                         ] as const
                       ).map((item) => {
                         const ItemIcon = item.icon;
@@ -1255,84 +1957,17 @@ export function BlockItem({
 
           {/* IMAGE */}
           {block.type === "image" && (
-            <div className="my-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 p-2">
-              {block.properties?.fileStatus === "unavailable" ? (
-                <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
-                    <span>External image unavailable — reconnect Google Drive to access.</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => openSettings("integrations")}
-                    className="px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-500 text-white font-medium text-[11px] transition-colors"
-                  >
-                    Reconnect
-                  </button>
-                </div>
-              ) : block.properties?.mediaUrl ? (
-                <div className="space-y-1.5">
-                  <div className="relative group/img max-w-2xl mx-auto rounded-lg overflow-hidden bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center">
-                    <img
-                      src={block.properties.mediaUrl}
-                      alt={block.properties.caption || "Image"}
-                      className="max-h-96 w-auto rounded-lg object-contain cursor-zoom-in"
-                      onClick={() => setIsLightboxOpen(true)}
-                    />
-                    <div className="absolute top-2 right-2 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center gap-1.5 bg-black/60 backdrop-blur-sm px-2 py-1 rounded-lg text-white text-[11px]">
-                      {block.properties.storageProvider === "google_drive" ? (
-                        <span className="flex items-center gap-1 text-blue-300"><Cloud className="h-3 w-3" /> Drive</span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-zinc-300"><HardDrive className="h-3 w-3" /> Brain</span>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setIsLightboxOpen(true)}
-                        className="p-0.5 hover:text-white"
-                        title="View Full Size"
-                      >
-                        <ZoomIn className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                  <input
-                    type="text"
-                    value={block.properties.caption || ""}
-                    onChange={(e) => onUpdateProperties(block.id, { caption: e.target.value })}
-                    placeholder="Add a caption..."
-                    className="w-full text-center text-xs text-zinc-400 bg-transparent border-none outline-none focus:text-zinc-700 dark:focus:text-zinc-200"
-                  />
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center p-6 gap-3 text-zinc-400">
-                  <ImageIcon className="h-8 w-8 text-zinc-300 dark:text-zinc-600" />
-                  <div className="flex flex-col sm:flex-row items-center gap-2 max-w-md w-full">
-                    {onOpenFilePicker && (
-                      <button
-                        type="button"
-                        onClick={() => onOpenFilePicker(block.id, "image")}
-                        className="w-full sm:w-auto px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium flex items-center justify-center gap-1.5 transition-colors shrink-0"
-                      >
-                        <Upload className="h-3.5 w-3.5" /> Attach / Upload Image
-                      </button>
-                    )}
-                    <div className="flex items-center gap-1.5 w-full">
-                      <input
-                        type="url"
-                        placeholder="Or paste image URL..."
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            const val = (e.target as HTMLInputElement).value.trim();
-                            if (val) onUpdateProperties(block.id, { mediaUrl: val });
-                          }
-                        }}
-                        className="flex-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-800 dark:text-zinc-200 outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <ImageBlockContent
+              block={block}
+              blockAlign={blockAlign}
+              filePreview={filePreview}
+              onUpdateProperties={onUpdateProperties}
+              onOpenFilePicker={onOpenFilePicker}
+              onOpenLightbox={(src) => {
+                setLightboxSrc(src);
+                setIsLightboxOpen(true);
+              }}
+            />
           )}
 
           {/* VIDEO */}
@@ -1556,130 +2191,20 @@ export function BlockItem({
           )}
 
           {/* TABLE */}
-          {block.type === "table" && (() => {
-            const tableData = block.properties?.tableData || {
-              headers: ["Column 1", "Column 2", "Column 3"],
-              rows: [["", "", ""], ["", "", ""]],
-            };
+          {block.type === "table" && (
+            <TableBlockContent
+              block={block}
+              onUpdateProperties={onUpdateProperties}
+            />
+          )}
 
-            const updateCell = (rowIndex: number, colIndex: number, value: string) => {
-              const nextRows = tableData.rows.map((row, rIdx) => {
-                if (rIdx !== rowIndex) return row;
-                const nextRow = [...row];
-                nextRow[colIndex] = value;
-                return nextRow;
-              });
-              onUpdateProperties(block.id, { tableData: { ...tableData, rows: nextRows } });
-            };
-
-            const updateHeader = (colIndex: number, value: string) => {
-              const nextHeaders = [...tableData.headers];
-              nextHeaders[colIndex] = value;
-              onUpdateProperties(block.id, { tableData: { ...tableData, headers: nextHeaders } });
-            };
-
-            const addRow = () => {
-              const emptyRow = new Array(tableData.headers.length).fill("");
-              onUpdateProperties(block.id, { tableData: { ...tableData, rows: [...tableData.rows, emptyRow] } });
-            };
-
-            const addColumn = () => {
-              const nextHeaders = [...tableData.headers, `Column ${tableData.headers.length + 1}`];
-              const nextRows = tableData.rows.map((r) => [...r, ""]);
-              onUpdateProperties(block.id, { tableData: { headers: nextHeaders, rows: nextRows } });
-            };
-
-            const deleteRow = (rIdx: number) => {
-              if (tableData.rows.length <= 1) return;
-              const nextRows = tableData.rows.filter((_, idx) => idx !== rIdx);
-              onUpdateProperties(block.id, { tableData: { ...tableData, rows: nextRows } });
-            };
-
-            const deleteColumn = (cIdx: number) => {
-              if (tableData.headers.length <= 1) return;
-              const nextHeaders = tableData.headers.filter((_, idx) => idx !== cIdx);
-              const nextRows = tableData.rows.map((r) => r.filter((_, idx) => idx !== cIdx));
-              onUpdateProperties(block.id, { tableData: { headers: nextHeaders, rows: nextRows } });
-            };
-
-            return (
-              <div className="my-2 overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 p-2 shadow-2xs">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40">
-                      {tableData.headers.map((h, cIdx) => (
-                        <th key={cIdx} className="p-1.5 border-r border-zinc-200 dark:border-zinc-800 last:border-r-0 group/col relative">
-                          <input
-                            type="text"
-                            value={h}
-                            onChange={(e) => updateHeader(cIdx, e.target.value)}
-                            className="font-semibold text-zinc-700 dark:text-zinc-300 bg-transparent border-none outline-none w-full"
-                          />
-                          {tableData.headers.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => deleteColumn(cIdx)}
-                              className="absolute right-1 top-1.5 opacity-0 group-hover/col:opacity-100 text-zinc-400 hover:text-red-500"
-                              title="Delete column"
-                            >
-                              ×
-                            </button>
-                          )}
-                        </th>
-                      ))}
-                      <th className="w-8 p-1 text-center">
-                        <button
-                          type="button"
-                          onClick={addColumn}
-                          className="h-5 w-5 rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-500 inline-flex items-center justify-center"
-                          title="Add column"
-                        >
-                          +
-                        </button>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tableData.rows.map((row, rIdx) => (
-                      <tr key={rIdx} className="border-b border-zinc-100 dark:border-zinc-800/60 last:border-b-0 group/row">
-                        {row.map((cell, cIdx) => (
-                          <td key={cIdx} className="p-1.5 border-r border-zinc-100 dark:border-zinc-800/60 last:border-r-0">
-                            <input
-                              type="text"
-                              value={cell}
-                              onChange={(e) => updateCell(rIdx, cIdx, e.target.value)}
-                              className="w-full bg-transparent border-none outline-none text-zinc-800 dark:text-zinc-200"
-                            />
-                          </td>
-                        ))}
-                        <td className="w-8 p-1 text-center">
-                          {tableData.rows.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => deleteRow(rIdx)}
-                              className="h-5 w-5 rounded opacity-0 group-hover/row:opacity-100 hover:text-red-500 text-zinc-400"
-                              title="Delete row"
-                            >
-                              ×
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="pt-2 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800 mt-2">
-                  <button
-                    type="button"
-                    onClick={addRow}
-                    className="text-[11px] font-medium text-indigo-600 dark:text-indigo-400 hover:underline"
-                  >
-                    + Add row
-                  </button>
-                </div>
-              </div>
-            );
-          })()}
+          {/* COLUMNS (SIDE BY SIDE) */}
+          {block.type === "columns" && (
+            <ColumnsBlockContent
+              block={block}
+              onUpdateProperties={onUpdateProperties}
+            />
+          )}
 
           {/* BOARD (KANBAN) */}
           {block.type === "board" && (() => {
@@ -2224,18 +2749,21 @@ export function BlockItem({
       )}
 
       {/* Image Lightbox */}
-      {isLightboxOpen && block.properties?.mediaUrl && (
+      {isLightboxOpen && (lightboxSrc || block.properties?.mediaUrl) && (
         <div
-          onClick={() => setIsLightboxOpen(false)}
+          onClick={() => {
+            setIsLightboxOpen(false);
+            setLightboxSrc(null);
+          }}
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md cursor-zoom-out animate-in fade-in duration-150"
         >
           <div className="relative max-w-5xl max-h-[90vh] flex flex-col items-center">
             <img
-              src={block.properties.mediaUrl}
-              alt={block.properties.caption || "Full size preview"}
+              src={lightboxSrc || block.properties?.mediaUrl || ""}
+              alt={block.properties?.caption || "Full size preview"}
               className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
             />
-            {block.properties.caption && (
+            {block.properties?.caption && (
               <p className="mt-3 text-xs text-white/80 bg-black/50 px-3 py-1.5 rounded-lg">
                 {block.properties.caption}
               </p>

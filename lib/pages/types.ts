@@ -29,7 +29,8 @@ export type BlockType =
   | "table_of_contents"
   | "breadcrumb"
   | "button"
-  | "github";
+  | "github"
+  | "columns";
 
 export type RelationType =
   | "related_to"
@@ -65,6 +66,17 @@ export const RELATION_LABELS: Record<RelationType, string> = {
 export interface TableBlockData {
   headers: string[];
   rows: string[][];
+  colWidths?: number[]; // Column widths in percentages (e.g. [50, 25, 25])
+}
+
+export interface ColumnsBlockData {
+  leftContent?: string;
+  rightContent?: string;
+  leftTitle?: string;
+  rightTitle?: string;
+  splitPercent?: number; // e.g. 50 (50/50 split), 33 (1/3 and 2/3), 66 (2/3 and 1/3)
+  leftMediaUrl?: string;
+  rightMediaUrl?: string;
 }
 
 export interface BoardCard {
@@ -158,6 +170,8 @@ export interface EditorBlockProperties {
   equationFormula?: string;
   buttonData?: ButtonBlockData;
   githubData?: GitHubBlockData;
+  columnsData?: ColumnsBlockData;
+  align?: "left" | "right" | "full"; // Side-by-side placement: left (50%), right (50%), or full width
   filePath?: string; // For GitHub code snippet references
   startLine?: number; // Starting line number in source file
   endLine?: number; // Ending line number in source file

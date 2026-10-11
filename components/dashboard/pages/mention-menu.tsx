@@ -96,36 +96,77 @@ export function MentionMenu({ query, onSelect, onClose, position }: MentionMenuP
     };
   }, [query]);
 
-  React.useEffect(() => {
-    setSelectedIndex(0);
-  }, [items]);
+  const lastMousePosRef = React.useRef<{ x: number; y: number } | null>(null);
+  const isKeyboardNavRef = React.useRef(false);
 
-  // Scroll active item into view
-  React.useEffect(() => {
-    const activeEl = menuRef.current?.querySelector(`[data-index="${selectedIndex}"]`);
-    if (activeEl) {
-      activeEl.scrollIntoView({ block: "nearest" });
-    }
-  }, [selectedIndex]);
+  const selectedIndexRef = React.useRef(selectedIndex);
+  selectedIndexRef.current = selectedIndex;
+
+  const itemsRef = React.useRef(items);
+  itemsRef.current = items;
+
+  const onSelectRef = React.useRef(onSelect);
+  onSelectRef.current = onSelect;
 
   const onCloseRef = React.useRef(onClose);
   onCloseRef.current = onClose;
 
   React.useEffect(() => {
+    setSelectedIndex(0);
+    lastMousePosRef.current = null;
+    isKeyboardNavRef.current = false;
+  }, [items]);
+
+  // Scroll active item into view inside container only without moving parent window
+  React.useEffect(() => {
+    const container = menuRef.current;
+    if (!container) return;
+    const activeEl = container.querySelector(`[data-index="${selectedIndex}"]`) as HTMLElement | null;
+    if (!activeEl) return;
+
+    if (selectedIndex === 0) {
+      container.scrollTop = 0;
+      return;
+    }
+
+    const total = items.length;
+    if (selectedIndex === total - 1) {
+      container.scrollTop = container.scrollHeight;
+      return;
+    }
+
+    const elRect = activeEl.getBoundingClientRect();
+    const contRect = container.getBoundingClientRect();
+
+    if (elRect.top < contRect.top) {
+      container.scrollTop -= contRect.top - elRect.top + 24;
+    } else if (elRect.bottom > contRect.bottom) {
+      container.scrollTop += elRect.bottom - contRect.bottom + 8;
+    }
+  }, [selectedIndex, items.length]);
+
+  React.useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      const currentItems = itemsRef.current;
+      const total = currentItems.length;
+      if (!total) return;
+
       if (e.key === "ArrowDown") {
         e.preventDefault();
         e.stopPropagation();
-        setSelectedIndex((prev) => (prev + 1) % (items.length || 1));
+        isKeyboardNavRef.current = true;
+        setSelectedIndex((prev) => (prev + 1) % total);
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         e.stopPropagation();
-        setSelectedIndex((prev) => (prev - 1 + items.length) % (items.length || 1));
+        isKeyboardNavRef.current = true;
+        setSelectedIndex((prev) => (prev - 1 + total) % total);
       } else if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
         e.stopPropagation();
-        if (items[selectedIndex]) {
-          onSelect(items[selectedIndex]);
+        const currentItem = currentItems[selectedIndexRef.current];
+        if (currentItem) {
+          onSelectRef.current(currentItem);
         }
       } else if (e.key === "Escape") {
         e.preventDefault();
@@ -136,7 +177,7 @@ export function MentionMenu({ query, onSelect, onClose, position }: MentionMenuP
 
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [items, selectedIndex, onSelect]);
+  }, []);
 
   // Click outside to dismiss
   React.useEffect(() => {
@@ -159,6 +200,10 @@ export function MentionMenu({ query, onSelect, onClose, position }: MentionMenuP
       style={{
         top: `${position.top}px`,
         left: `${position.left}px`,
+      }}
+      onMouseDown={(e) => {
+        // Prevent click inside popup from stealing focus or triggering blur on editor
+        e.preventDefault();
       }}
       className="fixed z-50 w-72 max-h-72 overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-100 custom-scrollbar select-none"
     >
@@ -189,7 +234,24 @@ export function MentionMenu({ query, onSelect, onClose, position }: MentionMenuP
                 key={`${item.type}-${item.id}`}
                 data-index={index}
                 type="button"
-                onMouseEnter={() => setSelectedIndex(index)}
+                onMouseMove={(e) => {
+                  if (
+                    lastMousePosRef.current &&
+                    lastMousePosRef.current.x === e.clientX &&
+                    lastMousePosRef.current.y === e.clientY
+                  ) {
+                    return;
+                  }
+                  lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+                  isKeyboardNavRef.current = false;
+                  if (selectedIndex !== index) {
+                    setSelectedIndex(index);
+                  }
+                }}
+                onMouseDown={(e) => {
+                  // Prevent focus loss from editor
+                  e.preventDefault();
+                }}
                 onClick={() => onSelect(item)}
                 className={cn(
                   "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors",

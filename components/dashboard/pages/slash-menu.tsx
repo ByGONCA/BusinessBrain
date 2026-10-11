@@ -442,6 +442,15 @@ export const ALL_SLASH_COMMANDS: SlashMenuItem[] = [
     keywords: ["button", "link", "cta", "action"],
     blockType: "button",
   },
+  {
+    id: "adv_columns",
+    category: "advanced",
+    label: "2 Columns (Side by Side)",
+    description: "Display content side-by-side in left and right columns.",
+    icon: LayoutGrid,
+    keywords: ["columns", "colunas", "side by side", "lado a lado", "split", "left", "right", "2 columns"],
+    blockType: "columns",
+  },
 ];
 
 interface SlashMenuProps {
@@ -457,6 +466,8 @@ export function SlashMenu({ query, onSelect, onClose, position }: SlashMenuProps
   const [selectedIndex, setSelectedIndex] = React.useState(0);
   const [recentIds, setRecentIds] = React.useState<string[]>([]);
   const menuRef = React.useRef<HTMLDivElement>(null);
+  const lastMousePosRef = React.useRef<{ x: number; y: number } | null>(null);
+  const isKeyboardNavRef = React.useRef(false);
 
   // Load recently used command IDs from localStorage
   React.useEffect(() => {
@@ -506,52 +517,92 @@ export function SlashMenu({ query, onSelect, onClose, position }: SlashMenuProps
     return map;
   }, [filteredItems]);
 
+  const selectedIndexRef = React.useRef(selectedIndex);
+  selectedIndexRef.current = selectedIndex;
+
+  const filteredItemsRef = React.useRef(filteredItems);
+  filteredItemsRef.current = filteredItems;
+
+  const onSelectRef = React.useRef(onSelect);
+  onSelectRef.current = onSelect;
+
+  const onCloseRef = React.useRef(onClose);
+  onCloseRef.current = onClose;
+
   React.useEffect(() => {
     setSelectedIndex(0);
+    lastMousePosRef.current = null;
+    isKeyboardNavRef.current = false;
   }, [filteredItems]);
 
   React.useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      const items = filteredItemsRef.current;
+      const total = items.length;
+      if (!total) return;
+
       if (e.key === "ArrowDown") {
         e.preventDefault();
         e.stopPropagation();
-        setSelectedIndex((prev) => (prev + 1) % (filteredItems.length || 1));
+        isKeyboardNavRef.current = true;
+        setSelectedIndex((prev) => (prev + 1) % total);
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         e.stopPropagation();
-        setSelectedIndex((prev) => (prev - 1 + filteredItems.length) % (filteredItems.length || 1));
+        isKeyboardNavRef.current = true;
+        setSelectedIndex((prev) => (prev - 1 + total) % total);
       } else if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
         e.stopPropagation();
-        if (filteredItems[selectedIndex]) {
-          const item = filteredItems[selectedIndex];
-          saveRecent(item.id);
-          onSelect(item);
+        const currentItem = items[selectedIndexRef.current];
+        if (currentItem) {
+          saveRecent(currentItem.id);
+          onSelectRef.current(currentItem);
         }
       } else if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
       }
     }
 
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [filteredItems, selectedIndex, onSelect, onClose, recentIds, saveRecent]);
+  }, [saveRecent]);
 
-  // Scroll active item into view
+  // Scroll active item into view inside menuRef container without scrolling parent window
   React.useEffect(() => {
-    const activeEl = menuRef.current?.querySelector(`[data-index="${selectedIndex}"]`);
-    if (activeEl) {
-      activeEl.scrollIntoView({ block: "nearest" });
+    const container = menuRef.current;
+    if (!container) return;
+    const activeEl = container.querySelector(`[data-index="${selectedIndex}"]`) as HTMLElement | null;
+    if (!activeEl) return;
+
+    if (selectedIndex === 0) {
+      container.scrollTop = 0;
+      return;
     }
-  }, [selectedIndex]);
+
+    const total = filteredItems.length;
+    if (selectedIndex === total - 1) {
+      container.scrollTop = container.scrollHeight;
+      return;
+    }
+
+    const elRect = activeEl.getBoundingClientRect();
+    const contRect = container.getBoundingClientRect();
+
+    if (elRect.top < contRect.top) {
+      container.scrollTop -= contRect.top - elRect.top + 32;
+    } else if (elRect.bottom > contRect.bottom) {
+      container.scrollTop += elRect.bottom - contRect.bottom + 8;
+    }
+  }, [selectedIndex, filteredItems.length]);
 
   // Click outside to dismiss
   React.useEffect(() => {
     function handleClickOutside(e: MouseEvent | TouchEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
+        onCloseRef.current();
       }
     }
     document.addEventListener("mousedown", handleClickOutside, true);
@@ -560,7 +611,7 @@ export function SlashMenu({ query, onSelect, onClose, position }: SlashMenuProps
       document.removeEventListener("mousedown", handleClickOutside, true);
       document.removeEventListener("touchstart", handleClickOutside, true);
     };
-  }, [onClose]);
+  }, []);
 
   if (filteredItems.length === 0) {
     return (
@@ -587,6 +638,10 @@ export function SlashMenu({ query, onSelect, onClose, position }: SlashMenuProps
         top: `${position.top}px`,
         left: `${position.left}px`,
       }}
+      onMouseDown={(e) => {
+        // Prevent clicking inside popup from stealing focus or triggering blur on editor
+        e.preventDefault();
+      }}
       className="fixed z-50 w-80 max-h-80 overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md p-1.5 pr-2 shadow-2xl animate-in fade-in zoom-in-95 duration-100 custom-scrollbar select-none"
     >
       {Array.from(groupedItems.entries()).map(([category, items]) => {
@@ -612,7 +667,24 @@ export function SlashMenu({ query, onSelect, onClose, position }: SlashMenuProps
                     key={item.id}
                     type="button"
                     data-index={itemIndex}
-                    onMouseEnter={() => setSelectedIndex(itemIndex)}
+                    onMouseMove={(e) => {
+                      if (
+                        lastMousePosRef.current &&
+                        lastMousePosRef.current.x === e.clientX &&
+                        lastMousePosRef.current.y === e.clientY
+                      ) {
+                        return;
+                      }
+                      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+                      isKeyboardNavRef.current = false;
+                      if (selectedIndex !== itemIndex) {
+                        setSelectedIndex(itemIndex);
+                      }
+                    }}
+                    onMouseDown={(e) => {
+                      // Prevent blurring editor
+                      e.preventDefault();
+                    }}
                     onClick={() => {
                       saveRecent(item.id);
                       onSelect(item);
@@ -654,3 +726,4 @@ export function SlashMenu({ query, onSelect, onClose, position }: SlashMenuProps
     </div>
   );
 }
+

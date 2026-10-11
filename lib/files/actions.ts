@@ -10,6 +10,7 @@ import { hasPermission } from "@/lib/permissions/resolver";
 import { assertStorageQuotaAvailable } from "./quotas";
 import { getFileProvider } from "./providers/registry";
 import { CompanyBrainStorageProvider } from "./providers/company-brain";
+import { generateAndPersistImageVariants } from "@/lib/storage/image-service";
 import {
   StorageProvider,
   OrganizationFileRecord,
@@ -158,6 +159,18 @@ export async function confirmFileUploadAction(
     );
 
     revalidatePath(`/dashboard/pages/${pageId}`);
+  }
+
+  // Generate optimized WebP thumbnail & display variants (with EXIF/GPS stripped) for raster images
+  if (updated.storage_provider === "company_brain" && updated.mime_type.startsWith("image/")) {
+    try {
+      await generateAndPersistImageVariants(fileId, activeOrg.id);
+    } catch (variantErr) {
+      logger.warn("Image variant generation deferred or failed", {
+        fileId,
+        error: variantErr instanceof Error ? variantErr.message : String(variantErr),
+      });
+    }
   }
 
   logger.info("File upload confirmed", {
@@ -342,10 +355,18 @@ export async function deleteOrganizationFileAction(fileId: string): Promise<void
     throw new Error("File not found.");
   }
 
-  // If internal file, delete from Supabase storage
+  // If internal file, delete from Supabase storage (including all generated variants)
   if (file.storage_provider === "company_brain" && file.storage_path) {
     try {
-      await companyBrainProvider.deleteFileObject(file.storage_path);
+      const pathsToDelete = [file.storage_path];
+      const variants = (file.metadata as Record<string, unknown> | undefined)?.variants as
+        | Record<string, { storagePath: string }>
+        | undefined;
+      if (variants) {
+        if (variants.thumbnail?.storagePath) pathsToDelete.push(variants.thumbnail.storagePath);
+        if (variants.display?.storagePath) pathsToDelete.push(variants.display.storagePath);
+      }
+      await companyBrainProvider.deleteFileObjects(pathsToDelete);
     } catch (storageErr) {
       console.warn("Storage object deletion warning:", storageErr);
     }
@@ -445,4 +466,61 @@ export async function getPageFilesAction(
   const { getPageFiles } = await import("./queries");
   return getPageFiles(activeOrg.id, pageId);
 }
+
+/**
+ * 11. Batch resolves preview information (signed URLs, thumbnails, embeds) for multiple files.
+ * Optimizes page load and editor blocks by querying multiple files in a single scoped request.
+ */
+export async function getFilePreviewsBatchAction(
+  fileIds: string[]
+): Promise<Record<string, FilePreviewInfo>> {
+  if (!fileIds || fileIds.length === 0) return {};
+  const validIds = Array.from(new Set(fileIds.filter((id) => isValidUuid(id))));
+  if (validIds.length === 0) return {};
+
+  const { activeOrg } = await requireActiveOrganization();
+  const supabase = await createClient();
+
+  const { data: files, error } = await supabase
+    .from("organization_files")
+    .select("*")
+    .in("id", validIds)
+    .eq("organization_id", activeOrg.id);
+
+  if (error || !files) {
+    logger.warn("Batch file preview query failed", { error: error?.message });
+    return {};
+  }
+
+  const results: Record<string, FilePreviewInfo> = {};
+  await Promise.all(
+    files.map(async (file) => {
+      try {
+        const provider = getFileProvider(file.storage_provider as StorageProvider);
+        results[file.id] = await provider.getPreview(activeOrg.id, file as OrganizationFileRecord);
+      } catch (err) {
+        logger.warn("Error resolving single preview in batch", {
+          fileId: file.id,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    })
+  );
+
+  return results;
+}
+
+/**
+ * 12. Lists files in the active organization for the file library picker.
+ */
+export async function getOrganizationFilesAction(options?: {
+  provider?: StorageProvider;
+  search?: string;
+  limit?: number;
+}): Promise<OrganizationFileRecord[]> {
+  const { activeOrg } = await requireActiveOrganization();
+  const { getOrganizationFiles } = await import("./queries");
+  return getOrganizationFiles(activeOrg.id, options);
+}
+
 

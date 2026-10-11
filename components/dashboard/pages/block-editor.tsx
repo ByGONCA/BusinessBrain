@@ -42,8 +42,16 @@ import {
 } from "@/lib/pages/actions";
 import { FilePickerModal } from "./file-picker-modal";
 import { PageAttachmentsPanel } from "./page-attachments-panel";
-import { getPageFilesAction } from "@/lib/files/actions";
-import { PageFileRecord, OrganizationFileRecord } from "@/lib/files/types";
+import {
+  getPageFilesAction,
+  getFilePreviewAction,
+  getFilePreviewsBatchAction,
+} from "@/lib/files/actions";
+import {
+  PageFileRecord,
+  OrganizationFileRecord,
+  FilePreviewInfo,
+} from "@/lib/files/types";
 import {
   Check,
   Loader2,
@@ -323,8 +331,43 @@ export function BlockEditor({
     loadPageFiles();
   }, [loadPageFiles]);
 
-  const handleFileSelected = (file: OrganizationFileRecord) => {
+  const [filePreviews, setFilePreviews] = React.useState<Record<string, FilePreviewInfo>>({});
+  const resolvedFileIdsRef = React.useRef<Set<string>>(new Set());
+
+  // Batch resolve signed preview URLs for any blocks with fileId
+  React.useEffect(() => {
+    const candidateFileIds = blocks
+      .map((b) => b.properties?.fileId)
+      .filter((id): id is string => Boolean(id && !resolvedFileIdsRef.current.has(id)));
+
+    if (candidateFileIds.length === 0) return;
+
+    candidateFileIds.forEach((id) => resolvedFileIdsRef.current.add(id));
+
+    getFilePreviewsBatchAction(candidateFileIds)
+      .then((previews) => {
+        setFilePreviews((prev) => ({ ...prev, ...previews }));
+      })
+      .catch((err) => {
+        console.warn("Failed to batch resolve file previews:", err);
+      });
+  }, [blocks]);
+
+  const handleFileSelected = async (file: OrganizationFileRecord) => {
     if (filePickerState.blockId) {
+      // Immediately resolve preview for responsive rendering
+      let immediateMediaUrl = file.external_url || "";
+      try {
+        const preview = await getFilePreviewAction(file.id);
+        if (preview?.previewUrl) {
+          immediateMediaUrl = preview.previewUrl;
+          setFilePreviews((prev) => ({ ...prev, [file.id]: preview }));
+          resolvedFileIdsRef.current.add(file.id);
+        }
+      } catch {
+        // Fall back gracefully
+      }
+
       handleUpdateProperties(filePickerState.blockId, {
         fileId: file.id,
         fileName: file.name,
@@ -332,7 +375,7 @@ export function BlockEditor({
         mimeType: file.mime_type,
         storageProvider: file.storage_provider,
         fileStatus: file.status,
-        mediaUrl: file.external_url || file.storage_path || "",
+        mediaUrl: immediateMediaUrl,
       });
     }
     loadPageFiles();
@@ -884,26 +927,26 @@ export function BlockEditor({
   };
 
   // Slash trigger from child
-  const handleSlashTrigger = (blockId: string, rect: DOMRect) => {
+  const handleSlashTrigger = (blockId: string, rect: DOMRect, initialQuery?: string) => {
     setSlashState({
       blockId,
       position: {
-        top: Math.min(window.innerHeight - 300, rect.bottom + 6),
-        left: Math.max(16, rect.left),
+        top: Math.max(16, Math.min(window.innerHeight - 340, rect.bottom + 6)),
+        left: Math.max(16, Math.min(window.innerWidth - 340, rect.left)),
       },
-      query: "",
+      query: initialQuery || "",
     });
   };
 
   // Mention trigger from child
-  const handleMentionTrigger = (blockId: string, rect: DOMRect) => {
+  const handleMentionTrigger = (blockId: string, rect: DOMRect, initialQuery?: string) => {
     setMentionState({
       blockId,
       position: {
-        top: Math.min(window.innerHeight - 300, rect.bottom + 6),
-        left: Math.max(16, rect.left),
+        top: Math.max(16, Math.min(window.innerHeight - 340, rect.bottom + 6)),
+        left: Math.max(16, Math.min(window.innerWidth - 340, rect.left)),
       },
-      query: "",
+      query: initialQuery || "",
     });
   };
 
@@ -1005,6 +1048,16 @@ export function BlockEditor({
         properties = {
           bookmarkTitle: "Company Brain",
           bookmarkUrl: typeof window !== "undefined" ? window.location.href : "",
+        };
+      } else if (type === "columns") {
+        properties = {
+          columnsData: {
+            leftTitle: "Left Column",
+            rightTitle: "Right Column",
+            leftContent: cleanedContent || "",
+            rightContent: "",
+            splitPercent: 50,
+          },
         };
       }
 
@@ -2242,7 +2295,7 @@ export function BlockEditor({
           />
 
           {/* Block Stream */}
-          <div className="space-y-2">
+          <div className="space-y-2 flow-root">
             {(() => {
               let currentListNumber = 0;
               return blocks.map((block, idx) => {
@@ -2260,6 +2313,7 @@ export function BlockEditor({
                     index={idx}
                     allBlocks={blocks}
                     pageTitle={title}
+                    filePreview={block.properties?.fileId ? filePreviews[block.properties.fileId] : undefined}
                     listNumber={listNumber}
                     totalBlocks={blocks.length}
                     isFocused={focusedBlockId === block.id}

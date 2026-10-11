@@ -25,6 +25,8 @@ import {
   confirmFileUploadAction,
   linkExternalFileAction,
   listExternalFilesAction,
+  getOrganizationFilesAction,
+  getFilePreviewsBatchAction,
 } from "@/lib/files/actions";
 import { getOrganizationStorageQuota } from "@/lib/files/quotas";
 import {
@@ -83,14 +85,43 @@ export function FilePickerModal({
   const [driveConnected, setDriveConnected] = React.useState<boolean>(true);
   const [driveSearch, setDriveSearch] = React.useState("");
 
+  // Workspace Library state
+  const [libraryFiles, setLibraryFiles] = React.useState<OrganizationFileRecord[]>([]);
+  const [libraryPreviews, setLibraryPreviews] = React.useState<Record<string, { thumbnailUrl?: string | null; previewUrl?: string | null }>>({});
+  const [isLoadingLibrary, setIsLoadingLibrary] = React.useState(false);
+  const [librarySearch, setLibrarySearch] = React.useState("");
+
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
-  // Load Google Drive files when tab is activated
+  // Load files when tabs are activated
   React.useEffect(() => {
     if (isOpen && activeTab === "google_drive") {
       loadGoogleDriveFiles();
+    } else if (isOpen && activeTab === "library") {
+      loadLibraryFiles();
     }
   }, [isOpen, activeTab]);
+
+  const loadLibraryFiles = async (query = "") => {
+    setIsLoadingLibrary(true);
+    setErrorMsg(null);
+    try {
+      const files = await getOrganizationFilesAction({ search: query || undefined });
+      setLibraryFiles(files);
+
+      // Preload thumbnails for image files
+      const imgIds = files.filter((f) => f.mime_type.startsWith("image/")).map((f) => f.id);
+      if (imgIds.length > 0) {
+        getFilePreviewsBatchAction(imgIds)
+          .then(setLibraryPreviews)
+          .catch(() => {});
+      }
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Failed to load workspace files.");
+    } finally {
+      setIsLoadingLibrary(false);
+    }
+  };
 
   const loadGoogleDriveFiles = async (query = "") => {
     setIsLoadingDrive(true);
@@ -223,6 +254,21 @@ export function FilePickerModal({
             )}
           >
             <Cloud className="h-3.5 w-3.5" /> Google Drive
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab("library");
+              loadLibraryFiles();
+            }}
+            className={cn(
+              "flex items-center gap-2 px-4 py-3 text-xs font-medium border-b-2 transition-colors",
+              activeTab === "library"
+                ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
+                : "border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+            )}
+          >
+            <FolderOpen className="h-3.5 w-3.5" /> Workspace Files
           </button>
         </div>
 
@@ -363,7 +409,15 @@ export function FilePickerModal({
                           className="flex items-center justify-between p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800/80 hover:border-blue-500/40 hover:bg-blue-50/30 dark:hover:bg-blue-950/20 cursor-pointer transition-colors"
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
-                            {getFileIcon(file.mimeType)}
+                            {file.thumbnailLink ? (
+                              <img
+                                src={file.thumbnailLink}
+                                alt={file.name}
+                                className="h-8 w-8 rounded-lg object-cover border border-zinc-200 dark:border-zinc-800 shrink-0"
+                              />
+                            ) : (
+                              getFileIcon(file.mimeType)
+                            )}
                             <div className="min-w-0">
                               <p className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
                                 {file.name}
@@ -384,6 +438,77 @@ export function FilePickerModal({
                   <p className="text-[11px] text-zinc-400 pt-1">
                     * External files remain in Google Drive and consume 0 Company Brain storage quota.
                   </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === "library" && (
+            <div className="space-y-4">
+              {/* Search box */}
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-400" />
+                <input
+                  type="text"
+                  placeholder="Search workspace files..."
+                  value={librarySearch}
+                  onChange={(e) => {
+                    setLibrarySearch(e.target.value);
+                    loadLibraryFiles(e.target.value);
+                  }}
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-800 dark:text-zinc-200 outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+              </div>
+
+              {isLoadingLibrary ? (
+                <div className="py-12 flex flex-col items-center justify-center gap-2 text-zinc-400">
+                  <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+                  <span className="text-xs">Loading workspace files...</span>
+                </div>
+              ) : libraryFiles.length === 0 ? (
+                <div className="py-12 text-center text-xs text-zinc-500">
+                  No files found in workspace library.
+                </div>
+              ) : (
+                <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+                  {libraryFiles.map((file) => {
+                    const isImg = file.mime_type.startsWith("image/");
+                    const thumbUrl = libraryPreviews[file.id]?.thumbnailUrl;
+
+                    return (
+                      <div
+                        key={file.id}
+                        onClick={() => {
+                          onFileSelected(file);
+                          onClose();
+                        }}
+                        className="flex items-center justify-between p-2.5 rounded-xl border border-zinc-100 dark:border-zinc-800/80 hover:border-indigo-500/40 hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {isImg && thumbUrl ? (
+                            <img
+                              src={thumbUrl}
+                              alt={file.name}
+                              className="h-8 w-8 rounded-lg object-cover border border-zinc-200 dark:border-zinc-800 shrink-0"
+                            />
+                          ) : (
+                            getFileIcon(file.mime_type)
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                              {file.name}
+                            </p>
+                            <p className="text-[10px] text-zinc-400">
+                              {file.size_bytes ? formatBytes(file.size_bytes) : "Document"} • {file.storage_provider === "google_drive" ? "Google Drive" : "Company Brain"}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400 shrink-0">
+                          Select
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

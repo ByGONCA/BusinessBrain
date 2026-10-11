@@ -17,8 +17,12 @@ import {
   Plus,
   Loader2,
 } from "lucide-react";
-import { PageFileRecord } from "@/lib/files/types";
-import { detachFileFromPageAction, getFilePreviewAction } from "@/lib/files/actions";
+import { PageFileRecord, FilePreviewInfo } from "@/lib/files/types";
+import {
+  detachFileFromPageAction,
+  getFilePreviewAction,
+  getFilePreviewsBatchAction,
+} from "@/lib/files/actions";
 import { PdfViewerModal } from "./pdf-viewer-modal";
 
 interface PageAttachmentsPanelProps {
@@ -68,6 +72,18 @@ export function PageAttachmentsPanel({
 }: PageAttachmentsPanelProps) {
   const [detachingId, setDetachingId] = React.useState<string | null>(null);
   const [activePdfUrl, setActivePdfUrl] = React.useState<{ url: string; title: string } | null>(null);
+  const [activeLightbox, setActiveLightbox] = React.useState<{ url: string; title: string } | null>(null);
+  const [previews, setPreviews] = React.useState<Record<string, FilePreviewInfo>>({});
+
+  // Batch load preview URLs (display and thumbnail) for attached files
+  React.useEffect(() => {
+    const fileIds = files.map((pf) => pf.file_id).filter(Boolean);
+    if (fileIds.length === 0) return;
+
+    getFilePreviewsBatchAction(fileIds)
+      .then(setPreviews)
+      .catch((err) => console.warn("Failed to load attachment previews:", err));
+  }, [files]);
 
   const handleDetach = async (fileId: string) => {
     setDetachingId(fileId);
@@ -84,6 +100,27 @@ export function PageAttachmentsPanel({
   const handlePreview = async (fileRecord: PageFileRecord) => {
     if (!fileRecord.file) return;
 
+    // Image preview: open lightbox with display variant
+    if (fileRecord.file.mime_type.startsWith("image/")) {
+      const preview = previews[fileRecord.file.id];
+      if (preview?.previewUrl) {
+        setActiveLightbox({ url: preview.previewUrl, title: fileRecord.file.name });
+        return;
+      }
+
+      try {
+        const fresh = await getFilePreviewAction(fileRecord.file.id);
+        if (fresh?.previewUrl) {
+          setActiveLightbox({ url: fresh.previewUrl, title: fileRecord.file.name });
+          setPreviews((prev) => ({ ...prev, [fileRecord.file!.id]: fresh }));
+          return;
+        }
+      } catch (err) {
+        console.warn("Failed to load image preview:", err);
+      }
+    }
+
+    // PDF preview
     if (fileRecord.file.mime_type === "application/pdf") {
       try {
         const preview = await getFilePreviewAction(fileRecord.file.id);
@@ -133,7 +170,27 @@ export function PageAttachmentsPanel({
                 onClick={() => !isUnavailable && handlePreview(pf)}
                 className="flex items-center gap-2.5 min-w-0 flex-1 cursor-pointer group"
               >
-                {getFileIcon(file.mime_type)}
+                {(() => {
+                  const isImage = file.mime_type.startsWith("image/");
+                  const preview = previews[file.id];
+                  const thumbUrl =
+                    preview?.thumbnailUrl ||
+                    ((file.metadata as Record<string, unknown> | undefined)?.thumbnailLink as string | undefined);
+
+                  if (isImage && thumbUrl) {
+                    return (
+                      <div className="relative h-9 w-9 shrink-0 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800 shadow-2xs">
+                        <img
+                          src={thumbUrl}
+                          alt={file.name}
+                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                          loading="lazy"
+                        />
+                      </div>
+                    );
+                  }
+                  return getFileIcon(file.mime_type);
+                })()}
                 <div className="min-w-0">
                   <p className="font-medium text-zinc-800 dark:text-zinc-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 truncate transition-colors">
                     {file.name}
@@ -190,6 +247,26 @@ export function PageAttachmentsPanel({
           title={activePdfUrl.title}
           downloadUrl={activePdfUrl.url}
         />
+      )}
+
+      {activeLightbox && (
+        <div
+          onClick={() => setActiveLightbox(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md cursor-zoom-out animate-in fade-in duration-150"
+        >
+          <div className="relative max-w-5xl max-h-[90vh] flex flex-col items-center">
+            <img
+              src={activeLightbox.url}
+              alt={activeLightbox.title}
+              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl"
+            />
+            {activeLightbox.title && (
+              <p className="mt-3 text-xs text-white/80 bg-black/50 px-3 py-1.5 rounded-lg">
+                {activeLightbox.title}
+              </p>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
