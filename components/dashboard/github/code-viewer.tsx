@@ -108,7 +108,7 @@ export function CodeViewer({
   }, []);
 
   // Resolve language from file path
-  const { lang, label: languageLabel } = React.useMemo(
+  const { lang } = React.useMemo(
     () => detectLanguageFromPath(filePath),
     [filePath]
   );
@@ -384,10 +384,6 @@ export function CodeViewer({
             <FileCode className="h-3.5 w-3.5 text-blue-500 shrink-0" />
             <span className="truncate">{filePath}</span>
           </div>
-
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 shrink-0">
-            {languageLabel}
-          </span>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -498,18 +494,6 @@ export function CodeViewer({
               <MessageSquare className="h-3 w-3 shrink-0" />
               <span>Chat</span>
             </button>
-          )}
-
-          {htmlUrl && (
-            <a
-              href={htmlUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center justify-center p-1.5 rounded-md border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-700/80 transition-colors shadow-2xs"
-              title="Abrir no GitHub"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
           )}
         </div>
       </div>
