@@ -315,11 +315,9 @@ function TableBlockContent({ block, onUpdateProperties }: TableBlockContentProps
                   role="separator"
                   aria-orientation="vertical"
                   onMouseDown={(e) => startResize(cIdx, e)}
-                  className="absolute right-0 top-0 bottom-0 w-2.5 cursor-col-resize hover:bg-indigo-500/30 active:bg-indigo-600 transition-colors z-20 flex items-center justify-center select-none group/resize"
+                  className="absolute -right-1 top-0 bottom-0 w-2 cursor-col-resize z-20 select-none"
                   title="Drag to resize column width"
-                >
-                  <div className="w-[1.5px] h-3.5 bg-zinc-300 dark:bg-zinc-600 rounded-full group-hover/resize:h-full group-hover/resize:bg-indigo-500 transition-all" />
-                </div>
+                />
               </th>
             ))}
             <th className="w-8 p-1 text-center align-middle">
