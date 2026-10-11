@@ -172,6 +172,7 @@ export interface EditorBlockProperties {
   githubData?: GitHubBlockData;
   columnsData?: ColumnsBlockData;
   align?: "left" | "right" | "full"; // Side-by-side placement: left (50%), right (50%), or full width
+  imageWidth?: number; // Image width percentage (15 to 100)
   filePath?: string; // For GitHub code snippet references
   startLine?: number; // Starting line number in source file
   endLine?: number; // Ending line number in source file

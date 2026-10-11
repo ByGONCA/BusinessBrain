@@ -91,7 +91,7 @@ interface BlockItemProps {
   totalBlocks: number;
   isFocused: boolean;
   isDragging?: boolean;
-  dropIndicatorPosition?: "before" | "after" | null;
+  dropIndicatorPosition?: "before" | "after" | "left" | "right" | null;
   isSelected?: boolean;
   connections?: PageConnectionRecord[];
   fallbackAuthorProfile?: PageAuthorProfile | null;
@@ -116,10 +116,10 @@ interface BlockItemProps {
   registerRef: (id: string, el: HTMLElement | null) => void;
   onFocusBlock?: (id: string) => void;
   onDragBlockStart?: (index: number, e: React.DragEvent) => void;
-  onDragBlockOver?: (index: number, position: "before" | "after") => void;
+  onDragBlockOver?: (index: number, position: "before" | "after" | "left" | "right") => void;
   onDragBlockLeave?: (index: number) => void;
   onDragBlockEnd?: () => void;
-  onDropBlock?: (index: number, position: "before" | "after") => void;
+  onDropBlock?: (index: number, position: "before" | "after" | "left" | "right") => void;
 }
 
 interface TableBlockContentProps {
@@ -532,6 +532,17 @@ function ImageBlockContent({
   const [hasError, setHasError] = React.useState(false);
   const [retryCount, setRetryCount] = React.useState(0);
 
+  const initialWidth = typeof block.properties?.imageWidth === "number" ? block.properties.imageWidth : 100;
+  const [widthPercent, setWidthPercent] = React.useState<number>(initialWidth);
+  const [isResizing, setIsResizing] = React.useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (typeof block.properties?.imageWidth === "number") {
+      setWidthPercent(block.properties.imageWidth);
+    }
+  }, [block.properties?.imageWidth]);
+
   const fileId = block.properties?.fileId;
   const rawMediaUrl = block.properties?.mediaUrl;
   const isDirectWebUrl = Boolean(
@@ -596,6 +607,44 @@ function ImageBlockContent({
     }
   };
 
+  const handleResizeStart = (e: React.MouseEvent, side: "left" | "right") => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const containerWidth = containerRect.width;
+    if (containerWidth <= 0) return;
+
+    const startX = e.clientX;
+    const startWidth = widthPercent;
+    setIsResizing(true);
+
+    let latestWidth = startWidth;
+
+    const onMouseMove = (moveEvt: MouseEvent) => {
+      moveEvt.preventDefault();
+      const deltaX = moveEvt.clientX - startX;
+      const factor = side === "right" ? 1 : -1;
+      const deltaPercent = (deltaX * factor / containerWidth) * 100;
+      const nextWidth = Math.max(15, Math.min(100, Math.round(startWidth + deltaPercent)));
+      latestWidth = nextWidth;
+      setWidthPercent(nextWidth);
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+      setIsResizing(false);
+      onUpdateProperties(block.id, { imageWidth: latestWidth });
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
+
   const isUnavailable = block.properties?.fileStatus === "unavailable";
   const { openSettings } = useSettings();
 
@@ -657,59 +706,61 @@ function ImageBlockContent({
 
   if (activeUrl) {
     return (
-      <div className="space-y-1.5 py-1 my-2">
+      <div ref={containerRef} className="w-full space-y-1.5 py-1 my-2">
         <div
+          style={{ width: `${widthPercent}%` }}
           className={cn(
-            "relative group/img flex items-center justify-center transition-all",
-            blockAlign === "left" && "mr-auto max-w-lg",
-            blockAlign === "right" && "ml-auto max-w-lg",
-            blockAlign === "full" && "max-w-2xl mx-auto"
+            "relative group/img flex items-center justify-center transition-all duration-75 max-w-full",
+            blockAlign === "left" && "mr-auto",
+            blockAlign === "right" && "ml-auto",
+            blockAlign === "full" && "mx-auto"
           )}
         >
           <img
             src={activeUrl}
             alt={block.properties?.caption || "Image"}
-            className="max-h-96 w-auto rounded-lg object-contain cursor-pointer"
-            onClick={() => onOpenLightbox(activeUrl)}
+            className="w-full h-auto max-h-[600px] rounded-lg object-contain cursor-pointer select-none"
+            onClick={() => {
+              if (!isResizing) {
+                onOpenLightbox(activeUrl);
+              }
+            }}
             onError={handleImageError}
+            draggable={false}
           />
-          {/* Side/Alignment Quick Controls on hover */}
-          <div className="absolute top-2 right-2 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center gap-1 bg-black/60 backdrop-blur-sm px-1.5 py-1 rounded-lg text-white text-[10px]">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onUpdateProperties(block.id, { align: "left" });
-              }}
-              className={cn("px-1 py-0.5 rounded hover:bg-white/20 transition-colors", blockAlign === "left" && "bg-white/30 font-bold")}
-              title="Align Left (50% side)"
-            >
-              ← Left
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onUpdateProperties(block.id, { align: "full" });
-              }}
-              className={cn("px-1 py-0.5 rounded hover:bg-white/20 transition-colors", blockAlign === "full" && "bg-white/30 font-bold")}
-              title="Center / Full Width"
-            >
-              ↔ Full
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onUpdateProperties(block.id, { align: "right" });
-              }}
-              className={cn("px-1 py-0.5 rounded hover:bg-white/20 transition-colors", blockAlign === "right" && "bg-white/30 font-bold")}
-              title="Align Right (50% side)"
-            >
-              Right →
-            </button>
+
+          {/* Right drag-to-resize handle */}
+          <div
+            onMouseDown={(e) => handleResizeStart(e, "right")}
+            className={cn(
+              "absolute -right-2.5 top-1/2 -translate-y-1/2 w-5 h-16 flex items-center justify-center cursor-ew-resize z-20 group/handle transition-opacity",
+              isResizing ? "opacity-100" : "opacity-0 group-hover/img:opacity-100"
+            )}
+            title="Arrastar para redimensionar"
+          >
+            <div className="w-1.5 h-10 rounded-full bg-zinc-400 dark:bg-zinc-500 group-hover/handle:bg-blue-500 group-hover/handle:w-2 transition-all shadow-xs" />
           </div>
+
+          {/* Left drag-to-resize handle */}
+          <div
+            onMouseDown={(e) => handleResizeStart(e, "left")}
+            className={cn(
+              "absolute -left-2.5 top-1/2 -translate-y-1/2 w-5 h-16 flex items-center justify-center cursor-ew-resize z-20 group/handle transition-opacity",
+              isResizing ? "opacity-100" : "opacity-0 group-hover/img:opacity-100"
+            )}
+            title="Arrastar para redimensionar"
+          >
+            <div className="w-1.5 h-10 rounded-full bg-zinc-400 dark:bg-zinc-500 group-hover/handle:bg-blue-500 group-hover/handle:w-2 transition-all shadow-xs" />
+          </div>
+
+          {/* Live resize percentage badge */}
+          {isResizing && (
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black/75 backdrop-blur-sm text-white text-[11px] font-medium px-2.5 py-0.5 rounded-full shadow-lg pointer-events-none select-none z-30">
+              {Math.round(widthPercent)}%
+            </div>
+          )}
         </div>
+
         <input
           type="text"
           value={block.properties?.caption || ""}
@@ -1085,8 +1136,22 @@ export function BlockItem({
     e.stopPropagation();
     e.dataTransfer.dropEffect = "move";
     const rect = e.currentTarget.getBoundingClientRect();
+    const relX = e.clientX - rect.left;
     const relY = e.clientY - rect.top;
-    const position = relY < rect.height / 2 ? "before" : "after";
+    const normX = Math.max(0, Math.min(1, relX / rect.width));
+    const normY = Math.max(0, Math.min(1, relY / rect.height));
+
+    let position: "before" | "after" | "left" | "right";
+    if (normX < 0.22) {
+      position = "left";
+    } else if (normX > 0.78) {
+      position = "right";
+    } else if (normY < 0.5) {
+      position = "before";
+    } else {
+      position = "after";
+    }
+
     onDragBlockOver?.(index, position);
   };
 
@@ -1101,8 +1166,22 @@ export function BlockItem({
     e.preventDefault();
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
+    const relX = e.clientX - rect.left;
     const relY = e.clientY - rect.top;
-    const position = relY < rect.height / 2 ? "before" : "after";
+    const normX = Math.max(0, Math.min(1, relX / rect.width));
+    const normY = Math.max(0, Math.min(1, relY / rect.height));
+
+    let position: "before" | "after" | "left" | "right";
+    if (normX < 0.22) {
+      position = "left";
+    } else if (normX > 0.78) {
+      position = "right";
+    } else if (normY < 0.5) {
+      position = "before";
+    } else {
+      position = "after";
+    }
+
     onDropBlock?.(index, position);
   };
 
@@ -1124,10 +1203,10 @@ export function BlockItem({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={cn(
-        "group relative flex flex-col -ml-10 pl-10 pr-2 py-1 transition-all duration-150 rounded-lg",
-        blockAlign === "left" && "w-full md:w-[48%] md:float-left md:mr-[4%] clear-none mb-2",
-        blockAlign === "right" && "w-full md:w-[48%] md:float-right clear-none mb-2",
-        blockAlign === "full" && "w-full clear-both",
+        "group relative flex flex-col py-1 transition-all duration-150 rounded-lg",
+        blockAlign === "left" && "w-full md:w-[calc(50%-10px)] md:mr-5 ml-0 pl-7 pr-2 mb-2",
+        blockAlign === "right" && "w-full md:w-[calc(50%-10px)] ml-0 pl-7 pr-2 mb-2",
+        blockAlign === "full" && "w-full -ml-10 pl-10 pr-2 mb-1",
         index > 0 && block.type === "heading_1" && "mt-5",
         index > 0 && block.type === "heading_2" && "mt-3.5",
         index > 0 && block.type === "heading_3" && "mt-2",
@@ -1136,7 +1215,9 @@ export function BlockItem({
           block.type === "board" || block.type === "calendar" || block.type === "table" || block.type === "gallery"
             ? "ring-1 ring-blue-500/40 dark:ring-blue-400/40 shadow-xs"
             : "bg-blue-50/40 dark:bg-blue-950/30 ring-1 ring-blue-500/30 dark:ring-blue-400/30 shadow-xs"
-        )
+        ),
+        dropIndicatorPosition === "left" && "bg-blue-50/20 dark:bg-blue-950/20 ring-1 ring-blue-400/30",
+        dropIndicatorPosition === "right" && "bg-blue-50/20 dark:bg-blue-950/20 ring-1 ring-blue-400/30"
       )}
     >
       {/* Drop indicator: BEFORE */}
@@ -1144,9 +1225,25 @@ export function BlockItem({
         <div className="h-0.5 w-full bg-blue-500 rounded-full mb-1 shadow-xs pointer-events-none animate-in fade-in duration-100" />
       )}
 
+      {/* Drop indicator: LEFT */}
+      {dropIndicatorPosition === "left" && (
+        <div className="absolute left-0 top-1 bottom-1 w-1 bg-blue-500 rounded-full z-30 shadow-xs pointer-events-none animate-in fade-in duration-100" />
+      )}
+
+      {/* Drop indicator: RIGHT */}
+      {dropIndicatorPosition === "right" && (
+        <div className="absolute right-0 top-1 bottom-1 w-1 bg-blue-500 rounded-full z-30 shadow-xs pointer-events-none animate-in fade-in duration-100" />
+      )}
+
       <div className="relative flex items-start w-full">
         {/* Block Action Controls (Grip handle in gutter) */}
-        <div className={cn("absolute -left-7 flex items-center opacity-0 group-hover:opacity-100 transition-opacity", gripTopClass)}>
+        <div
+          className={cn(
+            "absolute flex items-center opacity-0 group-hover:opacity-100 transition-opacity",
+            blockAlign === "full" ? "-left-7" : "left-1",
+            gripTopClass
+          )}
+        >
           <div className="relative" ref={menuRef}>
             <div
               role="button"

@@ -383,7 +383,10 @@ export function BlockEditor({
 
   // Drag and drop state
   const [draggingBlockIndex, setDraggingBlockIndex] = React.useState<number | null>(null);
-  const [dropTarget, setDropTarget] = React.useState<{ index: number; position: "before" | "after" } | null>(null);
+  const [dropTarget, setDropTarget] = React.useState<{
+    index: number;
+    position: "before" | "after" | "left" | "right";
+  } | null>(null);
 
   // Slash menu state
   const [slashState, setSlashState] = React.useState<{
@@ -844,7 +847,7 @@ export function BlockEditor({
     e.dataTransfer.effectAllowed = "move";
   };
 
-  const handleDragBlockOver = (targetIndex: number, position: "before" | "after") => {
+  const handleDragBlockOver = (targetIndex: number, position: "before" | "after" | "left" | "right") => {
     if (draggingBlockIndex === null) return;
     if (draggingBlockIndex === targetIndex) {
       setDropTarget(null);
@@ -872,7 +875,7 @@ export function BlockEditor({
     setDropTarget(null);
   };
 
-  const handleDropBlock = (targetIndex: number, position: "before" | "after") => {
+  const handleDropBlock = (targetIndex: number, position: "before" | "after" | "left" | "right") => {
     if (draggingBlockIndex === null) {
       setDropTarget(null);
       return;
@@ -885,6 +888,10 @@ export function BlockEditor({
     const draggedBlock = blocks[fromIndex];
     if (!draggedBlock) return;
 
+    if (fromIndex === targetIndex && (position === "before" || position === "after")) {
+      return;
+    }
+
     const isMultiDrag = selectedBlockIds.has(draggedBlock.id) && selectedBlockIds.size > 1;
 
     pushHistorySnapshot();
@@ -892,10 +899,55 @@ export function BlockEditor({
       const targetBlock = prev[targetIndex];
       if (!targetBlock) return prev;
 
+      // Side-by-side placement (left or right)
+      if (position === "left" || position === "right") {
+        if (fromIndex === targetIndex) return prev;
+
+        const next = [...prev];
+        const [moved] = next.splice(fromIndex, 1);
+        if (!moved) return prev;
+
+        const currentTargetIdx = next.findIndex((b) => b.id === targetBlock.id);
+        if (currentTargetIdx === -1) return prev;
+
+        if (position === "left") {
+          // Dragged block placed on the LEFT (50%), Target block placed on the RIGHT (50%)
+          const updatedMoved: EditorBlock = {
+            ...moved,
+            properties: { ...moved.properties, align: "left" },
+          };
+          next[currentTargetIdx] = {
+            ...next[currentTargetIdx],
+            properties: { ...next[currentTargetIdx].properties, align: "right" },
+          };
+          next.splice(currentTargetIdx, 0, updatedMoved);
+        } else {
+          // Target block stays on the LEFT (50%), Dragged block placed on the RIGHT (50%)
+          next[currentTargetIdx] = {
+            ...next[currentTargetIdx],
+            properties: { ...next[currentTargetIdx].properties, align: "left" },
+          };
+          const updatedMoved: EditorBlock = {
+            ...moved,
+            properties: { ...moved.properties, align: "right" },
+          };
+          next.splice(currentTargetIdx + 1, 0, updatedMoved);
+        }
+
+        triggerAutosave(next);
+        return next;
+      }
+
+      // Vertical reordering (before / after)
       if (isMultiDrag) {
         if (selectedBlockIds.has(targetBlock.id)) return prev;
 
-        const selectedBlocks = prev.filter((b) => selectedBlockIds.has(b.id));
+        const selectedBlocks = prev
+          .filter((b) => selectedBlockIds.has(b.id))
+          .map((b) => ({
+            ...b,
+            properties: { ...b.properties, align: "full" as const },
+          }));
         const remainingBlocks = prev.filter((b) => !selectedBlockIds.has(b.id));
 
         const newTargetIdx = remainingBlocks.findIndex((b) => b.id === targetBlock.id);
@@ -912,6 +964,12 @@ export function BlockEditor({
         const [moved] = next.splice(fromIndex, 1);
         if (!moved) return prev;
 
+        // Reset to full width on vertical reordering
+        const updatedMoved: EditorBlock = {
+          ...moved,
+          properties: { ...moved.properties, align: "full" },
+        };
+
         let insertIndex = targetIndex;
         if (fromIndex < targetIndex) {
           insertIndex = position === "before" ? targetIndex - 1 : targetIndex;
@@ -919,7 +977,7 @@ export function BlockEditor({
           insertIndex = position === "before" ? targetIndex : targetIndex + 1;
         }
 
-        next.splice(insertIndex, 0, moved);
+        next.splice(insertIndex, 0, updatedMoved);
         triggerAutosave(next);
         return next;
       }
@@ -2295,7 +2353,7 @@ export function BlockEditor({
           />
 
           {/* Block Stream */}
-          <div className="space-y-2 flow-root">
+          <div className="relative flex flex-wrap items-start w-full">
             {(() => {
               let currentListNumber = 0;
               return blocks.map((block, idx) => {
