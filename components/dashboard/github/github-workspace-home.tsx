@@ -486,25 +486,6 @@ export function GitHubWorkspaceHome({
 
           {/* Right: Actions */}
           <div className="flex items-center gap-2 shrink-0">
-            {selectedRepo && (
-              <button
-                type="button"
-                onClick={() => {
-                  setCommentsDrawer({
-                    isOpen: true,
-                    entityType: "github_repo",
-                    entityId: selectedRepo.full_name,
-                    entityTitle: `${selectedRepo.name} · Discussão do Workspace`,
-                    snippet: null,
-                  });
-                }}
-                className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shadow-2xs cursor-pointer"
-                title="Abrir chat de discussão do workspace"
-              >
-                <MessageSquare className="h-3 w-3 text-blue-500" />
-                <span>Discussão</span>
-              </button>
-            )}
 
             <button
               type="button"
