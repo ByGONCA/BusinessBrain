@@ -342,7 +342,7 @@ export function CodeViewer({
   return (
     <div
       ref={containerRef}
-      className="relative rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-xs overflow-hidden"
+      className="relative rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-xs overflow-hidden h-full flex flex-col"
     >
       {/* Scoped CSS guarantees exact VS Code Dark+ & Light+ token palette */}
       <style>{`
@@ -371,7 +371,7 @@ export function CodeViewer({
       `}</style>
 
       {/* ================= Top Action Bar ================= */}
-      <div className="bg-zinc-100/70 dark:bg-[#121214] border-b border-zinc-200 dark:border-zinc-800/90 px-4 py-2.5 flex items-center justify-between gap-3 text-xs">
+      <div className="shrink-0 bg-zinc-100/70 dark:bg-[#121214] border-b border-zinc-200 dark:border-zinc-800/90 px-4 py-2.5 flex items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-2 min-w-0">
           {onBack && (
             <button
@@ -565,7 +565,7 @@ export function CodeViewer({
         <div
           onContextMenu={handleContextMenu}
           onMouseUp={handleCodeMouseUp}
-          className="overflow-x-auto max-h-[720px] overflow-y-auto bg-zinc-50/50 dark:bg-[#1a1a1d] text-zinc-900 dark:text-zinc-100 font-mono text-[12px] leading-relaxed select-text"
+          className="flex-1 min-h-0 overflow-x-auto overflow-y-auto bg-zinc-50/50 dark:bg-[#1a1a1d] text-zinc-900 dark:text-zinc-100 font-mono text-[12px] leading-relaxed select-text"
         >
           <table className="w-full border-collapse">
             <tbody>

@@ -462,11 +462,11 @@ export function GitHubWorkspaceHome({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background text-foreground flex flex-col min-h-screen">
+    <div className="flex-1 bg-background text-foreground flex flex-col h-full overflow-y-auto lg:overflow-hidden">
       {/* ========================================================================= */}
       {/* UNIFIED PROFESSIONAL HEADER: Clean repository selector, status & actions */}
       {/* ========================================================================= */}
-      <header className="sticky top-0 z-30 border-b border-border bg-background px-6 py-3">
+      <header className="shrink-0 z-30 border-b border-border bg-background px-6 py-2.5">
         <div className="flex items-center justify-between gap-4">
           {/* Left: GitHub icon & Opaque Repository Selector */}
           <div className="flex items-center gap-3 min-w-0">
@@ -549,11 +549,11 @@ export function GitHubWorkspaceHome({
           </div>
         </div>
       ) : (
-        <div className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-w-7xl mx-auto w-full">
+        <div className="flex-1 min-h-0 p-4 sm:p-5 grid grid-cols-1 lg:grid-cols-12 gap-5 max-w-7xl mx-auto w-full lg:overflow-hidden">
           {/* ========================================================================= */}
           {/* LEFT SIDE (7 Cols): Repository File Tree OR In-App File Viewer */}
           {/* ========================================================================= */}
-          <div className="lg:col-span-7 space-y-4">
+          <div className="lg:col-span-7 h-full min-h-0 flex flex-col">
             {viewingFile ? (
               <CodeViewer
                 filePath={viewingFile.path}
@@ -594,9 +594,9 @@ export function GitHubWorkspaceHome({
               />
             ) : (
               /* ================= REPO FILE TREE LIST ================= */
-              <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
+              <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden h-full flex flex-col">
                 {/* Explorer Header / Breadcrumb navigation */}
-                <div className="bg-muted/40 border-b border-border px-4 py-2.5 flex items-center justify-between gap-3 text-xs">
+                <div className="shrink-0 bg-muted/40 border-b border-border px-4 py-2.5 flex items-center justify-between gap-3 text-xs">
                   <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                     <button
                       type="button"
@@ -650,7 +650,7 @@ export function GitHubWorkspaceHome({
                     Empty directory or no accessible files.
                   </div>
                 ) : (
-                  <div className="divide-y divide-border text-xs">
+                  <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-border text-xs">
                     {contents.map((item) => (
                       <div
                         key={item.sha || item.name}
@@ -710,9 +710,9 @@ export function GitHubWorkspaceHome({
           {/* ========================================================================= */}
           {/* RIGHT SIDE (5 Cols): Scoped Repository Activity, Pulls, Issues & Brain Tools */}
           {/* ========================================================================= */}
-          <div className="lg:col-span-5 space-y-4">
+          <div className="lg:col-span-5 h-full min-h-0 flex flex-col gap-3">
             {/* Action Bar: Brain Integrations (Connect Object & Discussion) */}
-            <div className="rounded-xl border border-border bg-card p-3.5 shadow-xs flex items-center justify-between gap-2">
+            <div className="shrink-0 rounded-xl border border-border bg-card p-3 shadow-xs flex items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={() =>
@@ -747,8 +747,8 @@ export function GitHubWorkspaceHome({
             </div>
 
             {/* Tabs for Right Column */}
-            <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
-              <div className="border-b border-border bg-muted/20 flex items-center p-1 gap-1 text-xs font-medium">
+            <div className="flex-1 min-h-0 rounded-xl border border-border bg-card shadow-xs overflow-hidden flex flex-col">
+              <div className="shrink-0 border-b border-border bg-muted/20 flex items-center p-1 gap-1 text-xs font-medium">
                 <button
                   type="button"
                   onClick={() => setRightTab("activity")}
@@ -800,7 +800,7 @@ export function GitHubWorkspaceHome({
               </div>
 
               {/* Tab Content */}
-              <div className="p-4 max-h-[600px] overflow-y-auto">
+              <div className="flex-1 min-h-0 p-3.5 overflow-y-auto">
                 {/* 1. REPOSITORY RECENT ACTIVITY (Scoped to selectedRepo!) */}
                 {rightTab === "activity" && (
                   <div className="space-y-3">

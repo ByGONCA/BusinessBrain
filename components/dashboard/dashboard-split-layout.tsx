@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePathname } from "next/navigation";
 import { useSidePeek } from "@/components/dashboard/pages/side-peek-context";
 import { SidePeekPanel } from "@/components/dashboard/pages/side-peek-panel";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,8 @@ interface DashboardSplitLayoutProps {
 
 export function DashboardSplitLayout({ children }: DashboardSplitLayoutProps) {
   const { isOpen } = useSidePeek();
+  const pathname = usePathname();
+  const isFullHeightWorkspace = pathname?.startsWith("/dashboard/github");
 
   return (
     <div className="flex flex-1 overflow-hidden min-w-0 h-full">
@@ -21,11 +24,20 @@ export function DashboardSplitLayout({ children }: DashboardSplitLayoutProps) {
           isOpen ? "w-1/2 flex-1" : "w-full flex-1"
         )}
       >
-        <main className="flex-1 overflow-y-auto no-scrollbar p-6 md:p-8">
+        <main
+          className={cn(
+            "flex-1 no-scrollbar min-w-0",
+            isFullHeightWorkspace
+              ? "h-full flex flex-col overflow-hidden p-0"
+              : "overflow-y-auto p-6 md:p-8"
+          )}
+        >
           <div
             className={cn(
-              "mx-auto w-full transition-all duration-200",
-              isOpen ? "max-w-4xl" : "max-w-7xl"
+              "w-full transition-all duration-200",
+              isFullHeightWorkspace
+                ? "h-full flex flex-col flex-1 max-w-none"
+                : cn("mx-auto", isOpen ? "max-w-4xl" : "max-w-7xl")
             )}
           >
             {children}

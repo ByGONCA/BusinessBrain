@@ -672,7 +672,7 @@ export function MarkdownViewer({ content, filePath, onDiscussSelection }: Markdo
     <div
       ref={containerRef}
       onMouseUp={handleMouseUp}
-      className="relative p-6 sm:p-8 bg-white dark:bg-[#18181b] text-foreground select-text overflow-y-auto max-h-[720px] transition-colors"
+      className="relative p-6 sm:p-8 bg-white dark:bg-[#18181b] text-foreground select-text overflow-y-auto flex-1 min-h-0 transition-colors"
     >
       {/* Rendered Document Container */}
       <div className="max-w-4xl mx-auto space-y-1">
