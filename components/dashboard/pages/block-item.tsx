@@ -1191,10 +1191,12 @@ export function BlockItem({
 
   const gripTopClass =
     block.type === "heading_1"
-      ? "top-1.5"
+      ? "top-2"
       : block.type === "heading_2"
-      ? "top-1"
-      : "top-0.5";
+      ? "top-1.5"
+      : block.type === "image" || block.type === "table" || block.type === "board" || block.type === "calendar"
+      ? "top-2.5"
+      : "top-1";
 
   const blockAlign = (block.properties?.align as "left" | "right" | "full" | undefined) || "full";
   const isSideBySide = blockAlign === "left" || blockAlign === "right";
@@ -1210,7 +1212,7 @@ export function BlockItem({
       className={cn(
         "group relative flex flex-col py-1 transition-all duration-150 rounded-lg",
         isSideBySide
-          ? "w-[calc(50%-12px)] max-w-[calc(50%-12px)] shrink-0 pl-7 pr-2 mb-2"
+          ? "w-[calc(50%-12px)] max-w-[calc(50%-12px)] shrink-0 pl-8 pr-2 mb-2"
           : "w-full max-w-full shrink-0 -ml-10 pl-10 pr-2 mb-1",
         index > 0 && block.type === "heading_1" && "mt-5",
         index > 0 && block.type === "heading_2" && "mt-3.5",
@@ -1244,8 +1246,8 @@ export function BlockItem({
         {/* Block Action Controls (Grip handle in gutter) */}
         <div
           className={cn(
-            "absolute flex items-center opacity-0 group-hover:opacity-100 transition-opacity",
-            blockAlign === "full" ? "-left-7" : "left-1",
+            "absolute flex items-center z-30 opacity-0 group-hover:opacity-100 transition-opacity",
+            isSideBySide ? "-left-7" : "-left-8",
             gripTopClass
           )}
         >
@@ -1272,14 +1274,14 @@ export function BlockItem({
                 e.stopPropagation();
                 setMenuOpen(!menuOpen);
               }}
-              className="flex h-5 w-5 items-center justify-center rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-grab active:cursor-grabbing select-none"
+              className="flex h-7 w-6 items-center justify-center rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100/90 dark:hover:bg-zinc-800 transition-colors cursor-grab active:cursor-grabbing select-none"
               title="Drag to reorder or click for actions"
             >
-              <GripVertical className="h-3.5 w-3.5" />
+              <GripVertical className="h-4.5 w-4.5" />
             </div>
 
             {menuOpen && (
-              <div className="absolute left-6 top-0 z-50 w-56 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100 select-none max-h-96 overflow-y-auto no-scrollbar">
+              <div className="absolute left-7 top-0 z-50 w-56 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100 select-none max-h-96 overflow-y-auto no-scrollbar">
                 <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
                   Quick Actions
                 </div>
