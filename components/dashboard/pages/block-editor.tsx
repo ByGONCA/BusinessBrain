@@ -2353,7 +2353,7 @@ export function BlockEditor({
           />
 
           {/* Block Stream */}
-          <div className="relative flex flex-wrap items-start w-full">
+          <div className="relative flex flex-wrap items-start justify-between w-full">
             {(() => {
               let currentListNumber = 0;
               return blocks.map((block, idx) => {

@@ -1139,17 +1139,19 @@ export function BlockItem({
     const relX = e.clientX - rect.left;
     const relY = e.clientY - rect.top;
     const normX = Math.max(0, Math.min(1, relX / rect.width));
-    const normY = Math.max(0, Math.min(1, relY / rect.height));
+
+    const isTall = rect.height >= 48;
+    const edgeThreshold = isTall ? Math.min(28, rect.height * 0.2) : 12;
 
     let position: "before" | "after" | "left" | "right";
-    if (normX < 0.22) {
-      position = "left";
-    } else if (normX > 0.78) {
-      position = "right";
-    } else if (normY < 0.5) {
+    if (relY < edgeThreshold) {
       position = "before";
-    } else {
+    } else if (rect.height - relY < edgeThreshold) {
       position = "after";
+    } else if (normX < 0.5) {
+      position = "left";
+    } else {
+      position = "right";
     }
 
     onDragBlockOver?.(index, position);
@@ -1169,17 +1171,19 @@ export function BlockItem({
     const relX = e.clientX - rect.left;
     const relY = e.clientY - rect.top;
     const normX = Math.max(0, Math.min(1, relX / rect.width));
-    const normY = Math.max(0, Math.min(1, relY / rect.height));
+
+    const isTall = rect.height >= 48;
+    const edgeThreshold = isTall ? Math.min(28, rect.height * 0.2) : 12;
 
     let position: "before" | "after" | "left" | "right";
-    if (normX < 0.22) {
-      position = "left";
-    } else if (normX > 0.78) {
-      position = "right";
-    } else if (normY < 0.5) {
+    if (relY < edgeThreshold) {
       position = "before";
-    } else {
+    } else if (rect.height - relY < edgeThreshold) {
       position = "after";
+    } else if (normX < 0.5) {
+      position = "left";
+    } else {
+      position = "right";
     }
 
     onDropBlock?.(index, position);
@@ -1193,6 +1197,7 @@ export function BlockItem({
       : "top-0.5";
 
   const blockAlign = (block.properties?.align as "left" | "right" | "full" | undefined) || "full";
+  const isSideBySide = blockAlign === "left" || blockAlign === "right";
 
   return (
     <div
@@ -1204,9 +1209,9 @@ export function BlockItem({
       onDrop={handleDrop}
       className={cn(
         "group relative flex flex-col py-1 transition-all duration-150 rounded-lg",
-        blockAlign === "left" && "w-full md:w-[calc(50%-10px)] md:mr-5 ml-0 pl-7 pr-2 mb-2",
-        blockAlign === "right" && "w-full md:w-[calc(50%-10px)] ml-0 pl-7 pr-2 mb-2",
-        blockAlign === "full" && "w-full -ml-10 pl-10 pr-2 mb-1",
+        isSideBySide
+          ? "w-[calc(50%-12px)] max-w-[calc(50%-12px)] shrink-0 pl-7 pr-2 mb-2"
+          : "w-full max-w-full shrink-0 -ml-10 pl-10 pr-2 mb-1",
         index > 0 && block.type === "heading_1" && "mt-5",
         index > 0 && block.type === "heading_2" && "mt-3.5",
         index > 0 && block.type === "heading_3" && "mt-2",
