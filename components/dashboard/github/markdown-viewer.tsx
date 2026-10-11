@@ -27,6 +27,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/lib/i18n";
 import { detectLanguageFromPath, tokenizeCodeToLines, getTokenClasses } from "@/lib/code-viewer/syntax";
 
 export interface MarkdownViewerProps {
@@ -146,6 +147,8 @@ function parseInlineTokens(text: string): React.ReactNode[] {
 // Fenced Code Block with Syntax Highlighting & Copy
 // ------------------------------------------------------------------------------
 function MarkdownCodeBlock({ code, lang }: { code: string; lang: string }) {
+  const { locale } = useLanguage();
+  const isPt = locale === "pt";
   const [copied, setCopied] = React.useState(false);
   const detectedLang = lang.trim().toLowerCase() || "plaintext";
 
@@ -170,17 +173,17 @@ function MarkdownCodeBlock({ code, lang }: { code: string; lang: string }) {
           type="button"
           onClick={handleCopy}
           className="flex items-center gap-1 px-2 py-0.5 rounded text-[11px] text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors cursor-pointer"
-          title="Copiar código"
+          title={isPt ? "Copiar código" : "Copy code"}
         >
           {copied ? (
             <>
               <Check className="h-3 w-3 text-emerald-400" />
-              <span className="text-emerald-400 font-semibold">Copiado!</span>
+              <span className="text-emerald-400 font-semibold">{isPt ? "Copiado!" : "Copied!"}</span>
             </>
           ) : (
             <>
               <Copy className="h-3 w-3" />
-              <span>Copiar</span>
+              <span>{isPt ? "Copiar" : "Copy"}</span>
             </>
           )}
         </button>
@@ -329,6 +332,9 @@ function MarkdownAlert({
 // Main MarkdownViewer Component
 // ------------------------------------------------------------------------------
 export function MarkdownViewer({ content, filePath, onDiscussSelection }: MarkdownViewerProps) {
+  const { locale } = useLanguage();
+  const isPt = locale === "pt";
+
   const containerRef = React.useRef<HTMLDivElement>(null);
   const floatingRef = React.useRef<HTMLDivElement>(null);
   const [floatingAction, setFloatingAction] = React.useState<{
@@ -690,7 +696,7 @@ export function MarkdownViewer({ content, filePath, onDiscussSelection }: Markdo
           }}
         >
           <MessageSquare className="h-3.5 w-3.5 text-blue-400 dark:text-blue-600" />
-          <span>Adicionar ao Chat</span>
+          <span>{isPt ? "Adicionar ao Chat" : "Add to Chat"}</span>
         </div>
       )}
     </div>

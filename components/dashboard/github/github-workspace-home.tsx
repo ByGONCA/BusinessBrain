@@ -42,6 +42,7 @@ import {
   PhosphorArrowsClockwise,
 } from "@/components/icons";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/lib/i18n";
 import {
   GitHubOverviewStats,
   GitHubRepository,
@@ -83,6 +84,9 @@ export function GitHubWorkspaceHome({
   initialStartLine,
   initialEndLine,
 }: GitHubWorkspaceHomeProps) {
+  const { locale } = useLanguage();
+  const isPt = locale === "pt";
+
   const [overview, setOverview] = React.useState<GitHubOverviewStats | undefined>(initialOverview);
   const [repositories, setRepositories] = React.useState<GitHubRepository[]>(initialRepositories);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -474,7 +478,7 @@ export function GitHubWorkspaceHome({
             <div className="flex items-center gap-2 min-w-0">
               <FolderGit2 className="h-4 w-4 text-blue-500 shrink-0" />
               <span className="font-mono text-sm font-semibold text-foreground truncate">
-                {selectedRepo ? `${selectedRepo.owner.login} / ${selectedRepo.name}` : (defaultRepository || "Repositório Principal")}
+                {selectedRepo ? `${selectedRepo.owner.login} / ${selectedRepo.name}` : (defaultRepository || (isPt ? "Repositório Principal" : "Main Repository"))}
               </span>
               {selectedRepo && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground uppercase font-sans">
@@ -576,7 +580,7 @@ export function GitHubWorkspaceHome({
                     isOpen: true,
                     entityType: "github_repo",
                     entityId: selectedRepo?.full_name || defaultRepository || "workspace",
-                    entityTitle: `${selectedRepo?.name || "Repository"} · ${selection.filePath || viewingFile?.name || "Discussão"}`,
+                    entityTitle: `${selectedRepo?.name || "Repository"} · ${selection.filePath || viewingFile?.name || (isPt ? "Discussão" : "Discussion")}`,
                     snippet: targetCode
                       ? {
                           filePath: selection.filePath || viewingFile?.path || "",

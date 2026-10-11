@@ -29,6 +29,7 @@ import { AddToPageModal } from "./add-to-page-modal";
 import { MarkdownViewer } from "./markdown-viewer";
 import { searchPagesAction } from "@/lib/pages/actions";
 import { PageRecord } from "@/lib/pages/types";
+import { useLanguage } from "@/lib/i18n";
 import {
   detectLanguageFromPath,
   tokenizeCodeToLines,
@@ -77,6 +78,9 @@ export function CodeViewer({
   onBack,
   onDiscussSelection,
 }: CodeViewerProps) {
+  const { locale } = useLanguage();
+  const isPt = locale === "pt";
+
   const [copied, setCopied] = React.useState(false);
   const [contextMenu, setContextMenu] = React.useState<ContextMenuState | null>(null);
   const [isAddToPageOpen, setIsAddToPageOpen] = React.useState(false);
@@ -374,7 +378,7 @@ export function CodeViewer({
               type="button"
               onClick={onBack}
               className="p-1 rounded-md text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
-              title="Voltar ao repositório"
+              title={isPt ? "Voltar ao repositório" : "Back to repository"}
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
@@ -393,29 +397,27 @@ export function CodeViewer({
                 type="button"
                 onClick={() => setViewMode("code")}
                 className={cn(
-                  "flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium transition-all cursor-pointer",
+                  "flex items-center justify-center p-1.5 rounded transition-all cursor-pointer",
                   viewMode === "code"
                     ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-2xs"
                     : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
                 )}
-                title="Ver código fonte bruto"
+                title={isPt ? "Código fonte" : "Source code"}
               >
-                <Code2 className="h-3 w-3" />
-                <span>Code</span>
+                <Code2 className="h-3.5 w-3.5" />
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode("preview")}
                 className={cn(
-                  "flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium transition-all cursor-pointer",
+                  "flex items-center justify-center p-1.5 rounded transition-all cursor-pointer",
                   viewMode === "preview"
                     ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-2xs"
                     : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
                 )}
-                title="Ver documento formatado"
+                title={isPt ? "Pré-visualização" : "Preview"}
               >
-                <Eye className="h-3 w-3" />
-                <span>Preview</span>
+                <Eye className="h-3.5 w-3.5" />
               </button>
             </div>
           )}
@@ -441,10 +443,10 @@ export function CodeViewer({
                 setIsAddToPageOpen(true);
               }}
               className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700/80 transition-colors shadow-2xs cursor-pointer"
-              title="Adicionar excerto ou ficheiro a uma página do workspace"
+              title={isPt ? "Adicionar excerto ou ficheiro a uma página do workspace" : "Add snippet or file to a workspace page"}
             >
               <FilePlus className="h-3 w-3 text-blue-500 shrink-0" />
-              <span>Adicionar a Página</span>
+              <span>{isPt ? "Adicionar a Página" : "Add to Page"}</span>
             </button>
           )}
 
@@ -453,17 +455,17 @@ export function CodeViewer({
               type="button"
               onClick={handleCopy}
               className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700/80 transition-colors shadow-2xs cursor-pointer"
-              title="Copiar código"
+              title={isPt ? "Copiar código" : "Copy code"}
             >
               {copied ? (
                 <>
                   <Check className="h-3 w-3 text-emerald-500" />
-                  <span className="text-emerald-500 font-semibold">Copiado!</span>
+                  <span className="text-emerald-500 font-semibold">{isPt ? "Copiado!" : "Copied!"}</span>
                 </>
               ) : (
                 <>
                   <Copy className="h-3 w-3 opacity-70" />
-                  <span>Copy</span>
+                  <span>{isPt ? "Copiar" : "Copy"}</span>
                 </>
               )}
             </button>
@@ -489,7 +491,7 @@ export function CodeViewer({
                 onDiscussSelection(data);
               }}
               className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium border border-blue-500/30 bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors shadow-2xs cursor-pointer"
-              title="Abrir chat do workspace e adicionar à discussão"
+              title={isPt ? "Abrir chat do workspace e adicionar à discussão" : "Open workspace chat and add to discussion"}
             >
               <MessageSquare className="h-3 w-3 shrink-0" />
               <span>Chat</span>
@@ -502,7 +504,7 @@ export function CodeViewer({
       {loading ? (
         <div className="p-16 flex flex-col items-center justify-center text-zinc-500 text-xs gap-3">
           <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-          <span>A carregar ficheiro do GitHub...</span>
+          <span>{isPt ? "A carregar ficheiro do GitHub..." : "Loading file from GitHub..."}</span>
         </div>
       ) : error ? (
         <div className="p-12 text-center space-y-3">
@@ -514,16 +516,18 @@ export function CodeViewer({
               onClick={onRetry}
               className="rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 px-3 py-1.5 text-xs font-semibold cursor-pointer hover:opacity-90"
             >
-              Tentar novamente
+              {isPt ? "Tentar novamente" : "Try again"}
             </button>
           )}
         </div>
       ) : isBinary ? (
         <div className="p-16 text-center text-zinc-500 space-y-3">
           <PhosphorFile className="h-10 w-10 mx-auto opacity-40 text-zinc-400" />
-          <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">Ficheiro Binário</p>
+          <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">{isPt ? "Ficheiro Binário" : "Binary File"}</p>
           <p className="text-[11px] text-zinc-500">
-            Este formato não pode ser pré-visualizado como texto ({formatFileSize(size)}).
+            {isPt
+              ? `Este formato não pode ser pré-visualizado como texto (${formatFileSize(size)}).`
+              : `This format cannot be previewed as text (${formatFileSize(size)}).`}
           </p>
           {htmlUrl && (
             <a
@@ -532,7 +536,7 @@ export function CodeViewer({
               rel="noreferrer"
               className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline"
             >
-              <span>Abrir no GitHub</span>
+              <span>{isPt ? "Abrir no GitHub" : "Open on GitHub"}</span>
               <ExternalLink className="h-3 w-3" />
             </a>
           )}
@@ -540,7 +544,7 @@ export function CodeViewer({
       ) : content === "" ? (
         <div className="p-16 text-center text-zinc-400 space-y-2">
           <FileCode className="h-8 w-8 mx-auto opacity-40" />
-          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Ficheiro vazio (0 bytes)</p>
+          <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{isPt ? "Ficheiro vazio (0 bytes)" : "Empty file (0 bytes)"}</p>
         </div>
       ) : isMarkdown && viewMode === "preview" ? (
         <MarkdownViewer
@@ -633,7 +637,7 @@ export function CodeViewer({
           }}
         >
           <MessageSquare className="h-3.5 w-3.5 text-blue-400 dark:text-blue-600" />
-          <span>Adicionar ao Chat</span>
+          <span>{isPt ? "Adicionar ao Chat" : "Add to Chat"}</span>
           {floatingAction.selectionData.startLine && (
             <span className="text-[10px] opacity-75 font-mono">
               (L{floatingAction.selectionData.startLine}{floatingAction.selectionData.endLine && floatingAction.selectionData.endLine !== floatingAction.selectionData.startLine ? `–L${floatingAction.selectionData.endLine}` : ""})
@@ -659,9 +663,9 @@ export function CodeViewer({
               {contextMenu.selectionData.startLine !== undefined &&
               contextMenu.selectionData.endLine !== undefined
                 ? contextMenu.selectionData.startLine === contextMenu.selectionData.endLine
-                  ? `Comentar linha ${contextMenu.selectionData.startLine}`
-                  : `Comentar linhas ${contextMenu.selectionData.startLine}–${contextMenu.selectionData.endLine}`
-                : "Comentar seleção"}
+                  ? (isPt ? `Comentar linha ${contextMenu.selectionData.startLine}` : `Comment on line ${contextMenu.selectionData.startLine}`)
+                  : (isPt ? `Comentar linhas ${contextMenu.selectionData.startLine}–${contextMenu.selectionData.endLine}` : `Comment on lines ${contextMenu.selectionData.startLine}–${contextMenu.selectionData.endLine}`)
+                : (isPt ? "Comentar seleção" : "Comment on selection")}
             </span>
           </button>
 
@@ -690,7 +694,7 @@ export function CodeViewer({
             >
               <div className="flex items-center gap-2">
                 <FilePlus className="h-3.5 w-3.5 shrink-0 text-blue-500" />
-                <span>Adicionar a uma página</span>
+                <span>{isPt ? "Adicionar a uma página" : "Add to a page"}</span>
               </div>
               <ChevronRight className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
             </button>
@@ -706,13 +710,13 @@ export function CodeViewer({
                 )}
               >
                 <div className="px-2 py-1 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
-                  Escolher Página
+                  {isPt ? "Escolher Página" : "Choose Page"}
                 </div>
 
                 <div className="max-h-48 overflow-y-auto space-y-0.5">
                   {workspacePages.length === 0 ? (
                     <div className="px-2 py-2 text-zinc-400 text-[11px] italic">
-                      A carregar páginas...
+                      {isPt ? "A carregar páginas..." : "Loading pages..."}
                     </div>
                   ) : (
                     workspacePages.map((page) => (
@@ -729,7 +733,7 @@ export function CodeViewer({
                         className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 text-zinc-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 text-left transition-colors cursor-pointer truncate"
                       >
                         <PageIcon icon={page.icon} pageId={page.id} className="h-4 w-4 shrink-0 text-sm" imgClassName="h-4 w-4 rounded shrink-0 object-cover" />
-                        <span className="truncate">{page.title || "Sem título"}</span>
+                        <span className="truncate">{page.title || (isPt ? "Sem título" : "Untitled")}</span>
                       </button>
                     ))
                   )}
@@ -748,7 +752,7 @@ export function CodeViewer({
                     className="w-full flex items-center gap-1.5 px-2 py-1 rounded-md text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-[11px] font-medium transition-colors cursor-pointer"
                   >
                     <Plus className="h-3 w-3" />
-                    <span>Criar nova página...</span>
+                    <span>{isPt ? "Criar nova página..." : "Create new page..."}</span>
                   </button>
                 </div>
               </div>
@@ -762,7 +766,9 @@ export function CodeViewer({
           >
             <Copy className="h-3.5 w-3.5 shrink-0 opacity-70" />
             <span>
-              {contextMenu.isSpecificLineOnly ? "Copiar linha" : "Copiar seleção"}
+              {contextMenu.isSpecificLineOnly
+                ? (isPt ? "Copiar linha" : "Copy line")
+                : (isPt ? "Copiar seleção" : "Copy selection")}
             </span>
           </button>
 
@@ -773,7 +779,7 @@ export function CodeViewer({
             onClick={() => setContextMenu(null)}
             className="w-full flex items-center justify-between px-2.5 py-1 text-[11px] rounded text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors cursor-pointer"
           >
-            <span>Fechar menu</span>
+            <span>{isPt ? "Fechar menu" : "Close menu"}</span>
             <span className="font-mono text-[10px] text-zinc-400">Esc</span>
           </button>
         </div>

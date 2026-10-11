@@ -33,6 +33,7 @@ import {
   Sigma,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/lib/i18n";
 import { PageIcon } from "@/components/dashboard/pages/page-icon";
 import { CodeSelectionData } from "./code-viewer";
 import {
@@ -60,6 +61,8 @@ export function AddToPageModal({
   initialPageId,
 }: AddToPageModalProps) {
   const router = useRouter();
+  const { locale } = useLanguage();
+  const isPt = locale === "pt";
 
   const [pages, setPages] = React.useState<PageRecord[]>([]);
   const [loadingPages, setLoadingPages] = React.useState(false);
@@ -99,8 +102,8 @@ export function AddToPageModal({
     setIsCreatingNewPage(false);
 
     if (snippet) {
-      const fileName = snippet.filePath.split("/").pop() || "ficheiro";
-      setNewPageTitle(`Notas: ${fileName}`);
+      const fileName = snippet.filePath.split("/").pop() || (isPt ? "ficheiro" : "file");
+      setNewPageTitle(isPt ? `Notas: ${fileName}` : `Notes: ${fileName}`);
     }
 
     let isMounted = true;
@@ -187,7 +190,7 @@ export function AddToPageModal({
       });
 
       if (!res.success) {
-        setError(res.error || "Não foi possível inserir o excerto.");
+        setError(res.error || (isPt ? "Não foi possível inserir o excerto." : "Failed to insert snippet."));
         setInsertingIndex(null);
         return;
       }
@@ -198,7 +201,7 @@ export function AddToPageModal({
       setLastInsertedIndex(index);
       setIsDone(true);
     } catch {
-      setError("Ocorreu um erro ao inserir o excerto na página.");
+      setError(isPt ? "Ocorreu um erro ao inserir o excerto na página." : "An error occurred while inserting snippet to page.");
     } finally {
       setInsertingIndex(null);
     }
@@ -207,7 +210,7 @@ export function AddToPageModal({
   // Create new page and select it
   const handleCreateNewPage = async (e: React.FormEvent) => {
     e.preventDefault();
-    const title = newPageTitle.trim() || `Notas: ${fileName}`;
+    const title = newPageTitle.trim() || (isPt ? `Notas: ${fileName}` : `Notes: ${fileName}`);
     setLoadingPageContent(true);
     try {
       const res = await createPageAction({ title, icon: "📄" });
@@ -216,7 +219,7 @@ export function AddToPageModal({
         setSelectedPageId(res.page.id);
         setIsCreatingNewPage(false);
       } else {
-        setError(res.error || "Não foi possível criar a página.");
+        setError(res.error || (isPt ? "Não foi possível criar a página." : "Failed to create page."));
       }
     } finally {
       setLoadingPageContent(false);
@@ -243,7 +246,7 @@ export function AddToPageModal({
             >
               <PageIcon icon={activePage?.icon} pageId={activePage?.id} className="h-4 w-4 shrink-0 text-sm" imgClassName="h-4 w-4 rounded shrink-0 object-cover" />
               <span className="truncate max-w-[200px]">
-                {activePage?.title || "Selecionar Página"}
+                {activePage?.title || (isPt ? "Selecionar Página" : "Select Page")}
               </span>
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             </button>
@@ -271,7 +274,7 @@ export function AddToPageModal({
                     >
                       <div className="flex items-center gap-2 truncate">
                         <PageIcon icon={p.icon} pageId={p.id} className="h-4 w-4 shrink-0 text-sm" imgClassName="h-4 w-4 rounded shrink-0 object-cover" />
-                        <span className="truncate">{p.title || "Sem título"}</span>
+                        <span className="truncate">{p.title || (isPt ? "Sem título" : "Untitled")}</span>
                       </div>
                       {selectedPageId === p.id && <Check className="h-3.5 w-3.5 shrink-0" />}
                     </button>
@@ -288,7 +291,7 @@ export function AddToPageModal({
                     className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 font-medium transition-colors cursor-pointer"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    <span>Criar nova página...</span>
+                    <span>{isPt ? "Criar nova página..." : "Create new page..."}</span>
                   </button>
                 </div>
               </div>
@@ -325,14 +328,14 @@ export function AddToPageModal({
             <Sparkles className="h-3.5 w-3.5 text-blue-500 shrink-0" />
             <span>
               {isDone
-                ? "Excerto inserido na página! Podes concluir ou abrir a página inteira."
-                : "Clica na linha onde queres colocar o excerto de código nesta página:"}
+                ? (isPt ? "Excerto inserido na página! Podes concluir ou abrir a página inteira." : "Snippet inserted into page! You can finish or open the full page.")
+                : (isPt ? "Clica na linha onde queres colocar o excerto de código nesta página:" : "Click on the line where you want to insert the code snippet on this page:")}
             </span>
           </div>
           {isDone && (
             <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
               <Check className="h-3.5 w-3.5" />
-              <span>Inserido</span>
+              <span>{isPt ? "Inserido" : "Inserted"}</span>
             </span>
           )}
         </div>
@@ -347,7 +350,7 @@ export function AddToPageModal({
               type="text"
               value={newPageTitle}
               onChange={(e) => setNewPageTitle(e.target.value)}
-              placeholder="Título da nova página..."
+              placeholder={isPt ? "Título da nova página..." : "New page title..."}
               autoFocus
               className="flex-1 rounded-lg border border-input bg-background px-3 py-1.5 text-xs text-foreground focus:border-blue-500 focus:outline-none"
             />
@@ -355,14 +358,14 @@ export function AddToPageModal({
               type="submit"
               className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium cursor-pointer"
             >
-              Criar e Ver
+              {isPt ? "Criar e Ver" : "Create & View"}
             </button>
             <button
               type="button"
               onClick={() => setIsCreatingNewPage(false)}
               className="px-2.5 py-1.5 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer"
             >
-              Cancelar
+              {isPt ? "Cancelar" : "Cancel"}
             </button>
           </form>
         )}
@@ -372,11 +375,11 @@ export function AddToPageModal({
           {loadingPageContent ? (
             <div className="py-20 flex flex-col items-center justify-center text-muted-foreground text-xs gap-3">
               <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-              <span>A carregar conteúdo da página...</span>
+              <span>{isPt ? "A carregar conteúdo da página..." : "Loading page content..."}</span>
             </div>
           ) : !activePage ? (
             <div className="py-16 text-center text-muted-foreground text-xs">
-              Nenhuma página selecionada.
+              {isPt ? "Nenhuma página selecionada." : "No page selected."}
             </div>
           ) : (
             <div className="max-w-xl mx-auto space-y-1">
@@ -391,7 +394,7 @@ export function AddToPageModal({
                   />
                 </div>
                 <h1 className="text-xl font-bold text-foreground">
-                  {activePage.title || "Sem título"}
+                  {activePage.title || (isPt ? "Sem título" : "Untitled")}
                 </h1>
               </div>
 
@@ -400,13 +403,15 @@ export function AddToPageModal({
                 onClick={() => handleInsertAt(0)}
                 isInserting={insertingIndex === 0}
                 isInserted={lastInsertedIndex === 0}
-                label="Inserir no início da página"
+                label={isPt ? "Inserir no início da página" : "Insert at top of page"}
               />
 
               {/* Empty Page State */}
               {pageBlocks.length === 0 && (
                 <div className="py-6 text-center text-muted-foreground text-xs italic">
-                  Esta página ainda está vazia. Clica acima ou abaixo para adicionar o primeiro bloco de código.
+                  {isPt
+                    ? "Esta página ainda está vazia. Clica acima ou abaixo para adicionar o primeiro bloco de código."
+                    : "This page is still empty. Click above or below to add the first code block."}
                 </div>
               )}
 
@@ -423,7 +428,7 @@ export function AddToPageModal({
                     onClick={() => handleInsertAt(idx + 1)}
                     isInserting={insertingIndex === idx + 1}
                     isInserted={lastInsertedIndex === idx + 1}
-                    label={`Inserir após ${getBlockLabel(block)}`}
+                    label={isPt ? `Inserir após ${getBlockLabel(block, isPt)}` : `Insert after ${getBlockLabel(block, isPt)}`}
                   />
                 </React.Fragment>
               ))}
@@ -441,8 +446,8 @@ export function AddToPageModal({
         <div className="p-3 border-t border-border bg-card flex items-center justify-between gap-3 text-xs">
           <span className="text-muted-foreground text-[11px] truncate">
             {isDone
-              ? "Excerto guardado com sucesso na página."
-              : "Passa o rato entre o texto para ver os pontos de inserção."}
+              ? (isPt ? "Excerto guardado com sucesso na página." : "Snippet successfully saved to page.")
+              : (isPt ? "Passa o rato entre o texto para ver os pontos de inserção." : "Hover between text to reveal insertion points.")}
           </span>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -451,7 +456,7 @@ export function AddToPageModal({
               onClick={onClose}
               className="px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted text-foreground font-medium transition-colors cursor-pointer shadow-2xs"
             >
-              {isDone ? "Concluir" : "Cancelar"}
+              {isDone ? (isPt ? "Concluir" : "Done") : (isPt ? "Cancelar" : "Cancel")}
             </button>
 
             {selectedPageId && (
@@ -463,7 +468,7 @@ export function AddToPageModal({
                 }}
                 className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
               >
-                <span>Abrir Página Completa</span>
+                <span>{isPt ? "Abrir Página Completa" : "Open Full Page"}</span>
                 <ExternalLink className="h-3.5 w-3.5" />
               </button>
             )}
@@ -481,19 +486,23 @@ function InsertionSlot({
   onClick,
   isInserting,
   isInserted,
-  label = "Inserir aqui",
+  label,
 }: {
   onClick: () => void;
   isInserting: boolean;
   isInserted?: boolean;
   label?: string;
 }) {
+  const { locale } = useLanguage();
+  const isPt = locale === "pt";
+  const resolvedLabel = label || (isPt ? "Inserir aqui" : "Insert here");
+
   if (isInserted) {
     return (
       <div className="py-1 flex items-center justify-center">
         <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1">
           <Check className="h-3 w-3" />
-          <span>Inserido aqui</span>
+          <span>{isPt ? "Inserido aqui" : "Inserted here"}</span>
         </span>
       </div>
     );
@@ -509,12 +518,12 @@ function InsertionSlot({
           {isInserting ? (
             <>
               <Loader2 className="h-3 w-3 animate-spin" />
-              <span>A inserir...</span>
+              <span>{isPt ? "A inserir..." : "Inserting..."}</span>
             </>
           ) : (
             <>
               <Plus className="h-3 w-3" />
-              <span>{label}</span>
+              <span>{resolvedLabel}</span>
             </>
           )}
         </div>
@@ -526,21 +535,22 @@ function InsertionSlot({
 /**
  * Helper to identify block summary for slot labels
  */
-function getBlockLabel(block: EditorBlock): string {
+function getBlockLabel(block: EditorBlock, isPt: boolean): string {
   if (block.type === "heading_1" || block.type === "heading_2" || block.type === "heading_3") {
-    return `título "${(block.content || "").replace(/<[^>]*>?/gm, "").slice(0, 16)}..."`;
+    const heading = (block.content || "").replace(/<[^>]*>?/gm, "").slice(0, 16);
+    return isPt ? `título "${heading}..."` : `heading "${heading}..."`;
   }
-  if (block.type === "code") return "bloco de código";
-  if (block.type === "callout") return "destaque";
-  if (block.type === "calendar") return "calendário";
-  if (block.type === "table") return "tabela";
-  if (block.type === "board") return "quadro Kanban";
-  if (block.type === "gallery") return "galeria";
-  if (block.type === "list") return "lista";
-  if (block.type === "image") return "imagem";
-  if (block.type === "quote") return "citação";
-  if (block.type === "checklist") return "tarefa";
-  return "parágrafo";
+  if (block.type === "code") return isPt ? "bloco de código" : "code block";
+  if (block.type === "callout") return isPt ? "destaque" : "callout";
+  if (block.type === "calendar") return isPt ? "calendário" : "calendar";
+  if (block.type === "table") return isPt ? "tabela" : "table";
+  if (block.type === "board") return isPt ? "quadro Kanban" : "Kanban board";
+  if (block.type === "gallery") return isPt ? "galeria" : "gallery";
+  if (block.type === "list") return isPt ? "lista" : "list";
+  if (block.type === "image") return isPt ? "imagem" : "image";
+  if (block.type === "quote") return isPt ? "citação" : "quote";
+  if (block.type === "checklist") return isPt ? "tarefa" : "checklist item";
+  return isPt ? "parágrafo" : "paragraph";
 }
 
 /**

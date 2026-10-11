@@ -22,6 +22,7 @@ import {
   Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase/client";
 import {
   getEntityCommentsAction,
@@ -129,6 +130,8 @@ function CommentSnippetView({
   snippet: CodeSnippetReference;
   onOpenFile?: (filePath: string, startLine?: number, endLine?: number) => void;
 }) {
+  const { locale } = useLanguage();
+  const isPt = locale === "pt";
   const [isExpanded, setIsExpanded] = React.useState(false);
   const rawLines = React.useMemo(() => snippet.selectedCode.split("\n"), [snippet.selectedCode]);
   const isLong = rawLines.length > 3;
@@ -150,7 +153,7 @@ function CommentSnippetView({
             type="button"
             onClick={() => onOpenFile(snippet.filePath, snippet.startLine, snippet.endLine)}
             className="group/link flex items-center gap-1.5 font-mono text-left truncate min-w-0 text-zinc-700 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
-            title={`Abrir ${snippet.filePath} na linha ${snippet.startLine || 1}`}
+            title={isPt ? `Abrir ${snippet.filePath} na linha ${snippet.startLine || 1}` : `Open ${snippet.filePath} at line ${snippet.startLine || 1}`}
           >
             <FileCode className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0 group-hover/link:text-blue-500" />
             <span className="font-semibold truncate text-[11px] group-hover/link:underline">
@@ -180,7 +183,7 @@ function CommentSnippetView({
             onClick={() => setIsExpanded(!isExpanded)}
             className="text-[10px] text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 bg-zinc-200/80 dark:bg-zinc-800/80 hover:bg-zinc-300 dark:hover:bg-zinc-700/80 px-1.5 py-0.5 rounded flex items-center gap-1 shrink-0 cursor-pointer transition-colors"
           >
-            <span>{isExpanded ? "Recolher" : `+${rawLines.length - 3} lin.`}</span>
+            <span>{isExpanded ? (isPt ? "Recolher" : "Collapse") : `+${rawLines.length - 3} ${isPt ? "lin." : "lines"}`}</span>
             {isExpanded ? <ChevronUp className="h-2.5 w-2.5" /> : <ChevronDown className="h-2.5 w-2.5" />}
           </button>
         )}
@@ -223,6 +226,9 @@ export function GitHubCommentsDrawer({
   onClearCodeSnippet,
   onOpenFile,
 }: GitHubCommentsDrawerProps) {
+  const { locale } = useLanguage();
+  const isPt = locale === "pt";
+
   const [currentUser, setCurrentUser] = React.useState<{
     id: string;
     name?: string;
@@ -250,7 +256,7 @@ export function GitHubCommentsDrawer({
         if (user) {
           setCurrentUser({
             id: user.id,
-            name: user.user_metadata?.full_name || user.email?.split("@")[0] || "Tu",
+            name: user.user_metadata?.full_name || user.email?.split("@")[0] || (isPt ? "Tu" : "You"),
             avatar: user.user_metadata?.avatar_url,
           });
         }
@@ -258,7 +264,7 @@ export function GitHubCommentsDrawer({
     } catch {
       // ignore
     }
-  }, []);
+  }, [isPt]);
 
   // 2. Sync attached code snippet when opened or when snippet prop updates
   React.useEffect(() => {
@@ -430,7 +436,7 @@ export function GitHubCommentsDrawer({
 
   const formatRelativeTime = (iso: string) => {
     const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-    if (diff < 60) return "agora";
+    if (diff < 60) return isPt ? "agora" : "just now";
     if (diff < 3600) return `${Math.floor(diff / 60)}m`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
     return `${Math.floor(diff / 86400)}d`;
@@ -446,7 +452,9 @@ export function GitHubCommentsDrawer({
               <MessageSquare className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-semibold truncate text-foreground">Discussão do Workspace</h3>
+              <h3 className="text-sm font-semibold truncate text-foreground">
+                {isPt ? "Discussão do Workspace" : "Workspace Discussion"}
+              </h3>
               <p className="text-[11px] text-muted-foreground truncate font-mono">{entityTitle}</p>
             </div>
           </div>
@@ -463,11 +471,13 @@ export function GitHubCommentsDrawer({
         <div className="px-3 py-1.5 bg-muted/40 border-b border-border flex items-center justify-between text-[10px] text-muted-foreground select-none">
           <div className="flex items-center gap-1.5 min-w-0">
             <Lock className="h-3 w-3 text-emerald-500 shrink-0" />
-            <span className="truncate">Discussões internas privadas</span>
+            <span className="truncate">
+              {isPt ? "Discussões internas privadas" : "Private internal discussions"}
+            </span>
           </div>
           <div className="flex items-center gap-1 text-amber-600 dark:text-amber-400 shrink-0 font-medium">
             <Clock className="h-3 w-3" />
-            <span>Expira em 7 dias</span>
+            <span>{isPt ? "Expira em 7 dias" : "Expires in 7 days"}</span>
           </div>
         </div>
 
@@ -480,9 +490,11 @@ export function GitHubCommentsDrawer({
           ) : comments.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
-              <p className="text-xs font-medium">Sem mensagens ainda</p>
+              <p className="text-xs font-medium">{isPt ? "Sem mensagens ainda" : "No messages yet"}</p>
               <p className="text-[11px] mt-0.5">
-                Seleciona código no editor para fixar e comentar com a equipa.
+                {isPt
+                  ? "Seleciona código no editor para fixar e comentar com a equipa."
+                  : "Select code in the editor to pin and comment with the team."}
               </p>
             </div>
           ) : (
@@ -504,7 +516,7 @@ export function GitHubCommentsDrawer({
                       {c.author?.avatar_url ? (
                         <img
                           src={c.author.avatar_url}
-                          alt={c.author.full_name || "Membro"}
+                          alt={c.author.full_name || (isPt ? "Membro" : "Member")}
                           className="h-4 w-4 rounded-full object-cover"
                         />
                       ) : (
@@ -513,7 +525,7 @@ export function GitHubCommentsDrawer({
                         </div>
                       )}
                       <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400">
-                        {c.author?.full_name || "Membro da Equipa"}
+                        {c.author?.full_name || (isPt ? "Membro da Equipa" : "Team Member")}
                       </span>
                     </div>
                   )}
@@ -561,13 +573,13 @@ export function GitHubCommentsDrawer({
           {/* Active Reply Banner */}
           {replyToId && (
             <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-muted text-[11px] text-muted-foreground">
-              <span>A responder à mensagem</span>
+              <span>{isPt ? "A responder à mensagem" : "Replying to message"}</span>
               <button
                 type="button"
                 onClick={() => setReplyToId(null)}
                 className="text-xs hover:text-foreground cursor-pointer"
               >
-                Cancelar
+                {isPt ? "Cancelar" : "Cancel"}
               </button>
             </div>
           )}
@@ -588,7 +600,7 @@ export function GitHubCommentsDrawer({
                     )}
                   </div>
                   <p className="text-[10px] text-muted-foreground truncate font-mono">
-                    {attachedSnippet.selectedCode.split("\n")[0] || "Código selecionado"}
+                    {attachedSnippet.selectedCode.split("\n")[0] || (isPt ? "Código selecionado" : "Selected code")}
                   </p>
                 </div>
               </div>
@@ -596,7 +608,7 @@ export function GitHubCommentsDrawer({
                 type="button"
                 onClick={handleRemoveSnippet}
                 className="p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-                title="Desafixar excerto"
+                title={isPt ? "Desafixar excerto" : "Unpin snippet"}
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -612,8 +624,8 @@ export function GitHubCommentsDrawer({
               onChange={(e) => setCommentText(e.target.value)}
               placeholder={
                 attachedSnippet
-                  ? "Escreve uma nota sobre o excerto fixado..."
-                  : "Escreve uma mensagem para a equipa..."
+                  ? (isPt ? "Escreve uma nota sobre o excerto fixado..." : "Write a note about the pinned snippet...")
+                  : (isPt ? "Escreve uma mensagem para a equipa..." : "Write a message to the team...")
               }
               className="flex-1 rounded-xl border border-input bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-blue-500 focus:outline-none shadow-2xs"
             />
@@ -621,7 +633,7 @@ export function GitHubCommentsDrawer({
               type="submit"
               disabled={submitting || (!commentText.trim() && !attachedSnippet)}
               className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-600 text-white hover:bg-blue-500 transition-colors disabled:opacity-40 cursor-pointer shadow-xs shrink-0"
-              title="Enviar mensagem"
+              title={isPt ? "Enviar mensagem" : "Send message"}
             >
               {submitting ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
