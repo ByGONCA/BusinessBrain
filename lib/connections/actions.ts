@@ -96,7 +96,7 @@ export async function createConnectionAction(params: {
         .eq("organization_id", activeOrg.id)
         .maybeSingle();
       if (!srcObj) {
-        return { success: false, error: "Objeto de origem não encontrado no seu workspace" };
+        return { success: false, error: "Source object not found in your workspace" };
       }
     }
 
@@ -108,7 +108,7 @@ export async function createConnectionAction(params: {
         .eq("organization_id", activeOrg.id)
         .maybeSingle();
       if (!tgtObj) {
-        return { success: false, error: "Objeto de destino não encontrado no seu workspace" };
+        return { success: false, error: "Target object not found in your workspace" };
       }
     }
 
