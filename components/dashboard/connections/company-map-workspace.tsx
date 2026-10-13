@@ -53,6 +53,9 @@ export function CompanyMapWorkspace({
   const [nodes, setNodes] = React.useState<GraphNode[]>(initialGraph.nodes);
   const [edges, setEdges] = React.useState<GraphEdge[]>(initialGraph.edges);
 
+  // Draft filter state (hides isolated untitled scratchpads by default)
+  const [showDrafts, setShowDrafts] = React.useState(false);
+
   // View state
   const [activeView, setActiveView] = React.useState<"graph" | "tree">("graph");
   const [selectedNode, setSelectedNode] = React.useState<GraphNode | null>(() => {
@@ -66,6 +69,23 @@ export function CompanyMapWorkspace({
   );
   const [filterType, setFilterType] = React.useState<EntityType | "all">("all");
   const [searchQuery, setSearchQuery] = React.useState("");
+
+  // Hidden empty drafts count
+  const hiddenDraftsCount = React.useMemo(() => {
+    return nodes.filter((n) => n.isDraft && n.degree === 0).length;
+  }, [nodes]);
+
+  // Nodes and edges filtered according to draft toggle
+  const visibleNodes = React.useMemo(() => {
+    if (showDrafts) return nodes;
+    return nodes.filter((n) => !(n.isDraft && n.degree === 0) || n.id === selectedNode?.id);
+  }, [nodes, showDrafts, selectedNode?.id]);
+
+  const visibleNodeIds = React.useMemo(() => new Set(visibleNodes.map((n) => n.id)), [visibleNodes]);
+
+  const visibleEdges = React.useMemo(() => {
+    return edges.filter((e) => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
+  }, [edges, visibleNodeIds]);
 
   // Path highlight state
   const [highlightedPathNodeIds, setHighlightedPathNodeIds] = React.useState<string[]>([]);
@@ -248,6 +268,40 @@ export function CompanyMapWorkspace({
 
         {/* Right Action Buttons */}
         <div className="flex items-center gap-2">
+          {hiddenDraftsCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowDrafts((prev) => !prev)}
+              className={cn(
+                "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors",
+                showDrafts
+                  ? "bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400"
+                  : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+              title={showDrafts ? "Ocultar rascunhos vazios" : "Mostrar rascunhos vazios isolados"}
+            >
+              <Eye className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">
+                {showDrafts ? "Rascunhos visíveis" : `Rascunhos (${hiddenDraftsCount})`}
+              </span>
+            </button>
+          )}
+
+          {/* Focus Mode active pill */}
+          {focusDepth !== null && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-medium">
+              <span>Vizinhança: {focusDepth} {focusDepth > 1 ? "hops" : "hop"}</span>
+              <button
+                type="button"
+                onClick={() => setFocusDepth(null)}
+                className="hover:text-foreground ml-1"
+                title="Limpar modo foco"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
           {highlightedPathNodeIds.length > 0 && (
             <button
               type="button"
@@ -257,7 +311,7 @@ export function CompanyMapWorkspace({
               }}
               className="px-2.5 py-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-medium hover:bg-emerald-500/20 transition-colors"
             >
-              Clear Path Highlight
+              Limpar Caminho
             </button>
           )}
 
@@ -315,12 +369,13 @@ export function CompanyMapWorkspace({
             {/* View 1: Interactive Graph Canvas */}
             {activeView === "graph" && (
               <InteractiveGraphCanvas
-                nodes={nodes}
-                edges={edges}
+                nodes={visibleNodes}
+                edges={visibleEdges}
                 selectedNodeId={selectedNode?.id || null}
                 onSelectNode={(node) => setSelectedNode(node)}
                 onOpenNode={handleOpenNode}
                 focusDepth={focusDepth}
+                onSetFocusDepth={(d) => setFocusDepth(d)}
                 highlightedPathNodeIds={highlightedPathNodeIds}
                 highlightedPathEdgeIds={highlightedPathEdgeIds}
                 filterType={filterType}
@@ -341,12 +396,13 @@ export function CompanyMapWorkspace({
                 {/* Secondary side-by-side graph on larger screens */}
                 <div className="hidden lg:block flex-1 border-l border-border">
                   <InteractiveGraphCanvas
-                    nodes={nodes}
-                    edges={edges}
+                    nodes={visibleNodes}
+                    edges={visibleEdges}
                     selectedNodeId={selectedNode?.id || null}
                     onSelectNode={(node) => setSelectedNode(node)}
                     onOpenNode={handleOpenNode}
                     focusDepth={focusDepth}
+                    onSetFocusDepth={(d) => setFocusDepth(d)}
                     highlightedPathNodeIds={highlightedPathNodeIds}
                     highlightedPathEdgeIds={highlightedPathEdgeIds}
                     filterType={filterType}
@@ -391,6 +447,11 @@ export function CompanyMapWorkspace({
           setHighlightedPathNodeIds(nodeIds);
           setHighlightedPathEdgeIds(edgeIds);
           setActiveView("graph");
+        }}
+        onSelectNode={(node) => setSelectedNode(node)}
+        onOpenConnectModal={(src) => {
+          setConnectSourceNode(src);
+          setIsConnectModalOpen(true);
         }}
       />
 

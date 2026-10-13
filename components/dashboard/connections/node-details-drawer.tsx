@@ -101,15 +101,19 @@ export function NodeDetailsDrawer({
     }
   };
 
-  const handleRemoveEdge = async (edgeId: string, label: string) => {
+  const handleRemoveEdge = async (edge: GraphEdge, label: string) => {
+    if (edge.isStructural) {
+      alert("Esta é uma relação estrutural de subpágina. Para alterá-la, reorganiza a página no menu lateral.");
+      return;
+    }
     if (!window.confirm(`Remove connection "${label}"? (The connected objects will NOT be deleted).`)) {
       return;
     }
-    setIsDeletingId(edgeId);
-    const res = await removeConnectionAction(edgeId);
+    setIsDeletingId(edge.id);
+    const res = await removeConnectionAction(edge.id);
     setIsDeletingId(null);
     if (res.success && onConnectionRemoved) {
-      onConnectionRemoved(edgeId);
+      onConnectionRemoved(edge.id);
     }
   };
 
@@ -152,6 +156,16 @@ export function NodeDetailsDrawer({
 
       {/* Main Content Area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        {/* Isolated Node Advice */}
+        {node.isIsolated && (
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-400 space-y-1">
+            <p className="font-semibold">Nó isolado sem conexões</p>
+            <p className="text-[11px] leading-relaxed text-amber-700 dark:text-amber-300">
+              Este elemento ainda não tem relações registadas com outras páginas ou entidades. Podes usar o botão &ldquo;Connect&rdquo; para criar uma ligação explícita.
+            </p>
+          </div>
+        )}
+
         {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -177,7 +191,7 @@ export function NodeDetailsDrawer({
         <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-              <Eye className="h-3.5 w-3.5 text-blue-500" /> Focus Depth
+              <Eye className="h-3.5 w-3.5 text-blue-500" /> Foco / Vizinhança
             </span>
             <div className="flex items-center gap-1">
               {[1, 2, 3].map((d) => (
@@ -191,11 +205,49 @@ export function NodeDetailsDrawer({
                       ? "bg-blue-600 text-white"
                       : "bg-white dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-600"
                   )}
+                  title={`Ver vizinhança a até ${d} salto${d > 1 ? "s" : ""}`}
                 >
-                  {d} hop{d > 1 ? "s" : ""}
+                  {d} {d > 1 ? "hops" : "hop"}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => onSetFocusDepth(null)}
+                className={cn(
+                  "px-2 py-0.5 rounded text-[11px] font-semibold transition-colors",
+                  focusDepth === null
+                    ? "bg-zinc-700 text-white dark:bg-zinc-300 dark:text-zinc-900"
+                    : "bg-white dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-600"
+                )}
+                title="Mostrar todo o grafo sem esmaecer nós distantes"
+              >
+                Todos
+              </button>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const nextDepth = focusDepth === null ? 1 : Math.min(3, focusDepth + 1);
+                onSetFocusDepth(nextDepth);
+              }}
+              className="flex-1 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-xs font-medium hover:bg-blue-100 transition-colors text-center"
+            >
+              Expandir Vizinhança (+1 hop)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onSetFocusDepth(null);
+              }}
+              className="py-1.5 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs transition-colors"
+              title="Regressar à visão geral completa"
+            >
+              Visão Geral
+            </button>
           </div>
 
           <button
@@ -204,7 +256,7 @@ export function NodeDetailsDrawer({
             className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs text-zinc-600 dark:text-zinc-400 font-medium transition-colors"
           >
             <Route className="h-3.5 w-3.5 text-emerald-500" />
-            <span>Find Shortest Path to Another Node...</span>
+            <span>Encontrar Caminho para Outro Nó...</span>
           </button>
         </div>
 
@@ -255,9 +307,16 @@ export function NodeDetailsDrawer({
                       onClick={() => targetNode && onSelectNode(targetNode)}
                       className="min-w-0 flex-1 cursor-pointer pr-2"
                     >
-                      <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 block">
-                        → {relLabel}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">
+                          → {relLabel}
+                        </span>
+                        {e.isStructural && (
+                          <span className="text-[9px] px-1 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 font-mono">
+                            Hierarchy
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1.5 min-w-0">
                         {targetNode?.type === "page" && (
                           <PageIcon icon={targetNode.icon} pageId={targetNode.id} className="text-xs shrink-0" imgClassName="h-3.5 w-3.5 rounded object-cover" />
@@ -268,15 +327,17 @@ export function NodeDetailsDrawer({
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      disabled={isDeletingId === e.id}
-                      onClick={() => handleRemoveEdge(e.id, relLabel)}
-                      className="p-1 rounded text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Remove connection"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {!e.isStructural && (
+                      <button
+                        type="button"
+                        disabled={isDeletingId === e.id}
+                        onClick={() => handleRemoveEdge(e, relLabel)}
+                        className="p-1 rounded text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Remove connection"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -309,9 +370,16 @@ export function NodeDetailsDrawer({
                       onClick={() => sourceNode && onSelectNode(sourceNode)}
                       className="min-w-0 flex-1 cursor-pointer pr-2"
                     >
-                      <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 block">
-                        ← {reverseLabel}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">
+                          ← {reverseLabel}
+                        </span>
+                        {e.isStructural && (
+                          <span className="text-[9px] px-1 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 font-mono">
+                            Hierarchy
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1.5 min-w-0">
                         {sourceNode?.type === "page" && (
                           <PageIcon icon={sourceNode.icon} pageId={sourceNode.id} className="text-xs shrink-0" imgClassName="h-3.5 w-3.5 rounded object-cover" />
@@ -322,15 +390,17 @@ export function NodeDetailsDrawer({
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      disabled={isDeletingId === e.id}
-                      onClick={() => handleRemoveEdge(e.id, reverseLabel)}
-                      className="p-1 rounded text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Remove connection"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {!e.isStructural && (
+                      <button
+                        type="button"
+                        disabled={isDeletingId === e.id}
+                        onClick={() => handleRemoveEdge(e, reverseLabel)}
+                        className="p-1 rounded text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Remove connection"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 );
               })}

@@ -7,6 +7,8 @@ export interface OrganizationInvitation {
   email: string;
   role: InvitationRole;
   status: InvitationStatus;
+  job_title?: string;
+  initial_team_ids?: string[];
   token?: string;
   invited_by: string | null;
   invited_by_name?: string | null;

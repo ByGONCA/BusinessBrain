@@ -30,6 +30,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   Loader2,
+  Sparkles,
+  Layers,
 } from "lucide-react";
 import {
   PhosphorUsers,
@@ -38,6 +40,8 @@ import {
   PhosphorUserMinus,
   PhosphorUserGear,
   PhosphorArrowsClockwise,
+  PhosphorCrown,
+  PhosphorUser,
 } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { OrganizationMember, OrganizationWithRole, MemberRole } from "@/lib/organizations/types";
@@ -50,7 +54,6 @@ import {
   getOrganizationInvitationsAction,
   revokeInvitationAction,
   resendInvitationAction,
-  updateMemberRoleAction,
   removeMemberAction,
 } from "@/lib/invitations/actions";
 import {
@@ -65,7 +68,7 @@ import {
   updateTeamPermissionsAction,
   getMemberDetailsAction,
   setMemberPermissionOverrideAction,
-  updateMemberJobInfoAction,
+  applyTeamTemplatesAction,
 } from "@/lib/permissions/actions";
 import {
   PERMISSION_CATEGORIES,
@@ -73,6 +76,7 @@ import {
   PermissionCategory,
   PermissionDefinition,
 } from "@/lib/permissions/registry";
+import { SUGGESTED_TEAM_TEMPLATES } from "@/lib/organizations/catalog";
 import { useSettings } from "@/components/dashboard/settings/settings-context";
 
 const COLOR_MAP: Record<string, { bg: string; text: string; border: string }> = {
@@ -82,6 +86,8 @@ const COLOR_MAP: Record<string, { bg: string; text: string; border: string }> = 
   emerald: { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20" },
   rose: { bg: "bg-rose-500/10", text: "text-rose-400", border: "border-rose-500/20" },
   cyan: { bg: "bg-cyan-500/10", text: "text-cyan-400", border: "border-cyan-500/20" },
+  indigo: { bg: "bg-indigo-500/10", text: "text-indigo-400", border: "border-indigo-500/20" },
+  zinc: { bg: "bg-zinc-500/10", text: "text-zinc-400", border: "border-zinc-500/20" },
 };
 
 interface PeopleHubProps {
@@ -109,22 +115,29 @@ export function PeopleHub({
   // Members state
   const [members, setMembers] = React.useState<OrganizationMember[]>(initialMembers);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [roleFilter, setRoleFilter] = React.useState<string>("all");
+  const [teamFilter, setTeamFilter] = React.useState<string>("all");
 
   // Invitations state
   const [invitations, setInvitations] = React.useState<OrganizationInvitation[]>(initialInvitations);
   const [isLoadingInvitations, setIsLoadingInvitations] = React.useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = React.useState(false);
   const [inviteEmail, setInviteEmail] = React.useState("");
-  const [inviteRole, setInviteRole] = React.useState<InvitationRole>("member");
+  const [inviteTeamId, setInviteTeamId] = React.useState("");
   const [isSendingInvite, setIsSendingInvite] = React.useState(false);
   const [createdInviteLink, setCreatedInviteLink] = React.useState<string | null>(null);
   const [inviteError, setInviteError] = React.useState<string | null>(null);
   const [copiedToken, setCopiedToken] = React.useState(false);
 
-  // Member Governance (role / remove) state
+  // Team Templates state
+  const [isTemplatesModalOpen, setIsTemplatesModalOpen] = React.useState(false);
+  const [selectedTemplateIds, setSelectedTemplateIds] = React.useState<string[]>(
+    SUGGESTED_TEAM_TEMPLATES.map((t) => t.id)
+  );
+  const [isApplyingTemplates, setIsApplyingTemplates] = React.useState(false);
+  const [templateApplyResult, setTemplateApplyResult] = React.useState<{ created: number; skipped: number } | null>(null);
+
+  // Member Governance (remove) state
   const [isMutatingMember, setIsMutatingMember] = React.useState(false);
-  const [governanceNotice, setGovernanceNotice] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Permissions & Governance
   const userPermSet = React.useMemo(() => new Set(userPermissions), [userPermissions]);
@@ -132,7 +145,10 @@ export function PeopleHub({
   const canInvite = hasRootAccess || userPermSet.has("people.invite");
   const canRemove = hasRootAccess || userPermSet.has("people.remove");
   const canManageOverrides = hasRootAccess || userPermSet.has("people.manage_permissions");
-  const canChangeRole = hasRootAccess;
+  const canCreateTeams = hasRootAccess || userPermSet.has("teams.create");
+  const canDeleteTeams = hasRootAccess || userPermSet.has("teams.delete");
+  const canManageTeamPerms = hasRootAccess || userPermSet.has("teams.manage_permissions");
+  const canManageTeamMembers = hasRootAccess || userPermSet.has("teams.manage_members");
 
   const loadInvitations = React.useCallback(async () => {
     if (!activeOrg) return;
@@ -150,6 +166,10 @@ export function PeopleHub({
   const handleSendInvitation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteEmail.trim() || !activeOrg) return;
+    if (teams.length > 0 && !inviteTeamId) {
+      setInviteError("Please select a team for the member.");
+      return;
+    }
     setIsSendingInvite(true);
     setInviteError(null);
     setCreatedInviteLink(null);
@@ -157,10 +177,14 @@ export function PeopleHub({
       const res = await createInvitationAction({
         organizationId: activeOrg.id,
         email: inviteEmail.trim(),
-        role: inviteRole,
+        role: "member",
+        jobTitle: undefined,
+        initialTeamIds: inviteTeamId ? [inviteTeamId] : undefined,
       });
       if (res.success) {
         setCreatedInviteLink(res.inviteLink || null);
+        setInviteEmail("");
+        setInviteTeamId("");
         await loadInvitations();
       } else {
         setInviteError(res.error || "Failed to create invitation.");
@@ -169,6 +193,28 @@ export function PeopleHub({
       setInviteError(err?.message || "An unexpected error occurred.");
     } finally {
       setIsSendingInvite(false);
+    }
+  };
+
+  const handleApplyTemplates = async () => {
+    if (!activeOrg || selectedTemplateIds.length === 0) return;
+    setIsApplyingTemplates(true);
+    setTemplateApplyResult(null);
+    try {
+      const res = await applyTeamTemplatesAction({
+        organizationId: activeOrg.id,
+        templateIds: selectedTemplateIds,
+      });
+      if (res.success) {
+        setTemplateApplyResult({ created: res.createdCount, skipped: res.skippedCount });
+        await loadTeams();
+      } else {
+        alert(res.error || "Failed to apply templates.");
+      }
+    } catch (err: any) {
+      alert(err?.message || "Error applying templates.");
+    } finally {
+      setIsApplyingTemplates(false);
     }
   };
 
@@ -196,39 +242,10 @@ export function PeopleHub({
     }
   };
 
-  const handleUpdateMemberRole = async (targetUserId: string, newRole: MemberRole) => {
-    if (!activeOrg) return;
-    setIsMutatingMember(true);
-    setGovernanceNotice(null);
-    try {
-      const res = await updateMemberRoleAction({
-        organizationId: activeOrg.id,
-        targetUserId,
-        newRole,
-      });
-      if (res.success) {
-        setMembers((prev) =>
-          prev.map((m) =>
-            m.user_id === targetUserId || m.id === targetUserId ? { ...m, role: newRole } : m
-          )
-        );
-        if (selectedMember && selectedMember.user_id === targetUserId) {
-          setSelectedMember({ ...selectedMember, role: newRole, isOwner: newRole === "owner" });
-        }
-        setGovernanceNotice({ type: "success", text: `Role updated to ${newRole}.` });
-      } else {
-        setGovernanceNotice({ type: "error", text: res.error || "Failed to update role." });
-      }
-    } finally {
-      setIsMutatingMember(false);
-    }
-  };
-
   const handleRemoveMember = async (targetUserId: string, memberName: string) => {
     if (!activeOrg) return;
     if (!confirm(`Are you sure you want to remove ${memberName} from this workspace?`)) return;
     setIsMutatingMember(true);
-    setGovernanceNotice(null);
     try {
       const res = await removeMemberAction({
         organizationId: activeOrg.id,
@@ -253,7 +270,7 @@ export function PeopleHub({
   // Selected member for detail drawer/modal
   const [selectedMember, setSelectedMember] = React.useState<MemberDetailRecord | null>(null);
   const [isLoadingMemberDetail, setIsLoadingMemberDetail] = React.useState(false);
-  const [memberDetailTab, setMemberDetailTab] = React.useState<"profile" | "teams" | "permissions">("profile");
+  const [memberDetailTab, setMemberDetailTab] = React.useState<"teams" | "permissions">("teams");
 
   // Editing Team modal / drawer
   const [editingTeam, setEditingTeam] = React.useState<TeamRecord | null>(null);
@@ -266,13 +283,6 @@ export function PeopleHub({
   const [managingPermissionsTeam, setManagingPermissionsTeam] = React.useState<TeamRecord | null>(null);
   const [selectedTeamPerms, setSelectedTeamPerms] = React.useState<Set<string>>(new Set());
   const [isSavingTeamPerms, setIsSavingTeamPerms] = React.useState(false);
-
-  // Job title edit in Member Drawer
-  const [editJobTitle, setEditJobTitle] = React.useState("");
-  const [editDepartment, setEditDepartment] = React.useState("");
-  const [editBio, setEditBio] = React.useState("");
-  const [editLocation, setEditLocation] = React.useState("");
-  const [isSavingJobInfo, setIsSavingJobInfo] = React.useState(false);
 
   // Load teams on mount
   const loadTeams = React.useCallback(async () => {
@@ -289,83 +299,66 @@ export function PeopleHub({
   }, [loadTeams]);
 
   // Handle open member detail
-  const handleOpenMemberDetail = async (userId: string) => {
+  const handleOpenMemberDetail = async (userId: string, targetTab?: "teams" | "permissions") => {
     setIsLoadingMemberDetail(true);
-    setSelectedMember(null);
     const res = await getMemberDetailsAction(userId);
     if (res.success && res.member) {
       setSelectedMember(res.member);
-      setEditJobTitle(res.member.job_title || "");
-      setEditDepartment(res.member.department || "");
-      setEditBio(res.member.profile?.bio || "");
-      setEditLocation(res.member.profile?.location || "");
-      setMemberDetailTab("profile");
+      if (targetTab) {
+        setMemberDetailTab(targetTab);
+      } else if (!selectedMember || selectedMember.user_id !== userId) {
+        setMemberDetailTab("teams");
+      }
     }
     setIsLoadingMemberDetail(false);
-  };
-
-  // Save Job Title / Department
-  const handleSaveJobInfo = async () => {
-    if (!selectedMember) return;
-    setIsSavingJobInfo(true);
-    const res = await updateMemberJobInfoAction({
-      targetUserId: selectedMember.user_id,
-      jobTitle: editJobTitle,
-      department: editDepartment,
-      bio: editBio,
-      location: editLocation,
-    });
-    if (res.success) {
-      setSelectedMember((prev) =>
-        prev
-          ? {
-              ...prev,
-              job_title: editJobTitle,
-              department: editDepartment,
-              profile: prev.profile
-                ? { ...prev.profile, bio: editBio, location: editLocation }
-                : undefined,
-            }
-          : null
-      );
-      setMembers((prev) =>
-        prev.map((m) =>
-          m.user_id === selectedMember.user_id
-            ? { ...m, job_title: editJobTitle, department: editDepartment }
-            : m
-        )
-      );
-    }
-    setIsSavingJobInfo(false);
   };
 
   // Toggle Team membership for selected member
   const handleToggleMemberTeam = async (teamId: string, isAssigned: boolean) => {
     if (!selectedMember) return;
+    if (!canManageTeamMembers) {
+      alert("Forbidden: You do not have permission to manage team members.");
+      return;
+    }
     if (isAssigned) {
       await removeMemberFromTeamAction({ teamId, userId: selectedMember.user_id });
     } else {
       await assignMemberToTeamAction({ teamId, userId: selectedMember.user_id });
     }
     // Refresh member details and teams list
-    await Promise.all([handleOpenMemberDetail(selectedMember.user_id), loadTeams()]);
+    await Promise.all([handleOpenMemberDetail(selectedMember.user_id, memberDetailTab), loadTeams()]);
   };
+
+  // Error states for operations
+  const [createTeamError, setCreateTeamError] = React.useState<string | null>(null);
+  const [teamPermsError, setTeamPermsError] = React.useState<string | null>(null);
+  const [overrideError, setOverrideError] = React.useState<string | null>(null);
 
   // Toggle explicit permission override
   const handleSetOverride = async (permissionKey: string, effect: "allow" | "deny" | "inherit") => {
     if (!selectedMember || selectedMember.isOwner) return;
-    await setMemberPermissionOverrideAction({
+    if (!canManageOverrides) {
+      setOverrideError("Forbidden: You do not have permission to manage individual overrides.");
+      return;
+    }
+    setOverrideError(null);
+    const res = await setMemberPermissionOverrideAction({
       targetUserId: selectedMember.user_id,
       permissionKey,
       effect,
     });
-    await handleOpenMemberDetail(selectedMember.user_id);
+    if (res.success) {
+      await handleOpenMemberDetail(selectedMember.user_id);
+    } else {
+      setOverrideError(res.error || "Failed to update override.");
+    }
   };
 
   // Create Team submit
   const handleCreateTeam = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTeamName.trim()) return;
+    setCreateTeamError(null);
     const res = await createTeamAction({
       name: newTeamName,
       description: newTeamDesc,
@@ -377,15 +370,23 @@ export function PeopleHub({
       setNewTeamColor("blue");
       setIsCreateTeamOpen(false);
       await loadTeams();
+    } else {
+      setCreateTeamError(res.error || "Failed to create team.");
     }
   };
 
   // Delete team
   const handleDeleteTeam = async (teamId: string) => {
+    if (!canDeleteTeams) {
+      alert("Forbidden: You do not have permission to delete teams.");
+      return;
+    }
     if (!confirm("Are you sure you want to delete this team? Members will lose inherited permissions.")) return;
     const res = await deleteTeamAction(teamId);
     if (res.success) {
       await loadTeams();
+    } else {
+      alert(res.error || "Failed to delete team.");
     }
   };
 
@@ -393,12 +394,18 @@ export function PeopleHub({
   const handleOpenTeamPermissions = (team: TeamRecord) => {
     setManagingPermissionsTeam(team);
     setSelectedTeamPerms(new Set(team.permissions || []));
+    setTeamPermsError(null);
   };
 
   // Save team permissions
   const handleSaveTeamPermissions = async () => {
     if (!managingPermissionsTeam) return;
+    if (!canManageTeamPerms) {
+      setTeamPermsError("Forbidden: You do not have permission to edit team permissions.");
+      return;
+    }
     setIsSavingTeamPerms(true);
+    setTeamPermsError(null);
     const res = await updateTeamPermissionsAction({
       teamId: managingPermissionsTeam.id,
       permissionKeys: Array.from(selectedTeamPerms),
@@ -406,17 +413,27 @@ export function PeopleHub({
     if (res.success) {
       setManagingPermissionsTeam(null);
       await loadTeams();
+    } else {
+      setTeamPermsError(res.error || "Failed to update team permissions.");
     }
     setIsSavingTeamPerms(false);
   };
 
   // Filtered members list
   const filteredMembers = members.filter((m) => {
+    const memId = m.user_id || m.id;
     const name = (m.profile?.full_name || m.profile?.email || "").toLowerCase();
-    const title = (m.job_title || "").toLowerCase();
-    const matchesSearch = name.includes(searchQuery.toLowerCase()) || title.includes(searchQuery.toLowerCase());
-    const matchesRole = roleFilter === "all" || m.role === roleFilter;
-    return matchesSearch && matchesRole;
+    const memberTeamNames = teams
+      .filter((t) => t.member_user_ids?.includes(memId))
+      .map((t) => t.name.toLowerCase())
+      .join(" ");
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch =
+      q === "" || name.includes(q) || memberTeamNames.includes(q);
+    const matchesTeam =
+      teamFilter === "all" ||
+      teams.some((t) => t.id === teamFilter && t.member_user_ids?.includes(memId));
+    return matchesSearch && matchesTeam;
   });
 
   return (
@@ -514,7 +531,7 @@ export function PeopleHub({
                 <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-500" />
                 <input
                   type="text"
-                  placeholder="Filter by name, email, or job title..."
+                  placeholder="Filter by name, email, or team..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl border border-zinc-800 bg-zinc-900 text-white placeholder-zinc-500 focus:outline-none focus:border-blue-500"
@@ -522,14 +539,16 @@ export function PeopleHub({
               </div>
 
               <select
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
+                value={teamFilter}
+                onChange={(e) => setTeamFilter(e.target.value)}
                 className="text-xs rounded-xl border border-zinc-800 bg-zinc-900 px-3 py-1.5 text-zinc-300 focus:outline-none focus:border-blue-500 cursor-pointer"
               >
-                <option value="all">All Roles</option>
-                <option value="owner">Owner</option>
-                <option value="admin">Admin</option>
-                <option value="member">Member</option>
+                <option value="all">All Teams</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -539,7 +558,7 @@ export function PeopleHub({
                   type="button"
                   onClick={() => {
                     setInviteEmail("");
-                    setInviteRole("member");
+                    setInviteTeamId("");
                     setInviteError(null);
                     setCreatedInviteLink(null);
                     setCopiedToken(false);
@@ -569,8 +588,6 @@ export function PeopleHub({
                 <thead>
                   <tr className="border-b border-zinc-800 bg-zinc-800/40 text-zinc-400 font-medium">
                     <th className="py-3 px-4">Member</th>
-                    <th className="py-3 px-4">Job Title (Info)</th>
-                    <th className="py-3 px-4">System Role</th>
                     <th className="py-3 px-4">Teams</th>
                     <th className="py-3 px-4">Joined</th>
                     <th className="py-3 px-4 text-right">Actions</th>
@@ -579,20 +596,26 @@ export function PeopleHub({
                 <tbody className="divide-y divide-zinc-800/60">
                   {filteredMembers.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-zinc-500">
+                      <td colSpan={4} className="py-8 text-center text-zinc-500">
                         No members found matching your search.
                       </td>
                     </tr>
                   ) : (
                     filteredMembers.map((member) => {
-                      const name =
-                        member.profile?.full_name ||
-                        member.profile?.email?.split("@")[0] ||
-                        "Member";
-                      const email = member.profile?.email || "No email";
                       const memId = member.user_id || member.id;
-                      const memberTeams = teams.filter((t) => t.member_user_ids?.includes(memId));
                       const isOwner = member.role === "owner";
+                      const memberTeams = teams.filter((t) => t.member_user_ids?.includes(memId));
+
+                      const hasEmail = Boolean(member.profile?.email);
+                      const hasName = Boolean(member.profile?.full_name?.trim());
+
+                      const displayName = hasName
+                        ? member.profile!.full_name!.trim()
+                        : hasEmail
+                        ? member.profile!.email.split("@")[0]
+                        : `Unlinked Member (${memId.slice(0, 8)})`;
+
+                      const displayEmail = hasEmail ? member.profile!.email : null;
 
                       return (
                         <tr
@@ -605,48 +628,49 @@ export function PeopleHub({
                               {member.profile?.avatar_url ? (
                                 <img
                                   src={member.profile.avatar_url}
-                                  alt={name}
+                                  alt={displayName}
                                   className="h-7 w-7 rounded-full object-cover shrink-0"
                                 />
-                              ) : (
+                              ) : hasEmail || hasName ? (
                                 <div className="h-7 w-7 rounded-full bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center font-bold text-xs uppercase shrink-0">
-                                  {name.charAt(0)}
+                                  {displayName.charAt(0)}
+                                </div>
+                              ) : (
+                                <div
+                                  className="h-7 w-7 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700 flex items-center justify-center shrink-0"
+                                  title="Profile not linked in database"
+                                >
+                                  <PhosphorUser className="h-3.5 w-3.5" />
                                 </div>
                               )}
                               <div className="min-w-0">
-                                <span className="font-medium text-white block truncate">{name}</span>
-                                <span className="text-[11px] text-zinc-500 font-mono block truncate">
-                                  {email}
-                                </span>
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="font-medium text-white truncate">{displayName}</span>
+                                  {isOwner && (
+                                    <span
+                                      title="Dono da empresa"
+                                      className="inline-flex items-center text-amber-400 shrink-0 cursor-default"
+                                    >
+                                      <PhosphorCrown
+                                        className="h-3.5 w-3.5 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.2)]"
+                                        aria-hidden="true"
+                                      />
+                                      <span className="sr-only">Dono da empresa</span>
+                                    </span>
+                                  )}
+                                </div>
+                                {displayEmail ? (
+                                  <span className="text-[11px] text-zinc-500 font-mono block truncate">
+                                    {displayEmail}
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] text-amber-400/80 font-mono flex items-center gap-1 truncate italic">
+                                    <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+                                    Unlinked profile record
+                                  </span>
+                                )}
                               </div>
                             </div>
-                          </td>
-
-                          <td className="px-4 py-3">
-                            {member.job_title ? (
-                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-zinc-800/80 text-zinc-300 border border-zinc-700/60 font-medium text-[11px]">
-                                <Briefcase className="h-3 w-3 text-zinc-400" />
-                                {member.job_title}
-                              </span>
-                            ) : (
-                              <span className="text-[11px] text-zinc-600 italic">Not set</span>
-                            )}
-                          </td>
-
-                          <td className="px-4 py-3">
-                            <span
-                              className={cn(
-                                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border capitalize",
-                                isOwner
-                                  ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                                  : member.role === "admin"
-                                  ? "bg-indigo-500/10 text-indigo-400 border-indigo-500/30"
-                                  : "bg-zinc-800 text-zinc-400 border-zinc-700"
-                              )}
-                            >
-                              <Shield className="h-2.5 w-2.5" />
-                              {member.role}
-                            </span>
                           </td>
 
                           <td className="px-4 py-3">
@@ -712,25 +736,68 @@ export function PeopleHub({
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsCreateTeamOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Create Team</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {canCreateTeams && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTemplateApplyResult(null);
+                    setIsTemplatesModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-zinc-700 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 transition-colors cursor-pointer"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                  <span>Team Templates</span>
+                </button>
+              )}
+
+              {canCreateTeams && (
+                <button
+                  type="button"
+                  onClick={() => setIsCreateTeamOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors cursor-pointer"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Create Team</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {isLoadingTeams ? (
             <div className="py-12 text-center text-zinc-500 text-xs">Loading teams...</div>
           ) : teams.length === 0 ? (
-            <div className="py-12 text-center rounded-xl border border-zinc-800 bg-zinc-900/30 space-y-2">
+            <div className="py-12 px-4 text-center rounded-2xl border border-zinc-800 bg-zinc-900/40 space-y-3.5 max-w-lg mx-auto">
               <FolderGit2 className="h-8 w-8 text-zinc-600 mx-auto" />
-              <p className="text-xs text-zinc-400">No teams created yet.</p>
-              <p className="text-[11px] text-zinc-500">
-                Create teams like "Engineering", "Design", or "Operations" to bundle permissions.
-              </p>
+              <div>
+                <p className="text-sm font-semibold text-white">No teams created yet</p>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Create custom functional squads or import standard enterprise teams (Engineering, Product, Design, etc.) to organize members and bundle permissions.
+                </p>
+              </div>
+              {canCreateTeams && (
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTemplateApplyResult(null);
+                      setIsTemplatesModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors cursor-pointer shadow-sm"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                    <span>Import Standard Teams</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateTeamOpen(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Create Custom Team</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
@@ -767,14 +834,16 @@ export function PeopleHub({
                           </div>
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteTeam(team.id)}
-                          className="p-1 rounded text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors"
-                          title="Delete team"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        {canDeleteTeams && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTeam(team.id)}
+                            className="p-1 rounded text-zinc-500 hover:text-red-400 hover:bg-zinc-800 transition-colors"
+                            title="Delete team"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
 
                       <p className="text-xs text-zinc-400 leading-relaxed min-h-[32px]">
@@ -791,7 +860,7 @@ export function PeopleHub({
                           onClick={() => handleOpenTeamPermissions(team)}
                           className="text-blue-400 hover:underline font-semibold text-[10px]"
                         >
-                          Manage ({team.permissions?.length || 0})
+                          {canManageTeamPerms ? "Manage" : "View"} ({team.permissions?.length || 0})
                         </button>
                       </div>
 
@@ -926,7 +995,7 @@ export function PeopleHub({
                   type="button"
                   onClick={() => {
                     setInviteEmail("");
-                    setInviteRole("member");
+                    setInviteTeamId("");
                     setInviteError(null);
                     setCreatedInviteLink(null);
                     setCopiedToken(false);
@@ -948,7 +1017,7 @@ export function PeopleHub({
                 <thead>
                   <tr className="border-b border-zinc-800 bg-zinc-800/40 text-zinc-400 font-medium">
                     <th className="py-3 px-4">Invited Email</th>
-                    <th className="py-3 px-4">Role</th>
+                    <th className="py-3 px-4">Assigned Team</th>
                     <th className="py-3 px-4">Status</th>
                     <th className="py-3 px-4">Invited By</th>
                     <th className="py-3 px-4">Expires / Date</th>
@@ -978,9 +1047,33 @@ export function PeopleHub({
                           </td>
 
                           <td className="px-4 py-3">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border capitalize bg-zinc-800 text-zinc-300 border-zinc-700">
-                              {inv.role}
-                            </span>
+                            <div className="flex flex-col gap-1">
+                              {inv.initial_team_ids && inv.initial_team_ids.length > 0 ? (
+                                <div className="flex flex-wrap gap-1">
+                                  {inv.initial_team_ids.map((tid) => {
+                                    const t = teams.find((item) => item.id === tid);
+                                    if (!t) return null;
+                                    const c = COLOR_MAP[t.color] || COLOR_MAP.blue;
+                                    return (
+                                      <span
+                                        key={tid}
+                                        className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${c.bg} ${c.text} ${c.border}`}
+                                      >
+                                        {t.name}
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <span className="text-[11px] text-zinc-500 italic">No team</span>
+                              )}
+                              {inv.job_title && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400 font-medium text-[10px] w-fit">
+                                  <Briefcase className="h-2.5 w-2.5 text-zinc-500" />
+                                  {inv.job_title}
+                                </span>
+                              )}
+                            </div>
                           </td>
 
                           <td className="px-4 py-3">
@@ -1065,27 +1158,37 @@ export function PeopleHub({
             <div className="space-y-6">
               {/* Drawer Top Header */}
               <div className="flex items-start justify-between pb-4 border-b border-zinc-800">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 min-w-0">
                   <div className="h-10 w-10 rounded-full bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center font-bold text-base uppercase shrink-0">
-                    {selectedMember.profile?.full_name?.charAt(0) || "M"}
+                    {selectedMember.profile?.full_name?.charAt(0) || selectedMember.profile?.email?.charAt(0) || "M"}
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h2 className="text-base font-bold text-white flex items-center gap-2">
-                      <span>{selectedMember.profile?.full_name || "Member"}</span>
+                      <span className="truncate">{selectedMember.profile?.full_name || selectedMember.profile?.email?.split("@")[0] || "Member"}</span>
                       {selectedMember.isOwner && (
-                        <span className="text-[10px] font-mono uppercase bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
-                          Owner
+                        <span
+                          title="Dono da empresa"
+                          className="inline-flex items-center text-amber-400 shrink-0 cursor-default"
+                        >
+                          <PhosphorCrown
+                            className="h-4 w-4 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.2)]"
+                            aria-hidden="true"
+                          />
+                          <span className="sr-only">Dono da empresa</span>
                         </span>
                       )}
                     </h2>
-                    <span className="text-xs text-zinc-400 font-mono">{selectedMember.profile?.email}</span>
+                    <span className="text-xs text-zinc-400 font-mono block truncate">
+                      {selectedMember.profile?.email || "No email"}
+                    </span>
                   </div>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setSelectedMember(null)}
-                  className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                  className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors shrink-0 ml-2 cursor-pointer"
+                  aria-label="Fechar painel"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -1095,23 +1198,11 @@ export function PeopleHub({
               <div className="flex items-center gap-2 p-1 rounded-xl bg-zinc-950 border border-zinc-800 text-xs">
                 <button
                   type="button"
-                  onClick={() => setMemberDetailTab("profile")}
-                  className={cn(
-                    "flex-1 py-1.5 rounded-lg font-medium transition-colors text-center",
-                    memberDetailTab === "profile"
-                      ? "bg-zinc-800 text-white font-semibold"
-                      : "text-zinc-400 hover:text-zinc-200"
-                  )}
-                >
-                  Profile & Job Info
-                </button>
-                <button
-                  type="button"
                   onClick={() => setMemberDetailTab("teams")}
                   className={cn(
-                    "flex-1 py-1.5 rounded-lg font-medium transition-colors text-center",
+                    "flex-1 py-1.5 rounded-lg font-medium transition-colors text-center cursor-pointer",
                     memberDetailTab === "teams"
-                      ? "bg-zinc-800 text-white font-semibold"
+                      ? "bg-zinc-800 text-white font-semibold shadow-xs"
                       : "text-zinc-400 hover:text-zinc-200"
                   )}
                 >
@@ -1121,9 +1212,9 @@ export function PeopleHub({
                   type="button"
                   onClick={() => setMemberDetailTab("permissions")}
                   className={cn(
-                    "flex-1 py-1.5 rounded-lg font-medium transition-colors text-center",
+                    "flex-1 py-1.5 rounded-lg font-medium transition-colors text-center cursor-pointer",
                     memberDetailTab === "permissions"
-                      ? "bg-zinc-800 text-white font-semibold"
+                      ? "bg-zinc-800 text-white font-semibold shadow-xs"
                       : "text-zinc-400 hover:text-zinc-200"
                   )}
                 >
@@ -1131,145 +1222,7 @@ export function PeopleHub({
                 </button>
               </div>
 
-              {/* TAB 1: PROFILE & INFORMATIONAL JOB INFO */}
-              {memberDetailTab === "profile" && (
-                <div className="space-y-4">
-                  <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300 flex items-start gap-2">
-                    <Info className="h-4 w-4 shrink-0 text-blue-400 mt-0.5" />
-                    <span>
-                      Job title and department are purely informational metadata and never automatically grant permissions.
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-zinc-300">Job Title</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. CTO, Product Designer, Senior Developer"
-                      value={editJobTitle}
-                      onChange={(e) => setEditJobTitle(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-zinc-700 bg-zinc-800/80 text-white focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-zinc-300">Department</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Engineering, Product, Growth"
-                      value={editDepartment}
-                      onChange={(e) => setEditDepartment(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-zinc-700 bg-zinc-800/80 text-white focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-zinc-300">Bio</label>
-                    <textarea
-                      rows={2}
-                      placeholder="Brief note or professional background..."
-                      value={editBio}
-                      onChange={(e) => setEditBio(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-zinc-700 bg-zinc-800/80 text-white focus:outline-none focus:border-blue-500 resize-none"
-                    />
-                  </div>
-
-                  <div className="pt-2 flex justify-end">
-                    <button
-                      type="button"
-                      disabled={isSavingJobInfo}
-                      onClick={handleSaveJobInfo}
-                      className="px-4 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 cursor-pointer"
-                    >
-                      {isSavingJobInfo ? "Saving..." : "Save Job Info"}
-                    </button>
-                  </div>
-
-                  {/* Governance & Role Management */}
-                  {selectedMember.user_id !== currentUserId && (
-                    <div className="pt-4 mt-4 border-t border-zinc-800 space-y-4">
-                      <div className="flex items-center gap-2">
-                        <Shield className="h-4 w-4 text-zinc-400" />
-                        <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                          Access & Organization Role
-                        </h3>
-                      </div>
-
-                      {governanceNotice && (
-                        <div
-                          className={cn(
-                            "p-2.5 rounded-xl text-xs flex items-center gap-2",
-                            governanceNotice.type === "success"
-                              ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-300"
-                              : "bg-red-500/10 border border-red-500/20 text-red-300"
-                          )}
-                        >
-                          {governanceNotice.type === "success" ? (
-                            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
-                          ) : (
-                            <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
-                          )}
-                          <span>{governanceNotice.text}</span>
-                        </div>
-                      )}
-
-                      {canChangeRole ? (
-                        <div className="space-y-1.5">
-                          <label className="text-xs font-semibold text-zinc-300">System Role</label>
-                          <div className="flex items-center gap-2">
-                            <select
-                              disabled={isMutatingMember}
-                              value={selectedMember.role}
-                              onChange={(e) =>
-                                handleUpdateMemberRole(
-                                  selectedMember.user_id,
-                                  e.target.value as MemberRole
-                                )
-                              }
-                              className="text-xs rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-white focus:outline-none focus:border-blue-500 cursor-pointer flex-1"
-                            >
-                              <option value="member">Member (Standard Access)</option>
-                              <option value="admin">Admin (Manager Access)</option>
-                              <option value="owner">Owner (Full Root Authority)</option>
-                            </select>
-                            {isMutatingMember && (
-                              <Loader2 className="h-4 w-4 animate-spin text-zinc-400 shrink-0" />
-                            )}
-                          </div>
-                          <p className="text-[11px] text-zinc-500">
-                            Only workspace Owners can modify member system roles. The final Owner cannot be demoted.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="text-xs text-zinc-400">
-                          Current role: <strong className="capitalize text-zinc-200">{selectedMember.role}</strong>
-                        </div>
-                      )}
-
-                      {canRemove && (
-                        <div className="pt-2">
-                          <button
-                            type="button"
-                            disabled={isMutatingMember}
-                            onClick={() =>
-                              handleRemoveMember(
-                                selectedMember.user_id,
-                                selectedMember.profile?.full_name || selectedMember.profile?.email || "this member"
-                              )
-                            }
-                            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-xs font-semibold text-red-300 transition-colors cursor-pointer disabled:opacity-50"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            <span>Remove from Organization</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* TAB 2: TEAMS ASSIGNMENT */}
+              {/* TAB 1: TEAMS ASSIGNMENT */}
               {memberDetailTab === "teams" && (
                 <div className="space-y-3">
                   <p className="text-xs text-zinc-400">
@@ -1277,70 +1230,101 @@ export function PeopleHub({
                   </p>
 
                   <div className="space-y-2">
-                    {teams.map((t) => {
-                      const isAssigned = selectedMember.teams.some((st) => st.id === t.id);
-                      const c = COLOR_MAP[t.color] || COLOR_MAP.blue;
+                    {teams.length === 0 ? (
+                      <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950/40 text-center text-xs text-zinc-500">
+                        No teams exist yet. Create a team first to assign it to this member.
+                      </div>
+                    ) : (
+                      teams.map((t) => {
+                        const isAssigned = selectedMember.teams.some((st) => st.id === t.id);
+                        const c = COLOR_MAP[t.color] || COLOR_MAP.blue;
 
-                      return (
-                        <div
-                          key={t.id}
-                          className={cn(
-                            "flex items-center justify-between p-3 rounded-xl border text-xs transition-colors",
-                            isAssigned
-                              ? "border-blue-500/40 bg-blue-500/10 text-white"
-                              : "border-zinc-800 bg-zinc-950/60 text-zinc-400"
-                          )}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <span
-                              className={cn(
-                                "h-6 w-6 rounded-md flex items-center justify-center font-bold text-[10px] uppercase border",
-                                c.bg,
-                                c.text,
-                                c.border
-                              )}
-                            >
-                              {t.name.charAt(0)}
-                            </span>
-                            <div>
-                              <span className="font-semibold block text-white">{t.name}</span>
-                              <span className="text-[10px] text-zinc-500">
-                                {t.permissions?.length || 0} permissions assigned
-                              </span>
-                            </div>
-                          </div>
-
-                          <button
-                            type="button"
-                            onClick={() => handleToggleMemberTeam(t.id, isAssigned)}
+                        return (
+                          <div
+                            key={t.id}
                             className={cn(
-                              "px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors",
+                              "flex items-center justify-between p-3 rounded-xl border text-xs transition-colors",
                               isAssigned
-                                ? "bg-red-500/20 text-red-300 border-red-500/30 hover:bg-red-500/30"
-                                : "bg-blue-600 hover:bg-blue-500 text-white border-transparent"
+                                ? "border-blue-500/40 bg-blue-500/10 text-white"
+                                : "border-zinc-800 bg-zinc-950/60 text-zinc-400"
                             )}
                           >
-                            {isAssigned ? "Leave Team" : "Join Team"}
-                          </button>
-                        </div>
-                      );
-                    })}
+                            <div className="flex items-center gap-2.5">
+                              <span
+                                className={cn(
+                                  "h-6 w-6 rounded-md flex items-center justify-center font-bold text-[10px] uppercase border",
+                                  c.bg,
+                                  c.text,
+                                  c.border
+                                )}
+                              >
+                                {t.name.charAt(0)}
+                              </span>
+                              <div>
+                                <span className="font-semibold block text-white">{t.name}</span>
+                                <span className="text-[10px] text-zinc-500">
+                                  {t.permissions?.length || 0} permissions assigned
+                                </span>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              disabled={!canManageTeamMembers}
+                              onClick={() => handleToggleMemberTeam(t.id, isAssigned)}
+                              className={cn(
+                                "px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors cursor-pointer",
+                                isAssigned
+                                  ? "bg-red-500/20 text-red-300 border-red-500/30 hover:bg-red-500/30"
+                                  : "bg-blue-600 hover:bg-blue-500 text-white border-transparent",
+                                !canManageTeamMembers && "opacity-40 cursor-not-allowed hover:bg-transparent"
+                              )}
+                              title={
+                                canManageTeamMembers
+                                  ? isAssigned
+                                    ? "Leave Team"
+                                    : "Join Team"
+                                  : "You do not have permission to manage team members"
+                              }
+                            >
+                              {isAssigned ? "Leave Team" : "Join Team"}
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* TAB 3: GRANULAR PERMISSIONS & OVERRIDES */}
+              {/* TAB 2: GRANULAR PERMISSIONS & OVERRIDES */}
               {memberDetailTab === "permissions" && (
                 <div className="space-y-4">
                   {selectedMember.isOwner ? (
-                    <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-200 space-y-1">
-                      <p className="font-bold">Workspace Owner (Root Access)</p>
+                    <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs text-amber-200 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <PhosphorCrown className="h-4 w-4 text-amber-400 shrink-0" />
+                        <p className="font-bold text-amber-300">Workspace Owner — Root Access</p>
+                      </div>
                       <p className="text-[11px] text-amber-300/80 leading-relaxed">
-                        The Owner has root authority and unrestricted access to all BusinessBrain capabilities. Permissions cannot be removed or denied.
+                        The Owner has full root access across the workspace. All capabilities are permanently active and cannot be removed, restricted, or denied.
                       </p>
                     </div>
                   ) : (
                     <>
+                      {overrideError && (
+                        <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-300 flex items-center gap-2">
+                          <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
+                          <span>{overrideError}</span>
+                        </div>
+                      )}
+
+                      {!canManageOverrides && (
+                        <div className="p-2.5 rounded-xl border border-zinc-800 bg-zinc-900/60 text-[11px] text-zinc-400">
+                          View-only mode: only authorized members with permission to manage permissions can modify overrides.
+                        </div>
+                      )}
+
                       <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-400 space-y-1">
                         <p className="font-medium text-white">Precedence Hierarchy:</p>
                         <p className="text-[11px]">
@@ -1390,36 +1374,44 @@ export function PeopleHub({
                               <div className="flex items-center gap-1 shrink-0">
                                 <button
                                   type="button"
+                                  disabled={!canManageOverrides}
                                   onClick={() => handleSetOverride(perm.key, "allow")}
                                   className={cn(
-                                    "px-2 py-1 rounded text-[10px] font-medium border transition-colors",
+                                    "px-2 py-1 rounded text-[10px] font-medium border transition-colors cursor-pointer",
                                     isExplicitAllow
                                       ? "bg-blue-600 text-white border-blue-500"
-                                      : "border-zinc-800 hover:bg-zinc-800 text-zinc-400"
+                                      : "border-zinc-800 hover:bg-zinc-800 text-zinc-400",
+                                    !canManageOverrides && "opacity-40 cursor-not-allowed hover:bg-transparent"
                                   )}
-                                  title="Explicitly grant this permission"
+                                  title={canManageOverrides ? "Explicitly grant this permission" : "Permission management not permitted"}
                                 >
                                   Allow
                                 </button>
                                 <button
                                   type="button"
+                                  disabled={!canManageOverrides}
                                   onClick={() => handleSetOverride(perm.key, "deny")}
                                   className={cn(
-                                    "px-2 py-1 rounded text-[10px] font-medium border transition-colors",
+                                    "px-2 py-1 rounded text-[10px] font-medium border transition-colors cursor-pointer",
                                     isExplicitDeny
                                       ? "bg-red-600 text-white border-red-500"
-                                      : "border-zinc-800 hover:bg-zinc-800 text-zinc-400"
+                                      : "border-zinc-800 hover:bg-zinc-800 text-zinc-400",
+                                    !canManageOverrides && "opacity-40 cursor-not-allowed hover:bg-transparent"
                                   )}
-                                  title="Explicitly deny/restrict this permission"
+                                  title={canManageOverrides ? "Explicitly deny/restrict this permission" : "Permission management not permitted"}
                                 >
                                   Deny
                                 </button>
                                 {(isExplicitAllow || isExplicitDeny) && (
                                   <button
                                     type="button"
+                                    disabled={!canManageOverrides}
                                     onClick={() => handleSetOverride(perm.key, "inherit")}
-                                    className="px-1.5 py-1 rounded text-[10px] font-medium text-zinc-500 hover:text-zinc-300"
-                                    title="Reset to team inheritance"
+                                    className={cn(
+                                      "px-1.5 py-1 rounded text-[10px] font-medium text-zinc-500 hover:text-zinc-300 cursor-pointer",
+                                      !canManageOverrides && "opacity-40 cursor-not-allowed hover:text-zinc-500"
+                                    )}
+                                    title={canManageOverrides ? "Reset to team inheritance" : "Permission management not permitted"}
                                   >
                                     Reset
                                   </button>
@@ -1435,11 +1427,29 @@ export function PeopleHub({
               )}
             </div>
 
-            <div className="pt-4 border-t border-zinc-800 flex justify-end">
+            <div className="pt-4 border-t border-zinc-800 flex items-center justify-between">
+              {canRemove && !selectedMember.isOwner && selectedMember.user_id !== currentUserId ? (
+                <button
+                  type="button"
+                  disabled={isMutatingMember}
+                  onClick={() =>
+                    handleRemoveMember(
+                      selectedMember.user_id,
+                      selectedMember.profile?.full_name || selectedMember.profile?.email || "this member"
+                    )
+                  }
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-xs font-semibold text-red-300 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>Remove Member</span>
+                </button>
+              ) : (
+                <div />
+              )}
               <button
                 type="button"
                 onClick={() => setSelectedMember(null)}
-                className="px-4 py-1.5 text-xs font-semibold rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
+                className="px-4 py-1.5 text-xs font-semibold rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors cursor-pointer"
               >
                 Close
               </button>
@@ -1473,6 +1483,13 @@ export function PeopleHub({
             </div>
 
             <form onSubmit={handleCreateTeam} className="space-y-4">
+              {createTeamError && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-300 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
+                  <span>{createTeamError}</span>
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-zinc-300">Team Name *</label>
                 <input
@@ -1567,7 +1584,20 @@ export function PeopleHub({
               </button>
             </div>
 
-            <div className="my-4 overflow-y-auto space-y-4 pr-1">
+            {teamPermsError && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-300 flex items-center gap-2 my-2">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
+                <span>{teamPermsError}</span>
+              </div>
+            )}
+
+            {!canManageTeamPerms && (
+              <div className="p-2.5 rounded-xl border border-zinc-800 bg-zinc-900/60 text-[11px] text-zinc-400 my-2">
+                View-only mode: only authorized members with permission to manage permissions can alter team capabilities.
+              </div>
+            )}
+
+            <div className="my-3 overflow-y-auto space-y-4 pr-1">
               {PERMISSION_CATEGORIES.map((cat) => {
                 const perms = PERMISSIONS_REGISTRY.filter((p) => p.category === cat.id);
                 return (
@@ -1582,22 +1612,25 @@ export function PeopleHub({
                           <label
                             key={p.key}
                             className={cn(
-                              "flex items-start gap-2.5 p-2 rounded-lg border text-xs cursor-pointer transition-colors",
+                              "flex items-start gap-2.5 p-2 rounded-lg border text-xs transition-colors",
                               isChecked
                                 ? "border-blue-500/40 bg-blue-500/10 text-white"
-                                : "border-zinc-800/80 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700"
+                                : "border-zinc-800/80 bg-zinc-900/40 text-zinc-400 hover:border-zinc-700",
+                              canManageTeamPerms ? "cursor-pointer" : "cursor-default opacity-70"
                             )}
                           >
                             <input
                               type="checkbox"
                               checked={isChecked}
+                              disabled={!canManageTeamPerms}
                               onChange={(e) => {
+                                if (!canManageTeamPerms) return;
                                 const next = new Set(selectedTeamPerms);
                                 if (e.target.checked) next.add(p.key);
                                 else next.delete(p.key);
                                 setSelectedTeamPerms(next);
                               }}
-                              className="mt-0.5 rounded border-zinc-700 text-blue-600 focus:ring-0"
+                              className="mt-0.5 rounded border-zinc-700 text-blue-600 focus:ring-0 disabled:opacity-50"
                             />
                             <div className="min-w-0">
                               <span className="font-semibold block text-white">{p.name}</span>
@@ -1627,11 +1660,11 @@ export function PeopleHub({
                 </button>
                 <button
                   type="button"
-                  disabled={isSavingTeamPerms}
+                  disabled={!canManageTeamPerms || isSavingTeamPerms}
                   onClick={handleSaveTeamPermissions}
-                  className="px-4 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50"
+                  className="px-4 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                 >
-                  {isSavingTeamPerms ? "Saving..." : "Save Permissions"}
+                  {isSavingTeamPerms ? "Saving..." : canManageTeamPerms ? "Save Permissions" : "View Only"}
                 </button>
               </div>
             </div>
@@ -1732,15 +1765,29 @@ export function PeopleHub({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-zinc-300">System Role</label>
-                  <select
-                    value={inviteRole}
-                    onChange={(e) => setInviteRole(e.target.value as InvitationRole)}
-                    className="w-full text-xs rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-white focus:outline-none focus:border-blue-500 cursor-pointer"
-                  >
-                    <option value="member">Member — Standard access</option>
-                    <option value="admin">Admin — Management access</option>
-                  </select>
+                  <label className="text-xs font-semibold text-zinc-300">Team *</label>
+                  {teams.length === 0 ? (
+                    <div className="p-3 rounded-xl border border-zinc-800 bg-zinc-950/60 text-xs text-zinc-400">
+                      No teams exist yet. Please create a team in the Teams tab first.
+                    </div>
+                  ) : (
+                    <select
+                      value={inviteTeamId}
+                      onChange={(e) => setInviteTeamId(e.target.value)}
+                      required
+                      className="w-full text-xs rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-2 text-white focus:outline-none focus:border-blue-500 cursor-pointer"
+                    >
+                      <option value="" disabled>Select a team...</option>
+                      {teams.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <p className="text-[11px] text-zinc-500">
+                    The invited member will automatically join this team and inherit its configured permissions.
+                  </p>
                 </div>
 
                 <div className="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800 text-[11px] text-zinc-400 space-y-1">
@@ -1751,15 +1798,18 @@ export function PeopleHub({
                 <div className="pt-2 flex justify-end gap-2.5">
                   <button
                     type="button"
-                    onClick={() => setIsInviteModalOpen(false)}
+                    onClick={() => {
+                      setIsInviteModalOpen(false);
+                      setInviteTeamId("");
+                    }}
                     className="px-3.5 py-1.5 text-xs font-medium rounded-xl border border-zinc-700 hover:bg-zinc-800 text-zinc-300 transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={isSendingInvite || !inviteEmail.trim()}
-                    className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 cursor-pointer"
+                    disabled={isSendingInvite || !inviteEmail.trim() || (teams.length > 0 && !inviteTeamId)}
+                    className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                   >
                     {isSendingInvite ? (
                       <>
@@ -1775,6 +1825,192 @@ export function PeopleHub({
                   </button>
                 </div>
               </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: TEAM TEMPLATES */}
+      {isTemplatesModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4"
+          onClick={() => setIsTemplatesModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl rounded-2xl border border-zinc-800 bg-zinc-900 p-6 text-zinc-100 shadow-2xl space-y-4 max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-amber-400" />
+                <div>
+                  <h3 className="text-base font-bold text-white">Standard Team Templates</h3>
+                  <p className="text-xs text-zinc-400">
+                    Quickly bootstrap functional departments. Existing teams with identical names are automatically skipped.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsTemplatesModalOpen(false)}
+                className="text-zinc-400 hover:text-white cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {templateApplyResult ? (
+              <div className="space-y-4 py-4">
+                <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 flex items-start gap-3">
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-sm block">Team templates processed!</span>
+                    <p className="mt-1 text-zinc-300">
+                      Created <strong>{templateApplyResult.created}</strong> new team(s).
+                      {templateApplyResult.skipped > 0 && (
+                        <span> Skipped <strong>{templateApplyResult.skipped}</strong> team(s) that already existed.</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsTemplatesModalOpen(false);
+                      setTemplateApplyResult(null);
+                    }}
+                    className="px-4 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between text-xs text-zinc-400">
+                  <span>Select the teams you would like to create:</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTemplateIds(SUGGESTED_TEAM_TEMPLATES.map((t) => t.id))}
+                      className="text-blue-400 hover:underline cursor-pointer"
+                    >
+                      Select all
+                    </button>
+                    <span>•</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTemplateIds([])}
+                      className="text-zinc-400 hover:underline cursor-pointer"
+                    >
+                      Clear all
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-y-auto space-y-2.5 flex-1 pr-1">
+                  {SUGGESTED_TEAM_TEMPLATES.map((template) => {
+                    const isSelected = selectedTemplateIds.includes(template.id);
+                    const alreadyExists = teams.some(
+                      (t) => t.name.trim().toLowerCase() === template.name.trim().toLowerCase()
+                    );
+                    const c = COLOR_MAP[template.color] || COLOR_MAP.blue;
+
+                    return (
+                      <div
+                        key={template.id}
+                        onClick={() => {
+                          if (alreadyExists) return;
+                          setSelectedTemplateIds((prev) =>
+                            isSelected ? prev.filter((id) => id !== template.id) : [...prev, template.id]
+                          );
+                        }}
+                        className={cn(
+                          "p-3 rounded-xl border transition-all text-xs flex items-start gap-3",
+                          alreadyExists
+                            ? "opacity-60 bg-zinc-950/40 border-zinc-800/60 cursor-not-allowed"
+                            : isSelected
+                            ? "bg-zinc-800/80 border-blue-500/50 cursor-pointer"
+                            : "bg-zinc-900/60 border-zinc-800 hover:border-zinc-700 cursor-pointer"
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          readOnly
+                          checked={isSelected && !alreadyExists}
+                          disabled={alreadyExists}
+                          className="mt-1 h-4 w-4 rounded border-zinc-700 bg-zinc-800 text-blue-600 pointer-events-none"
+                        />
+                        <div className="flex-1 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-white">{template.name}</span>
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${c.bg} ${c.text} ${c.border}`}>
+                                {template.roles.length} roles
+                              </span>
+                            </div>
+                            {alreadyExists && (
+                              <span className="text-[10px] text-zinc-500 font-mono bg-zinc-800 px-2 py-0.5 rounded">
+                                Already exists
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-zinc-400">{template.description}</p>
+                          <div className="pt-1 flex flex-wrap gap-1">
+                            {template.roles.slice(0, 4).map((role) => (
+                              <span
+                                key={role}
+                                className="px-1.5 py-0.5 rounded text-[10px] bg-zinc-800/60 text-zinc-400 border border-zinc-700/40"
+                              >
+                                {role}
+                              </span>
+                            ))}
+                            {template.roles.length > 4 && (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] text-zinc-500">
+                                +{template.roles.length - 4} more
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-3 border-t border-zinc-800 flex items-center justify-between">
+                  <span className="text-xs text-zinc-400">
+                    {selectedTemplateIds.length} team template(s) selected
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsTemplatesModalOpen(false)}
+                      className="px-3.5 py-1.5 text-xs font-medium rounded-xl border border-zinc-700 hover:bg-zinc-800 text-zinc-300 transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isApplyingTemplates || selectedTemplateIds.length === 0}
+                      onClick={handleApplyTemplates}
+                      className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+                    >
+                      {isApplyingTemplates ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <span>Applying...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                          <span>Apply Templates</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>

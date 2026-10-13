@@ -395,7 +395,12 @@ export async function getFilePreviewAction(
   fileId: string
 ): Promise<FilePreviewInfo> {
   assertValidUuid(fileId, "File ID");
-  const { activeOrg } = await requireActiveOrganization();
+  const { user, activeOrg } = await requireActiveOrganization();
+
+  const canView = await hasPermission(user.id, activeOrg.id, "files.view");
+  if (!canView) {
+    throw new Error("Forbidden: You do not have permission to view files.");
+  }
 
   const supabase = await createClient();
   const { data: file } = await supabase
@@ -420,7 +425,12 @@ export async function getFileDownloadUrlAction(
   fileId: string
 ): Promise<string | null> {
   assertValidUuid(fileId, "File ID");
-  const { activeOrg } = await requireActiveOrganization();
+  const { user, activeOrg } = await requireActiveOrganization();
+
+  const canView = await hasPermission(user.id, activeOrg.id, "files.view");
+  if (!canView) {
+    throw new Error("Forbidden: You do not have permission to view files.");
+  }
 
   const supabase = await createClient();
   const { data: file } = await supabase
@@ -518,7 +528,11 @@ export async function getOrganizationFilesAction(options?: {
   search?: string;
   limit?: number;
 }): Promise<OrganizationFileRecord[]> {
-  const { activeOrg } = await requireActiveOrganization();
+  const { user, activeOrg } = await requireActiveOrganization();
+  const canView = await hasPermission(user.id, activeOrg.id, "files.view");
+  if (!canView) {
+    throw new Error("Forbidden: You do not have permission to view files.");
+  }
   const { getOrganizationFiles } = await import("./queries");
   return getOrganizationFiles(activeOrg.id, options);
 }

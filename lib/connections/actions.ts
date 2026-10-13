@@ -20,6 +20,7 @@ import {
 } from "./types";
 import { getCompanyGraphData } from "./queries";
 import { findShortestPathBFS } from "./graph-algorithms";
+import { hasPermission } from "@/lib/permissions/resolver";
 
 /**
  * Creates a directed connection between any two company objects.
@@ -53,6 +54,14 @@ export async function createConnectionAction(params: {
       return { success: false, error: "No active workspace found" };
     }
 
+    // Verify permission: requires brain.create or brain.manage
+    const canCreate =
+      (await hasPermission(user.id, activeOrg.id, "brain.create")) ||
+      (await hasPermission(user.id, activeOrg.id, "brain.manage"));
+    if (!canCreate) {
+      return { success: false, error: "Forbidden: You do not have permission to record decisions or create knowledge graph connections." };
+    }
+
     // Validation: prevent self-connections
     if (params.sourceId === params.targetId) {
       return { success: false, error: "An object cannot be connected to itself" };
@@ -70,9 +79,11 @@ export async function createConnectionAction(params: {
       company_entity: "company_entities",
       person: "company_entities",
       project: "company_entities",
+      task: "company_entities",
       decision: "company_entities",
       goal: "company_entities",
       meeting: "company_entities",
+      document: "company_entities",
     };
     const sourceTable = entityTables[params.sourceType];
     const targetTable = entityTables[params.targetType];
@@ -85,7 +96,7 @@ export async function createConnectionAction(params: {
         .eq("organization_id", activeOrg.id)
         .maybeSingle();
       if (!srcObj) {
-        return { success: false, error: "Source object not found in your workspace" };
+        return { success: false, error: "Objeto de origem não encontrado no seu workspace" };
       }
     }
 
@@ -97,7 +108,40 @@ export async function createConnectionAction(params: {
         .eq("organization_id", activeOrg.id)
         .maybeSingle();
       if (!tgtObj) {
-        return { success: false, error: "Target object not found in your workspace" };
+        return { success: false, error: "Objeto de destino não encontrado no seu workspace" };
+      }
+    }
+
+    // Check if an identical connection already exists
+    const { data: existingSameConn } = await supabase
+      .from("company_connections")
+      .select("id")
+      .eq("organization_id", activeOrg.id)
+      .eq("source_id", params.sourceId)
+      .eq("target_id", params.targetId)
+      .eq("relationship_type", params.relationshipType)
+      .maybeSingle();
+
+    if (existingSameConn) {
+      return {
+        success: false,
+        error: "Esta relação exata já existe entre estes dois elementos no grafo.",
+      };
+    }
+
+    // Check if a structural hierarchy already fulfills part_of for pages
+    if (params.sourceType === "page" && params.targetType === "page" && params.relationshipType === "part_of") {
+      const { data: pageRow } = await supabase
+        .from("pages")
+        .select("parent_page_id")
+        .eq("id", params.sourceId)
+        .eq("organization_id", activeOrg.id)
+        .maybeSingle();
+      if (pageRow?.parent_page_id === params.targetId) {
+        return {
+          success: false,
+          error: "Esta ligação já existe como relação hierárquica estrutural entre subpágina e página-mãe.",
+        };
       }
     }
 
@@ -107,23 +151,18 @@ export async function createConnectionAction(params: {
     // Insert into canonical company_connections table
     const { data, error } = await supabase
       .from("company_connections")
-      .upsert(
-        {
-          organization_id: activeOrg.id,
-          source_type: params.sourceType,
-          source_id: params.sourceId,
-          source_title: cleanSourceTitle,
-          target_type: params.targetType,
-          target_id: params.targetId,
-          target_title: cleanTargetTitle,
-          relationship_type: params.relationshipType,
-          metadata: params.metadata || {},
-          created_by: user.id,
-        },
-        {
-          onConflict: "organization_id,source_type,source_id,target_type,target_id,relationship_type",
-        }
-      )
+      .insert({
+        organization_id: activeOrg.id,
+        source_type: params.sourceType,
+        source_id: params.sourceId,
+        source_title: cleanSourceTitle,
+        target_type: params.targetType,
+        target_id: params.targetId,
+        target_title: cleanTargetTitle,
+        relationship_type: params.relationshipType,
+        metadata: params.metadata || {},
+        created_by: user.id,
+      })
       .select()
       .single();
 
@@ -173,6 +212,12 @@ export async function removeConnectionAction(connectionId: string): Promise<{
       return { success: false, error: "No active workspace found" };
     }
 
+    // Verify permission: requires brain.manage
+    const canManage = await hasPermission(user.id, activeOrg.id, "brain.manage");
+    if (!canManage) {
+      return { success: false, error: "Forbidden: You do not have permission to manage knowledge graph connections." };
+    }
+
     // 1. Try deleting from company_connections
     const { error: deleteError } = await supabase
       .from("company_connections")
@@ -211,9 +256,23 @@ export async function getCompanyGraphAction(): Promise<{
   error?: string;
 }> {
   try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
     const activeOrg = await getActiveOrganization();
     if (!activeOrg) {
       return { success: false, error: "No active workspace found" };
+    }
+
+    const canView = await hasPermission(user.id, activeOrg.id, "brain.view");
+    if (!canView) {
+      return { success: false, error: "Forbidden: You do not have permission to view Company Brain." };
     }
 
     const graph = await getCompanyGraphData(activeOrg.id);
@@ -242,5 +301,54 @@ export async function findShortestPathAction(
   } catch (err: unknown) {
     logger.error("Unexpected error in findShortestPathAction", err);
     return { found: false, path: [], totalHops: 0 };
+  }
+}
+
+/**
+ * Updates an existing company connection metadata or description.
+ * Enforces brain.edit permission.
+ */
+export async function updateConnectionAction(params: {
+  connectionId: string;
+  metadata?: Record<string, unknown>;
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!isValidUuid(params.connectionId)) {
+      return { success: false, error: "Invalid connection ID" };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "Unauthorized" };
+
+    const activeOrg = await getActiveOrganization();
+    if (!activeOrg) return { success: false, error: "No active workspace found" };
+
+    const canEditBrain = await hasPermission(user.id, activeOrg.id, "brain.edit");
+    if (!canEditBrain) {
+      return { success: false, error: "Forbidden: You do not have permission to edit Brain connections." };
+    }
+
+    const { error } = await supabase
+      .from("company_connections")
+      .update({
+        metadata: params.metadata || {},
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", params.connectionId)
+      .eq("organization_id", activeOrg.id);
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    revalidatePath("/dashboard/connections");
+    return { success: true };
+  } catch (err: unknown) {
+    logger.error("Error updating connection", err);
+    return { success: false, error: "Failed to update connection" };
   }
 }

@@ -267,6 +267,23 @@ export function PhosphorCreditCard({ className, size, ...props }: PhosphorIconPr
   );
 }
 
+export function PhosphorCrown({ className, size, ...props }: PhosphorIconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 256 256"
+      fill="currentColor"
+      width={size}
+      height={size}
+      aria-hidden="true"
+      className={cn("shrink-0", className)}
+      {...props}
+    >
+      <path d="M246.85,91.86a16,16,0,0,0-15.55-5.59L184.87,97.35,142.12,40.35a16,16,0,0,0-28.24,0L71.13,97.35,24.7,86.27A16,16,0,0,0,5.4,103.73l24,104A16,16,0,0,0,45,220H211a16,16,0,0,0,15.62-12.27l24-104A16,16,0,0,0,246.85,91.86ZM211,204H45L21.92,104,74.5,116.52a8,8,0,0,0,7.74-2.61L128,54.7l45.76,59.21a8,8,0,0,0,7.74,2.61L234.08,104Z" />
+    </svg>
+  );
+}
+
 export function PhosphorFile({ className, size, ...props }: PhosphorIconProps) {
   return (
     <svg
@@ -691,6 +708,7 @@ export type PhosphorIconName =
   | "check-square"
   | "clock"
   | "credit-card"
+  | "crown"
   | "file"
   | "files"
   | "folder"
@@ -735,6 +753,7 @@ export const PHOSPHOR_ICONS: Record<
   "check-square": PhosphorCheckSquare,
   "clock": PhosphorClock,
   "credit-card": PhosphorCreditCard,
+  "crown": PhosphorCrown,
   "file": PhosphorFile,
   "files": PhosphorFiles,
   "folder": PhosphorFolder,

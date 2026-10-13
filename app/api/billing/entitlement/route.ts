@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
 
+import { hasPermission } from "@/lib/permissions/resolver";
+
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -25,6 +27,11 @@ export async function GET() {
     const activeOrg = await getActiveOrganization();
     if (!activeOrg) {
       return NextResponse.json({ error: "No active organization" }, { status: 404 });
+    }
+
+    const canViewBilling = await hasPermission(user.id, activeOrg.id, "billing.view");
+    if (!canViewBilling) {
+      return NextResponse.json({ error: "Forbidden: Missing permission 'billing.view'" }, { status: 403 });
     }
 
     const entitlement = await getOrganizationEntitlement(activeOrg.id);

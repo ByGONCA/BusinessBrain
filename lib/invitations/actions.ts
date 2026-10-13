@@ -20,6 +20,21 @@ import {
 const emailSchema = z.string().trim().email("Please provide a valid email address").max(255);
 
 /**
+ * Checks if a Supabase/PostgreSQL error specifically indicates that optional columns
+ * (e.g. job_title or initial_team_ids from migration 00022) do not exist yet on the remote database.
+ * Does NOT swallow constraint violations, authentication/RLS errors, or connection failures.
+ */
+function isUndefinedColumnError(err: { code?: string; message?: string } | null | undefined): boolean {
+  if (!err) return false;
+  return (
+    err.code === "42703" ||
+    (typeof err.message === "string" &&
+      (err.message.includes("job_title") || err.message.includes("initial_team_ids") || err.message.includes("column")) &&
+      (err.code?.startsWith("42") || !err.code))
+  );
+}
+
+/**
  * Creates and dispatches a secure single-use organization invitation.
  * Requires people.invite permission or Owner role.
  */
@@ -27,6 +42,8 @@ export async function createInvitationAction(params: {
   email: string;
   role?: InvitationRole;
   organizationId?: string;
+  jobTitle?: string;
+  initialTeamIds?: string[];
 }): Promise<CreateInvitationResult> {
   const parsedEmail = emailSchema.safeParse(params.email);
   if (!parsedEmail.success) {
@@ -34,6 +51,7 @@ export async function createInvitationAction(params: {
   }
   const cleanEmail = parsedEmail.data.toLowerCase();
   const role: InvitationRole = params.role === "admin" ? "admin" : "member";
+  const cleanJobTitle = params.jobTitle ? params.jobTitle.trim() : "";
 
   const activeOrg = await getActiveOrganization();
   const targetOrgId = params.organizationId || activeOrg?.id;
@@ -57,6 +75,23 @@ export async function createInvitationAction(params: {
   const canInvite = await hasPermission(user.id, targetOrgId, "people.invite");
   if (!canInvite) {
     return { success: false, error: "Forbidden: You do not have permission to invite new members." };
+  }
+
+  // Validate initial team IDs if provided: ensure they belong strictly to this targetOrgId
+  let validatedTeamIds: string[] = [];
+  if (params.initialTeamIds && Array.isArray(params.initialTeamIds) && params.initialTeamIds.length > 0) {
+    const candidateUuids = params.initialTeamIds.filter((id) => typeof id === "string" && isValidUuid(id));
+    if (candidateUuids.length > 0) {
+      const { data: dbTeams } = await supabase
+        .from("organization_teams")
+        .select("id")
+        .eq("organization_id", targetOrgId)
+        .in("id", candidateUuids);
+
+      if (dbTeams) {
+        validatedTeamIds = dbTeams.map((t) => t.id);
+      }
+    }
   }
 
   // 1. Check if the invited user is already a member of the workspace
@@ -108,25 +143,43 @@ export async function createInvitationAction(params: {
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  // 4. Insert invitation record
-  const { data: newInvite, error: insertError } = await supabase
+  // 4. Insert invitation record (with fallback if migration 00022 has not run yet)
+  const invitePayload: Record<string, unknown> = {
+    organization_id: targetOrgId,
+    email: cleanEmail,
+    role,
+    token,
+    status: "pending",
+    invited_by: user.id,
+    expires_at: expiresAt,
+    job_title: cleanJobTitle,
+    initial_team_ids: validatedTeamIds,
+  };
+
+  let { data: newInvite, error: insertError } = await supabase
     .from("organization_invitations")
-    .insert({
-      organization_id: targetOrgId,
-      email: cleanEmail,
-      role,
-      token,
-      status: "pending",
-      invited_by: user.id,
-      expires_at: expiresAt,
-    })
-    .select("id, organization_id, email, role, status, invited_by, expires_at, created_at, updated_at")
+    .insert(invitePayload)
+    .select("*")
     .single();
+
+  if (insertError && isUndefinedColumnError(insertError)) {
+    // Fallback: insert without job_title and initial_team_ids
+    delete invitePayload.job_title;
+    delete invitePayload.initial_team_ids;
+    const fallbackRes = await supabase
+      .from("organization_invitations")
+      .insert(invitePayload)
+      .select("id, organization_id, email, role, status, invited_by, expires_at, created_at, updated_at")
+      .single();
+    newInvite = fallbackRes.data;
+    insertError = fallbackRes.error;
+  }
 
   if (insertError || !newInvite) {
     logger.error("Failed to insert organization invitation", insertError, { targetOrgId });
     return { success: false, error: insertError?.message || "Failed to create invitation." };
   }
+
 
   // Record audit log entry
   try {
@@ -192,16 +245,32 @@ export async function getOrganizationInvitationsAction(
       .eq("status", "pending")
       .lt("expires_at", new Date().toISOString());
 
-    // 2. Fetch invitations (omitting raw token column)
-    const { data: rawInvites, error } = await supabase
+    // 2. Fetch invitations (omitting raw token column, with fallback if migration 00022 hasn't run)
+    let rawInvites: unknown[] | null = null;
+    let fetchError: { message: string } | null = null;
+
+    const fullSelect = await supabase
       .from("organization_invitations")
-      .select("id, organization_id, email, role, status, invited_by, expires_at, created_at, updated_at")
+      .select("id, organization_id, email, role, status, job_title, initial_team_ids, invited_by, expires_at, created_at, updated_at")
       .eq("organization_id", targetOrgId)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      logger.error("Failed to fetch organization invitations", error, { targetOrgId });
-      return { success: false, invitations: [], error: error.message };
+    if (fullSelect.error && isUndefinedColumnError(fullSelect.error)) {
+      const fallbackSelect = await supabase
+        .from("organization_invitations")
+        .select("id, organization_id, email, role, status, invited_by, expires_at, created_at, updated_at")
+        .eq("organization_id", targetOrgId)
+        .order("created_at", { ascending: false });
+      rawInvites = fallbackSelect.data;
+      fetchError = fallbackSelect.error;
+    } else {
+      rawInvites = fullSelect.data;
+      fetchError = fullSelect.error;
+    }
+
+    if (fetchError) {
+      logger.error("Failed to fetch organization invitations", fetchError, { targetOrgId });
+      return { success: false, invitations: [], error: fetchError.message };
     }
 
     return { success: true, invitations: (rawInvites || []) as OrganizationInvitation[] };
@@ -318,8 +387,23 @@ export async function acceptInvitationAction(token: string): Promise<AcceptInvit
     return { success: false, error: "Authentication required. Please sign in or register to accept." };
   }
 
-  // 1. Fetch invitation record by single-use token
-  const { data: invitation, error: inviteError } = await supabase
+  interface InvitationRecordWithOrg {
+    id: string;
+    organization_id: string;
+    email: string;
+    role: "admin" | "member";
+    status: string;
+    expires_at: string;
+    job_title?: string;
+    initial_team_ids?: string[];
+    organizations: { id: string; name: string; status: string } | null;
+  }
+
+  // 1. Fetch invitation record by single-use token (with fallback if migration 00022 hasn't run)
+  let invitation: InvitationRecordWithOrg | null = null;
+  let inviteError: { message: string } | null = null;
+
+  const resWithColumns = await supabase
     .from("organization_invitations")
     .select(`
       id,
@@ -327,6 +411,8 @@ export async function acceptInvitationAction(token: string): Promise<AcceptInvit
       email,
       role,
       status,
+      job_title,
+      initial_team_ids,
       expires_at,
       organizations (
         id,
@@ -336,6 +422,31 @@ export async function acceptInvitationAction(token: string): Promise<AcceptInvit
     `)
     .eq("token", cleanToken)
     .maybeSingle();
+
+  if (resWithColumns.error && isUndefinedColumnError(resWithColumns.error)) {
+    const resFallback = await supabase
+      .from("organization_invitations")
+      .select(`
+        id,
+        organization_id,
+        email,
+        role,
+        status,
+        expires_at,
+        organizations (
+          id,
+          name,
+          status
+        )
+      `)
+      .eq("token", cleanToken)
+      .maybeSingle();
+    invitation = resFallback.data as unknown as InvitationRecordWithOrg | null;
+    inviteError = resFallback.error;
+  } else {
+    invitation = resWithColumns.data as unknown as InvitationRecordWithOrg | null;
+    inviteError = resWithColumns.error;
+  }
 
   if (inviteError || !invitation) {
     return { success: false, error: "Invalid or nonexistent invitation." };
@@ -372,22 +483,78 @@ export async function acceptInvitationAction(token: string): Promise<AcceptInvit
   // 4. Check if user is already a member
   const { data: existingMember } = await supabase
     .from("organization_members")
-    .select("id")
+    .select("id, job_title")
     .eq("organization_id", invitation.organization_id)
     .eq("user_id", user.id)
     .maybeSingle();
 
   if (!existingMember) {
-    // Add user as organization member
-    const { error: memberError } = await supabase.from("organization_members").insert({
+    // Add user as organization member with optional job_title
+    const memberInsert: Record<string, unknown> = {
       organization_id: invitation.organization_id,
       user_id: user.id,
       role: invitation.role,
-    });
+    };
+    if (invitation.job_title && invitation.job_title.trim()) {
+      memberInsert.job_title = invitation.job_title.trim();
+    }
+
+    const { error: memberError } = await supabase.from("organization_members").insert(memberInsert);
 
     if (memberError) {
       logger.error("Failed to add user to organization_members", memberError);
       return { success: false, error: "Failed to join organization. Please try again." };
+    }
+  } else if (invitation.job_title && invitation.job_title.trim() && !existingMember.job_title) {
+    // Member exists but had no job title set: populate it from invitation
+    await supabase
+      .from("organization_members")
+      .update({ job_title: invitation.job_title.trim() })
+      .eq("id", existingMember.id);
+  }
+
+  // Sync profile job_title if present in invitation
+  if (invitation.job_title && invitation.job_title.trim()) {
+    await supabase
+      .from("profiles")
+      .update({ job_title: invitation.job_title.trim() })
+      .eq("id", user.id)
+      .or("job_title.is.null,job_title.eq.''");
+  }
+
+  // Assign initial teams if specified in invitation (strictly validated to this organization)
+  if (
+    invitation.initial_team_ids &&
+    Array.isArray(invitation.initial_team_ids) &&
+    invitation.initial_team_ids.length > 0
+  ) {
+    const candidateTeamIds = invitation.initial_team_ids.filter((tid: string) => typeof tid === "string" && isValidUuid(tid));
+    if (candidateTeamIds.length > 0) {
+      const { data: validTeams } = await supabase
+        .from("organization_teams")
+        .select("id")
+        .eq("organization_id", invitation.organization_id)
+        .in("id", candidateTeamIds);
+
+      if (validTeams && validTeams.length > 0) {
+        for (const vt of validTeams) {
+          const { data: existingTm } = await supabase
+            .from("organization_team_members")
+            .select("id")
+            .eq("organization_id", invitation.organization_id)
+            .eq("team_id", vt.id)
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+          if (!existingTm) {
+            await supabase.from("organization_team_members").insert({
+              organization_id: invitation.organization_id,
+              team_id: vt.id,
+              user_id: user.id,
+            });
+          }
+        }
+      }
     }
   }
 

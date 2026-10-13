@@ -2,9 +2,9 @@
 
 // ==============================================================================
 // Company Brain: Interactive Force-Directed Graph Canvas
-// High-performance, zero-dependency HTML5 Canvas implementation
-// Features abstract geometric entity nodes, vector iconography, zero images,
-// dynamic edge relationship badges, and lightweight hover tooltips.
+// Obsidian-Inspired Minimalist Knowledge Graph View
+// Pure circular nodes, fine elegant links, dynamic focus highlighting,
+// zero card clutter, and smooth physical stabilization.
 // ==============================================================================
 
 import * as React from "react";
@@ -13,19 +13,20 @@ import {
   GraphEdge,
   EntityType,
 } from "@/lib/connections/types";
+import { computeDeterministicGraphLayout } from "@/lib/connections/graph-algorithms";
 import { cn } from "@/lib/utils";
 import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  Target,
+  X,
   FileText,
   FolderGit2,
   CheckSquare,
   Scale,
   Calendar,
-  Target,
   User,
-  ArrowRight,
 } from "lucide-react";
 
 interface InteractiveGraphCanvasProps {
@@ -35,6 +36,7 @@ interface InteractiveGraphCanvasProps {
   onSelectNode: (node: GraphNode | null) => void;
   onOpenNode?: (node: GraphNode) => void;
   focusDepth: number | null; // null = all, 1 = 1 hop, 2 = 2 hops, 3 = 3 hops
+  onSetFocusDepth?: (depth: number | null) => void;
   highlightedPathNodeIds?: string[];
   highlightedPathEdgeIds?: string[];
   filterType?: EntityType | "all";
@@ -63,377 +65,23 @@ interface HoverState {
   screenY: number;
 }
 
-// Visual configuration for abstract geometric entity nodes
+// Obsidian-style palette: discrete, cohesive, elegant colors per entity type
 interface EntityStyle {
   label: string;
   color: string;
-  bgDark: string;
-  bgLight: string;
-  borderDark: string;
-  borderLight: string;
-  glow: string;
-  shape: "circle" | "rounded-rect" | "hexagon" | "diamond" | "octagon";
   lucideIcon: React.ComponentType<{ className?: string }>;
 }
 
 const ENTITY_STYLES: Record<EntityType, EntityStyle> = {
-  page: {
-    label: "Page",
-    color: "#94a3b8", // slate-400
-    bgDark: "#1e293b",
-    bgLight: "#f1f5f9",
-    borderDark: "#475569",
-    borderLight: "#cbd5e1",
-    glow: "rgba(148, 163, 184, 0.4)",
-    shape: "rounded-rect",
-    lucideIcon: FileText,
-  },
-  project: {
-    label: "Project",
-    color: "#818cf8", // indigo-400
-    bgDark: "#1e1b4b",
-    bgLight: "#e0e7ff",
-    borderDark: "#6366f1",
-    borderLight: "#a5b4fc",
-    glow: "rgba(129, 140, 248, 0.4)",
-    shape: "rounded-rect",
-    lucideIcon: FolderGit2,
-  },
-  task: {
-    label: "Task",
-    color: "#60a5fa", // blue-400
-    bgDark: "#172554",
-    bgLight: "#dbeafe",
-    borderDark: "#3b82f6",
-    borderLight: "#93c5fd",
-    glow: "rgba(96, 165, 250, 0.4)",
-    shape: "hexagon",
-    lucideIcon: CheckSquare,
-  },
-  decision: {
-    label: "Decision",
-    color: "#fbbf24", // amber-400
-    bgDark: "#451a03",
-    bgLight: "#fef3c7",
-    borderDark: "#f59e0b",
-    borderLight: "#fde68a",
-    glow: "rgba(251, 191, 36, 0.4)",
-    shape: "diamond",
-    lucideIcon: Scale,
-  },
-  meeting: {
-    label: "Meeting",
-    color: "#c084fc", // purple-400
-    bgDark: "#3b0764",
-    bgLight: "#f3e8ff",
-    borderDark: "#a855f7",
-    borderLight: "#d8b4fe",
-    glow: "rgba(192, 132, 252, 0.4)",
-    shape: "octagon",
-    lucideIcon: Calendar,
-  },
-  goal: {
-    label: "Goal",
-    color: "#34d399", // emerald-400
-    bgDark: "#022c22",
-    bgLight: "#d1fae5",
-    borderDark: "#10b981",
-    borderLight: "#a7f3d0",
-    glow: "rgba(52, 211, 153, 0.4)",
-    shape: "circle",
-    lucideIcon: Target,
-  },
-  person: {
-    label: "Person",
-    color: "#fb923c", // orange-400
-    bgDark: "#431407",
-    bgLight: "#ffedd5",
-    borderDark: "#f97316",
-    borderLight: "#fdba74",
-    glow: "rgba(251, 146, 60, 0.4)",
-    shape: "circle",
-    lucideIcon: User,
-  },
-  document: {
-    label: "Document",
-    color: "#22d3ee", // cyan-400
-    bgDark: "#083344",
-    bgLight: "#cffafe",
-    borderDark: "#06b6d4",
-    borderLight: "#67e8f9",
-    glow: "rgba(34, 211, 238, 0.4)",
-    shape: "rounded-rect",
-    lucideIcon: FileText,
-  },
+  page: { label: "Page", color: "#94a3b8", lucideIcon: FileText },
+  project: { label: "Project", color: "#818cf8", lucideIcon: FolderGit2 },
+  task: { label: "Task", color: "#38bdf8", lucideIcon: CheckSquare },
+  decision: { label: "Decision", color: "#fbbf24", lucideIcon: Scale },
+  meeting: { label: "Meeting", color: "#c084fc", lucideIcon: Calendar },
+  goal: { label: "Goal", color: "#34d399", lucideIcon: Target },
+  person: { label: "Person", color: "#fb923c", lucideIcon: User },
+  document: { label: "Document", color: "#2dd4bf", lucideIcon: FileText },
 };
-
-/**
- * Renders standard geometric silhouettes for nodes on canvas.
- */
-function drawNodeShape(
-  c: CanvasRenderingContext2D,
-  shape: "circle" | "rounded-rect" | "hexagon" | "diamond" | "octagon",
-  cx: number,
-  cy: number,
-  r: number
-) {
-  c.beginPath();
-  switch (shape) {
-    case "rounded-rect":
-      if (typeof c.roundRect === "function") {
-        c.roundRect(cx - r, cy - r, r * 2, r * 2, r * 0.35);
-      } else {
-        c.rect(cx - r, cy - r, r * 2, r * 2);
-      }
-      break;
-    case "diamond":
-      c.moveTo(cx, cy - r * 1.15);
-      c.lineTo(cx + r * 1.15, cy);
-      c.lineTo(cx, cy + r * 1.15);
-      c.lineTo(cx - r * 1.15, cy);
-      c.closePath();
-      break;
-    case "hexagon": {
-      for (let i = 0; i < 6; i++) {
-        const angle = (i * Math.PI) / 3 - Math.PI / 6;
-        const px = cx + r * 1.05 * Math.cos(angle);
-        const py = cy + r * 1.05 * Math.sin(angle);
-        if (i === 0) c.moveTo(px, py);
-        else c.lineTo(px, py);
-      }
-      c.closePath();
-      break;
-    }
-    case "octagon": {
-      for (let i = 0; i < 8; i++) {
-        const angle = (i * Math.PI) / 4 - Math.PI / 8;
-        const px = cx + r * 1.05 * Math.cos(angle);
-        const py = cy + r * 1.05 * Math.sin(angle);
-        if (i === 0) c.moveTo(px, py);
-        else c.lineTo(px, py);
-      }
-      c.closePath();
-      break;
-    }
-    case "circle":
-    default:
-      c.arc(cx, cy, r, 0, Math.PI * 2);
-      break;
-  }
-}
-
-/**
- * Draws sharp, scalable 2D vector icons centered at (x, y) with zero image dependencies.
- */
-function drawVectorIcon(
-  c: CanvasRenderingContext2D,
-  type: EntityType,
-  x: number,
-  y: number,
-  size: number,
-  color: string
-) {
-  c.save();
-  c.strokeStyle = color;
-  c.fillStyle = color;
-  c.lineWidth = 1.7;
-  c.lineCap = "round";
-  c.lineJoin = "round";
-
-  switch (type) {
-    case "page": {
-      // Document with folded top-right corner and lines
-      const w = size * 0.7;
-      const h = size * 0.9;
-      const x0 = x - w / 2;
-      const y0 = y - h / 2;
-      const fold = size * 0.25;
-
-      c.beginPath();
-      c.moveTo(x0, y0);
-      c.lineTo(x0 + w - fold, y0);
-      c.lineTo(x0 + w, y0 + fold);
-      c.lineTo(x0 + w, y0 + h);
-      c.lineTo(x0, y0 + h);
-      c.closePath();
-      c.stroke();
-
-      // Fold corner
-      c.beginPath();
-      c.moveTo(x0 + w - fold, y0);
-      c.lineTo(x0 + w - fold, y0 + fold);
-      c.lineTo(x0 + w, y0 + fold);
-      c.stroke();
-
-      // Horizontal lines
-      c.beginPath();
-      c.moveTo(x0 + w * 0.25, y0 + h * 0.45);
-      c.lineTo(x0 + w * 0.75, y0 + h * 0.45);
-      c.moveTo(x0 + w * 0.25, y0 + h * 0.7);
-      c.lineTo(x0 + w * 0.6, y0 + h * 0.7);
-      c.stroke();
-      break;
-    }
-
-    case "project": {
-      // Folder icon
-      const w = size * 0.9;
-      const h = size * 0.7;
-      const x0 = x - w / 2;
-      const y0 = y - h / 2 + 1;
-      const tabW = w * 0.4;
-      const tabH = h * 0.25;
-
-      c.beginPath();
-      c.moveTo(x0, y0 + tabH);
-      c.lineTo(x0, y0);
-      c.lineTo(x0 + tabW, y0);
-      c.lineTo(x0 + tabW + 3, y0 + tabH);
-      c.lineTo(x0 + w, y0 + tabH);
-      c.lineTo(x0 + w, y0 + h);
-      c.lineTo(x0, y0 + h);
-      c.closePath();
-      c.stroke();
-      break;
-    }
-
-    case "task": {
-      // Checkbox with crisp checkmark
-      const box = size * 0.75;
-      const x0 = x - box / 2;
-      const y0 = y - box / 2;
-      c.beginPath();
-      if (typeof c.roundRect === "function") {
-        c.roundRect(x0, y0, box, box, 3);
-      } else {
-        c.rect(x0, y0, box, box);
-      }
-      c.stroke();
-
-      // Checkmark inside
-      c.beginPath();
-      c.moveTo(x0 + box * 0.22, y0 + box * 0.52);
-      c.lineTo(x0 + box * 0.44, y0 + box * 0.75);
-      c.lineTo(x0 + box * 0.8, y0 + box * 0.28);
-      c.stroke();
-      break;
-    }
-
-    case "decision": {
-      // Diamond scale
-      const r = size * 0.45;
-      c.beginPath();
-      c.moveTo(x, y - r);
-      c.lineTo(x + r, y);
-      c.lineTo(x, y + r);
-      c.lineTo(x - r, y);
-      c.closePath();
-      c.stroke();
-
-      // Center fulcrum point
-      c.beginPath();
-      c.arc(x, y, 2, 0, Math.PI * 2);
-      c.fill();
-      break;
-    }
-
-    case "meeting": {
-      // Calendar icon
-      const w = size * 0.8;
-      const h = size * 0.8;
-      const x0 = x - w / 2;
-      const y0 = y - h / 2 + 1;
-
-      c.beginPath();
-      if (typeof c.roundRect === "function") {
-        c.roundRect(x0, y0, w, h, 3);
-      } else {
-        c.rect(x0, y0, w, h);
-      }
-      c.stroke();
-
-      // Header line
-      c.beginPath();
-      c.moveTo(x0, y0 + h * 0.32);
-      c.lineTo(x0 + w, y0 + h * 0.32);
-      c.stroke();
-
-      // Top binder pins
-      c.beginPath();
-      c.moveTo(x0 + w * 0.28, y0 - 2.5);
-      c.lineTo(x0 + w * 0.28, y0 + 3);
-      c.moveTo(x0 + w * 0.72, y0 - 2.5);
-      c.lineTo(x0 + w * 0.72, y0 + 3);
-      c.stroke();
-
-      // Mini grid dots
-      c.beginPath();
-      c.arc(x0 + w * 0.35, y0 + h * 0.62, 1.4, 0, Math.PI * 2);
-      c.arc(x0 + w * 0.65, y0 + h * 0.62, 1.4, 0, Math.PI * 2);
-      c.fill();
-      break;
-    }
-
-    case "goal": {
-      // Target bullseye
-      c.beginPath();
-      c.arc(x, y, size * 0.42, 0, Math.PI * 2);
-      c.stroke();
-
-      c.beginPath();
-      c.arc(x, y, size * 0.22, 0, Math.PI * 2);
-      c.stroke();
-
-      c.beginPath();
-      c.arc(x, y, 2, 0, Math.PI * 2);
-      c.fill();
-      break;
-    }
-
-    case "person": {
-      // Person avatar outline
-      const headR = size * 0.22;
-      c.beginPath();
-      c.arc(x, y - headR * 0.8, headR, 0, Math.PI * 2);
-      c.stroke();
-
-      // Shoulders arc
-      c.beginPath();
-      c.arc(x, y + size * 0.55, size * 0.42, Math.PI * 1.25, Math.PI * 1.75);
-      c.stroke();
-      break;
-    }
-
-    case "document":
-    default: {
-      // Document sheet with lines
-      const w = size * 0.75;
-      const h = size * 0.9;
-      const x0 = x - w / 2;
-      const y0 = y - h / 2;
-
-      c.beginPath();
-      if (typeof c.roundRect === "function") {
-        c.roundRect(x0, y0, w, h, 2);
-      } else {
-        c.rect(x0, y0, w, h);
-      }
-      c.stroke();
-
-      c.beginPath();
-      c.moveTo(x0 + w * 0.22, y0 + h * 0.35);
-      c.lineTo(x0 + w * 0.78, y0 + h * 0.35);
-      c.moveTo(x0 + w * 0.22, y0 + h * 0.55);
-      c.lineTo(x0 + w * 0.78, y0 + h * 0.55);
-      c.moveTo(x0 + w * 0.22, y0 + h * 0.75);
-      c.lineTo(x0 + w * 0.55, y0 + h * 0.75);
-      c.stroke();
-      break;
-    }
-  }
-
-  c.restore();
-}
 
 /**
  * Calculates Euclidean distance from point (px, py) to line segment (x1, y1)-(x2, y2).
@@ -470,6 +118,7 @@ export function InteractiveGraphCanvas({
   onSelectNode,
   onOpenNode,
   focusDepth,
+  onSetFocusDepth,
   highlightedPathNodeIds = [],
   highlightedPathEdgeIds = [],
   filterType = "all",
@@ -478,10 +127,46 @@ export function InteractiveGraphCanvas({
   const containerRef = React.useRef<HTMLDivElement>(null);
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
 
+  // Active selected node reference
+  const selectedNode = React.useMemo(
+    () => nodes.find((n) => n.id === selectedNodeId) || null,
+    [nodes, selectedNodeId]
+  );
+
   // Transform (Pan & Zoom)
   const [transform, setTransform] = React.useState({ x: 0, y: 0, scale: 1 });
   const transformRef = React.useRef(transform);
   transformRef.current = transform;
+
+  // Immediate synchronous transform update helper to avoid stale coordinate lag during rapid events
+  const applyTransform = React.useCallback(
+    (next: { x: number; y: number; scale: number }) => {
+      transformRef.current = next;
+      setTransform(next);
+    },
+    []
+  );
+
+  // Exact zoom anchored at any screen coordinate (mouseX, mouseY) or viewport center
+  const zoomAtPoint = React.useCallback(
+    (screenX: number, screenY: number, factor: number) => {
+      const prev = transformRef.current;
+      const minScale = 0.15;
+      const maxScale = 3.5;
+      const newScale = Math.min(maxScale, Math.max(minScale, prev.scale * factor));
+      if (Math.abs(newScale - prev.scale) < 1e-6) return;
+
+      const actualFactor = newScale / prev.scale;
+      const next = {
+        scale: newScale,
+        x: screenX - (screenX - prev.x) * actualFactor,
+        y: screenY - (screenY - prev.y) * actualFactor,
+      };
+
+      applyTransform(next);
+    },
+    [applyTransform]
+  );
 
   // Simulation internal state
   const simNodesRef = React.useRef<SimNode[]>([]);
@@ -494,6 +179,25 @@ export function InteractiveGraphCanvas({
 
   // Lightweight UI hover tooltip state
   const [hoverState, setHoverState] = React.useState<HoverState | null>(null);
+  const alphaRef = React.useRef(1.0);
+
+  // Smoothly center camera on a given node
+  const centerOnNode = React.useCallback(
+    (nodeId: string) => {
+      if (!containerRef.current) return;
+      const target = simNodesRef.current.find((n) => n.id === nodeId);
+      if (!target) return;
+      const width = containerRef.current.clientWidth;
+      const height = containerRef.current.clientHeight;
+      const currentScale = transformRef.current.scale;
+      applyTransform({
+        ...transformRef.current,
+        x: width / 2 - target.x * currentScale,
+        y: height / 2 - target.y * currentScale,
+      });
+    },
+    [applyTransform]
+  );
 
   // 1. Initialize or update simulation data when nodes/edges change
   React.useEffect(() => {
@@ -505,24 +209,36 @@ export function InteractiveGraphCanvas({
     const width = containerRef.current?.clientWidth || 800;
     const height = containerRef.current?.clientHeight || 600;
 
-    // Filter nodes if filterType specified
     const filteredNodes =
       filterType === "all" ? nodes : nodes.filter((n) => n.type === filterType);
     const filteredNodeIds = new Set(filteredNodes.map((n) => n.id));
 
-    // Convert to SimNodes with radius scaled by connectivity
-    const newSimNodes: SimNode[] = filteredNodes.map((n, i) => {
+    // Calculate deterministic spatial clusters for new nodes
+    const deterministicPositions = computeDeterministicGraphLayout(
+      filteredNodes,
+      edges,
+      width,
+      height
+    );
+
+    // Convert to SimNodes with Obsidian-style gentle scaling (4.5px base up to ~13.5px)
+    const newSimNodes: SimNode[] = filteredNodes.map((n) => {
       const prev = existingPos.get(n.id);
-      const angle = (i / Math.max(1, filteredNodes.length)) * Math.PI * 2;
-      const radiusOffset = 80 + Math.random() * 120;
+      const detPos = deterministicPositions.get(n.id);
+      const initialX = prev ? prev.x : detPos ? detPos.x : width / 2;
+      const initialY = prev ? prev.y : detPos ? detPos.y : height / 2;
+
+      const degree = n.degree || 0;
+      const baseRadius = 4.5;
+      const radius = Math.min(14, Math.max(4.5, baseRadius + Math.sqrt(degree) * 1.8));
 
       return {
         ...n,
-        x: prev ? prev.x : width / 2 + Math.cos(angle) * radiusOffset,
-        y: prev ? prev.y : height / 2 + Math.sin(angle) * radiusOffset,
+        x: initialX,
+        y: initialY,
         vx: 0,
         vy: 0,
-        radius: Math.min(26, Math.max(16, 15 + (n.degree || 0) * 2.2)),
+        radius,
       };
     });
 
@@ -549,6 +265,7 @@ export function InteractiveGraphCanvas({
 
     simNodesRef.current = newSimNodes;
     simEdgesRef.current = newSimEdges;
+    alphaRef.current = 1.0;
   }, [nodes, edges, filterType]);
 
   // 2. Center/Fit to view
@@ -579,12 +296,12 @@ export function InteractiveGraphCanvas({
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
 
-    setTransform({
+    applyTransform({
       x: width / 2 - centerX * scale,
       y: height / 2 - centerY * scale,
       scale,
     });
-  }, []);
+  }, [applyTransform]);
 
   // Auto fit once after mount
   React.useEffect(() => {
@@ -594,7 +311,7 @@ export function InteractiveGraphCanvas({
     return () => clearTimeout(timer);
   }, [fitToView]);
 
-  // Smoothly center on selected node if changed externally (e.g. from search or deep-link)
+  // Smoothly center on selected node if changed externally
   React.useEffect(() => {
     if (!selectedNodeId || !containerRef.current) return;
     const target = simNodesRef.current.find((n) => n.id === selectedNodeId);
@@ -604,12 +321,12 @@ export function InteractiveGraphCanvas({
     const height = containerRef.current.clientHeight;
     const currentScale = transformRef.current.scale;
 
-    setTransform((prev) => ({
-      ...prev,
+    applyTransform({
+      ...transformRef.current,
       x: width / 2 - target.x * currentScale,
       y: height / 2 - target.y * currentScale,
-    }));
-  }, [selectedNodeId]);
+    });
+  }, [selectedNodeId, applyTransform]);
 
   // 3. Force-directed physical simulation loop + render loop
   React.useEffect(() => {
@@ -621,108 +338,137 @@ export function InteractiveGraphCanvas({
     const activeCanvas = canvas;
     const activeCtx = ctx;
 
-    const repulsionStrength = 1800;
-    const springLength = 110;
-    const springStrength = 0.04;
-    const centerStrength = 0.008;
-    const damping = 0.85;
+    // Obsidian-like physical force parameters: calm, organic clustering
+    const repulsionStrength = 1300;
+    const springLength = 85;
+    const springStrength = 0.045;
+    const centerStrength = 0.005;
+    const damping = 0.88;
 
     function step() {
       const sn = simNodesRef.current;
       const se = simEdgesRef.current;
-      const width = activeCanvas.width || 800;
-      const height = activeCanvas.height || 600;
+      const container = containerRef.current;
+      const width = container?.clientWidth || 800;
+      const height = container?.clientHeight || 600;
+      const dpr = window.devicePixelRatio || 1;
       const cx = width / 2;
       const cy = height / 2;
 
-      // 1. Repulsion between nodes
-      for (let i = 0; i < sn.length; i++) {
-        const n1 = sn[i];
-        for (let j = i + 1; j < sn.length; j++) {
-          const n2 = sn[j];
-          const dx = n2.x - n1.x;
-          const dy = n2.y - n1.y;
-          const distSq = dx * dx + dy * dy || 1;
-          const dist = Math.sqrt(distSq);
+      // Only run simulation integration while cooling alpha > 0.005
+      if (alphaRef.current > 0.005) {
+        const currentAlpha = alphaRef.current;
 
-          if (dist < 350) {
-            const force = repulsionStrength / distSq;
-            const fx = (dx / dist) * force;
-            const fy = (dy / dist) * force;
+        // 1. Repulsion between nodes
+        for (let i = 0; i < sn.length; i++) {
+          const n1 = sn[i];
+          for (let j = i + 1; j < sn.length; j++) {
+            const n2 = sn[j];
+            const dx = n2.x - n1.x;
+            const dy = n2.y - n1.y;
+            const distSq = dx * dx + dy * dy || 1;
+            const dist = Math.sqrt(distSq);
 
-            if (!n1.isDragging) {
-              n1.vx -= fx;
-              n1.vy -= fy;
+            if (dist < 300) {
+              const force = (repulsionStrength / distSq) * currentAlpha;
+              const fx = (dx / dist) * force;
+              const fy = (dy / dist) * force;
+
+              if (!n1.isDragging) {
+                n1.vx -= fx;
+                n1.vy -= fy;
+              }
+              if (!n2.isDragging) {
+                n2.vx += fx;
+                n2.vy += fy;
+              }
             }
-            if (!n2.isDragging) {
-              n2.vx += fx;
-              n2.vy += fy;
+
+            // Circle collision avoidance: prevent circles from overlapping
+            const minDist = n1.radius + n2.radius + 6;
+            if (dist < minDist) {
+              const overlap = (minDist - dist) * 0.45 * currentAlpha;
+              const ox = (dx / dist) * overlap;
+              const oy = (dy / dist) * overlap;
+              if (!n1.isDragging) {
+                n1.x -= ox;
+                n1.y -= oy;
+              }
+              if (!n2.isDragging) {
+                n2.x += ox;
+                n2.y += oy;
+              }
             }
           }
         }
-      }
 
-      // 2. Spring forces along edges
-      for (const e of se) {
-        const dx = e.targetNode.x - e.sourceNode.x;
-        const dy = e.targetNode.y - e.sourceNode.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const force = (dist - springLength) * springStrength;
-        const fx = (dx / dist) * force;
-        const fy = (dy / dist) * force;
+        // 2. Spring forces along edges
+        for (const e of se) {
+          const dx = e.targetNode.x - e.sourceNode.x;
+          const dy = e.targetNode.y - e.sourceNode.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const force = (dist - springLength) * springStrength * currentAlpha;
+          const fx = (dx / dist) * force;
+          const fy = (dy / dist) * force;
 
-        if (!e.sourceNode.isDragging) {
-          e.sourceNode.vx += fx;
-          e.sourceNode.vy += fy;
+          if (!e.sourceNode.isDragging) {
+            e.sourceNode.vx += fx;
+            e.sourceNode.vy += fy;
+          }
+          if (!e.targetNode.isDragging) {
+            e.targetNode.vx -= fx;
+            e.targetNode.vy -= fy;
+          }
         }
-        if (!e.targetNode.isDragging) {
-          e.targetNode.vx -= fx;
-          e.targetNode.vy -= fy;
+
+        // 3. Gentle centering & integrate velocities
+        for (const n of sn) {
+          if (!n.isDragging) {
+            n.vx += (cx - n.x) * centerStrength * currentAlpha;
+            n.vy += (cy - n.y) * centerStrength * currentAlpha;
+
+            n.vx *= damping;
+            n.vy *= damping;
+
+            n.x += n.vx;
+            n.y += n.vy;
+          }
         }
-      }
 
-      // 3. Gentle centering & integrate velocities
-      for (const n of sn) {
-        if (!n.isDragging) {
-          n.vx += (cx - n.x) * centerStrength;
-          n.vy += (cy - n.y) * centerStrength;
-
-          n.vx *= damping;
-          n.vy *= damping;
-
-          n.x += n.vx;
-          n.y += n.vy;
-        }
+        // Dissipate energy smoothly into stable rest
+        alphaRef.current *= 0.985;
       }
 
       // 4. Render
-      render(activeCtx, width, height);
+      render(activeCtx, width, height, dpr);
 
       animId = requestAnimationFrame(step);
     }
 
-    function render(c: CanvasRenderingContext2D, w: number, h: number) {
-      c.save();
+    function render(c: CanvasRenderingContext2D, w: number, h: number, dpr: number) {
+      c.setTransform(dpr, 0, 0, dpr, 0, 0);
       c.clearRect(0, 0, w, h);
 
       const isDark = document.documentElement.classList.contains("dark");
       const currentT = transformRef.current;
 
-      // Draw Subtle Background Grid
+      // Subtle Background Grid
       c.save();
-      c.strokeStyle = isDark ? "rgba(255, 255, 255, 0.03)" : "rgba(0, 0, 0, 0.03)";
+      c.strokeStyle = isDark ? "rgba(255, 255, 255, 0.025)" : "rgba(0, 0, 0, 0.025)";
       c.lineWidth = 1;
-      const gridSize = 40 * currentT.scale;
-      const offsetX = currentT.x % gridSize;
-      const offsetY = currentT.y % gridSize;
+      let effectiveGridSize = 45 * currentT.scale;
+      while (effectiveGridSize < 25) effectiveGridSize *= 2;
+      while (effectiveGridSize > 100) effectiveGridSize /= 2;
+      const offsetX = ((currentT.x % effectiveGridSize) + effectiveGridSize) % effectiveGridSize;
+      const offsetY = ((currentT.y % effectiveGridSize) + effectiveGridSize) % effectiveGridSize;
 
-      for (let x = offsetX; x < w; x += gridSize) {
+      for (let x = offsetX; x < w; x += effectiveGridSize) {
         c.beginPath();
         c.moveTo(x, 0);
         c.lineTo(x, h);
         c.stroke();
       }
-      for (let y = offsetY; y < h; y += gridSize) {
+      for (let y = offsetY; y < h; y += effectiveGridSize) {
         c.beginPath();
         c.moveTo(0, y);
         c.lineTo(w, y);
@@ -730,7 +476,8 @@ export function InteractiveGraphCanvas({
       }
       c.restore();
 
-      // Apply Pan & Zoom Transform
+      // Apply Pan & Zoom Transform (anchored in CSS pixel space)
+      c.save();
       c.translate(currentT.x, currentT.y);
       c.scale(currentT.scale, currentT.scale);
 
@@ -740,46 +487,72 @@ export function InteractiveGraphCanvas({
       const pathNodeSet = new Set(highlightedPathNodeIds);
       const pathEdgeSet = new Set(highlightedPathEdgeIds);
 
-      // Connected nodes set for focus mode or selection
+      // Connected nodes set for focus mode or selection (true N-hop BFS)
       const connectedNodeIds = new Set<string>();
       if (selId) {
         connectedNodeIds.add(selId);
-        for (const e of se) {
-          if (e.source === selId) connectedNodeIds.add(e.target);
-          if (e.target === selId) connectedNodeIds.add(e.source);
+        const maxHops = focusDepth !== null ? Math.max(1, focusDepth) : 1;
+        let frontier = new Set<string>([selId]);
+        for (let hop = 0; hop < maxHops; hop++) {
+          const nextFrontier = new Set<string>();
+          for (const e of se) {
+            if (frontier.has(e.source) && !connectedNodeIds.has(e.target)) {
+              connectedNodeIds.add(e.target);
+              nextFrontier.add(e.target);
+            }
+            if (frontier.has(e.target) && !connectedNodeIds.has(e.source)) {
+              connectedNodeIds.add(e.source);
+              nextFrontier.add(e.source);
+            }
+          }
+          frontier = nextFrontier;
+          if (frontier.size === 0) break;
         }
       }
 
-      // 1. Draw Edges
+      // 1. Draw Edges (Obsidian Minimalist Style: Thin, elegant lines)
       for (const e of se) {
         const isSelectedEdge = selId && (e.source === selId || e.target === selId);
         const isHoveredEdge = hoveredEdgeRef.current?.id === e.id;
         const isPathEdge = pathEdgeSet.has(e.id);
+        const isConnectedToSelected = selId && connectedNodeIds.has(e.source) && connectedNodeIds.has(e.target);
+
+        // When a node is selected, dim unrelated edges into near-invisibility
         const isDimmed =
-          (selId && focusDepth !== null && !connectedNodeIds.has(e.source) && !connectedNodeIds.has(e.target)) ||
+          (selId && !isSelectedEdge && (!focusDepth || !isConnectedToSelected)) ||
           (pathNodeSet.size > 0 && !isPathEdge);
 
         c.save();
 
         if (isPathEdge) {
           c.strokeStyle = "#10b981"; // emerald glow
-          c.lineWidth = 3.5 / currentT.scale;
-          c.shadowColor = "#10b981";
-          c.shadowBlur = 10;
+          c.lineWidth = Math.max(2.0, 2.6 / currentT.scale);
+          c.shadowColor = "rgba(16, 185, 129, 0.6)";
+          c.shadowBlur = 8;
         } else if (isHoveredEdge) {
           c.strokeStyle = isDark ? "#93c5fd" : "#3b82f6";
-          c.lineWidth = 2.8 / currentT.scale;
-          c.shadowColor = "rgba(59, 130, 246, 0.4)";
-          c.shadowBlur = 8;
+          c.lineWidth = Math.max(1.8, 2.2 / currentT.scale);
         } else if (isSelectedEdge) {
           c.strokeStyle = isDark ? "#60a5fa" : "#2563eb";
-          c.lineWidth = 2.2 / currentT.scale;
+          c.lineWidth = Math.max(1.6, 2.0 / currentT.scale);
+          c.shadowColor = "rgba(59, 130, 246, 0.35)";
+          c.shadowBlur = 5;
         } else if (isDimmed) {
           c.strokeStyle = isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(0, 0, 0, 0.04)";
-          c.lineWidth = 1 / currentT.scale;
+          c.lineWidth = 0.8 / currentT.scale;
         } else {
-          c.strokeStyle = isDark ? "rgba(255, 255, 255, 0.18)" : "rgba(0, 0, 0, 0.15)";
-          c.lineWidth = 1.3 / currentT.scale;
+          // Standard fine, elegant lines
+          c.strokeStyle = isDark ? "rgba(255, 255, 255, 0.16)" : "rgba(0, 0, 0, 0.16)";
+          c.lineWidth = Math.max(0.9, 1.2 / currentT.scale);
+        }
+
+        // Structural vs Explicit distinction without visual noise:
+        // Structural links (subpages) use a subtle dashed line
+        if (e.isStructural && !isPathEdge && !isSelectedEdge) {
+          c.setLineDash([3 / currentT.scale, 3 / currentT.scale]);
+          c.strokeStyle = isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(0, 0, 0, 0.12)";
+        } else {
+          c.setLineDash([]);
         }
 
         // Draw line
@@ -787,77 +560,75 @@ export function InteractiveGraphCanvas({
         c.moveTo(e.sourceNode.x, e.sourceNode.y);
         c.lineTo(e.targetNode.x, e.targetNode.y);
         c.stroke();
+        c.setLineDash([]);
 
-        // Draw directed arrow head
-        const dx = e.targetNode.x - e.sourceNode.x;
-        const dy = e.targetNode.y - e.sourceNode.y;
-        const angle = Math.atan2(dy, dx);
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        // Subtle directed arrow only on selected or path edges
+        if ((isSelectedEdge || isPathEdge || isHoveredEdge) && !isDimmed) {
+          const dx = e.targetNode.x - e.sourceNode.x;
+          const dy = e.targetNode.y - e.sourceNode.y;
+          const angle = Math.atan2(dy, dx);
+          const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // Position arrow slightly before target node radius
-        const arrowDist = dist - e.targetNode.radius - 4;
-        if (arrowDist > 10) {
-          const arrowX = e.sourceNode.x + Math.cos(angle) * arrowDist;
-          const arrowY = e.sourceNode.y + Math.sin(angle) * arrowDist;
-          const arrowSize = Math.max(4, 7 / currentT.scale);
+          const arrowDist = dist - e.targetNode.radius - 3;
+          if (arrowDist > 12) {
+            const arrowX = e.sourceNode.x + Math.cos(angle) * arrowDist;
+            const arrowY = e.sourceNode.y + Math.sin(angle) * arrowDist;
+            const arrowSize = Math.max(4, 6 / currentT.scale);
 
-          c.fillStyle = c.strokeStyle;
-          c.beginPath();
-          c.moveTo(arrowX, arrowY);
-          c.lineTo(
-            arrowX - arrowSize * Math.cos(angle - Math.PI / 6),
-            arrowY - arrowSize * Math.sin(angle - Math.PI / 6)
-          );
-          c.lineTo(
-            arrowX - arrowSize * Math.cos(angle + Math.PI / 6),
-            arrowY - arrowSize * Math.sin(angle + Math.PI / 6)
-          );
-          c.closePath();
-          c.fill();
+            c.fillStyle = c.strokeStyle;
+            c.beginPath();
+            c.moveTo(arrowX, arrowY);
+            c.lineTo(
+              arrowX - arrowSize * Math.cos(angle - Math.PI / 6),
+              arrowY - arrowSize * Math.sin(angle - Math.PI / 6)
+            );
+            c.lineTo(
+              arrowX - arrowSize * Math.cos(angle + Math.PI / 6),
+              arrowY - arrowSize * Math.sin(angle + Math.PI / 6)
+            );
+            c.closePath();
+            c.fill();
+          }
         }
 
-        // Dynamic Relationship Badge: only render when hovered or connected to selected node
-        const shouldShowEdgeLabel = isHoveredEdge || isPathEdge || (isSelectedEdge && currentT.scale >= 0.55);
-
-        if (shouldShowEdgeLabel) {
+        // Relationship Badge: ONLY rendered on hovered edge or active path
+        if (isHoveredEdge || isPathEdge) {
           const midX = (e.sourceNode.x + e.targetNode.x) / 2;
           const midY = (e.sourceNode.y + e.targetNode.y) / 2;
 
           c.save();
-          const fontSize = Math.max(9, Math.min(13, 11 / currentT.scale));
-          c.font = `600 ${fontSize}px sans-serif`;
+          const fontSize = Math.max(9, Math.min(12, 10 / currentT.scale));
+          c.font = `500 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
           c.textAlign = "center";
           c.textBaseline = "middle";
 
           const textMetrics = c.measureText(e.label);
-          const bgPaddingX = 6 / currentT.scale;
-          const bgPaddingY = 3 / currentT.scale;
+          const bgPaddingX = 5 / currentT.scale;
+          const bgPaddingY = 2 / currentT.scale;
           const pillW = textMetrics.width + bgPaddingX * 2;
           const pillH = fontSize + bgPaddingY * 2;
 
-          // Relationship pill backdrop
           c.beginPath();
           if (typeof c.roundRect === "function") {
-            c.roundRect(midX - pillW / 2, midY - pillH / 2, pillW, pillH, 4 / currentT.scale);
+            c.roundRect(midX - pillW / 2, midY - pillH / 2, pillW, pillH, 3 / currentT.scale);
           } else {
             c.rect(midX - pillW / 2, midY - pillH / 2, pillW, pillH);
           }
           c.fillStyle = isPathEdge
             ? "#064e3b"
             : isDark
-            ? "rgba(24, 24, 27, 0.92)"
-            : "rgba(255, 255, 255, 0.95)";
+            ? "rgba(24, 24, 27, 0.94)"
+            : "rgba(255, 255, 255, 0.96)";
           c.fill();
 
           c.lineWidth = 1 / currentT.scale;
           c.strokeStyle = isPathEdge
             ? "#10b981"
             : isDark
-            ? "rgba(255, 255, 255, 0.15)"
-            : "rgba(0, 0, 0, 0.15)";
+            ? "rgba(255, 255, 255, 0.2)"
+            : "rgba(0, 0, 0, 0.2)";
           c.stroke();
 
-          // Relationship pill text
           c.fillStyle = isPathEdge
             ? "#34d399"
             : isDark
@@ -870,99 +641,94 @@ export function InteractiveGraphCanvas({
         c.restore();
       }
 
-      // 2. Draw Nodes (Strict Abstract Geometric Entities - Zero Images)
+      // 2. Draw Nodes (Pure Obsidian Minimalist Circles)
       for (const n of sn) {
         const isSelected = n.id === selId;
         const isHovered = hoveredNodeRef.current?.id === n.id;
         const isPathNode = pathNodeSet.has(n.id);
-        const isConnected = connectedNodeIds.has(n.id);
+        const isDirectNeighbor = selId && connectedNodeIds.has(n.id);
+
         const isDimmed =
-          (selId && focusDepth !== null && !isConnected) ||
+          (selId && !isSelected && !isDirectNeighbor) ||
           (pathNodeSet.size > 0 && !isPathNode);
 
-        const style = ENTITY_STYLES[n.type] || ENTITY_STYLES.document;
+        const style = ENTITY_STYLES[n.type] || ENTITY_STYLES.page;
 
         c.save();
 
         if (isDimmed) {
-          c.globalAlpha = 0.15;
+          c.globalAlpha = 0.18;
         }
 
-        // A. Selected / Path / Hover Outer Glow
-        if (isSelected || isPathNode || isHovered) {
+        // A. Subtle Selection or Path Glow Ring
+        if (isSelected || isPathNode) {
           c.save();
-          drawNodeShape(c, style.shape, n.x, n.y, n.radius + 6 / currentT.scale);
-          c.fillStyle = isPathNode ? "rgba(16, 185, 129, 0.3)" : style.glow;
+          c.beginPath();
+          c.arc(n.x, n.y, n.radius + (isSelected ? 3.5 : 2.5) / currentT.scale, 0, Math.PI * 2);
+          c.fillStyle = isPathNode
+            ? "rgba(16, 185, 129, 0.25)"
+            : isDark
+            ? "rgba(96, 165, 250, 0.28)"
+            : "rgba(37, 99, 235, 0.22)";
+          c.fill();
+          c.restore();
+        } else if (isHovered) {
+          c.save();
+          c.beginPath();
+          c.arc(n.x, n.y, n.radius + 3 / currentT.scale, 0, Math.PI * 2);
+          c.fillStyle = isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(0, 0, 0, 0.08)";
           c.fill();
           c.restore();
         }
 
-        // B. Node Background Fill
-        drawNodeShape(c, style.shape, n.x, n.y, n.radius);
-        c.fillStyle = isPathNode
-          ? "#059669"
-          : isSelected
-          ? isDark ? style.bgDark : style.bgLight
-          : isHovered
-          ? isDark ? style.bgDark : style.bgLight
-          : isDark ? style.bgDark : style.bgLight;
+        // B. Node Circle Fill
+        c.beginPath();
+        c.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+
+        if (isPathNode) {
+          c.fillStyle = "#10b981";
+        } else if (isSelected) {
+          c.fillStyle = isDark ? "#60a5fa" : "#2563eb";
+        } else {
+          c.fillStyle = style.color;
+        }
         c.fill();
 
-        // C. Node Geometric Border
-        c.lineWidth = (isSelected ? 3.2 : isHovered ? 2.4 : 1.8) / currentT.scale;
+        // C. Circle Border (Crisp and subtle)
+        c.lineWidth = Math.max(1, 1.2 / currentT.scale);
         c.strokeStyle = isSelected
           ? "#ffffff"
           : isPathNode
-          ? "#6ee7b7"
+          ? "#a7f3d0"
           : isDark
-          ? style.borderDark
-          : style.borderLight;
+          ? "rgba(255, 255, 255, 0.25)"
+          : "rgba(0, 0, 0, 0.15)";
         c.stroke();
 
-        // D. Crisp Vector Icon Inside Node (100% Vector Geometry)
-        const iconSize = Math.max(12, n.radius * 0.95);
-        const iconColor = isPathNode
-          ? "#ffffff"
-          : isSelected
-          ? "#ffffff"
-          : style.color;
+        // D. Obsidian Typography: Labels only on Hover, Selected, Path, or Direct Neighbors of Selected Node
+        const showLabel = isHovered || isSelected || isPathNode || (selId && isDirectNeighbor) || currentT.scale >= 1.6;
 
-        drawVectorIcon(c, n.type, n.x, n.y, iconSize, iconColor);
-
-        // E. Node Title Label (Level of Detail Rendering)
-        if (currentT.scale >= 0.55 || isSelected || isHovered || isPathNode) {
+        if (showLabel) {
           const fontSize = Math.max(10, Math.min(13, 11 / currentT.scale));
-          c.font = `600 ${fontSize}px sans-serif`;
+          c.font = `500 ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
           c.textAlign = "center";
           c.textBaseline = "top";
 
-          const label = n.title.length > 22 ? n.title.slice(0, 20) + "…" : n.title;
-          const textMetrics = c.measureText(label);
-          const pillPaddingX = 5 / currentT.scale;
-          const pillPaddingY = 2 / currentT.scale;
-          const pillW = textMetrics.width + pillPaddingX * 2;
-          const pillH = fontSize + pillPaddingY * 2;
-          const labelY = n.y + n.radius + 5 / currentT.scale;
+          const label = n.title.length > 32 ? n.title.slice(0, 30) + "…" : n.title;
+          const labelY = n.y + n.radius + 4 / currentT.scale;
 
-          // Backdrop pill for high contrast legibility over intersecting edges
-          c.beginPath();
-          if (typeof c.roundRect === "function") {
-            c.roundRect(
-              n.x - pillW / 2,
-              labelY - pillPaddingY,
-              pillW,
-              pillH,
-              3 / currentT.scale
-            );
-          } else {
-            c.rect(n.x - pillW / 2, labelY - pillPaddingY, pillW, pillH);
-          }
-          c.fillStyle = isDark
-            ? "rgba(18, 18, 22, 0.85)"
-            : "rgba(255, 255, 255, 0.9)";
-          c.fill();
+          // Crisp text outline for legibility over lines without any card box
+          c.lineJoin = "round";
+          c.miterLimit = 2;
+          c.strokeStyle = isDark ? "rgba(9, 9, 11, 0.9)" : "rgba(255, 255, 255, 0.95)";
+          c.lineWidth = 3 / currentT.scale;
+          c.strokeText(label, n.x, labelY);
 
-          c.fillStyle = isDark ? "#f4f4f5" : "#09090b";
+          c.fillStyle = isSelected
+            ? (isDark ? "#93c5fd" : "#1d4ed8")
+            : isPathNode
+            ? (isDark ? "#6ee7b7" : "#047857")
+            : (isDark ? "#f1f5f9" : "#0f172a");
           c.fillText(label, n.x, labelY);
         }
 
@@ -976,31 +742,39 @@ export function InteractiveGraphCanvas({
     return () => cancelAnimationFrame(animId);
   }, [selectedNodeId, focusDepth, highlightedPathNodeIds, highlightedPathEdgeIds]);
 
-  // Handle Resize for High-DPI Canvas
+  // Handle Resize for High-DPI Canvas with ResizeObserver
   React.useEffect(() => {
-    function handleResize() {
-      const container = containerRef.current;
-      const canvas = canvasRef.current;
-      if (!container || !canvas) return;
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
 
+    function handleResize() {
+      if (!container || !canvas) return;
       const dpr = window.devicePixelRatio || 1;
       const width = container.clientWidth;
       const height = container.clientHeight;
+      if (width === 0 || height === 0) return;
 
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
+      const targetW = Math.round(width * dpr);
+      const targetH = Math.round(height * dpr);
 
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.scale(dpr, dpr);
+      if (canvas.width !== targetW || canvas.height !== targetH) {
+        canvas.width = targetW;
+        canvas.height = targetH;
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
       }
     }
 
     handleResize();
+    const observer = new ResizeObserver(() => handleResize());
+    observer.observe(container);
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   // 4. Mouse / Touch Interactions
@@ -1020,11 +794,14 @@ export function InteractiveGraphCanvas({
   const getNodeAtPoint = React.useCallback(
     (canvasX: number, canvasY: number): SimNode | null => {
       const sn = simNodesRef.current;
+      const currentScale = transformRef.current.scale;
       for (let i = sn.length - 1; i >= 0; i--) {
         const n = sn[i];
         const dx = n.x - canvasX;
         const dy = n.y - canvasY;
-        if (dx * dx + dy * dy <= n.radius * n.radius) {
+        // Minimum hit radius of 10px ensures small circles are easy to select
+        const hitRadius = Math.max(n.radius, 10 / currentScale);
+        if (dx * dx + dy * dy <= hitRadius * hitRadius) {
           return n;
         }
       }
@@ -1121,12 +898,13 @@ export function InteractiveGraphCanvas({
       draggedNodeRef.current.y += dy / currentT.scale;
       draggedNodeRef.current.vx = 0;
       draggedNodeRef.current.vy = 0;
+      alphaRef.current = 0.4;
     } else if (isInteractingRef.current) {
-      setTransform((prev) => ({
-        ...prev,
-        x: prev.x + dx,
-        y: prev.y + dy,
-      }));
+      applyTransform({
+        ...transformRef.current,
+        x: transformRef.current.x + dx,
+        y: transformRef.current.y + dy,
+      });
     }
 
     lastMousePosRef.current = { x: e.clientX, y: e.clientY };
@@ -1149,137 +927,76 @@ export function InteractiveGraphCanvas({
     }
   };
 
-  // Native non-passive Wheel & Gesture listener to prevent browser page zoom and zoom/pan map
+  // Native non-passive Wheel & Gesture listener
   React.useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const onNativeWheel = (e: WheelEvent) => {
-      // Prevent browser default actions (including browser viewport zoom and window scroll)
       e.preventDefault();
 
+      const container = containerRef.current;
       const rect = canvas.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
 
-      // Trackpad pinch-to-zoom OR Ctrl + mouse wheel
-      if (e.ctrlKey) {
-        let zoomFactor: number;
-        if (Math.abs(e.deltaY) > 40) {
-          // Discrete mouse wheel click with Ctrl
-          zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
-        } else {
-          // Fine-grained continuous trackpad pinch gesture
-          zoomFactor = Math.exp(-e.deltaY * 0.012);
-          zoomFactor = Math.min(1.2, Math.max(0.8, zoomFactor));
-        }
+      let dx = e.deltaX;
+      let dy = e.deltaY;
+      if (e.deltaMode === 1) {
+        // DOM_DELTA_LINE (Firefox physical mouse wheel)
+        dx *= 33;
+        dy *= 33;
+      } else if (e.deltaMode === 2 && container) {
+        // DOM_DELTA_PAGE
+        dx *= container.clientWidth;
+        dy *= container.clientHeight;
+      }
 
-        setTransform((prev) => {
-          const nextScale = Math.min(3.5, Math.max(0.15, prev.scale * zoomFactor));
-          const scaleRatio = nextScale / prev.scale;
-          return {
-            x: mouseX - (mouseX - prev.x) * scaleRatio,
-            y: mouseY - (mouseY - prev.y) * scaleRatio,
-            scale: nextScale,
-          };
+      // 1. Trackpad pinch-to-zoom or Ctrl + Mouse Wheel zoom
+      if (e.ctrlKey) {
+        const factor = Math.min(1.25, Math.max(0.8, Math.exp(-dy * 0.008)));
+        zoomAtPoint(mouseX, mouseY, factor);
+        return;
+      }
+
+      // 2. Shift + Wheel horizontal pan
+      if (e.shiftKey) {
+        const panX = dx !== 0 ? dx : dy;
+        applyTransform({
+          ...transformRef.current,
+          x: transformRef.current.x - panX,
+        });
+        return;
+      }
+
+      // 3. Trackpad 2-finger pan vs Mouse wheel zoom
+      // Trackpads emit 2D pixel deltas with dx !== 0 or micro-steps (Math.abs(dy) < 50 && dy % 1 !== 0)
+      const isTrackpadPan =
+        e.deltaMode === 0 &&
+        (Math.abs(dx) > 0 || (Math.abs(dy) < 50 && dy % 1 !== 0));
+
+      if (isTrackpadPan && Math.abs(dx) > 0) {
+        applyTransform({
+          ...transformRef.current,
+          x: transformRef.current.x - dx,
+          y: transformRef.current.y - dy,
         });
       } else {
-        // Normal wheel / trackpad without Ctrl:
-        // If there is horizontal delta or fine-grained trackpad scroll without Ctrl, pan the canvas
-        if (Math.abs(e.deltaX) > 0 || (Math.abs(e.deltaY) < 40 && e.deltaMode === 0)) {
-          setTransform((prev) => ({
-            ...prev,
-            x: prev.x - e.deltaX,
-            y: prev.y - e.deltaY,
-          }));
-        } else {
-          // Standard mouse wheel click without Ctrl -> zoom canvas (Google Maps style)
-          const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
-          setTransform((prev) => {
-            const nextScale = Math.min(3.5, Math.max(0.15, prev.scale * zoomFactor));
-            const scaleRatio = nextScale / prev.scale;
-            return {
-              x: mouseX - (mouseX - prev.x) * scaleRatio,
-              y: mouseY - (mouseY - prev.y) * scaleRatio,
-              scale: nextScale,
-            };
-          });
-        }
-      }
-    };
-
-    // Safari gesture prevention
-    const onGesture = (e: Event) => {
-      e.preventDefault();
-    };
-
-    // Touch pinch handling for mobile / touchscreen laptops
-    let initialTouchDist = 0;
-    let initialScale = 1;
-
-    const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        e.preventDefault();
-        const t1 = e.touches[0];
-        const t2 = e.touches[1];
-        initialTouchDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-        initialScale = transformRef.current.scale;
-      }
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length === 2 && initialTouchDist > 0) {
-        e.preventDefault();
-        const t1 = e.touches[0];
-        const t2 = e.touches[1];
-        const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-        const factor = currentDist / initialTouchDist;
-        const rect = canvas.getBoundingClientRect();
-        const midX = (t1.clientX + t2.clientX) / 2 - rect.left;
-        const midY = (t1.clientY + t2.clientY) / 2 - rect.top;
-
-        setTransform((prev) => {
-          const nextScale = Math.min(3.5, Math.max(0.15, initialScale * factor));
-          const scaleRatio = nextScale / prev.scale;
-          return {
-            x: midX - (midX - prev.x) * scaleRatio,
-            y: midY - (midY - prev.y) * scaleRatio,
-            scale: nextScale,
-          };
-        });
-      }
-    };
-
-    const onTouchEnd = (e: TouchEvent) => {
-      if (e.touches.length < 2) {
-        initialTouchDist = 0;
+        // Smooth exponential zoom proportional to dy, pinned at mouse cursor
+        const factor = Math.min(1.25, Math.max(0.8, Math.exp(-dy * 0.0018)));
+        zoomAtPoint(mouseX, mouseY, factor);
       }
     };
 
     canvas.addEventListener("wheel", onNativeWheel, { passive: false });
-    canvas.addEventListener("gesturestart", onGesture, { passive: false });
-    canvas.addEventListener("gesturechange", onGesture, { passive: false });
-    canvas.addEventListener("gestureend", onGesture, { passive: false });
-    canvas.addEventListener("touchstart", onTouchStart, { passive: false });
-    canvas.addEventListener("touchmove", onTouchMove, { passive: false });
-    canvas.addEventListener("touchend", onTouchEnd, { passive: false });
-
-    return () => {
-      canvas.removeEventListener("wheel", onNativeWheel);
-      canvas.removeEventListener("gesturestart", onGesture);
-      canvas.removeEventListener("gesturechange", onGesture);
-      canvas.removeEventListener("gestureend", onGesture);
-      canvas.removeEventListener("touchstart", onTouchStart);
-      canvas.removeEventListener("touchmove", onTouchMove);
-      canvas.removeEventListener("touchend", onTouchEnd);
-    };
-  }, []);
+    return () => canvas.removeEventListener("wheel", onNativeWheel);
+  }, [applyTransform, zoomAtPoint]);
 
   return (
     <div
       ref={containerRef}
       className={cn(
-        "relative w-full h-full overflow-hidden select-none bg-zinc-50/50 dark:bg-zinc-950/50 touch-none",
+        "relative w-full h-full overflow-hidden select-none bg-background",
         className
       )}
     >
@@ -1288,15 +1005,12 @@ export function InteractiveGraphCanvas({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onMouseLeave={() => {
-          handleMouseUp();
-          setHoverState(null);
-        }}
+        onMouseLeave={handleMouseUp}
         onDoubleClick={handleDoubleClick}
-        className="w-full h-full block touch-none"
+        className="block w-full h-full touch-none"
       />
 
-      {/* Lightweight Hover Card Tooltip (Strictly Image-Free) */}
+      {/* Lightweight Hover Card Tooltip */}
       {hoverState && hoverState.type === "node" && hoverState.node && (
         <div
           className="absolute pointer-events-none z-30 transform -translate-x-1/2 -translate-y-full mb-3 px-3 py-2 rounded-xl bg-popover/95 backdrop-blur-md border border-border shadow-xl text-left transition-all animate-in fade-in-0 zoom-in-95 duration-150"
@@ -1328,12 +1042,12 @@ export function InteractiveGraphCanvas({
 
           <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted-foreground">
             <span>
-              <strong className="text-foreground">{hoverState.node.degree}</strong> connections
+              <strong className="text-foreground">{hoverState.node.degree}</strong> conexões
             </span>
             <span>•</span>
-            <span>{hoverState.node.outDegree} out</span>
+            <span>{hoverState.node.outDegree} saída</span>
             <span>•</span>
-            <span>{hoverState.node.inDegree} in</span>
+            <span>{hoverState.node.inDegree} entrada</span>
           </div>
         </div>
       )}
@@ -1361,16 +1075,95 @@ export function InteractiveGraphCanvas({
         </div>
       )}
 
+      {/* Floating Contextual Exploration HUD (Active when a node is selected) */}
+      {selectedNode && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-card/95 backdrop-blur-md border border-border shadow-xl z-20 text-xs animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="flex items-center gap-1.5 pr-2.5 border-r border-border min-w-0">
+            <span
+              className="h-2 w-2 rounded-full shrink-0"
+              style={{ backgroundColor: ENTITY_STYLES[selectedNode.type]?.color || "#3b82f6" }}
+            />
+            <span className="font-semibold text-foreground truncate max-w-[130px] sm:max-w-[200px]">
+              {selectedNode.title}
+            </span>
+            <span className="text-[10px] uppercase font-bold text-muted-foreground px-1 py-0.2 rounded bg-muted shrink-0">
+              {selectedNode.type}
+            </span>
+          </div>
+
+          {/* Hop neighborhood selector */}
+          <div className="flex items-center gap-1">
+            <span className="text-[10px] text-muted-foreground hidden sm:inline font-medium">
+              Vizinhança:
+            </span>
+            {[1, 2, 3].map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => onSetFocusDepth?.(focusDepth === d ? null : d)}
+                className={cn(
+                  "px-2 py-0.5 rounded-md text-[10px] font-semibold transition-colors",
+                  focusDepth === d
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "bg-muted/70 text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}
+                title={`Explorar vizinhança a ${d} salto${d > 1 ? "s" : ""}`}
+              >
+                {d}h
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => onSetFocusDepth?.(null)}
+              className={cn(
+                "px-2 py-0.5 rounded-md text-[10px] font-semibold transition-colors",
+                focusDepth === null
+                  ? "bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900 shadow-xs"
+                  : "bg-muted/70 text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+              title="Mostrar todo o grafo sem esmaecer nós distantes"
+            >
+              Tudo
+            </button>
+          </div>
+
+          <div className="h-3.5 w-px bg-border mx-0.5" />
+
+          {/* Quick Center camera */}
+          <button
+            type="button"
+            onClick={() => centerOnNode(selectedNode.id)}
+            className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="Centrar câmara neste elemento"
+          >
+            <Target className="h-3.5 w-3.5" />
+          </button>
+
+          {/* Reset selection / Back to global view */}
+          <button
+            type="button"
+            onClick={() => {
+              onSelectNode(null);
+              onSetFocusDepth?.(null);
+            }}
+            className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            title="Desmarcar elemento e regressar à visão geral"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Floating Canvas Controls (Fit, Zoom In, Zoom Out) */}
       <div className="absolute bottom-5 right-5 flex items-center gap-1.5 p-1 rounded-xl bg-background/90 backdrop-blur-md border border-border shadow-md">
         <button
           type="button"
-          onClick={() =>
-            setTransform((prev) => ({
-              ...prev,
-              scale: Math.min(3.5, prev.scale * 1.2),
-            }))
-          }
+          onClick={() => {
+            const container = containerRef.current;
+            const cx = (container?.clientWidth || 800) / 2;
+            const cy = (container?.clientHeight || 600) / 2;
+            zoomAtPoint(cx, cy, 1.25);
+          }}
           className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           title="Zoom in"
         >
@@ -1378,12 +1171,12 @@ export function InteractiveGraphCanvas({
         </button>
         <button
           type="button"
-          onClick={() =>
-            setTransform((prev) => ({
-              ...prev,
-              scale: Math.max(0.15, prev.scale * 0.8),
-            }))
-          }
+          onClick={() => {
+            const container = containerRef.current;
+            const cx = (container?.clientWidth || 800) / 2;
+            const cy = (container?.clientHeight || 600) / 2;
+            zoomAtPoint(cx, cy, 0.8);
+          }}
           className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           title="Zoom out"
         >
@@ -1394,24 +1187,24 @@ export function InteractiveGraphCanvas({
           type="button"
           onClick={fitToView}
           className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          title="Fit graph to view"
+          title="Ajustar grafo ao ecrã"
         >
           <Maximize2 className="h-4 w-4" />
         </button>
       </div>
 
-      {/* Abstract Entity Legend Pill */}
+      {/* Obsidian Minimalist Entity Legend Pill */}
       <div className="absolute bottom-5 left-5 hidden sm:flex items-center gap-3 px-3 py-1.5 rounded-xl bg-background/90 backdrop-blur-md border border-border shadow-xs text-[11px] text-muted-foreground">
-        {(["project", "task", "decision", "meeting", "goal", "page"] as const).map(
+        {(["page", "project", "task", "decision", "meeting", "goal"] as const).map(
           (t) => {
             const st = ENTITY_STYLES[t];
             return (
-              <span key={t} className="flex items-center gap-1">
+              <span key={t} className="flex items-center gap-1.5">
                 <span
                   className="h-2 w-2 rounded-full"
                   style={{ backgroundColor: st.color }}
                 />
-                {st.label}
+                <span>{st.label}</span>
               </span>
             );
           }

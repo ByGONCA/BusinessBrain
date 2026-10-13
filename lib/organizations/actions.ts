@@ -10,6 +10,7 @@ import { OrganizationMember } from "./types";
 import { isValidUuid } from "@/lib/security/authorization";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
+import { hasPermission } from "@/lib/permissions/resolver";
 
 const createOrgSchema = z.object({
   name: z.string().trim().min(2, "Company name must be at least 2 characters").max(50),
@@ -205,6 +206,11 @@ export async function getOrganizationMembersAction(
 
     if (!targetOrgId) {
       return { success: false, members: [], error: "No active workspace found" };
+    }
+
+    const canView = await hasPermission(user.id, targetOrgId, "people.view");
+    if (!canView) {
+      return { success: false, members: [], error: "Forbidden: You do not have permission to view members." };
     }
 
     const members = await getOrganizationMembers(targetOrgId);

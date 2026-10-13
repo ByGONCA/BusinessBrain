@@ -103,65 +103,7 @@ export const getOrganizationMembers = cache(async (
 
   const supabase = await createClient();
 
-  // Attempt single round-trip join: organization_members + profiles via user_id FK
-  const { data: joined, error: joinError } = await supabase
-    .from("organization_members")
-    .select(`
-      id, organization_id, user_id, role, job_title, department, created_at, updated_at,
-      profiles!user_id (
-        id, email, full_name, avatar_url, job_title, department, bio, location, created_at, updated_at
-      )
-    `)
-    .eq("organization_id", organizationId);
-
-  // If the join succeeds, map and return in one pass
-  if (!joinError && joined) {
-    return joined.map((row) => {
-      const rawProf = row.profiles as unknown;
-      const prof = (Array.isArray(rawProf) ? rawProf[0] : rawProf) as Profile | null | undefined;
-
-      return {
-        id: row.id,
-        organization_id: row.organization_id,
-        user_id: row.user_id,
-        role: row.role as OrganizationMember["role"],
-        job_title: row.job_title || prof?.job_title || "",
-        department: row.department || prof?.department || "",
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-        profile: prof ?? undefined,
-      };
-    });
-  }
-
-  // PostgREST could not resolve the FK join (PGRST200 or schema not yet reflected) —
-  // fall back to the original sequential 2-query approach transparently.
-  const isJoinResolutionError =
-    joinError?.code === "PGRST200" ||
-    joinError?.code === "42703" ||
-    joinError?.message?.includes("Could not find") ||
-    joinError?.message?.includes("does not exist");
-
-  if (isJoinResolutionError) {
-    logger.warn("getOrganizationMembers: FK join unavailable, falling back to 2-query path", {
-      organizationId,
-      code: joinError?.code,
-    });
-    return getOrganizationMembersFallback(organizationId, supabase);
-  }
-
-  logger.error("Error fetching organization members", joinError, { organizationId });
-  return [];
-});
-
-/**
- * Fallback implementation using two sequential queries.
- * Used when the PostgREST join in getOrganizationMembers cannot resolve the FK path.
- */
-async function getOrganizationMembersFallback(
-  organizationId: string,
-  supabase: Awaited<ReturnType<typeof createClient>>
-): Promise<OrganizationMember[]> {
+  // 1. Fetch organization members
   let members: Array<{
     id: string;
     organization_id: string;
@@ -199,27 +141,93 @@ async function getOrganizationMembersFallback(
     members = fullMembers;
   }
 
-  if (!members) {
+  if (!members || members.length === 0) {
     return [];
   }
 
+  // 2. Fetch corresponding profiles for member user_ids
+  // Note: organization_members.user_id references auth.users(id), not public.profiles(id).
+  // Therefore, PostgREST cannot perform an embedded resource join (which requires a public FK constraint).
+  // The two-query pattern is the correct architectural approach.
   const userIds = members.map((m) => m.user_id);
-  const { data: profiles, error: profilesError } =
-    userIds.length > 0
-      ? await supabase
-          .from("profiles")
-          .select("id, email, full_name, avatar_url, job_title, department, bio, location, created_at, updated_at")
-          .in("id", userIds)
-      : { data: [], error: null };
+  let profiles: Profile[] | null = null;
+
+  const { data: fullProfiles, error: profilesError } = await supabase
+    .from("profiles")
+    .select("id, email, full_name, avatar_url, job_title, department, bio, location, created_at, updated_at")
+    .in("id", userIds);
 
   if (profilesError) {
-    logger.error("Error fetching member profiles", profilesError, { organizationId });
+    // If extended columns (job_title, department, bio, location) do not exist yet, fallback to base columns
+    if (profilesError.code === "42703" || profilesError.message?.includes("does not exist")) {
+      const { data: baseProfiles, error: baseError } = await supabase
+        .from("profiles")
+        .select("id, email, full_name, avatar_url, created_at, updated_at")
+        .in("id", userIds);
+
+      if (baseError) {
+        logger.error("Error fetching member profiles (base fallback)", baseError, { organizationId });
+      } else {
+        profiles = (baseProfiles || []).map((p) => ({
+          ...p,
+          job_title: "",
+          department: "",
+          bio: "",
+          location: "",
+        })) as Profile[];
+      }
+    } else {
+      logger.error("Error fetching member profiles", profilesError, { organizationId });
+    }
+  } else {
+    profiles = fullProfiles as Profile[] | null;
   }
 
   const profilesMap = new Map((profiles || []).map((p) => [p.id, p]));
 
+  // Auto-heal: If the currently authenticated user is in userIds but missing from profilesMap,
+  // restore and persist their profile directly from their auth session (allowed by RLS: auth.uid() = id)
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    const currentUser = authData?.user;
+    if (currentUser && userIds.includes(currentUser.id) && !profilesMap.has(currentUser.id)) {
+      const restoredProfile: Profile = {
+        id: currentUser.id,
+        email: currentUser.email || "",
+        full_name: currentUser.user_metadata?.full_name || currentUser.user_metadata?.name || null,
+        avatar_url: currentUser.user_metadata?.avatar_url || null,
+        created_at: currentUser.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      try {
+        await supabase.from("profiles").upsert({
+          id: restoredProfile.id,
+          email: restoredProfile.email,
+          full_name: restoredProfile.full_name,
+          avatar_url: restoredProfile.avatar_url,
+        });
+      } catch {
+        // Non-blocking if RLS/network blocks upsert
+      }
+
+      profilesMap.set(currentUser.id, restoredProfile);
+    }
+  } catch {
+    // Non-blocking
+  }
+
+  // 3. Map members with their profile records
   return members.map((row) => {
     const prof = profilesMap.get(row.user_id);
+    if (!prof) {
+      logger.warn("getOrganizationMembers: Member user_id has no corresponding profile row in public.profiles", {
+        memberId: row.id,
+        userId: row.user_id,
+        organizationId,
+      });
+    }
+
     return {
       id: row.id,
       organization_id: row.organization_id,
@@ -232,4 +240,4 @@ async function getOrganizationMembersFallback(
       profile: prof,
     };
   });
-}
+});

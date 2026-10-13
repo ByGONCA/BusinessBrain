@@ -25,6 +25,7 @@ import { getCalendarAdapter } from "./providers/adapter";
 import { getOrganizationIntegrations } from "@/lib/integrations/queries";
 import { isValidUuid } from "@/lib/security/authorization";
 import { logger } from "@/lib/security/logger";
+import { hasPermission } from "@/lib/permissions/resolver";
 
 interface CompanyEntityRow {
   id: string;
@@ -63,11 +64,12 @@ export async function getOrganizationCalendarEventsAction(
 
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   // Defense-in-depth: if explicitOrgId is provided and differs from active workspace, verify caller membership
   if (options.explicitOrgId && (!activeOrg || activeOrg.id !== options.explicitOrgId)) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
     if (!user) return [];
 
     const { data: member } = await supabase
@@ -80,70 +82,84 @@ export async function getOrganizationCalendarEventsAction(
     if (!member) return [];
   }
 
+  const canViewMeetings = user ? await hasPermission(user.id, orgId, "meetings.view") : true;
+  const canViewTasks = user ? await hasPermission(user.id, orgId, "tasks.view") : true;
+  const canViewProjects = user ? await hasPermission(user.id, orgId, "projects.view") : true;
+  const canViewGoals = user ? await hasPermission(user.id, orgId, "goals.view") : true;
+
   const aggregatedEvents: CalendarEventItem[] = [];
 
-  // 1. Fetch organization calendar events (bounded by active date range if provided)
-  try {
-    let calQuery = supabase
-      .from("organization_calendar_events")
-      .select("*")
-      .eq("organization_id", orgId)
-      .order("start_time", { ascending: true });
+  // 1. Fetch organization calendar events (requires meetings.view)
+  if (canViewMeetings) {
+    try {
+      let calQuery = supabase
+        .from("organization_calendar_events")
+        .select("*")
+        .eq("organization_id", orgId)
+        .order("start_time", { ascending: true });
 
-    if (options.timeMin) {
-      calQuery = calQuery.gte("end_time", options.timeMin);
-    }
-    if (options.timeMax) {
-      calQuery = calQuery.lte("start_time", options.timeMax);
-    }
-
-    if (options.tagFilter && options.tagFilter.trim() !== "" && options.tagFilter.toLowerCase() !== "all") {
-      calQuery = calQuery.ilike("tag", options.tagFilter.trim());
-    }
-
-    const { data: dbEvents, error: dbError } = await calQuery;
-
-    if (!dbError && dbEvents) {
-      for (const row of dbEvents) {
-        const isMeeting = (row.tag && row.tag.toLowerCase() === "meeting") || (row.source === "google_calendar");
-        aggregatedEvents.push({
-          id: row.id,
-          organizationId: row.organization_id,
-          title: row.title,
-          description: row.description,
-          startTime: row.start_time,
-          endTime: row.end_time,
-          allDay: !!row.all_day,
-          tag: row.tag || "General",
-          color: row.color || "blue",
-          location: row.location,
-          meetingLink: row.meeting_link,
-          attendees: row.attendees || [],
-          source: (row.source as CalendarEventItem["source"]) || "internal",
-          externalEventId: row.external_event_id,
-          entityType: isMeeting ? "meeting" : "event",
-          entityId: row.id,
-          createdAt: row.created_at,
-          updatedAt: row.updated_at,
-          relations: [],
-        });
+      if (options.timeMin) {
+        calQuery = calQuery.gte("end_time", options.timeMin);
       }
+      if (options.timeMax) {
+        calQuery = calQuery.lte("start_time", options.timeMax);
+      }
+
+      if (options.tagFilter && options.tagFilter.trim() !== "" && options.tagFilter.toLowerCase() !== "all") {
+        calQuery = calQuery.ilike("tag", options.tagFilter.trim());
+      }
+
+      const { data: dbEvents, error: dbError } = await calQuery;
+
+      if (!dbError && dbEvents) {
+        for (const row of dbEvents) {
+          const isMeeting = (row.tag && row.tag.toLowerCase() === "meeting") || (row.source === "google_calendar");
+          aggregatedEvents.push({
+            id: row.id,
+            organizationId: row.organization_id,
+            title: row.title,
+            description: row.description,
+            startTime: row.start_time,
+            endTime: row.end_time,
+            allDay: !!row.all_day,
+            tag: row.tag || "General",
+            color: row.color || "blue",
+            location: row.location,
+            meetingLink: row.meeting_link,
+            attendees: row.attendees || [],
+            source: (row.source as CalendarEventItem["source"]) || "internal",
+            externalEventId: row.external_event_id,
+            entityType: isMeeting ? "meeting" : "event",
+            entityId: row.id,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+            relations: [],
+          });
+        }
+      }
+    } catch (err) {
+      logger.warn("Could not query organization_calendar_events", { error: err });
     }
-  } catch (err) {
-    logger.warn("Could not query organization_calendar_events", { error: err });
   }
 
-  // 2. Fetch company_entities (projecting only calendar-relevant columns, omitting heavy content bodies)
-  try {
-    const { data: entities, error: entError } = await supabase
-      .from("company_entities")
-      .select("id, organization_id, type, title, metadata, created_at, updated_at")
-      .eq("organization_id", orgId)
-      .in("type", ["meeting", "task", "project", "goal"])
-      .order("created_at", { ascending: false })
-      .limit(500);
+  // 2. Fetch company_entities based on allowed entity types
+  const allowedTypes: string[] = [];
+  if (canViewMeetings) allowedTypes.push("meeting");
+  if (canViewTasks) allowedTypes.push("task");
+  if (canViewProjects) allowedTypes.push("project");
+  if (canViewGoals) allowedTypes.push("goal");
 
-    if (!entError && entities) {
+  if (allowedTypes.length > 0) {
+    try {
+      const { data: entities, error: entError } = await supabase
+        .from("company_entities")
+        .select("id, organization_id, type, title, metadata, created_at, updated_at")
+        .eq("organization_id", orgId)
+        .in("type", allowedTypes)
+        .order("created_at", { ascending: false })
+        .limit(500);
+
+      if (!entError && entities) {
       for (const ent of entities as CompanyEntityRow[]) {
         const meta = ent.metadata || {};
 
@@ -265,8 +281,10 @@ export async function getOrganizationCalendarEventsAction(
   } catch (err) {
     logger.warn("Could not query company_entities for calendar", { error: err });
   }
+}
 
-  // 3. Attempt to merge live external calendar events on demand (Google & Outlook)
+  // 3. Attempt to merge live external calendar events on demand (Google & Outlook, requires meetings.view)
+  if (canViewMeetings) {
   try {
     const user = await getCurrentUser();
     const integrations = await getOrganizationIntegrations(orgId);
@@ -413,6 +431,7 @@ export async function getOrganizationCalendarEventsAction(
   } catch (err) {
     logger.warn("Could not fetch external calendar events", { error: err });
   }
+}
 
   // 4. Attach company connections (relations)
   const allEventIds = Array.from(
@@ -504,6 +523,10 @@ export async function createCalendarItemAction(
   input: CreateCalendarEventInput
 ): Promise<CalendarEventItem> {
   const user = await getCurrentUser();
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
   const activeOrg = await getActiveOrganization();
   const orgId = input.organizationId || activeOrg?.id;
 
@@ -513,6 +536,36 @@ export async function createCalendarItemAction(
 
   const destination = input.destination || "company";
   const entityType: CalendarEntityType = input.entityType || "event";
+
+  // Enforce fine-grained permissions per entity type
+  if (entityType === "task") {
+    const canCreateTask = await hasPermission(user.id, orgId, "tasks.create");
+    if (!canCreateTask) {
+      throw new Error("Forbidden: You do not have permission to create tasks.");
+    }
+    if (input.attendees && input.attendees.length > 0) {
+      const canAssign = await hasPermission(user.id, orgId, "tasks.assign");
+      if (!canAssign) {
+        throw new Error("Forbidden: You do not have permission to assign tasks.");
+      }
+    }
+  } else if (entityType === "project") {
+    const canCreateProject = await hasPermission(user.id, orgId, "projects.create");
+    if (!canCreateProject) {
+      throw new Error("Forbidden: You do not have permission to create projects.");
+    }
+  } else if (entityType === "goal") {
+    const canCreateGoal = await hasPermission(user.id, orgId, "goals.create");
+    if (!canCreateGoal) {
+      throw new Error("Forbidden: You do not have permission to create goals.");
+    }
+  } else {
+    // Meeting or general calendar event
+    const canCreateMeeting = await hasPermission(user.id, orgId, "meetings.create");
+    if (!canCreateMeeting) {
+      throw new Error("Forbidden: You do not have permission to create meetings.");
+    }
+  }
   const newId = crypto.randomUUID();
   const supabase = await createClient();
 
@@ -780,6 +833,9 @@ export async function updateCalendarEventAction(
   const activeOrg = await getActiveOrganization();
   if (!activeOrg) return;
 
+  const user = await getCurrentUser();
+  if (!user) throw new Error("Unauthorized");
+
   const supabase = await createClient();
 
   // Check if it's a company_entities record
@@ -794,6 +850,27 @@ export async function updateCalendarEventAction(
       .maybeSingle();
 
     if (entity) {
+      if (entity.type === "task") {
+        const canEditTask = await hasPermission(user.id, activeOrg.id, "tasks.edit");
+        if (!canEditTask) throw new Error("Forbidden: You do not have permission to edit tasks.");
+        if (input.attendees !== undefined) {
+          const canAssign = await hasPermission(user.id, activeOrg.id, "tasks.assign");
+          if (!canAssign) throw new Error("Forbidden: You do not have permission to assign tasks.");
+        }
+      } else if (entity.type === "project") {
+        const canEditProj = await hasPermission(user.id, activeOrg.id, "projects.edit");
+        if (!canEditProj) throw new Error("Forbidden: You do not have permission to edit projects.");
+      } else if (entity.type === "goal") {
+        const canEditGoal = await hasPermission(user.id, activeOrg.id, "goals.edit");
+        if (!canEditGoal) throw new Error("Forbidden: You do not have permission to edit goals.");
+      } else if (entity.type === "decision") {
+        const canEditBrain = await hasPermission(user.id, activeOrg.id, "brain.edit");
+        if (!canEditBrain) throw new Error("Forbidden: You do not have permission to edit Brain decisions.");
+      } else {
+        const canEditMeet = await hasPermission(user.id, activeOrg.id, "meetings.edit");
+        if (!canEditMeet) throw new Error("Forbidden: You do not have permission to edit meetings.");
+      }
+
       const existingMeta = (entity.metadata as Record<string, unknown>) || {};
       const updatedMeta = { ...existingMeta };
 
@@ -827,7 +904,12 @@ export async function updateCalendarEventAction(
     }
   }
 
-  // Update in organization_calendar_events
+  // Update in organization_calendar_events requires meetings.edit
+  const canEditMeeting = await hasPermission(user.id, activeOrg.id, "meetings.edit");
+  if (!canEditMeeting) {
+    throw new Error("Forbidden: You do not have permission to edit meetings.");
+  }
+
   const updates: Record<string, unknown> = {};
   if (input.title !== undefined) updates.title = input.title.trim();
   if (input.description !== undefined) updates.description = input.description?.trim() || null;
@@ -858,14 +940,18 @@ export async function deleteCalendarEventAction(eventId: string): Promise<void> 
   if (!activeOrg) return;
 
   const user = await getCurrentUser();
+  if (!user) throw new Error("Unauthorized");
   const supabase = await createClient();
 
   // 1. If it's a direct Google Calendar event (e.g. gcal-...)
   if (eventId.startsWith("gcal-")) {
+    const canDeleteMeet = await hasPermission(user.id, activeOrg.id, "meetings.delete");
+    if (!canDeleteMeet) throw new Error("Forbidden: You do not have permission to delete meetings.");
+
     const gcalId = eventId.replace(/^gcal-/, "");
     try {
       const adapter = getCalendarAdapter("google_calendar");
-      await adapter.deleteEvent(activeOrg.id, user?.id, gcalId);
+      await adapter.deleteEvent(activeOrg.id, user.id, gcalId);
     } catch (gcalErr) {
       logger.warn("Could not delete from Google Calendar", { error: gcalErr });
     }
@@ -884,10 +970,13 @@ export async function deleteCalendarEventAction(eventId: string): Promise<void> 
 
   // 2. If it's a direct Outlook Calendar event (e.g. outlook-...)
   if (eventId.startsWith("outlook-")) {
+    const canDeleteMeet = await hasPermission(user.id, activeOrg.id, "meetings.delete");
+    if (!canDeleteMeet) throw new Error("Forbidden: You do not have permission to delete meetings.");
+
     const outlookId = eventId.replace(/^outlook-/, "");
     try {
       const adapter = getCalendarAdapter("outlook_calendar");
-      await adapter.deleteEvent(activeOrg.id, user?.id, outlookId);
+      await adapter.deleteEvent(activeOrg.id, user.id, outlookId);
     } catch (outlookErr) {
       logger.warn("Could not delete from Outlook Calendar", { error: outlookErr });
     }
@@ -907,7 +996,51 @@ export async function deleteCalendarEventAction(eventId: string): Promise<void> 
   const cleanId = eventId.replace(/^ent-(meeting|task|project|goal)-/, "");
 
   if (isValidUuid(cleanId)) {
-    // If the local event was mirrored from/to an external provider, delete remotely as well
+    // Check if it's a company entity
+    const { data: ent } = await supabase
+      .from("company_entities")
+      .select("type")
+      .eq("id", cleanId)
+      .eq("organization_id", activeOrg.id)
+      .maybeSingle();
+
+    if (ent) {
+      if (ent.type === "task") {
+        const canDeleteTask = await hasPermission(user.id, activeOrg.id, "tasks.delete");
+        if (!canDeleteTask) throw new Error("Forbidden: You do not have permission to delete tasks.");
+      } else if (ent.type === "project") {
+        const canDeleteProj = await hasPermission(user.id, activeOrg.id, "projects.delete");
+        if (!canDeleteProj) throw new Error("Forbidden: You do not have permission to delete projects.");
+      } else if (ent.type === "goal") {
+        const canDeleteGoal = await hasPermission(user.id, activeOrg.id, "goals.delete");
+        if (!canDeleteGoal) throw new Error("Forbidden: You do not have permission to delete goals.");
+      } else {
+        const canDeleteMeet = await hasPermission(user.id, activeOrg.id, "meetings.delete");
+        if (!canDeleteMeet) throw new Error("Forbidden: You do not have permission to delete meetings.");
+      }
+
+      await supabase
+        .from("company_entities")
+        .delete()
+        .eq("id", cleanId)
+        .eq("organization_id", activeOrg.id);
+
+      await supabase
+        .from("company_connections")
+        .delete()
+        .eq("organization_id", activeOrg.id)
+        .or(`source_id.eq.${cleanId},target_id.eq.${cleanId},source_id.eq.${eventId},target_id.eq.${eventId}`);
+
+      revalidatePath("/dashboard/calendar");
+      revalidatePath("/dashboard/pages");
+      return;
+    }
+
+    // Otherwise it's an internal meeting / calendar event
+    const canDeleteMeet = await hasPermission(user.id, activeOrg.id, "meetings.delete");
+    if (!canDeleteMeet) throw new Error("Forbidden: You do not have permission to delete meetings.");
+
+    // If mirrored from/to an external provider, delete remotely as well
     const { data: calRow } = await supabase
       .from("organization_calendar_events")
       .select("external_event_id, source")
@@ -919,14 +1052,14 @@ export async function deleteCalendarEventAction(eventId: string): Promise<void> 
       if (calRow.source === "google_calendar") {
         try {
           const adapter = getCalendarAdapter("google_calendar");
-          await adapter.deleteEvent(activeOrg.id, user?.id, calRow.external_event_id);
+          await adapter.deleteEvent(activeOrg.id, user.id, calRow.external_event_id);
         } catch (gcalErr) {
           logger.warn("Could not delete external Google event", { error: gcalErr });
         }
       } else if (calRow.source === "outlook_calendar") {
         try {
           const adapter = getCalendarAdapter("outlook_calendar");
-          await adapter.deleteEvent(activeOrg.id, user?.id, calRow.external_event_id);
+          await adapter.deleteEvent(activeOrg.id, user.id, calRow.external_event_id);
         } catch (outlookErr) {
           logger.warn("Could not delete external Outlook event", { error: outlookErr });
         }
@@ -935,12 +1068,6 @@ export async function deleteCalendarEventAction(eventId: string): Promise<void> 
 
     await supabase
       .from("organization_calendar_events")
-      .delete()
-      .eq("id", cleanId)
-      .eq("organization_id", activeOrg.id);
-
-    await supabase
-      .from("company_entities")
       .delete()
       .eq("id", cleanId)
       .eq("organization_id", activeOrg.id);
@@ -999,22 +1126,34 @@ export async function getWorkspaceProjectsAndPagesAction(): Promise<{
   const activeOrg = await getActiveOrganization();
   if (!activeOrg) return { projects: [], pages: [] };
 
+  const user = await getCurrentUser();
+  const canViewProjects = user ? await hasPermission(user.id, activeOrg.id, "projects.view") : true;
+  const canViewPages = user ? await hasPermission(user.id, activeOrg.id, "pages.view") : true;
+
+  if (!canViewProjects && !canViewPages) {
+    return { projects: [], pages: [] };
+  }
+
   const supabase = await createClient();
 
   const [projectsRes, pagesRes] = await Promise.all([
-    supabase
-      .from("company_entities")
-      .select("id, title")
-      .eq("organization_id", activeOrg.id)
-      .eq("type", "project")
-      .order("title", { ascending: true })
-      .limit(50),
-    supabase
-      .from("pages")
-      .select("id, title, icon")
-      .eq("organization_id", activeOrg.id)
-      .order("title", { ascending: true })
-      .limit(50),
+    canViewProjects
+      ? supabase
+          .from("company_entities")
+          .select("id, title")
+          .eq("organization_id", activeOrg.id)
+          .eq("type", "project")
+          .order("title", { ascending: true })
+          .limit(50)
+      : Promise.resolve({ data: [] }),
+    canViewPages
+      ? supabase
+          .from("pages")
+          .select("id, title, icon")
+          .eq("organization_id", activeOrg.id)
+          .order("title", { ascending: true })
+          .limit(50)
+      : Promise.resolve({ data: [] }),
   ]);
 
   return {

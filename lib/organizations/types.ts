@@ -1,5 +1,6 @@
 export type MemberRole = "owner" | "admin" | "member";
 export type OrganizationRole = MemberRole;
+export type { TeamTemplate } from "./catalog";
 
 export interface Profile {
   id: string;

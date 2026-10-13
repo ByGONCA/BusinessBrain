@@ -31,12 +31,10 @@ export const getCompanyGraphData = cache(
       const supabase = await createClient();
 
       // Parallel batch query for performance.
-      // Limits are large safety ceilings — not pagination — to prevent unbounded
-      // full-table scans from growing with org size. Adjust if orgs routinely exceed these.
-      const [pagesRes, entitiesRes, connectionsRes] = await Promise.all([
+      const [pagesRes, entitiesRes, connectionsRes, legacyBlockRes] = await Promise.all([
         supabase
           .from("pages")
-          .select("id, title, icon, created_at, organization_id")
+          .select("id, title, icon, parent_page_id, content_text, created_at, organization_id")
           .eq("organization_id", organizationId)
           .eq("is_archived", false)
           .limit(1000),
@@ -50,11 +48,22 @@ export const getCompanyGraphData = cache(
           .select("id, source_id, source_type, source_title, target_id, target_type, target_title, relationship_type, metadata, created_by, created_at, updated_at")
           .eq("organization_id", organizationId)
           .limit(2000),
+        supabase
+          .from("page_connections")
+          .select("source_id, page_id")
+          .eq("organization_id", organizationId)
+          .limit(2000),
       ]);
 
       const pages = pagesRes.data || [];
       const entities = entitiesRes.data || [];
       let connections = (connectionsRes.data || []) as CompanyConnectionRecord[];
+      const blockToPageMap = new Map<string, string>();
+      for (const row of legacyBlockRes.data || []) {
+        if (row.source_id && row.page_id) {
+          blockToPageMap.set(row.source_id, row.page_id);
+        }
+      }
 
       // Fallback: If company_connections table is not created yet or empty, check page_connections
       if (connections.length === 0 && connectionsRes.error?.code === "PGRST205") {
@@ -82,15 +91,6 @@ export const getCompanyGraphData = cache(
         }
       }
 
-      // Count node in/out degrees
-      const inDegreeMap = new Map<string, number>();
-      const outDegreeMap = new Map<string, number>();
-
-      for (const conn of connections) {
-        outDegreeMap.set(conn.source_id, (outDegreeMap.get(conn.source_id) || 0) + 1);
-        inDegreeMap.set(conn.target_id, (inDegreeMap.get(conn.target_id) || 0) + 1);
-      }
-
       // Sanitize icon to ensure zero image/base64 payloads enter GraphNode
       const sanitizeGraphIcon = (icon?: string | null, fallback = "📄"): string => {
         if (!icon) return fallback;
@@ -106,54 +106,99 @@ export const getCompanyGraphData = cache(
         return icon;
       };
 
-      // Transform Pages to GraphNodes (Strictly Image-Free)
+      // Transform Pages to GraphNodes
       const pageNodes: GraphNode[] = pages.map((p) => {
-        const inDeg = inDegreeMap.get(p.id) || 0;
-        const outDeg = outDegreeMap.get(p.id) || 0;
+        const isDraft =
+          (!p.title || p.title.trim() === "Untitled") &&
+          (!p.content_text || p.content_text.trim() === "");
+
         return {
           id: p.id,
           type: "page",
-          title: p.title || "Untitled Page",
+          title: p.title?.trim() || "Untitled Page",
           icon: sanitizeGraphIcon(p.icon, "📄"),
           organization_id: p.organization_id,
-          degree: inDeg + outDeg,
-          inDegree: inDeg,
-          outDegree: outDeg,
+          degree: 0,
+          inDegree: 0,
+          outDegree: 0,
+          isDraft,
+          parentId: p.parent_page_id || null,
         };
       });
 
       // Transform Company Entities to GraphNodes
       const entityNodes: GraphNode[] = entities.map((e) => {
-        const inDeg = inDegreeMap.get(e.id) || 0;
-        const outDeg = outDegreeMap.get(e.id) || 0;
         return {
           id: e.id,
           type: e.type as EntityType,
-          title: e.title,
+          title: e.title?.trim() || "Untitled Entity",
           metadata: e.metadata || {},
           organization_id: e.organization_id,
-          degree: inDeg + outDeg,
-          inDegree: inDeg,
-          outDegree: outDeg,
+          degree: 0,
+          inDegree: 0,
+          outDegree: 0,
+          isDraft: false,
         };
       });
 
       const allNodes = [...pageNodes, ...entityNodes];
       const validNodeIds = new Set(allNodes.map((n) => n.id));
+      const pageNodeIdSet = new Set(pageNodes.map((n) => n.id));
 
-      // Filter and map edges (ensure both endpoints exist in the active org)
+      const edgeDedupeSet = new Set<string>();
       const edges: GraphEdge[] = [];
+
+      const addEdge = (edge: GraphEdge) => {
+        if (!edge.source || !edge.target || edge.source === edge.target) return;
+        const key = `${edge.source}->${edge.target}:${edge.relationshipType}`;
+        if (edgeDedupeSet.has(key)) return;
+        edgeDedupeSet.add(key);
+        edges.push(edge);
+      };
+
+      // 1. Structural Parent-Child Page Edges (Deterministic from public.pages)
+      for (const p of pages) {
+        if (p.parent_page_id && pageNodeIdSet.has(p.parent_page_id) && p.id !== p.parent_page_id) {
+          const cfg = RELATIONSHIP_LABELS.part_of;
+          addEdge({
+            id: `structural-page-${p.id}-${p.parent_page_id}`,
+            source: p.id,
+            sourceType: "page",
+            target: p.parent_page_id,
+            targetType: "page",
+            relationshipType: "part_of",
+            label: cfg.forward,
+            reverseLabel: cfg.reverse,
+            metadata: { is_structural: true },
+            isStructural: true,
+          });
+        }
+      }
+
+      // 2. Canonical Company Connections (with block resolution)
       for (const conn of connections) {
-        // Source could be block or page or entity. If block, resolve to page if needed.
-        const sourceExists = validNodeIds.has(conn.source_id);
+        let actualSourceId = conn.source_id;
+        let actualSourceType = conn.source_type;
+
+        // If source is a block, resolve to containing page
+        if (conn.source_type === "block") {
+          const mappedPageId =
+            (conn.metadata?.page_id as string) || blockToPageMap.get(conn.source_id);
+          if (mappedPageId && validNodeIds.has(mappedPageId)) {
+            actualSourceId = mappedPageId;
+            actualSourceType = "page";
+          }
+        }
+
+        const sourceExists = validNodeIds.has(actualSourceId);
         const targetExists = validNodeIds.has(conn.target_id);
 
         if (sourceExists && targetExists) {
           const cfg = RELATIONSHIP_LABELS[conn.relationship_type] || RELATIONSHIP_LABELS.related_to;
-          edges.push({
+          addEdge({
             id: conn.id,
-            source: conn.source_id,
-            sourceType: conn.source_type,
+            source: actualSourceId,
+            sourceType: actualSourceType,
             target: conn.target_id,
             targetType: conn.target_type,
             relationshipType: conn.relationship_type,
@@ -162,6 +207,24 @@ export const getCompanyGraphData = cache(
             metadata: conn.metadata,
           });
         }
+      }
+
+      // 3. Recalculate node degrees and isolation status accurately
+      const inDegreeMap = new Map<string, number>();
+      const outDegreeMap = new Map<string, number>();
+
+      for (const edge of edges) {
+        outDegreeMap.set(edge.source, (outDegreeMap.get(edge.source) || 0) + 1);
+        inDegreeMap.set(edge.target, (inDegreeMap.get(edge.target) || 0) + 1);
+      }
+
+      for (const node of allNodes) {
+        const inDeg = inDegreeMap.get(node.id) || 0;
+        const outDeg = outDegreeMap.get(node.id) || 0;
+        node.inDegree = inDeg;
+        node.outDegree = outDeg;
+        node.degree = inDeg + outDeg;
+        node.isIsolated = node.degree === 0;
       }
 
       return {

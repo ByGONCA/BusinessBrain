@@ -8,6 +8,7 @@ import { resolveStripePriceId, getTrialDays } from "./config";
 import { SubscriptionTier } from "./types";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
+import { hasPermission } from "@/lib/permissions/resolver";
 
 export interface CheckoutActionState {
   error?: string;
@@ -44,10 +45,15 @@ export async function createCheckoutSessionAction(
     return { error: "Too many checkout requests. Please wait a moment and try again." };
   }
 
-  // Only owners and admins can initiate billing subscriptions
-  if (activeOrg.role !== "owner" && activeOrg.role !== "admin") {
+  // Verify permission: requires owner, admin, or billing.manage permission
+  const canManageBilling =
+    activeOrg.role === "owner" ||
+    activeOrg.role === "admin" ||
+    (await hasPermission(user.id, activeOrg.id, "billing.manage"));
+
+  if (!canManageBilling) {
     return {
-      error: "Only workspace owners or administrators can configure billing.",
+      error: "Forbidden: You do not have permission to configure billing subscriptions.",
     };
   }
 

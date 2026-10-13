@@ -465,7 +465,16 @@ export async function getRepositoryRecentActivityAction(
   orgId?: string
 ): Promise<{ success: boolean; events: GitHubActivityEvent[]; authExpired?: boolean; error?: string }> {
   try {
-    const targetOrgId = await resolveAuthorizedOrgId(orgId, "github.view");
+    const targetOrgId = await resolveAuthorizedOrgId(orgId);
+    const supabase = await createClient();
+    const { data: user } = await supabase.auth.getUser();
+    if (!user.user) throw new Error("Unauthorized");
+    const canViewActivity =
+      (await hasPermission(user.user.id, targetOrgId, "github.view_activity")) ||
+      (await hasPermission(user.user.id, targetOrgId, "github.view"));
+    if (!canViewActivity) {
+      throw new Error("Forbidden: Missing permission 'github.view_activity'");
+    }
     const events = await getRepositoryRecentActivity(targetOrgId, owner, repo);
     return { success: true, events };
   } catch (err: any) {
@@ -681,8 +690,10 @@ export async function setDefaultGitHubRepositoryAction(
     return { success: false, error: "Forbidden: You are not a member of this workspace." };
   }
 
-  // Enforce github.manage_repositories permission with strict precedence (Owner full access, explicit DENY > ALLOW)
-  const canManage = await hasPermission(user.id, organizationId, "github.manage_repositories");
+  // Enforce github.manage_repositories or integrations.configure permission with strict precedence
+  const canManage =
+    (await hasPermission(user.id, organizationId, "github.manage_repositories")) ||
+    (await hasPermission(user.id, organizationId, "integrations.configure"));
 
   if (!canManage) {
     return {

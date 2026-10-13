@@ -610,9 +610,7 @@ export async function archivePageAction(params: {
     const activeOrg = await getActiveOrganization();
     if (!activeOrg) return { success: false, error: "No active organization" };
 
-    const canArchive =
-      (await hasPermission(user.id, activeOrg.id, "pages.archive")) ||
-      (await hasPermission(user.id, activeOrg.id, "pages.delete"));
+    const canArchive = await hasPermission(user.id, activeOrg.id, "pages.delete");
     if (!canArchive) {
       return { success: false, error: "Forbidden: You do not have permission to archive pages." };
     }
@@ -659,9 +657,7 @@ export async function restorePageAction(params: {
     const activeOrg = await getActiveOrganization();
     if (!activeOrg) return { success: false, error: "No active organization" };
 
-    const canRestore =
-      (await hasPermission(user.id, activeOrg.id, "pages.restore")) ||
-      (await hasPermission(user.id, activeOrg.id, "pages.edit"));
+    const canRestore = await hasPermission(user.id, activeOrg.id, "pages.edit");
     if (!canRestore) {
       return { success: false, error: "Forbidden: You do not have permission to restore pages." };
     }
@@ -2187,6 +2183,53 @@ export async function addCodeSnippetToPageAction(params: {
   }
 }
 
+/**
+ * Exports a page document content. Enforces pages.share permission.
+ */
+export async function exportPageAction(params: {
+  pageId: string;
+  format?: "markdown" | "json";
+}): Promise<{ success: boolean; data?: string; error?: string }> {
+  try {
+    if (!isValidUuid(params.pageId)) {
+      return { success: false, error: "Invalid page ID" };
+    }
 
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
+    if (!user) return { success: false, error: "Unauthorized" };
 
+    const activeOrg = await getActiveOrganization();
+    if (!activeOrg) return { success: false, error: "No active organization" };
+
+    const canShare = await hasPermission(user.id, activeOrg.id, "pages.share");
+    if (!canShare) {
+      return { success: false, error: "Forbidden: You do not have permission to share or export pages." };
+    }
+
+    const { data: page, error } = await supabase
+      .from("pages")
+      .select("id, title, content, content_text, created_at, updated_at")
+      .eq("id", params.pageId)
+      .eq("organization_id", activeOrg.id)
+      .maybeSingle();
+
+    if (error || !page) {
+      return { success: false, error: "Page not found" };
+    }
+
+    if (params.format === "json") {
+      return { success: true, data: JSON.stringify(page, null, 2) };
+    }
+
+    // Default to markdown
+    const md = `# ${page.title}\n\n${page.content_text || ""}`;
+    return { success: true, data: md };
+  } catch (err: unknown) {
+    logger.error("Error exporting page", err);
+    return { success: false, error: "Failed to export page" };
+  }
+}

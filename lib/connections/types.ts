@@ -130,6 +130,9 @@ export interface GraphNode {
   degree: number;
   inDegree: number;
   outDegree: number;
+  isIsolated?: boolean;
+  isDraft?: boolean;
+  parentId?: string | null;
 }
 
 export interface GraphEdge {
@@ -142,12 +145,46 @@ export interface GraphEdge {
   label: string;
   reverseLabel: string;
   metadata?: Record<string, unknown>;
+  isStructural?: boolean;
 }
 
 export interface CompanyGraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
   totalConnections: number;
+}
+
+/**
+ * Returns suggested relationship types based on source and target entity types.
+ */
+export function getSuggestedRelationshipTypes(
+  sourceType?: EntityType | "block",
+  targetType?: EntityType | "block"
+): RelationshipType[] {
+  if (!sourceType || !targetType) {
+    return [...RELATIONSHIP_TYPES];
+  }
+
+  const s = sourceType === "block" ? "page" : sourceType;
+  const t = targetType === "block" ? "page" : targetType;
+
+  // Specific domain pairings
+  if (s === "task" && t === "project") return ["part_of", "related_to", "supports"];
+  if (s === "task" && t === "task") return ["depends_on", "blocks", "related_to"];
+  if (s === "task" && t === "person") return ["assigned_to", "owned_by", "related_to"];
+  if (s === "project" && t === "goal") return ["supports", "part_of", "related_to"];
+  if (s === "decision" && t === "meeting") return ["decided_in", "discussed_in", "related_to"];
+  if (s === "decision" && t === "project") return ["supports", "part_of", "related_to", "contradicts"];
+  if (s === "decision" && t === "decision") return ["supports", "contradicts", "replaces", "related_to"];
+  if (s === "meeting" && t === "project") return ["discussed_in", "part_of", "related_to"];
+  if (s === "page" && t === "page") return ["part_of", "related_to", "replaces", "derived_from"];
+  if (s === "page" && t === "project") return ["part_of", "related_to", "supports"];
+  if (t === "goal") return ["supports", "part_of", "related_to"];
+  if (t === "person") return ["assigned_to", "owned_by", "related_to"];
+  if (t === "meeting") return ["discussed_in", "decided_in", "related_to"];
+
+  // Default suggestions
+  return ["related_to", "part_of", "depends_on", "supports"];
 }
 
 export interface HierarchyTreeNode {
@@ -159,11 +196,14 @@ export interface HierarchyTreeNode {
   connectionCount: number;
 }
 
+export interface ShortestPathStep {
+  node: GraphNode;
+  edge?: GraphEdge;
+  direction?: "forward" | "reverse";
+}
+
 export interface ShortestPathResult {
   found: boolean;
-  path: Array<{
-    node: GraphNode;
-    edge?: GraphEdge;
-  }>;
+  path: ShortestPathStep[];
   totalHops: number;
 }

@@ -7,6 +7,7 @@ import { isValidUuid } from "@/lib/security/authorization";
 import { logger } from "@/lib/security/logger";
 import { resolveUserPermissions, hasPermission } from "./resolver";
 import { PermissionKey, isValidPermissionKey } from "./registry";
+import { SUGGESTED_TEAM_TEMPLATES } from "@/lib/organizations/catalog";
 
 export interface TeamRecord {
   id: string;
@@ -248,6 +249,107 @@ export async function createTeamAction(params: {
   } catch (err: unknown) {
     logger.error("Error creating team", err);
     return { success: false, error: err instanceof Error ? err.message : "Failed to create team" };
+  }
+}
+
+/**
+ * Applies standard team templates to an organization optionally and idempotently.
+ * Never creates duplicate teams (matches existing teams by name case-insensitively).
+ * Requires teams.create permission or Owner role.
+ */
+export async function applyTeamTemplatesAction(params?: {
+  templateIds?: string[];
+  organizationId?: string;
+}): Promise<{
+  success: boolean;
+  createdCount: number;
+  skippedCount: number;
+  createdTeams: TeamRecord[];
+  error?: string;
+}> {
+  try {
+    const activeOrg = await getActiveOrganization();
+    const targetOrgId = params?.organizationId || activeOrg?.id;
+    if (!targetOrgId || !isValidUuid(targetOrgId)) {
+      return { success: false, createdCount: 0, skippedCount: 0, createdTeams: [], error: "No active workspace" };
+    }
+
+    const { userId } = await verifyManagementAccess(targetOrgId, "teams.create");
+    const supabase = await createClient();
+
+    // Fetch existing teams for this organization to prevent duplicate creation
+    const { data: existingTeams, error: fetchErr } = await supabase
+      .from("organization_teams")
+      .select("id, name")
+      .eq("organization_id", targetOrgId);
+
+    if (fetchErr) {
+      logger.error("Failed to query existing teams before applying templates", fetchErr, { targetOrgId });
+      return { success: false, createdCount: 0, skippedCount: 0, createdTeams: [], error: fetchErr.message };
+    }
+
+    const existingNames = new Set((existingTeams || []).map((t) => t.name.trim().toLowerCase()));
+
+    const templatesToConsider =
+      params?.templateIds && params.templateIds.length > 0
+        ? SUGGESTED_TEAM_TEMPLATES.filter((t) => params.templateIds!.includes(t.id))
+        : SUGGESTED_TEAM_TEMPLATES;
+
+    const templatesToCreate = templatesToConsider.filter(
+      (t) => !existingNames.has(t.name.trim().toLowerCase())
+    );
+
+    const skippedCount = templatesToConsider.length - templatesToCreate.length;
+
+    if (templatesToCreate.length === 0) {
+      return {
+        success: true,
+        createdCount: 0,
+        skippedCount,
+        createdTeams: [],
+      };
+    }
+
+    const inserts = templatesToCreate.map((t) => ({
+      organization_id: targetOrgId,
+      name: t.name,
+      description: t.description,
+      color: t.color,
+      created_by: userId,
+    }));
+
+    const { data: createdRows, error: insertErr } = await supabase
+      .from("organization_teams")
+      .insert(inserts)
+      .select("*");
+
+    if (insertErr || !createdRows) {
+      logger.error("Failed to insert template teams", insertErr, { targetOrgId });
+      return {
+        success: false,
+        createdCount: 0,
+        skippedCount,
+        createdTeams: [],
+        error: insertErr?.message || "Failed to create teams",
+      };
+    }
+
+    revalidatePath("/dashboard/people");
+    return {
+      success: true,
+      createdCount: createdRows.length,
+      skippedCount,
+      createdTeams: createdRows as TeamRecord[],
+    };
+  } catch (err: unknown) {
+    logger.error("Unexpected error in applyTeamTemplatesAction", err);
+    return {
+      success: false,
+      createdCount: 0,
+      skippedCount: 0,
+      createdTeams: [],
+      error: err instanceof Error ? err.message : "Failed to apply templates",
+    };
   }
 }
 

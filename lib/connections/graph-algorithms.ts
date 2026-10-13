@@ -7,6 +7,7 @@ import {
   GraphNode,
   GraphEdge,
   ShortestPathResult,
+  ShortestPathStep,
   HierarchyTreeNode,
   EntityType,
 } from "./types";
@@ -176,8 +177,7 @@ export function findShortestPathBFS(
   const visited = new Set<string>();
 
   // Queue stores [currentNodeId, path]
-  type PathStep = { node: GraphNode; edge?: GraphEdge };
-  const queue: Array<[string, PathStep[]]> = [
+  const queue: Array<[string, ShortestPathStep[]]> = [
     [startNodeId, [{ node: nodeMap.get(startNodeId)! }]],
   ];
   visited.add(startNodeId);
@@ -185,11 +185,20 @@ export function findShortestPathBFS(
   while (queue.length > 0) {
     const [currentId, currentPath] = queue.shift()!;
 
-    const neighbors = undirected.get(currentId) || [];
+    // Sort neighbors deterministically by neighborId, then edge id
+    const neighbors = [...(undirected.get(currentId) || [])].sort((a, b) =>
+      a.neighborId.localeCompare(b.neighborId) || a.edge.id.localeCompare(b.edge.id)
+    );
+
     for (const { neighborId, edge } of neighbors) {
+      const direction: "forward" | "reverse" = edge.source === currentId ? "forward" : "reverse";
+
       if (neighborId === targetNodeId) {
         const targetNode = nodeMap.get(targetNodeId)!;
-        const completePath = [...currentPath, { node: targetNode, edge }];
+        const completePath: ShortestPathStep[] = [
+          ...currentPath,
+          { node: targetNode, edge, direction },
+        ];
         return {
           found: true,
           path: completePath,
@@ -203,7 +212,7 @@ export function findShortestPathBFS(
         if (neighborNode) {
           queue.push([
             neighborId,
-            [...currentPath, { node: neighborNode, edge }],
+            [...currentPath, { node: neighborNode, edge, direction }],
           ]);
         }
       }
@@ -212,6 +221,8 @@ export function findShortestPathBFS(
 
   return { found: false, path: [], totalHops: 0 };
 }
+
+export const findShortestPath = findShortestPathBFS;
 
 /**
  * Constructs the hierarchical tree view from Pages parent/child structure and entity containment.
@@ -304,4 +315,125 @@ export function buildCompanyHierarchyTree(
   }
 
   return rootNodes;
+}
+
+/**
+ * Computes deterministic spatial coordinates for graph nodes.
+ * Groups connected components into coherent radial clusters and places
+ * isolated/disconnected nodes along an organized outer ring/grid.
+ */
+export function computeDeterministicGraphLayout(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  width = 1000,
+  height = 700
+): Map<string, { x: number; y: number }> {
+  const positions = new Map<string, { x: number; y: number }>();
+  if (nodes.length === 0) return positions;
+
+  const nodeMap = new Map<string, GraphNode>();
+  for (const n of nodes) nodeMap.set(n.id, n);
+
+  // Build undirected adjacency
+  const adj = new Map<string, Set<string>>();
+  for (const n of nodes) adj.set(n.id, new Set());
+  for (const e of edges) {
+    if (adj.has(e.source) && adj.has(e.target)) {
+      adj.get(e.source)!.add(e.target);
+      adj.get(e.target)!.add(e.source);
+    }
+  }
+
+  // Find connected components via BFS
+  const visited = new Set<string>();
+  const components: Array<GraphNode[]> = [];
+
+  for (const node of nodes) {
+    if (visited.has(node.id)) continue;
+    const comp: GraphNode[] = [];
+    const queue: string[] = [node.id];
+    visited.add(node.id);
+
+    while (queue.length > 0) {
+      const currId = queue.shift()!;
+      const currNode = nodeMap.get(currId);
+      if (currNode) comp.push(currNode);
+
+      for (const neighborId of adj.get(currId) || []) {
+        if (!visited.has(neighborId)) {
+          visited.add(neighborId);
+          queue.push(neighborId);
+        }
+      }
+    }
+    components.push(comp);
+  }
+
+  // Separate connected clusters (size > 1) and isolated nodes (size == 1)
+  const connectedClusters = components.filter((c) => c.length > 1);
+  const isolatedNodes = components.filter((c) => c.length === 1).map((c) => c[0]);
+
+  const centerX = width / 2;
+  const centerY = height / 2;
+
+  // Position connected clusters
+  if (connectedClusters.length === 1) {
+    // Single main cluster at center
+    const cluster = connectedClusters[0];
+    // Find node with highest degree as cluster center
+    const sorted = [...cluster].sort((a, b) => (b.degree || 0) - (a.degree || 0));
+    const centerNode = sorted[0];
+    positions.set(centerNode.id, { x: centerX, y: centerY });
+
+    const others = sorted.slice(1);
+    for (let i = 0; i < others.length; i++) {
+      const angle = (i / Math.max(1, others.length)) * Math.PI * 2;
+      const radius = 120 + Math.floor(i / 8) * 85;
+      positions.set(others[i].id, {
+        x: centerX + Math.cos(angle) * radius,
+        y: centerY + Math.sin(angle) * radius,
+      });
+    }
+  } else if (connectedClusters.length > 1) {
+    // Multiple connected clusters: place each around center
+    const clusterDist = Math.min(width, height) * 0.32;
+    for (let cIdx = 0; cIdx < connectedClusters.length; cIdx++) {
+      const cluster = connectedClusters[cIdx];
+      const clusterAngle = (cIdx / connectedClusters.length) * Math.PI * 2;
+      const clusterX = centerX + Math.cos(clusterAngle) * clusterDist;
+      const clusterY = centerY + Math.sin(clusterAngle) * clusterDist;
+
+      const sorted = [...cluster].sort((a, b) => (b.degree || 0) - (a.degree || 0));
+      const hubNode = sorted[0];
+      positions.set(hubNode.id, { x: clusterX, y: clusterY });
+
+      const members = sorted.slice(1);
+      for (let i = 0; i < members.length; i++) {
+        const angle = (i / Math.max(1, members.length)) * Math.PI * 2;
+        const radius = 65 + (i % 2) * 35;
+        positions.set(members[i].id, {
+          x: clusterX + Math.cos(angle) * radius,
+          y: clusterY + Math.sin(angle) * radius,
+        });
+      }
+    }
+  }
+
+  // Position isolated nodes in an organized outer orbit
+  if (isolatedNodes.length > 0) {
+    const hasClusters = connectedClusters.length > 0;
+    const baseRadius = hasClusters ? Math.min(width, height) * 0.44 + 40 : 130;
+
+    for (let i = 0; i < isolatedNodes.length; i++) {
+      const angle = (i / isolatedNodes.length) * Math.PI * 2 - Math.PI / 2;
+      const ring = Math.floor(i / 16);
+      const r = baseRadius + ring * 65;
+      positions.set(isolatedNodes[i].id, {
+        x: centerX + Math.cos(angle) * r,
+        y: centerY + Math.sin(angle) * r,
+      });
+    }
+  }
+
+  return positions;
 }
