@@ -31,6 +31,10 @@ export async function GET(request: Request) {
       const organizations = await getUserOrganizations();
 
       if (organizations.length === 0) {
+        // If the intended destination is an invitation page, allow user to accept and join workspace
+        if (safeNext.startsWith("/invite/")) {
+          return NextResponse.redirect(`${baseUrl}${safeNext}`);
+        }
         return NextResponse.redirect(`${baseUrl}/onboarding`);
       }
 

@@ -103,18 +103,36 @@ export async function getClientIp(): Promise<string> {
  * In non-production (development/test): falls back to a controlled local secret.
  */
 export function getRateLimitServerSecret(): string | null {
-  const secret = process.env.INTERNAL_RATE_LIMIT_SECRET;
-  if (secret && secret.trim().length > 0) {
-    return secret.trim();
+  const secret = (process.env.INTERNAL_RATE_LIMIT_SECRET?.trim() || process.env.SERVER_AUTH_SECRET?.trim());
+  const isDeployedOrProd =
+    process.env.NODE_ENV === "production" ||
+    (process.env.NODE_ENV as string) === "staging" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.VERCEL_ENV === "preview" ||
+    process.env.APP_ENV === "staging" ||
+    process.env.APP_ENV === "production";
+
+  if (!secret || secret.length < 32) {
+    if (isDeployedOrProd) {
+      logger.error(
+        "Rate limiting misconfiguration: INTERNAL_RATE_LIMIT_SECRET or SERVER_AUTH_SECRET must be configured with >= 32 characters in production/staging"
+      );
+      return null;
+    }
+    // Controlled development fallback only
+    return "dev-only-insecure-rate-limit-key-0123456789abcdef";
   }
 
-  const isProduction = process.env.NODE_ENV === "production";
-  if (isProduction) {
-    logger.error("Rate limiting misconfiguration: INTERNAL_RATE_LIMIT_SECRET is not configured in production");
-    return null;
+  // Prevent placeholder usage in production/staging
+  if (isDeployedOrProd) {
+    const lower = secret.toLowerCase();
+    if (lower.includes("dev-only") || lower.includes("insecure") || lower.includes("your-32-byte-hex")) {
+      logger.error("Rate limiting misconfiguration: Insecure placeholder detected in production/staging secret");
+      return null;
+    }
   }
 
-  return "company-brain-rate-limit-dev-key";
+  return secret;
 }
 
 /**

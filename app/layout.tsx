@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { TypographyProvider } from "@/components/theme/typography-provider";
@@ -17,24 +19,10 @@ const themeScript = `
       var contrast = localStorage.getItem('cb_contrast_mode');
       var locale = localStorage.getItem('cb_locale');
       var typo = localStorage.getItem('cb_typography_settings');
-      var isDark = true;
-      if (saved === 'light') {
-        isDark = false;
-      } else if (saved === 'dark') {
-        isDark = true;
-      } else {
-        isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      }
       var root = document.documentElement;
-      if (isDark) {
-        root.classList.add('dark');
-        root.classList.remove('light');
-        root.style.colorScheme = 'dark';
-      } else {
-        root.classList.add('light');
-        root.classList.remove('dark');
-        root.style.colorScheme = 'light';
-      }
+      root.classList.add('dark');
+      root.classList.remove('light');
+      root.style.colorScheme = 'dark';
       if (contrast === 'high') {
         root.setAttribute('data-contrast', 'high');
       }
@@ -60,11 +48,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="min-h-screen bg-background text-foreground antialiased selection:bg-blue-600/30 transition-colors duration-150">
+      <body className={`${GeistSans.className} font-sans min-h-screen bg-background text-foreground antialiased selection:bg-blue-600/30 transition-colors duration-150`}>
         <ThemeProvider>
           <TypographyProvider>
             <LanguageProvider>{children}</LanguageProvider>

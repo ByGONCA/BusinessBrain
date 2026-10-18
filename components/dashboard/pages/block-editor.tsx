@@ -17,17 +17,14 @@ import {
 import { BlockItem } from "./block-item";
 import { SlashMenu, SlashMenuItem } from "./slash-menu";
 import { MentionMenu, MentionItem } from "./mention-menu";
+import dynamic from "next/dynamic";
 import { FloatingFormatToolbar, FormatType, CompanyBrainToolbarAction } from "./floating-format-toolbar";
 import { LinkPreviewPopover } from "./link-preview-popover";
 import { TemplatePicker } from "./template-picker";
 import { EmojiPicker } from "./emoji-picker";
-import { ConnectModal } from "./connect-modal";
 import { PageOutlineView } from "./page-outline-view";
 import { PageConnectionsView } from "./page-connections-view";
 import { PageHeaderActions } from "./page-header-actions";
-import { PageInfoModal } from "./page-info-modal";
-import { PageActivityDrawer } from "./page-activity-drawer";
-import { PageCommentsPanel } from "./page-comments-panel";
 import { formatRelativeTime, formatExactDateTime } from "@/lib/utils/time";
 import { focusBlockCaretEnd, getCaretOffset } from "./caret-utils";
 import {
@@ -40,8 +37,34 @@ import {
   getPageVersionsAction,
   getPageCommentsAction,
 } from "@/lib/pages/actions";
-import { FilePickerModal } from "./file-picker-modal";
 import { PageAttachmentsPanel } from "./page-attachments-panel";
+
+// Dynamically import auxiliary modals and drawers so the core block-editor
+// chunk stays lean and fast to initialize.
+const ConnectModal = dynamic(
+  () => import("./connect-modal").then((m) => m.ConnectModal),
+  { ssr: false }
+);
+
+const FilePickerModal = dynamic(
+  () => import("./file-picker-modal").then((m) => m.FilePickerModal),
+  { ssr: false }
+);
+
+const PageInfoModal = dynamic(
+  () => import("./page-info-modal").then((m) => m.PageInfoModal),
+  { ssr: false }
+);
+
+const PageActivityDrawer = dynamic(
+  () => import("./page-activity-drawer").then((m) => m.PageActivityDrawer),
+  { ssr: false }
+);
+
+const PageCommentsPanel = dynamic(
+  () => import("./page-comments-panel").then((m) => m.PageCommentsPanel),
+  { ssr: false }
+);
 import {
   getPageFilesAction,
   getFilePreviewAction,
@@ -2138,29 +2161,33 @@ export function BlockEditor({
       className="relative w-full min-h-[calc(100vh-140px)] flex flex-col flex-1 pb-48 cursor-text"
     >
       <div className="w-full max-w-6xl mx-auto flex-1 flex flex-col">
-      {/* Connect & Entity Creation Modal */}
-      <ConnectModal
-        isOpen={connectModalState.isOpen}
-        onClose={() => setConnectModalState((prev) => ({ ...prev, isOpen: false }))}
-        pageId={page.id}
-        sourceType={connectModalState.sourceType}
-        sourceId={connectModalState.sourceId}
-        initialType={connectModalState.initialType}
-        initialText={connectModalState.initialText}
-        onConnectionCreated={(conn) => {
-          setConnections((prev) => [conn, ...prev]);
-        }}
-      />
+      {/* Connect & Entity Creation Modal (Loaded on-demand) */}
+      {connectModalState.isOpen && (
+        <ConnectModal
+          isOpen={connectModalState.isOpen}
+          onClose={() => setConnectModalState((prev) => ({ ...prev, isOpen: false }))}
+          pageId={page.id}
+          sourceType={connectModalState.sourceType}
+          sourceId={connectModalState.sourceId}
+          initialType={connectModalState.initialType}
+          initialText={connectModalState.initialText}
+          onConnectionCreated={(conn) => {
+            setConnections((prev) => [conn, ...prev]);
+          }}
+        />
+      )}
 
-      {/* File & Cloud Storage Attachment Modal */}
-      <FilePickerModal
-        isOpen={filePickerState.isOpen}
-        onClose={() => setFilePickerState((prev) => ({ ...prev, isOpen: false }))}
-        pageId={page.id}
-        blockId={filePickerState.blockId}
-        allowedTypes={filePickerState.allowedTypes}
-        onFileSelected={handleFileSelected}
-      />
+      {/* File & Cloud Storage Attachment Modal (Loaded on-demand) */}
+      {filePickerState.isOpen && (
+        <FilePickerModal
+          isOpen={filePickerState.isOpen}
+          onClose={() => setFilePickerState((prev) => ({ ...prev, isOpen: false }))}
+          pageId={page.id}
+          blockId={filePickerState.blockId}
+          allowedTypes={filePickerState.allowedTypes}
+          onFileSelected={handleFileSelected}
+        />
+      )}
 
       {/* Floating Toolbar for Inline Marks & Company Brain Transform */}
       <FloatingFormatToolbar
@@ -2645,30 +2672,36 @@ export function BlockEditor({
         </div>
       )}
 
-      {/* Collaborative Page Modals & Drawers */}
-      <PageInfoModal
-        page={page}
-        isOpen={infoModalOpen}
-        onClose={() => setInfoModalOpen(false)}
-        connectionsCount={connections.length}
-      />
+      {/* Collaborative Page Modals & Drawers (Loaded on-demand) */}
+      {infoModalOpen && (
+        <PageInfoModal
+          page={page}
+          isOpen={infoModalOpen}
+          onClose={() => setInfoModalOpen(false)}
+          connectionsCount={connections.length}
+        />
+      )}
 
-      <PageActivityDrawer
-        pageId={page.id}
-        isOpen={activityDrawerOpen}
-        onClose={() => setActivityDrawerOpen(false)}
-        activities={activities}
-        versions={versions}
-        onRefresh={loadActivitiesAndVersions}
-      />
+      {activityDrawerOpen && (
+        <PageActivityDrawer
+          pageId={page.id}
+          isOpen={activityDrawerOpen}
+          onClose={() => setActivityDrawerOpen(false)}
+          activities={activities}
+          versions={versions}
+          onRefresh={loadActivitiesAndVersions}
+        />
+      )}
 
-      <PageCommentsPanel
-        pageId={page.id}
-        isOpen={commentsDrawerOpen}
-        onClose={() => setCommentsDrawerOpen(false)}
-        comments={comments}
-        onRefresh={loadComments}
-      />
+      {commentsDrawerOpen && (
+        <PageCommentsPanel
+          pageId={page.id}
+          isOpen={commentsDrawerOpen}
+          onClose={() => setCommentsDrawerOpen(false)}
+          comments={comments}
+          onRefresh={loadComments}
+        />
+      )}
     </div>
   );
 }

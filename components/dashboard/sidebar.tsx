@@ -8,7 +8,12 @@ import {
   Search,
   Inbox,
   PanelLeftClose,
+  PanelLeftOpen,
   Mail,
+  ChevronDown,
+  Briefcase,
+  Layers,
+  ChevronRight,
 } from "lucide-react";
 import {
   PhosphorHouse,
@@ -58,6 +63,25 @@ interface SidebarProps {
   initialIntegrations?: OrganizationIntegration[];
 }
 
+interface NavItem {
+  id: string;
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  isActive: boolean;
+  badge?: string;
+  hasBadge?: boolean;
+}
+
+interface DropdownNavGroup {
+  id: string;
+  name: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge?: string;
+  items: NavItem[];
+  isCustom?: boolean;
+}
+
 export function Sidebar({
   user,
   organizations,
@@ -68,14 +92,25 @@ export function Sidebar({
   archivedPages = [],
   initialIntegrations = [],
 }: SidebarProps) {
-  const pathname = usePathname();
+  const rawPathname = usePathname();
+  const pathname = rawPathname || "";
   const { formatShortcut } = usePlatform();
   const { t } = useLanguage();
   const { openInbox, isInboxOpen, unreadCount } = useInbox();
-  const { isCollapsed, toggleSidebar } = useSidebar();
-  const [searchOpen, setSearchOpen] = React.useState(false);
+  const {
+    isCompact,
+    toggleSidebar,
+    isMobileOpen,
+    closeMobileSidebar,
+    isGroupExpanded,
+    toggleGroup,
+  } = useSidebar();
 
-  // Dynamic integration state: GitHub appears under COMPANY when connected
+  const [searchOpen, setSearchOpen] = React.useState(false);
+  const [activeFlyoutGroup, setActiveFlyoutGroup] = React.useState<string | null>(null);
+  const flyoutTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Dynamic integration state: GitHub appears under ORGANIZATION when connected
   const initialGitHub = initialIntegrations.some(
     (i) => i.provider === "github" && i.status === "connected"
   );
@@ -112,20 +147,58 @@ export function Sidebar({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const quickNavItems = [
+  // Auto-expand parent group of active route
+  React.useEffect(() => {
+    if (!pathname) return;
+    if (
+      pathname.startsWith("/dashboard/projects") ||
+      pathname.startsWith("/dashboard/tasks") ||
+      pathname.startsWith("/dashboard/goals") ||
+      pathname.startsWith("/dashboard/meetings")
+    ) {
+      if (!isGroupExpanded("work")) toggleGroup("work");
+    } else if (pathname.startsWith("/dashboard/pages")) {
+      if (!isGroupExpanded("pages")) toggleGroup("pages");
+    } else if (
+      pathname.startsWith("/dashboard/brain") ||
+      pathname.startsWith("/dashboard/decisions") ||
+      pathname.startsWith("/dashboard/knowledge") ||
+      pathname.startsWith("/dashboard/connections") ||
+      pathname.startsWith("/dashboard/timeline")
+    ) {
+      if (!isGroupExpanded("brain")) toggleGroup("brain");
+    } else if (
+      pathname.startsWith("/dashboard/people") ||
+      pathname.startsWith("/dashboard/teams") ||
+      pathname.startsWith("/dashboard/github")
+    ) {
+      if (!isGroupExpanded("company")) toggleGroup("company");
+    }
+  }, [pathname]);
+
+  // Close flyout on pathname change
+  React.useEffect(() => {
+    setActiveFlyoutGroup(null);
+    closeMobileSidebar();
+  }, [pathname, closeMobileSidebar]);
+
+  // Top navigation items: Home, Inbox, Calendar, Email
+  const topNavItems: NavItem[] = [
     {
       id: "home",
       name: t.sidebar.home || "Home",
       href: "/dashboard",
       icon: PhosphorHouse,
-      isActive: pathname === "/dashboard" || pathname.startsWith("/dashboard/pages"),
+      isActive: pathname === "/dashboard",
     },
     {
-      id: "email",
-      name: t.sidebar.email || "Email",
-      href: "/dashboard/email",
-      icon: Mail,
-      isActive: pathname === "/dashboard/email" || pathname.startsWith("/dashboard/email/"),
+      id: "inbox",
+      name: t.sidebar.inbox || "Inbox",
+      href: "#inbox",
+      icon: Inbox,
+      isActive: isInboxOpen,
+      hasBadge: unreadCount > 0,
+      badge: unreadCount > 0 ? String(unreadCount) : undefined,
     },
     {
       id: "calendar",
@@ -135,428 +208,619 @@ export function Sidebar({
       isActive: pathname === "/dashboard/calendar" || pathname.startsWith("/dashboard/calendar/"),
     },
     {
-      id: "inbox",
-      name: t.sidebar.inbox || "Inbox",
-      href: "#inbox",
-      icon: Inbox,
-      isActive: isInboxOpen,
-      hasBadge: unreadCount > 0,
+      id: "email",
+      name: t.sidebar.email || "Email",
+      href: "/dashboard/email",
+      icon: Mail,
+      isActive: pathname === "/dashboard/email" || pathname.startsWith("/dashboard/email/"),
     },
   ];
 
-  return (
-    <aside
-      id="main-sidebar"
-      data-sidebar="true"
+  // Grouped items
+  const workItems: NavItem[] = [
+    {
+      id: "projects",
+      name: t.sidebar.projects || "Projects",
+      href: "/dashboard/projects",
+      icon: PhosphorFolder,
+      isActive: pathname.startsWith("/dashboard/projects"),
+    },
+    {
+      id: "tasks",
+      name: t.sidebar.tasks || "Tasks",
+      href: "/dashboard/tasks",
+      icon: PhosphorCheckSquare,
+      isActive: pathname.startsWith("/dashboard/tasks"),
+    },
+    {
+      id: "goals",
+      name: t.sidebar.goals || "Goals",
+      href: "/dashboard/goals",
+      icon: PhosphorTarget,
+      isActive: pathname.startsWith("/dashboard/goals"),
+    },
+    {
+      id: "meetings",
+      name: t.sidebar.meetings || "Meetings",
+      href: "/dashboard/meetings",
+      icon: PhosphorCalendarDots,
+      isActive: pathname.startsWith("/dashboard/meetings"),
+    },
+  ];
+
+  const brainItems: NavItem[] = [
+    {
+      id: "brain",
+      name: "Brain",
+      href: "/dashboard/brain",
+      icon: PhosphorBrain,
+      isActive: pathname.startsWith("/dashboard/brain"),
+    },
+    {
+      id: "decisions",
+      name: t.sidebar.decisions || "Decisions",
+      href: "/dashboard/decisions",
+      icon: PhosphorGitBranch,
+      isActive: pathname.startsWith("/dashboard/decisions"),
+    },
+    {
+      id: "knowledge",
+      name: t.sidebar.knowledge || "Knowledge",
+      href: "/dashboard/knowledge",
+      icon: PhosphorBookOpen,
+      isActive: pathname.startsWith("/dashboard/knowledge"),
+    },
+    {
+      id: "connections",
+      name: t.sidebar.companyMap || "Company Map",
+      href: "/dashboard/connections",
+      icon: PhosphorNetwork,
+      isActive: pathname.startsWith("/dashboard/connections"),
+    },
+    {
+      id: "timeline",
+      name: t.sidebar.timeline || "Timeline",
+      href: "/dashboard/timeline",
+      icon: PhosphorClock,
+      isActive: pathname.startsWith("/dashboard/timeline"),
+    },
+  ];
+
+  const organizationItems: NavItem[] = [
+    {
+      id: "people",
+      name: t.sidebar.people || "People & Teams",
+      href: "/dashboard/people",
+      icon: PhosphorUserList,
+      isActive: pathname.startsWith("/dashboard/people") || pathname.startsWith("/dashboard/teams"),
+    },
+    ...(isGitHubConnected
+      ? [
+          {
+            id: "github",
+            name: "GitHub",
+            href: "/dashboard/github",
+            icon: PhosphorGithubLogo,
+            isActive: pathname.startsWith("/dashboard/github"),
+          },
+        ]
+      : []),
+  ];
+
+  const dropdownGroups: DropdownNavGroup[] = [
+    {
+      id: "work",
+      name: "Work",
+      icon: PhosphorFolder,
+      items: workItems,
+    },
+    {
+      id: "brain",
+      name: "Brain",
+      icon: PhosphorBrain,
+      items: brainItems,
+    },
+    {
+      id: "company",
+      name: "Organization",
+      icon: PhosphorUserList,
+      items: organizationItems,
+    },
+  ];
+
+  const handleFlyoutEnter = (groupId: string) => {
+    if (flyoutTimeoutRef.current) clearTimeout(flyoutTimeoutRef.current);
+    setActiveFlyoutGroup(groupId);
+  };
+
+  const handleFlyoutLeave = () => {
+    flyoutTimeoutRef.current = setTimeout(() => {
+      setActiveFlyoutGroup(null);
+    }, 150);
+  };
+
+  // Reusable render helper for standard nav items (Home, Inbox, Calendar, Email, subitems)
+  const renderNavItem = (item: NavItem, isSubitem = false) => {
+    const Icon = item.icon;
+    const isInboxItem = item.id === "inbox";
+
+    const content = (
+      <>
+        <Icon
+          className={cn(
+            "shrink-0 transition-colors",
+            isSubitem ? "h-4 w-4" : "h-[17px] w-[17px]",
+            item.isActive ? "text-[#FFFFFF]" : "text-[#71717A] group-hover:text-[#FAFAFA]"
+          )}
+        />
+        <span className="truncate">{item.name}</span>
+        {item.badge && (
+          <span className="ml-auto flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full bg-blue-500/15 text-blue-400 text-[10px] font-semibold border border-blue-500/25">
+            {item.badge}
+          </span>
+        )}
+      </>
+    );
+
+    const itemClass = cn(
+      "group flex w-full items-center rounded-lg transition-all select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600",
+      isSubitem
+        ? "h-[32px] px-2.5 gap-2 text-[13px] font-medium text-[#94949E] hover:text-[#FAFAFA] hover:bg-[#18181B]"
+        : "h-[36px] px-2.5 gap-2.5 text-[13.5px] font-medium text-[#94949E] hover:text-[#FAFAFA] hover:bg-[#18181B]",
+      item.isActive && "bg-[#202024] text-[#FFFFFF] font-medium border border-[#2E2E34]/50 shadow-2xs"
+    );
+
+    return isInboxItem ? (
+      <button
+        key={item.id}
+        type="button"
+        onClick={openInbox}
+        className={itemClass}
+      >
+        {content}
+      </button>
+    ) : (
+      <Link
+        key={item.id}
+        href={item.href}
+        prefetch={false}
+        className={itemClass}
+      >
+        {content}
+      </Link>
+    );
+  };
+
+  // Reusable render helper for expandable group toggles (Work, Pages, Brain, Organization)
+  const renderGroupToggle = (
+    id: string,
+    name: string,
+    Icon: React.ComponentType<{ className?: string }>,
+    isExpanded: boolean,
+    hasActiveChild: boolean
+  ) => (
+    <button
+      type="button"
+      onClick={() => toggleGroup(id)}
+      aria-expanded={isExpanded}
       className={cn(
-        "sticky top-0 flex h-screen shrink-0 flex-col border-sidebar-border bg-sidebar select-none z-40 transition-all duration-200",
-        isCollapsed
-          ? "w-0 border-r-0 opacity-0 pointer-events-none overflow-hidden"
-          : "w-64 border-r opacity-100"
+        "group flex w-full items-center justify-between rounded-lg h-[36px] px-2.5 text-[13.5px] font-medium transition-all select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600",
+        hasActiveChild && !isExpanded
+          ? "bg-[#18181B] text-[#FAFAFA] font-medium"
+          : "text-[#94949E] hover:bg-[#18181B] hover:text-[#FAFAFA]"
       )}
     >
-      {/* Brand Header, Global Search & Top Quick-Nav Bar */}
-      <div className="flex flex-col gap-2.5 p-3 pb-2 shrink-0">
-        <div className="flex items-center justify-between">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2.5 px-1 hover:opacity-90 transition-opacity min-w-0"
-          >
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white shadow-md shadow-blue-500/20 ring-1 ring-blue-400/25 shrink-0">
-              <Sparkles className="h-4 w-4" />
-            </div>
-            <span className="font-bold text-sm tracking-tight text-foreground truncate">
-              {activeOrg?.name || "Company Brain"}
-            </span>
-          </Link>
+      <div className="flex items-center gap-2.5 min-w-0">
+        <Icon className="h-[17px] w-[17px] shrink-0 text-[#71717A] group-hover:text-[#FAFAFA]" />
+        <span className="truncate">{name}</span>
+      </div>
+      <ChevronDown
+        className={cn(
+          "h-3.5 w-3.5 text-[#52525B] group-hover:text-[#A1A1AA] transition-transform duration-150",
+          !isExpanded && "-rotate-90"
+        )}
+      />
+    </button>
+  );
 
-          {/* Button to toggle/close sidebar on the top-right */}
-          <button
-            type="button"
-            onClick={toggleSidebar}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors shrink-0"
-            title="Collapse sidebar (Ctrl+\)"
-          >
-            <PanelLeftClose className="h-4 w-4" />
-          </button>
-        </div>
+  // Compact rail helpers
+  const renderCompactNavItem = (item: NavItem) => {
+    const Icon = item.icon;
+    const isInboxItem = item.id === "inbox";
+    return isInboxItem ? (
+      <button
+        key={item.id}
+        type="button"
+        onClick={openInbox}
+        className={cn(
+          "relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600",
+          item.isActive
+            ? "bg-[#202024] text-[#FFFFFF] border border-[#2E2E34]/50 shadow-2xs"
+            : "text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#18181B]"
+        )}
+        title={item.name}
+      >
+        <Icon className="h-4 w-4" />
+        {item.hasBadge && (
+          <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-blue-500 ring-2 ring-[#09090A]" />
+        )}
+      </button>
+    ) : (
+      <Link
+        key={item.id}
+        href={item.href}
+        prefetch={false}
+        className={cn(
+          "relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600",
+          item.isActive
+            ? "bg-[#202024] text-[#FFFFFF] border border-[#2E2E34]/50 shadow-2xs"
+            : "text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#18181B]"
+        )}
+        title={item.name}
+      >
+        <Icon className="h-4 w-4" />
+      </Link>
+    );
+  };
 
-        {/* Quick Search Action */}
+  const renderCompactGroup = (group: DropdownNavGroup) => {
+    const GroupIcon = group.icon;
+    const isGroupActive = group.items.some((i) => i.isActive);
+    const isFlyoutOpen = activeFlyoutGroup === group.id;
+
+    return (
+      <div
+        key={group.id}
+        className="relative"
+        onMouseEnter={() => handleFlyoutEnter(group.id)}
+        onMouseLeave={handleFlyoutLeave}
+      >
         <button
           type="button"
-          onClick={() => setSearchOpen(true)}
-          className="flex w-full items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          onClick={() => setActiveFlyoutGroup((prev) => (prev === group.id ? null : group.id))}
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600",
+            isGroupActive
+              ? "bg-[#202024] text-[#FFFFFF] border border-[#2E2E34]/50 shadow-2xs"
+              : "text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#18181B]"
+          )}
+          title={group.name}
+          aria-haspopup="true"
+          aria-expanded={isFlyoutOpen}
         >
-          <Search className="h-3.5 w-3.5 text-muted-foreground" />
-          <span>{t.sidebar.searchPlaceholder || "Search or ask..."}</span>
-          <kbd className="ml-auto rounded border border-border bg-card px-1.5 py-0.5 text-[10px] text-muted-foreground font-mono">
-            {formatShortcut("K")}
-          </kbd>
+          <GroupIcon className="h-4 w-4" />
         </button>
 
-        {/* Horizontal Quick-Nav Bar (Home, Email, Calendar, Inbox) */}
-        <div className="flex items-center gap-1 pt-0.5">
-          {quickNavItems.map((item) => {
-            const Icon = item.icon;
-            const content = (
-              <>
-                <Icon className={cn("shrink-0", item.isActive ? "h-3.5 w-3.5" : "h-4 w-4")} />
-                {item.isActive && (
-                  <span className="text-xs font-medium truncate max-w-[65px]">{item.name}</span>
-                )}
-                {item.hasBadge && !item.isActive && (
-                  <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-blue-500 ring-2 ring-sidebar" />
-                )}
-              </>
-            );
-
-            const itemClassName = cn(
-              "relative flex items-center transition-all duration-150 focus:outline-none",
-              item.isActive
-                ? "gap-1.5 rounded-lg bg-zinc-200 dark:bg-zinc-800 px-2.5 py-1.5 text-xs font-semibold text-zinc-900 dark:text-white shadow-2xs"
-                : "rounded-lg p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
-            );
-
-            if (item.id === "inbox") {
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={openInbox}
-                  className={itemClassName}
-                  title={item.name}
-                >
-                  {content}
-                </button>
-              );
-            }
-
-            return (
-              <Link
-                key={item.id}
-                href={item.href}
-                prefetch={false}
-                className={itemClassName}
-                title={item.name}
-              >
-                {content}
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Main Canonical Navigation Links (Independently scrollable) */}
-      <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-2 no-scrollbar">
-        {/* ========================================================= */}
-        {/* 1. WORK                                                   */}
-        {/* ========================================================= */}
-        <div className="space-y-0.5">
-          <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {t.sidebar.work || "WORK"}
-          </div>
-
-          {/* Projects */}
-          <Link
-            href="/dashboard/projects"
-            prefetch={false}
-            className={cn(
-              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-              pathname.startsWith("/dashboard/projects")
-                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
-                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-            )}
+        {isFlyoutOpen && (
+          <div
+            className="absolute left-full top-0 ml-2 w-52 rounded-xl border border-[#242428] bg-[#121215] p-1.5 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95 duration-100"
+            onMouseEnter={() => handleFlyoutEnter(group.id)}
+            onMouseLeave={handleFlyoutLeave}
           >
-            <PhosphorFolder
-              className={cn(
-                "h-4 w-4 shrink-0 transition-colors",
-                pathname.startsWith("/dashboard/projects")
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-muted-foreground group-hover:text-foreground"
-              )}
-            />
-            <span className="truncate">{t.sidebar.projects || "Projects"}</span>
-          </Link>
-
-          {/* Tasks */}
-          <Link
-            href="/dashboard/tasks"
-            prefetch={false}
-            className={cn(
-              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-              pathname.startsWith("/dashboard/tasks")
-                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
-                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-            )}
-          >
-            <PhosphorCheckSquare
-              className={cn(
-                "h-4 w-4 shrink-0 transition-colors",
-                pathname.startsWith("/dashboard/tasks")
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-muted-foreground group-hover:text-foreground"
-              )}
-            />
-            <span className="truncate">{t.sidebar.tasks || "Tasks"}</span>
-          </Link>
-
-          {/* Goals */}
-          <Link
-            href="/dashboard/goals"
-            prefetch={false}
-            className={cn(
-              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-              pathname.startsWith("/dashboard/goals")
-                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
-                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-            )}
-          >
-            <PhosphorTarget
-              className={cn(
-                "h-4 w-4 shrink-0 transition-colors",
-                pathname.startsWith("/dashboard/goals")
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-muted-foreground group-hover:text-foreground"
-              )}
-            />
-            <span className="truncate">{t.sidebar.goals || "Goals"}</span>
-          </Link>
-
-          {/* Meetings */}
-          <Link
-            href="/dashboard/meetings"
-            prefetch={false}
-            className={cn(
-              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-              pathname.startsWith("/dashboard/meetings")
-                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
-                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-            )}
-          >
-            <PhosphorCalendarDots
-              className={cn(
-                "h-4 w-4 shrink-0 transition-colors",
-                pathname.startsWith("/dashboard/meetings")
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-muted-foreground group-hover:text-foreground"
-              )}
-            />
-            <span className="truncate">{t.sidebar.meetings || "Meetings"}</span>
-          </Link>
-        </div>
-
-        {/* ========================================================= */}
-        {/* 2. PAGES HIERARCHY TREE                                   */}
-        {/* ========================================================= */}
-        {activeOrg && (
-          <div className="py-0.5">
-            <SidebarPageTree
-              initialPages={pageTree}
-              favoritePages={favoritePages}
-              archivedPages={archivedPages}
-              organizationId={activeOrg.id}
-            />
+            <div className="px-2.5 py-1 text-[11px] font-semibold text-[#FAFAFA] border-b border-[#1E1E22] mb-1">
+              {group.name}
+            </div>
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const ItemIcon = item.icon;
+                return (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    prefetch={false}
+                    className={cn(
+                      "flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-colors",
+                      item.isActive
+                        ? "bg-[#202024] text-[#FFFFFF] font-medium"
+                        : "text-[#94949E] hover:bg-[#18181B] hover:text-[#FAFAFA]"
+                    )}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <ItemIcon className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{item.name}</span>
+                    </div>
+                    {item.badge && (
+                      <span className="rounded-full bg-blue-500/15 px-1.5 py-0.2 text-[9px] font-medium text-blue-400 border border-blue-500/25">
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         )}
-
-        {/* ========================================================= */}
-        {/* 2. BRAIN                                                  */}
-        {/* ========================================================= */}
-        <div className="space-y-0.5">
-          <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {t.sidebar.brain || "BRAIN"}
-          </div>
-
-          {/* Brain (AI intelligence layer) */}
-          <Link
-            href="/dashboard/brain"
-            prefetch={false}
-            className={cn(
-              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-              pathname.startsWith("/dashboard/brain")
-                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
-                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-            )}
-          >
-            <PhosphorBrain
-              className={cn(
-                "h-4 w-4 shrink-0 transition-colors",
-                pathname.startsWith("/dashboard/brain")
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-muted-foreground group-hover:text-foreground"
-              )}
-            />
-            <span className="truncate">Brain</span>
-            <span className="ml-auto rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400 border border-blue-500/20">
-              AI
-            </span>
-          </Link>
-
-          {/* Decisions */}
-          <Link
-            href="/dashboard/decisions"
-            prefetch={false}
-            className={cn(
-              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-              pathname.startsWith("/dashboard/decisions")
-                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
-                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-            )}
-          >
-            <PhosphorGitBranch
-              className={cn(
-                "h-4 w-4 shrink-0 transition-colors",
-                pathname.startsWith("/dashboard/decisions")
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-muted-foreground group-hover:text-foreground"
-              )}
-            />
-            <span className="truncate">{t.sidebar.decisions || "Decisions"}</span>
-          </Link>
-
-          {/* Knowledge */}
-          <Link
-            href="/dashboard/knowledge"
-            prefetch={false}
-            className={cn(
-              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-              pathname.startsWith("/dashboard/knowledge")
-                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
-                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-            )}
-          >
-            <PhosphorBookOpen
-              className={cn(
-                "h-4 w-4 shrink-0 transition-colors",
-                pathname.startsWith("/dashboard/knowledge")
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-muted-foreground group-hover:text-foreground"
-              )}
-            />
-            <span className="truncate">{t.sidebar.knowledge || "Knowledge"}</span>
-          </Link>
-
-          {/* Company Map */}
-          <Link
-            href="/dashboard/connections"
-            prefetch={false}
-            className={cn(
-              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-              pathname.startsWith("/dashboard/connections")
-                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
-                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-            )}
-          >
-            <PhosphorNetwork
-              className={cn(
-                "h-4 w-4 shrink-0 transition-colors",
-                pathname.startsWith("/dashboard/connections")
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-muted-foreground group-hover:text-foreground"
-              )}
-            />
-            <span className="truncate">{t.sidebar.companyMap || "Company Map"}</span>
-          </Link>
-
-          {/* Timeline */}
-          <Link
-            href="/dashboard/timeline"
-            prefetch={false}
-            className={cn(
-              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-              pathname.startsWith("/dashboard/timeline")
-                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
-                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-            )}
-          >
-            <PhosphorClock
-              className={cn(
-                "h-4 w-4 shrink-0 transition-colors",
-                pathname.startsWith("/dashboard/timeline")
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-muted-foreground group-hover:text-foreground"
-              )}
-            />
-            <span className="truncate">{t.sidebar.timeline || "Timeline"}</span>
-          </Link>
-        </div>
-
-        {/* ========================================================= */}
-        {/* 3. COMPANY                                                */}
-        {/* ========================================================= */}
-        <div className="space-y-0.5">
-          <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {t.sidebar.company || "COMPANY"}
-          </div>
-
-          {/* People */}
-          <Link
-            href="/dashboard/people"
-            prefetch={false}
-            className={cn(
-              "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
-              pathname.startsWith("/dashboard/people")
-                ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
-                : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-            )}
-          >
-            <PhosphorUserList
-              className={cn(
-                "h-4 w-4 shrink-0 transition-colors",
-                pathname.startsWith("/dashboard/people")
-                  ? "text-blue-600 dark:text-blue-400"
-                  : "text-muted-foreground group-hover:text-foreground"
-              )}
-            />
-            <span className="truncate">{t.sidebar.people || "People"}</span>
-          </Link>
-
-          {/* GitHub (Appears dynamically only when integration is connected) */}
-          {isGitHubConnected && (
-            <Link
-              href="/dashboard/github"
-              prefetch={false}
-              className={cn(
-                "group flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors animate-in fade-in duration-200",
-                pathname.startsWith("/dashboard/github")
-                  ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
-                  : "text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-              )}
-            >
-              <PhosphorGithubLogo
-                className={cn(
-                  "h-4 w-4 shrink-0 transition-colors",
-                  pathname.startsWith("/dashboard/github")
-                    ? "text-blue-600 dark:text-blue-400"
-                    : "text-muted-foreground group-hover:text-foreground"
-                )}
-              />
-              <span className="truncate">GitHub</span>
-            </Link>
-          )}
-        </div>
-      </nav>
-
-      {/* ========================================================= */}
-      {/* 6. ACCOUNT (Fixed bottom user control & settings)         */}
-      {/* ========================================================= */}
-      <div className="mt-auto p-2 border-t border-sidebar-border bg-sidebar shrink-0 transition-colors duration-150">
-        <AccountMenu
-          user={user}
-          organizations={organizations}
-          activeOrg={activeOrg}
-          entitlement={entitlement}
-        />
       </div>
+    );
+  };
 
-      {/* Quick Search Modal Window */}
-      {activeOrg && (
-        <SearchModal
-          isOpen={searchOpen}
-          onClose={() => setSearchOpen(false)}
-          organizationId={activeOrg.id}
+  return (
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {isMobileOpen && (
+        <div
+          onClick={closeMobileSidebar}
+          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-xs md:hidden"
+          aria-hidden="true"
         />
       )}
-    </aside>
+
+      {/* Main Sidebar */}
+      <aside
+        id="main-sidebar"
+        data-sidebar="true"
+        className={cn(
+          "fixed md:sticky top-0 left-0 flex h-screen shrink-0 flex-col border-r border-[#1E1E22] bg-[#09090B] select-none z-50 transition-all duration-200 ease-in-out",
+          // Mobile state
+          isMobileOpen ? "translate-x-0 w-60 shadow-2xl" : "-translate-x-full md:translate-x-0",
+          // Desktop compact vs expanded
+          isCompact ? "md:w-16" : "md:w-60"
+        )}
+      >
+        {/* ========================================================= */}
+        {/* Top Header: Organization Switcher & Search (Reference)    */}
+        {/* ========================================================= */}
+        <div className="flex flex-col gap-2 p-2.5 pb-2 shrink-0">
+          {isCompact ? (
+            /* COLLAPSED MODE: Single centered logo button that expands the sidebar */
+            <div className="flex items-center justify-center">
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="flex h-8 w-8 items-center justify-center rounded-md bg-blue-600 text-white shadow-xs hover:bg-blue-500 transition-colors ring-1 ring-blue-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer"
+                title="Expand sidebar (Ctrl+\)"
+                aria-label="Expand sidebar"
+              >
+                <Sparkles className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            /* EXPANDED MODE: Logo link to Landing Page ('/') + Collapse Button */
+            <div className="flex items-center justify-between">
+              <Link
+                href="/"
+                className="flex items-center justify-center rounded-md p-0.5 hover:bg-[#141416] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600"
+                title="Go to home page"
+              >
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-600 text-white shadow-xs shrink-0 ring-1 ring-blue-500/20 hover:bg-blue-500 transition-colors">
+                  <Sparkles className="h-3.5 w-3.5" />
+                </div>
+              </Link>
+
+              {/* Collapse button on desktop */}
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="hidden md:flex h-7 w-7 items-center justify-center rounded-md text-[#71717A] hover:bg-[#18181B] hover:text-[#FAFAFA] transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600 cursor-pointer"
+                title="Collapse sidebar (Ctrl+\)"
+                aria-label="Collapse sidebar"
+              >
+                <PanelLeftClose className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Quick Search Pill */}
+          {!isCompact ? (
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              className="flex w-full items-center gap-2 rounded-lg border border-[#242428] bg-[#141416] px-2.5 h-9 text-xs text-[#71717A] hover:border-[#323238] hover:text-[#D4D4D8] transition-colors shadow-2xs mt-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600"
+            >
+              <Search className="h-3.5 w-3.5 text-[#71717A]" />
+              <span className="truncate">{t.sidebar.searchPlaceholder || "Search or ask..."}</span>
+              <kbd className="ml-auto rounded border border-[#27272A] bg-[#1C1C1F] px-1.5 py-0.5 text-[10px] text-[#A1A1AA] font-mono">
+                {formatShortcut("K")}
+              </kbd>
+            </button>
+          ) : (
+            <div className="flex justify-center pt-1">
+              <button
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] hover:bg-[#18181B] hover:text-[#FAFAFA] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600"
+                title={`Search (${formatShortcut("K")})`}
+                aria-label="Search"
+              >
+                <Search className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Horizontal Quick-Nav Bar (Home, Inbox, Calendar, Email) */}
+          {!isCompact && (
+            <div className="flex items-center gap-1 pt-1">
+              {topNavItems.map((item) => {
+                const Icon = item.icon;
+                const isInboxItem = item.id === "inbox";
+                const isActive = item.isActive;
+
+                const content = (
+                  <>
+                    <Icon
+                      className={cn(
+                        "shrink-0 transition-colors",
+                        isActive ? "h-4 w-4 text-[#FFFFFF]" : "h-4 w-4 text-[#71717A] group-hover:text-[#FAFAFA]"
+                      )}
+                    />
+                    {isActive && (
+                      <span className="text-xs font-semibold truncate max-w-[75px] leading-none text-[#FFFFFF]">
+                        {item.name}
+                      </span>
+                    )}
+                    {item.hasBadge && !isActive && (
+                      <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-blue-500 ring-2 ring-[#09090B]" />
+                    )}
+                    {item.hasBadge && isActive && (
+                      <span className="ml-1 flex items-center justify-center h-3.5 min-w-3.5 px-1 rounded-full bg-blue-500/20 text-blue-400 text-[9px] font-semibold border border-blue-500/30">
+                        {item.badge}
+                      </span>
+                    )}
+                  </>
+                );
+
+                const itemClassName = cn(
+                  "group relative flex items-center transition-all duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600 select-none",
+                  isActive
+                    ? "h-8 gap-1.5 rounded-lg bg-[#202024] px-2.5 text-xs font-semibold text-[#FFFFFF] border border-[#2E2E34]/50 shadow-2xs"
+                    : "h-8 w-8 items-center justify-center rounded-lg text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#18181B]"
+                );
+
+                return isInboxItem ? (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={openInbox}
+                    className={itemClassName}
+                    title={item.name}
+                  >
+                    {content}
+                  </button>
+                ) : (
+                  <Link
+                    key={item.id}
+                    href={item.href}
+                    prefetch={false}
+                    className={itemClassName}
+                    title={item.name}
+                  >
+                    {content}
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="mx-2.5 my-1 border-t border-[#1E1E22]" />
+
+        {/* ========================================================= */}
+        {/* Navigation List: Unified Vertical List with Dropdowns      */}
+        {/* ========================================================= */}
+        <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-1.5 no-scrollbar overflow-x-hidden">
+          {/* ================= COMPACT MODE (Icon-Rail) ============= */}
+          {isCompact ? (
+            <div className="flex flex-col items-center gap-1">
+              {/* 1. Top items: Home, Inbox, Calendar, Email */}
+              {topNavItems.map((item) => renderCompactNavItem(item))}
+
+              <div className="w-6 border-t border-[#1E1E22] my-1" />
+
+              {/* 2. Work in compact mode */}
+              {renderCompactGroup(dropdownGroups[0])}
+
+              {/* 3. Pages in compact mode */}
+              <div className="relative">
+                <Link
+                  href="/dashboard/pages"
+                  prefetch={false}
+                  className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600",
+                    pathname.startsWith("/dashboard/pages")
+                      ? "bg-[#202024] text-[#FFFFFF] border border-[#2E2E34]/50 shadow-2xs"
+                      : "text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#18181B]"
+                  )}
+                  title="Pages"
+                >
+                  <PhosphorBookOpen className="h-5 w-5" />
+                </Link>
+              </div>
+
+              {/* 4. Brain in compact mode */}
+              {renderCompactGroup(dropdownGroups[1])}
+
+              {/* 5. Organization in compact mode */}
+              {renderCompactGroup(dropdownGroups[2])}
+
+              {/* Expand button at bottom of compact rail */}
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                className="hidden md:flex h-8 w-8 items-center justify-center rounded-md text-[#71717A] hover:bg-[#18181B] hover:text-[#FAFAFA] transition-colors mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
+                title="Expand sidebar (Ctrl+\)"
+                aria-label="Expand sidebar"
+              >
+                <PanelLeftOpen className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            /* ================= EXPANDED MODE (Vertical List) ============= */
+            <div className="space-y-2.5">
+              {/* 1. Work Section (Expandable with subitems) */}
+              <div className="space-y-0.5">
+                {renderGroupToggle("work", "Work", PhosphorFolder, isGroupExpanded("work"), workItems.some((i) => i.isActive))}
+
+                {isGroupExpanded("work") && (
+                  <div className="ml-3 pl-2.5 border-l border-[#242428] space-y-0.5 pt-0.5 my-0.5 animate-in fade-in duration-150">
+                    {workItems.map((item) => renderNavItem(item, true))}
+                  </div>
+                )}
+              </div>
+
+              {/* 2. Pages Section (Expandable Tree) */}
+              {activeOrg && (
+                <div className="space-y-0.5">
+                  {renderGroupToggle("pages", "Pages", PhosphorBookOpen, isGroupExpanded("pages"), pathname.startsWith("/dashboard/pages"))}
+
+                  {isGroupExpanded("pages") && (
+                    <div className="ml-3 pl-2.5 border-l border-[#242428] pt-0.5 my-0.5 animate-in fade-in duration-150">
+                      <SidebarPageTree
+                        initialPages={pageTree}
+                        favoritePages={favoritePages}
+                        archivedPages={archivedPages}
+                        organizationId={activeOrg.id}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 3. Brain Section (Expandable - NO AI BADGE) */}
+              <div className="space-y-0.5">
+                {renderGroupToggle("brain", "Brain", PhosphorBrain, isGroupExpanded("brain"), brainItems.some((i) => i.isActive))}
+
+                {isGroupExpanded("brain") && (
+                  <div className="ml-3 pl-2.5 border-l border-[#242428] space-y-0.5 pt-0.5 my-0.5 animate-in fade-in duration-150">
+                    {brainItems.map((item) => renderNavItem(item, true))}
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Organization Section (Expandable) */}
+              <div className="space-y-0.5">
+                {renderGroupToggle("company", "Organization", PhosphorUserList, isGroupExpanded("company"), organizationItems.some((i) => i.isActive))}
+
+                {isGroupExpanded("company") && (
+                  <div className="ml-3 pl-2.5 border-l border-[#242428] space-y-0.5 pt-0.5 my-0.5 animate-in fade-in duration-150">
+                    {organizationItems.map((item) => renderNavItem(item, true))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </nav>
+
+        {/* ========================================================= */}
+        {/* Bottom User Profile & Workspace Menu (Reference Image 2)  */}
+        {/* ========================================================= */}
+        <div className="mt-auto p-2 border-t border-[#1E1E22] bg-[#09090A] shrink-0">
+          <AccountMenu
+            user={user}
+            organizations={organizations}
+            activeOrg={activeOrg}
+            entitlement={entitlement}
+          />
+        </div>
+
+        {/* Global Quick Search Modal Window */}
+        {activeOrg && (
+          <SearchModal
+            isOpen={searchOpen}
+            onClose={() => setSearchOpen(false)}
+            organizationId={activeOrg.id}
+          />
+        )}
+      </aside>
+    </>
   );
 }

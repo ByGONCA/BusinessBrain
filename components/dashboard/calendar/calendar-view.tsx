@@ -37,7 +37,12 @@ import {
   updateCalendarEventAction,
   deleteCalendarEventAction,
 } from "@/lib/calendar/actions";
-import { EventModal } from "./event-modal";
+import dynamic from "next/dynamic";
+
+const EventModal = dynamic(
+  () => import("./event-modal").then((mod) => mod.EventModal),
+  { ssr: false }
+);
 
 interface CalendarViewProps {
   integrations: OrganizationIntegration[];
@@ -1387,29 +1392,31 @@ export function CalendarView({ integrations }: CalendarViewProps) {
         </div>
       )}
 
-      {/* Create / Edit Event Modal */}
-      <EventModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        eventToEdit={editingEvent}
-        initialDate={modalDate}
-        initialTag={selectedTagFilter === "All" ? undefined : selectedTagFilter}
-        initialEntityType={modalEntityType}
-        availableTags={allAvailableTags}
-        onCreatedTag={(newTag) => {
-          if (!customTags.some((ct) => ct.tag.toLowerCase() === newTag.tag.toLowerCase())) {
-            const updated = [...customTags, newTag];
-            setCustomTags(updated);
-            try {
-              localStorage.setItem("bb_custom_calendar_tags", JSON.stringify(updated));
-            } catch {
-              // Ignore
+      {/* Create / Edit Event Modal (Loaded on-demand) */}
+      {isModalOpen && (
+        <EventModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          eventToEdit={editingEvent}
+          initialDate={modalDate}
+          initialTag={selectedTagFilter === "All" ? undefined : selectedTagFilter}
+          initialEntityType={modalEntityType}
+          availableTags={allAvailableTags}
+          onCreatedTag={(newTag) => {
+            if (!customTags.some((ct) => ct.tag.toLowerCase() === newTag.tag.toLowerCase())) {
+              const updated = [...customTags, newTag];
+              setCustomTags(updated);
+              try {
+                localStorage.setItem("bb_custom_calendar_tags", JSON.stringify(updated));
+              } catch {
+                // Ignore
+              }
             }
-          }
-        }}
-        onSave={handleSaveEvent}
-        onDelete={editingEvent ? handleDeleteEvent : undefined}
-      />
+          }}
+          onSave={handleSaveEvent}
+          onDelete={editingEvent ? handleDeleteEvent : undefined}
+        />
+      )}
     </div>
   );
 }

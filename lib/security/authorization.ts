@@ -76,17 +76,66 @@ export async function requireOrganizationRole(
 }
 
 /**
+ * Resolves the internal server authentication secret.
+ * In production (NODE_ENV === "production"), strictly requires SERVER_AUTH_SECRET
+ * to be defined with at least 32 characters (256 bits of entropy).
+ * Throws a fatal configuration error if missing or insufficiently strong in production.
+ */
+export function getServerAuthSecret(): string {
+  const secret = process.env.SERVER_AUTH_SECRET?.trim();
+  const isDeployedOrProd =
+    process.env.NODE_ENV === "production" ||
+    (process.env.NODE_ENV as string) === "staging" ||
+    process.env.VERCEL_ENV === "production" ||
+    process.env.VERCEL_ENV === "preview" ||
+    process.env.APP_ENV === "staging" ||
+    process.env.APP_ENV === "production";
+
+  if (!secret || secret.length < 32) {
+    if (isDeployedOrProd) {
+      throw new Error(
+        "FATAL SECURITY CONFIGURATION: SERVER_AUTH_SECRET must be defined in production/staging with at least 32 characters (256 bits)."
+      );
+    }
+    // Development and local test suite fallback only (never used in production or staging)
+    return "dev-only-insecure-server-auth-key-0123456789abcdef";
+  }
+
+  // Prevent accidental use of dummy/placeholder secrets in deployed environments
+  if (isDeployedOrProd) {
+    const lower = secret.toLowerCase();
+    if (lower.includes("dev-only") || lower.includes("insecure") || lower.includes("your-32-byte-hex")) {
+      throw new Error(
+        "FATAL SECURITY CONFIGURATION: Insecure placeholder or development secret detected in production/staging SERVER_AUTH_SECRET."
+      );
+    }
+  }
+
+  return secret;
+}
+
+/**
  * Generates a cryptographic HMAC server token for privileged PostgreSQL RPCs.
  * Prevents unauthorized client callers from executing server-only database functions.
  */
 export function getServerAuthToken(purpose: string): string {
-  // Use crypto from node
   const crypto = require("crypto");
-  const secret =
-    process.env.INTEGRATION_TOKEN_ENCRYPTION_KEY ||
-    process.env.STRIPE_WEBHOOK_SECRET ||
-    process.env.STRIPE_SECRET_KEY ||
-    "company-brain-internal-server-auth-key";
-
+  const secret = getServerAuthSecret();
   return crypto.createHmac("sha256", secret).update(`server-auth:${purpose}`).digest("hex");
+}
+
+/**
+ * Generates a signed, timestamped cryptographic token for the server-side invitation gateway.
+ * Format: `<timestamp>.<signature>`
+ * Signature is computed via genuine RFC 2104 HMAC-SHA-256 over: `invitation-details:${tokenHash}:${ts}`
+ * Valid for 120 seconds to prevent replay attacks and direct PostgREST enumeration.
+ */
+export function generateInvitationServerToken(tokenHash: string): string {
+  const crypto = require("crypto");
+  const secret = getServerAuthSecret();
+
+  const ts = Math.floor(Date.now() / 1000);
+  const message = `invitation-details:${tokenHash.toLowerCase().trim()}:${ts}`;
+  const sig = crypto.createHmac("sha256", secret).update(message).digest("hex");
+  return `${ts}.${sig}`;
 }

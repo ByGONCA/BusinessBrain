@@ -62,3 +62,47 @@ export function sanitizeRedirectUrl(
     return fallback;
   }
 }
+
+/**
+ * Resolves the trusted application origin.
+ * Strictly prioritizes configured environment variables (NEXT_PUBLIC_APP_URL)
+ * over untrusted client headers to prevent Host Header Poisoning.
+ */
+export function getTrustedAppUrl(request?: Request): string {
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (configured) {
+    try {
+      const parsed = new URL(configured);
+      return parsed.origin;
+    } catch {
+      // Ignore invalid URL and fallback
+    }
+  }
+
+  // Safe fallback for local development or Vercel preview
+  if (request) {
+    try {
+      const parsed = new URL(request.url);
+      const hostname = parsed.hostname;
+      if (hostname === "localhost" || hostname === "127.0.0.1") {
+        return parsed.origin;
+      }
+      if (process.env.VERCEL_URL && hostname.endsWith(".vercel.app")) {
+        return `https://${hostname}`;
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  return "http://localhost:3000";
+}
+
+/**
+ * Resolves the exact trusted callback URL for Stripe Connect OAuth.
+ */
+export function getStripeCallbackUrl(request?: Request): string {
+  const base = getTrustedAppUrl(request);
+  return `${base}/api/integrations/stripe/callback`;
+}
+

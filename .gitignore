@@ -26,6 +26,7 @@ yarn-error.log*
 # Local environment files (NEVER COMMIT SECRETS)
 .env*
 !.env.example
+database/migrations/*_STAGING.sql
 
 # Vercel
 .vercel

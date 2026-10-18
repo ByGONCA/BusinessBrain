@@ -4,9 +4,9 @@ import { getOrganizationIntegrations } from "@/lib/integrations/queries";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/dashboard/sidebar-context";
 import { SettingsProvider } from "@/components/dashboard/settings/settings-context";
-import { SettingsModal } from "@/components/dashboard/settings/settings-modal";
+import { LazySettingsModal } from "@/components/dashboard/settings/lazy-settings-modal";
 import { InboxProvider } from "@/components/dashboard/inbox/inbox-context";
-import { InboxModal } from "@/components/dashboard/inbox/inbox-modal";
+import { LazyInboxModal } from "@/components/dashboard/inbox/lazy-inbox-modal";
 import { SidePeekProvider } from "@/components/dashboard/pages/side-peek-context";
 import { DashboardSplitLayout } from "@/components/dashboard/dashboard-split-layout";
 
@@ -51,8 +51,8 @@ export default async function DashboardLayout({
               {/* Main Content & Side Peek (Side-by-Side Split View) */}
               <DashboardSplitLayout>{children}</DashboardSplitLayout>
 
-              {/* Notion-style Settings Modal Window */}
-              <SettingsModal
+              {/* Notion-style Settings Modal Window (Loaded on-demand) */}
+              <LazySettingsModal
                 user={user}
                 organizations={organizations}
                 activeOrg={activeOrg}
@@ -62,8 +62,8 @@ export default async function DashboardLayout({
                 userPermissions={Array.from(userPerms?.effectivePermissions || [])}
               />
 
-              {/* Inbox Modal Window */}
-              <InboxModal />
+              {/* Inbox Modal Window (Loaded on-demand) */}
+              <LazyInboxModal />
             </div>
           </SidePeekProvider>
         </InboxProvider>

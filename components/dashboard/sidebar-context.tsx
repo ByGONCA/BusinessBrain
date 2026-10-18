@@ -5,29 +5,58 @@ import { PanelLeftOpen } from "lucide-react";
 
 interface SidebarContextValue {
   isCollapsed: boolean;
+  isCompact: boolean;
   toggleSidebar: () => void;
   openSidebar: () => void;
   closeSidebar: () => void;
+  isMobileOpen: boolean;
+  setMobileOpen: (open: boolean) => void;
+  toggleMobileSidebar: () => void;
+  closeMobileSidebar: () => void;
+  expandedGroups: Record<string, boolean>;
+  toggleGroup: (group: string) => void;
+  isGroupExpanded: (group: string) => boolean;
 }
 
-const SidebarContext = React.createContext<SidebarContextValue | null>(null);
+export const SidebarContext = React.createContext<SidebarContextValue | null>(null);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const [isCollapsed, setIsCollapsed] = React.useState(false);
+  const [isCompact, setIsCompact] = React.useState(false);
+  const [isMobileOpen, setMobileOpen] = React.useState(false);
+  const [expandedGroups, setExpandedGroups] = React.useState<Record<string, boolean>>({
+    work: true,
+    pages: true,
+    brain: true,
+    company: true,
+  });
 
   React.useEffect(() => {
     try {
-      const stored = localStorage.getItem("cb_sidebar_collapsed");
+      const stored = localStorage.getItem("cb_sidebar_compact");
       if (stored !== null) {
-        setIsCollapsed(stored === "true");
+        setIsCompact(stored === "true");
+      } else {
+        const legacyStored = localStorage.getItem("cb_sidebar_collapsed");
+        if (legacyStored !== null) {
+          setIsCompact(legacyStored === "true");
+        }
+      }
+
+      const storedGroups = localStorage.getItem("cb_sidebar_groups");
+      if (storedGroups) {
+        const parsed = JSON.parse(storedGroups);
+        if (parsed && typeof parsed === "object") {
+          setExpandedGroups((prev) => ({ ...prev, ...parsed }));
+        }
       }
     } catch {}
   }, []);
 
   const toggleSidebar = React.useCallback(() => {
-    setIsCollapsed((prev) => {
+    setIsCompact((prev) => {
       const next = !prev;
       try {
+        localStorage.setItem("cb_sidebar_compact", String(next));
         localStorage.setItem("cb_sidebar_collapsed", String(next));
       } catch {}
       return next;
@@ -35,18 +64,46 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const openSidebar = React.useCallback(() => {
-    setIsCollapsed(false);
+    setIsCompact(false);
     try {
+      localStorage.setItem("cb_sidebar_compact", "false");
       localStorage.setItem("cb_sidebar_collapsed", "false");
     } catch {}
   }, []);
 
   const closeSidebar = React.useCallback(() => {
-    setIsCollapsed(true);
+    setIsCompact(true);
     try {
+      localStorage.setItem("cb_sidebar_compact", "true");
       localStorage.setItem("cb_sidebar_collapsed", "true");
     } catch {}
   }, []);
+
+  const toggleMobileSidebar = React.useCallback(() => {
+    setMobileOpen((prev) => !prev);
+  }, []);
+
+  const closeMobileSidebar = React.useCallback(() => {
+    setMobileOpen(false);
+  }, []);
+
+  const toggleGroup = React.useCallback((group: string) => {
+    setExpandedGroups((prev) => {
+      const current = prev[group] !== false; // default true
+      const next = { ...prev, [group]: !current };
+      try {
+        localStorage.setItem("cb_sidebar_groups", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
+  const isGroupExpanded = React.useCallback(
+    (group: string) => {
+      return expandedGroups[group] !== false;
+    },
+    [expandedGroups]
+  );
 
   // Global Ctrl+\ or Cmd+\ shortcut to toggle sidebar
   React.useEffect(() => {
@@ -63,10 +120,18 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   return (
     <SidebarContext.Provider
       value={{
-        isCollapsed,
+        isCollapsed: isCompact,
+        isCompact,
         toggleSidebar,
         openSidebar,
         closeSidebar,
+        isMobileOpen,
+        setMobileOpen,
+        toggleMobileSidebar,
+        closeMobileSidebar,
+        expandedGroups,
+        toggleGroup,
+        isGroupExpanded,
       }}
     >
       {children}
@@ -83,20 +148,19 @@ export function useSidebar() {
 }
 
 /**
- * Re-open button shown when sidebar is collapsed
+ * Mobile sidebar trigger button
  */
 export function SidebarTrigger() {
-  const { isCollapsed, openSidebar } = useSidebar();
-
-  if (!isCollapsed) return null;
+  const { toggleMobileSidebar } = useSidebar();
 
   return (
     <button
       type="button"
       data-sidebar-trigger="true"
-      onClick={openSidebar}
-      className="fixed top-3 left-3 z-40 flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur shadow-sm text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all duration-150 animate-in fade-in"
-      title="Abrir barra lateral (Ctrl+\)"
+      onClick={toggleMobileSidebar}
+      className="md:hidden fixed top-3 left-3 z-40 flex h-8 w-8 items-center justify-center rounded-lg border border-[#242427] bg-[#141415]/90 backdrop-blur shadow-sm text-[#A1A1AA] hover:text-[#F5F5F5] hover:bg-[#1C1C1F] transition-all duration-150"
+      title="Toggle sidebar"
+      aria-label="Toggle navigation menu"
     >
       <PanelLeftOpen className="h-4 w-4" />
     </button>

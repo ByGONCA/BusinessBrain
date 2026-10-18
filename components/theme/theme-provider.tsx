@@ -44,22 +44,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return () => media.removeEventListener("change", listener);
   }, []);
 
-  const resolvedTheme: "dark" | "light" =
-    theme === "system" ? (systemIsDark ? "dark" : "light") : theme;
+  // Mandatory dark theme as per redesign specification
+  const resolvedTheme: "dark" | "light" = "dark";
 
   // Apply classes to documentElement
   React.useEffect(() => {
     const root = document.documentElement;
-
-    if (resolvedTheme === "light") {
-      root.classList.remove("dark");
-      root.classList.add("light");
-      root.style.colorScheme = "light";
-    } else {
-      root.classList.remove("light");
-      root.classList.add("dark");
-      root.style.colorScheme = "dark";
-    }
+    root.classList.remove("light");
+    root.classList.add("dark");
+    root.style.colorScheme = "dark";
 
     if (contrast === "high") {
       root.setAttribute("data-contrast", "high");

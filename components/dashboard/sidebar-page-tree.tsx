@@ -72,30 +72,6 @@ export function SidebarPageTree({
     position: "before" | "after" | "inside";
   } | null>(null);
 
-  // Collapsible section state with localStorage persistence
-  const [isPagesOpen, setIsPagesOpen] = React.useState(true);
-
-  React.useEffect(() => {
-    try {
-      const storedPagesOpen = localStorage.getItem("cb_sidebar_pages_open");
-      if (storedPagesOpen !== null) {
-        setIsPagesOpen(storedPagesOpen === "true");
-      }
-    } catch {
-      // LocalStorage access may be restricted in private mode
-    }
-  }, []);
-
-  const togglePagesSection = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsPagesOpen((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem("cb_sidebar_pages_open", String(next));
-      } catch {}
-      return next;
-    });
-  };
 
   React.useEffect(() => {
     setPagesList(initialPages);
@@ -250,10 +226,6 @@ export function SidebarPageTree({
   };
 
   const handleCreateRootPage = async () => {
-    setIsPagesOpen(true);
-    try {
-      localStorage.setItem("cb_sidebar_pages_open", "true");
-    } catch {}
     const res = await createPageAction({
       title: "Untitled",
       icon: "📄",
@@ -488,30 +460,30 @@ export function SidebarPageTree({
           onDrop={(e) => handleDrop(node.id, e)}
           onDragEnd={handleDragEnd}
           className={cn(
-            "group relative flex items-center gap-1.5 rounded-lg pr-2 py-1 text-xs font-medium transition-colors cursor-pointer",
+            "group relative flex items-center gap-2 rounded-md pr-2 h-[32px] text-[13px] font-medium transition-colors cursor-pointer select-none",
             isActive
-              ? "bg-blue-600/10 text-blue-600 dark:text-blue-400 font-semibold"
-              : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
+              ? "bg-[#242427] text-[#FAFAFA] font-semibold shadow-2xs"
+              : "text-[#A1A1AA] hover:bg-[#18181B] hover:text-[#FAFAFA]",
             isDragging && "opacity-40",
             isTarget && dropTarget.position === "before" && "border-t-2 border-blue-500 rounded-t-none",
             isTarget && dropTarget.position === "after" && "border-b-2 border-blue-500 rounded-b-none",
             isTarget && dropTarget.position === "inside" && "bg-blue-500/15 ring-1 ring-blue-500/40"
           )}
-          style={{ paddingLeft: `${Math.max(8, depth * 14 + 8)}px` }}
+          style={{ paddingLeft: `${Math.max(6, depth * 12 + 6)}px` }}
         >
           {/* Chevron for expand/collapse */}
           <button
             type="button"
             onClick={(e) => toggleExpand(node.id, e)}
             className={cn(
-              "flex h-4 w-4 shrink-0 items-center justify-center rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-transform",
+              "flex h-4 w-4 shrink-0 items-center justify-center rounded text-zinc-400 hover:text-zinc-200 transition-transform",
               !hasChildren && "invisible"
             )}
           >
             {isExpanded ? (
-              <ChevronDown className="h-3.5 w-3.5" />
+              <ChevronDown className="h-3 w-3" />
             ) : (
-              <ChevronRight className="h-3.5 w-3.5" />
+              <ChevronRight className="h-3 w-3" />
             )}
           </button>
 
@@ -525,7 +497,7 @@ export function SidebarPageTree({
                 icon={node.icon}
                 pageId={node.id}
                 iconFileId={node.icon_file_id}
-                className="h-4 w-4 text-sm shrink-0"
+                className="h-4 w-4 text-xs shrink-0"
                 imgClassName="h-4 w-4 rounded object-cover"
               />
               <input
@@ -556,7 +528,7 @@ export function SidebarPageTree({
                 icon={node.icon}
                 pageId={node.id}
                 iconFileId={node.icon_file_id}
-                className="h-4 w-4 text-sm shrink-0"
+                className="h-4 w-4 text-xs shrink-0"
                 imgClassName="h-4 w-4 rounded object-cover"
               />
               <span className="truncate">{node.title || "Untitled"}</span>
@@ -574,7 +546,7 @@ export function SidebarPageTree({
               <button
                 type="button"
                 onClick={(e) => handleCreateChildPage(node.id, e)}
-                className="flex h-5 w-5 items-center justify-center rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                className="flex h-5 w-5 items-center justify-center rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
                 title="Add subpage"
               >
                 <Plus className="h-3 w-3" />
@@ -589,8 +561,8 @@ export function SidebarPageTree({
                     setContextMenuId((prev) => (prev === node.id ? null : node.id));
                   }}
                   className={cn(
-                    "flex h-5 w-5 items-center justify-center rounded hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200",
-                    isMenuOpen && "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-200"
+                    "flex h-5 w-5 items-center justify-center rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200",
+                    isMenuOpen && "bg-zinc-800 text-zinc-200"
                   )}
                   title="Page options"
                 >
@@ -600,10 +572,10 @@ export function SidebarPageTree({
                 {isMenuOpen && (
                   <div
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute right-0 top-6 z-50 w-52 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100 select-none text-xs"
+                    className="absolute right-0 top-6 z-50 w-52 rounded-xl border border-[#242427] bg-[#141415] p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-100 select-none text-xs"
                   >
                     {/* Header: Page label */}
-                    <div className="px-2 py-1 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+                    <div className="px-2 py-1 text-[10px] font-semibold text-[#71717A] uppercase tracking-wider">
                       Page
                     </div>
 
@@ -611,13 +583,13 @@ export function SidebarPageTree({
                     <button
                       type="button"
                       onClick={(e) => handleToggleFavorite(node.id, e)}
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5] transition-colors"
                     >
                       <span className="flex items-center gap-2">
                         <Star
                           className={cn(
                             "h-3.5 w-3.5 transition-transform active:scale-125",
-                            isFav ? "fill-amber-500 text-amber-500" : "text-zinc-400"
+                            isFav ? "fill-amber-400 text-amber-400" : "text-[#71717A]"
                           )}
                         />
                         <span>{isFav ? "Remove from Favorites" : "Add to Favorites"}</span>
@@ -640,13 +612,13 @@ export function SidebarPageTree({
                           }, 1200);
                         }
                       }}
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5] transition-colors"
                     >
                       <span className="flex items-center gap-2">
                         {copiedPageId === node.id ? (
-                          <Check className="h-3.5 w-3.5 text-emerald-500" />
+                          <Check className="h-3.5 w-3.5 text-emerald-400" />
                         ) : (
-                          <Link2 className="h-3.5 w-3.5 text-zinc-400" />
+                          <Link2 className="h-3.5 w-3.5 text-[#71717A]" />
                         )}
                         <span>{copiedPageId === node.id ? "Link copied!" : "Copy link"}</span>
                       </span>
@@ -656,13 +628,13 @@ export function SidebarPageTree({
                     <button
                       type="button"
                       onClick={(e) => handleDuplicatePage(node.id, e)}
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5] transition-colors"
                     >
                       <span className="flex items-center gap-2">
-                        <Copy className="h-3.5 w-3.5 text-zinc-400" />
+                        <Copy className="h-3.5 w-3.5 text-[#71717A]" />
                         <span>Duplicate</span>
                       </span>
-                      <span className="text-[10px] text-zinc-400 font-mono">Ctrl+D</span>
+                      <span className="text-[10px] text-[#71717A] font-mono">Ctrl+D</span>
                     </button>
 
                     {/* Rename */}
@@ -675,13 +647,13 @@ export function SidebarPageTree({
                         setRenamingId(node.id);
                         setRenameTitle(node.title || "");
                       }}
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5] transition-colors"
                     >
                       <span className="flex items-center gap-2">
-                        <Edit3 className="h-3.5 w-3.5 text-zinc-400" />
+                        <Edit3 className="h-3.5 w-3.5 text-[#71717A]" />
                         <span>Rename</span>
                       </span>
-                      <span className="text-[10px] text-zinc-400 font-mono">Ctrl+Shift+R</span>
+                      <span className="text-[10px] text-[#71717A] font-mono">Ctrl+Shift+R</span>
                     </button>
 
                     {/* Move to */}
@@ -693,27 +665,27 @@ export function SidebarPageTree({
                         setContextMenuId(null);
                         setMoveModalPage(node);
                       }}
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5] transition-colors"
                     >
                       <span className="flex items-center gap-2">
-                        <CornerDownRight className="h-3.5 w-3.5 text-zinc-400" />
+                        <CornerDownRight className="h-3.5 w-3.5 text-[#71717A]" />
                         <span>Move to</span>
                       </span>
-                      <span className="text-[10px] text-zinc-400 font-mono">Ctrl+Shift+P</span>
+                      <span className="text-[10px] text-[#71717A] font-mono">Ctrl+Shift+P</span>
                     </button>
 
                     {/* Move to Trash */}
                     <button
                       type="button"
                       onClick={(e) => handleArchivePage(node, e)}
-                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                      className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-rose-400 hover:bg-rose-500/10 transition-colors"
                     >
-                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                      <Trash2 className="h-3.5 w-3.5 text-rose-400" />
                       <span>Move to Trash</span>
                     </button>
 
                     {/* Separator */}
-                    <div className="my-1 h-px bg-zinc-200 dark:bg-zinc-800" />
+                    <div className="my-1 h-px bg-[#1C1C1F]" />
 
                     {/* Open in new tab */}
                     <button
@@ -724,13 +696,13 @@ export function SidebarPageTree({
                         setContextMenuId(null);
                         window.open(`/dashboard/pages/${node.id}`, "_blank");
                       }}
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5] transition-colors"
                     >
                       <span className="flex items-center gap-2">
-                        <ExternalLink className="h-3.5 w-3.5 text-zinc-400" />
+                        <ExternalLink className="h-3.5 w-3.5 text-[#71717A]" />
                         <span>Open in new tab</span>
                       </span>
-                      <span className="text-[10px] text-zinc-400 font-mono">Ctrl+Shift+↵</span>
+                      <span className="text-[10px] text-[#71717A] font-mono">Ctrl+Shift+↵</span>
                     </button>
 
                     {/* Open in side peek */}
@@ -742,13 +714,13 @@ export function SidebarPageTree({
                         setContextMenuId(null);
                         openSidePeek(node.id);
                       }}
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5] transition-colors"
                     >
                       <span className="flex items-center gap-2">
-                        <PanelRight className="h-3.5 w-3.5 text-zinc-400" />
+                        <PanelRight className="h-3.5 w-3.5 text-[#71717A]" />
                         <span>Open in side peek</span>
                       </span>
-                      <span className="text-[10px] text-zinc-400 font-mono">Alt+Click</span>
+                      <span className="text-[10px] text-[#71717A] font-mono">Alt+Click</span>
                     </button>
                   </div>
                 )}
@@ -768,60 +740,30 @@ export function SidebarPageTree({
   };
 
   return (
-    <div className="space-y-3">
-      {/* PAGES SECTION */}
-      <div className="space-y-0.5">
-        <div
-          onClick={togglePagesSection}
-          className="group flex items-center justify-between px-3 py-1 rounded-lg hover:bg-muted/60 cursor-pointer transition-colors select-none"
+    <div className="space-y-0.5">
+      {/* Page Tree Nodes rendered directly under Pages category */}
+      {pagesList.length === 0 ? (
+        <button
+          type="button"
+          onClick={handleCreateRootPage}
+          className="group flex w-full items-center gap-2 rounded-md px-2.5 h-[32px] text-[13px] font-medium text-[#71717A] hover:bg-[#18181B] hover:text-[#FAFAFA] transition-colors"
         >
-          {/* Title on the left with chevron immediately after it */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Pages
-            </span>
-            <ChevronDown
-              className={cn(
-                "h-3 w-3 text-muted-foreground transition-all duration-150 opacity-0 group-hover:opacity-100",
-                !isPagesOpen && "-rotate-90"
-              )}
-            />
-          </div>
-
-          {/* Action button on the right on hover */}
-          <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleCreateRootPage();
-              }}
-              className="flex h-5 w-5 items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-              title="Add page"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Page Tree Nodes - ONLY rendered when isPagesOpen is true! */}
-        {isPagesOpen && (
-          <div className="space-y-0.5">
-            {pagesList.length === 0 ? (
-              <button
-                type="button"
-                onClick={handleCreateRootPage}
-                className="group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
-              >
-                <Plus className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
-                <span className="truncate">Create your first page</span>
-              </button>
-            ) : (
-              pagesList.map((page) => renderNode(page, 0))
-            )}
-          </div>
-        )}
-      </div>
+          <Plus className="h-4 w-4 shrink-0 text-[#71717A] group-hover:text-[#FAFAFA] transition-colors" />
+          <span className="truncate">Create your first page</span>
+        </button>
+      ) : (
+        <>
+          {pagesList.map((page) => renderNode(page, 0))}
+          <button
+            type="button"
+            onClick={handleCreateRootPage}
+            className="group flex w-full items-center gap-2 rounded-md px-2 h-[30px] text-[12.5px] font-medium text-[#71717A] hover:bg-[#18181B] hover:text-[#FAFAFA] transition-colors"
+          >
+            <Plus className="h-3.5 w-3.5 shrink-0 text-[#71717A] group-hover:text-[#FAFAFA] transition-colors" />
+            <span className="truncate">Add a page</span>
+          </button>
+        </>
+      )}
 
       {/* Move Page Modal */}
       <MovePageModal

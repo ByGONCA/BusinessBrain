@@ -3,55 +3,45 @@
 @tailwind utilities;
 
 :root,
-html.dark {
-  /* Default Charcoal Dark Mode (grayish-black Notion style) */
-  --background: #141416;
-  --foreground: #f4f4f5;
-  --card: #1a1a1d;
-  --card-foreground: #f4f4f5;
-  --muted: #1c1c1f;
-  --muted-foreground: #a1a1aa;
-  --border: #28282c;
-  --sidebar: #121214;
-  --sidebar-border: #27272a;
-  --accent: #3b82f6;
-  --accent-foreground: #ffffff;
-}
-
+html,
+html.dark,
 html.light {
-  /* Crisp Light Mode (Notion-style clean paper) */
-  --background: #fbfbfb;
-  --foreground: #18181b;
-  --card: #ffffff;
-  --card-foreground: #18181b;
-  --muted: #f4f4f5;
-  --muted-foreground: #71717a;
-  --border: #e4e4e7;
-  --sidebar: #f7f7f8;
-  --sidebar-border: #e5e5e7;
-  --accent: #2563eb;
-  --accent-foreground: #ffffff;
+  /* Minimalist Premium Dark Theme (Linear/Stripe Reference Aesthetic) */
+  --background: #09090B;
+  --foreground: #F4F4F5;
+  --card: #121215;
+  --card-foreground: #F4F4F5;
+  --surface-secondary: #16161A;
+  --surface-elevated: #1B1B20;
+  --muted: #16161A;
+  --muted-foreground: #71717A;
+  --secondary-foreground: #A1A1AA;
+  --border: #1E1E22;
+  --border-subtle: #161619;
+  --sidebar: #0C0C0E;
+  --sidebar-border: #18181B;
+  --hover: #1A1A1F;
+  --selected: #202026;
+  --accent: #3B82F6;
+  --accent-foreground: #FFFFFF;
+  --metric-green: #10B981;
+  --metric-red: #EF4444;
+  --metric-amber: #F59E0B;
 }
 
 /* High Contrast Overrides */
-[data-contrast="high"].dark,
-html.dark[data-contrast="high"] {
-  --border: #45454d;
-  --foreground: #ffffff;
-  --muted-foreground: #d4d4d8;
-}
-
-html.light[data-contrast="high"] {
-  --border: #71717a;
-  --foreground: #000000;
-  --muted-foreground: #27272a;
+[data-contrast="high"] {
+  --border: #3F3F46;
+  --border-subtle: #27272A;
+  --foreground: #FFFFFF;
+  --muted-foreground: #A1A1AA;
 }
 
 @layer base {
   body {
     background-color: var(--background);
     color: var(--foreground);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: var(--font-geist-sans), "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
     transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
   }
@@ -161,3 +151,25 @@ html.dark .bb-code-builtin, .dark .bb-code-builtin { color: #4ec9b0 !important; 
 html.dark .bb-code-punctuation, .dark .bb-code-punctuation { color: #d4d4d4 !important; }
 .bb-code-regex { color: #811f3f !important; }
 html.dark .bb-code-regex, .dark .bb-code-regex { color: #d16969 !important; }
+
+/* KPI Card & Metric Indicator Utilities (Reference 1 & 2) */
+.bb-kpi-card {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.bb-kpi-card:hover {
+  border-color: #2a2a30;
+  background-color: var(--surface-secondary);
+}
+
+.bb-metric-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  display: inline-block;
+  flex-shrink: 0;
+}

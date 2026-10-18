@@ -1,5 +1,7 @@
 import * as React from "react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 interface EmptyStateProps {
   icon: React.ComponentType<{ className?: string }>;
@@ -7,7 +9,9 @@ interface EmptyStateProps {
   description: string;
   phaseBadge?: string;
   actionText?: string;
+  actionHref?: string;
   onAction?: () => void;
+  className?: string;
 }
 
 export function EmptyState({
@@ -15,19 +19,43 @@ export function EmptyState({
   title,
   description,
   phaseBadge,
+  actionText,
+  actionHref,
+  onAction,
+  className,
 }: EmptyStateProps) {
   return (
-    <div className="flex min-h-[380px] flex-col items-center justify-center rounded-xl border border-dashed border-slate-800 bg-slate-900/20 p-8 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-800/80 text-slate-300 ring-1 ring-slate-700/50">
-        <Icon className="h-6 w-6" />
+    <div
+      className={`flex flex-col items-center justify-center rounded-xl border border-border bg-card p-6 text-center transition-all ${
+        className || "py-10 px-6"
+      }`}
+    >
+      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-surface-secondary text-secondary-foreground ring-1 ring-border shadow-xs">
+        <Icon className="h-5 w-5" />
       </div>
-      <div className="mt-4 flex items-center gap-2">
-        <h3 className="text-base font-semibold text-slate-100">{title}</h3>
-        {phaseBadge && <Badge variant="secondary">{phaseBadge}</Badge>}
+      <div className="mt-3.5 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-foreground tracking-tight">{title}</h3>
+        {phaseBadge && <Badge variant="secondary" className="text-[10px] py-0 px-2">{phaseBadge}</Badge>}
       </div>
-      <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-slate-400">
+      <p className="mt-1.5 max-w-sm text-xs leading-relaxed text-muted-foreground">
         {description}
       </p>
+
+      {actionText && (
+        <div className="mt-4">
+          {actionHref ? (
+            <Link href={actionHref}>
+              <Button size="sm" variant="secondary" className="text-xs h-8">
+                {actionText}
+              </Button>
+            </Link>
+          ) : (
+            <Button size="sm" variant="secondary" onClick={onAction} className="text-xs h-8">
+              {actionText}
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

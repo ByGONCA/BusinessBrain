@@ -28,23 +28,23 @@ export default function OnboardingPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 py-12 text-slate-100">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#0B0B0C] px-4 py-12 text-[#F5F5F5]">
       <div className="w-full max-w-md">
         {/* Brand */}
         <div className="flex flex-col items-center text-center">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-500/20">
-            <Building2 className="h-5 w-5" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#19191C] border border-[#29292D] text-[#F5F5F5] shadow-sm">
+            <Building2 className="h-5 w-5 text-blue-400" />
           </div>
-          <h2 className="mt-4 text-xl font-bold tracking-tight text-white">
+          <h2 className="mt-4 text-xl font-bold tracking-tight text-[#F5F5F5]">
             Create your company workspace
           </h2>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-[#A1A1AA]">
             Every piece of knowledge, decision, and project is secured within your workspace
           </p>
         </div>
 
         {/* Card */}
-        <div className="mt-8 rounded-xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl backdrop-blur-sm">
+        <div className="mt-8 rounded-xl border border-[#29292D] bg-[#141416] p-6 shadow-xl">
           <form action={formAction} className="space-y-4">
             {state?.error && (
               <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
@@ -70,17 +70,17 @@ export default function OnboardingPage() {
                 placeholder="acme-corp"
                 required
               />
-              <p className="mt-1 text-[11px] text-slate-500">
+              <p className="mt-1 text-[11px] text-[#71717A]">
                 Lowercase letters, numbers, and hyphens only.
               </p>
             </div>
 
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3.5 text-xs text-slate-400">
-              <div className="flex items-center gap-2 font-medium text-slate-300">
+            <div className="rounded-lg border border-[#29292D] bg-[#19191C] p-3.5 text-xs text-[#A1A1AA]">
+              <div className="flex items-center gap-2 font-medium text-[#F5F5F5]">
                 <Sparkles className="h-3.5 w-3.5 text-blue-400" />
                 <span>Multi-tenant Isolation</span>
               </div>
-              <p className="mt-1 text-[11px] text-slate-500">
+              <p className="mt-1 text-[11px] text-[#71717A]">
                 You will be assigned as workspace Owner. No members from other companies can access this workspace.
               </p>
             </div>

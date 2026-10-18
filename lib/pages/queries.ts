@@ -16,8 +16,12 @@ import {
 import { isValidUuid } from "@/lib/security/authorization";
 import { logger } from "@/lib/security/logger";
 
+export const PAGE_METADATA_COLUMNS =
+  "id, organization_id, parent_page_id, title, icon, icon_file_id, position, is_favorite, favorite_position, is_archived, archived_at, created_by, last_edited_by, created_at, updated_at";
+
 /**
  * Retrieves all active (non-archived) pages for an organization, ordered by position and creation.
+ * Omits heavy JSONB content column to prevent over-fetching on dashboard and sidebar queries.
  */
 export const getPagesForOrg = cache(async (organizationId: string): Promise<PageRecord[]> => {
   if (!isValidUuid(organizationId)) {
@@ -28,7 +32,7 @@ export const getPagesForOrg = cache(async (organizationId: string): Promise<Page
 
   const { data, error } = await supabase
     .from("pages")
-    .select("*")
+    .select(PAGE_METADATA_COLUMNS)
     .eq("organization_id", organizationId)
     .eq("is_archived", false)
     .order("is_favorite", { ascending: false })
@@ -44,7 +48,11 @@ export const getPagesForOrg = cache(async (organizationId: string): Promise<Page
     return [];
   }
 
-  return (data as PageRecord[]) || [];
+  return ((data as unknown as Omit<PageRecord, "content" | "content_text">[]) || []).map((page) => ({
+    ...page,
+    content: [],
+    content_text: "",
+  })) as PageRecord[];
 });
 
 /**

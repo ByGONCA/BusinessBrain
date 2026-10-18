@@ -107,7 +107,7 @@ export function HierarchyTreeView({
     const hasChildren = node.children.length > 0;
     const isSelected = selectedNodeId === node.id;
     const Icon = TYPE_ICONS[node.type] || FileText;
-    const colorClass = TYPE_COLORS[node.type] || "text-zinc-500";
+    const colorClass = TYPE_COLORS[node.type] || "text-[#71717A]";
 
     if (searchQuery && !matchesSearch(node, searchQuery.toLowerCase())) {
       return null;
@@ -120,8 +120,8 @@ export function HierarchyTreeView({
           className={cn(
             "group flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-colors",
             isSelected
-              ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold"
-              : "text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
+              ? "bg-[#242427] text-foreground font-semibold"
+              : "text-[#A1A1AA] hover:text-foreground hover:bg-[#1C1C1F]"
           )}
           style={{ paddingLeft: `${depth * 16 + 10}px` }}
         >
@@ -130,7 +130,7 @@ export function HierarchyTreeView({
             type="button"
             onClick={(e) => toggleExpand(node.id, e)}
             className={cn(
-              "flex h-4 w-4 shrink-0 items-center justify-center rounded text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-transform",
+              "flex h-4 w-4 shrink-0 items-center justify-center rounded text-[#71717A] hover:text-foreground transition-transform",
               !hasChildren && "invisible"
             )}
           >
@@ -149,7 +149,7 @@ export function HierarchyTreeView({
 
           {/* Connection count badge */}
           {node.connectionCount > 0 && (
-            <span className="shrink-0 px-1.5 py-0.2 rounded-md bg-zinc-100 dark:bg-zinc-800 text-[10px] text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-300 font-mono">
+            <span className="shrink-0 px-1.5 py-0.2 rounded-md bg-[#19191B] border border-[#242427] text-[10px] text-[#71717A] group-hover:text-[#A1A1AA] font-mono">
               {node.connectionCount} conn
             </span>
           )}
@@ -166,17 +166,17 @@ export function HierarchyTreeView({
   };
 
   return (
-    <div className={cn("flex flex-col h-full bg-white dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-800", className)}>
+    <div className={cn("flex flex-col h-full bg-[#141415] border-r border-[#242427]", className)}>
       {/* Search within Tree */}
-      <div className="p-3 border-b border-zinc-200 dark:border-zinc-800">
+      <div className="p-3 border-b border-[#242427]">
         <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-400" />
+          <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#71717A]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Filter hierarchy..."
-            className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/80 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs bg-[#19191B] border border-[#242427] text-foreground placeholder:text-[#71717A] focus:outline-none focus:ring-1 focus:ring-blue-500/50"
           />
         </div>
       </div>
@@ -184,7 +184,7 @@ export function HierarchyTreeView({
       {/* Tree Content */}
       <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
         {tree.length === 0 ? (
-          <div className="p-6 text-center text-xs text-zinc-500">
+          <div className="p-6 text-center text-xs text-[#71717A]">
             No hierarchy structures found.
           </div>
         ) : (

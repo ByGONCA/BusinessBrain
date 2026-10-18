@@ -56,14 +56,14 @@ export function InboxModal() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 dark:bg-black/60 backdrop-blur-xs p-3 sm:p-6 animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-3 sm:p-6 animate-in fade-in duration-150"
       onClick={() => {
         setActiveMessage(null);
         closeInbox();
       }}
     >
       <div
-        className="relative flex flex-col h-[620px] max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] text-zinc-900 dark:text-zinc-100 shadow-2xl transition-colors duration-150"
+        className="relative flex flex-col h-[620px] max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-[#242427] bg-[#141415] text-[#F5F5F5] shadow-2xl transition-colors duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {activeMessage ? (
@@ -72,11 +72,11 @@ export function InboxModal() {
           /* ========================================================= */
           <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-4 duration-150">
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#1C1C1F] bg-[#19191B]/40">
               <button
                 type="button"
                 onClick={() => setActiveMessage(null)}
-                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-[#A1A1AA] hover:text-[#F5F5F5] hover:bg-[#1C1C1F] transition-colors"
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
                 <span>{t.common.cancel || "Voltar"}</span>
@@ -88,7 +88,7 @@ export function InboxModal() {
                   setActiveMessage(null);
                   closeInbox();
                 }}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors"
+                className="p-1.5 rounded-lg text-[#71717A] hover:text-[#F5F5F5] hover:bg-[#1C1C1F] transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -181,14 +181,14 @@ export function InboxModal() {
           /* ========================================================= */
           <div className="flex flex-col h-full">
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#1C1C1F]">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
                   <Inbox className="h-4 w-4" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+                    <h2 className="text-sm font-bold tracking-tight text-[#F5F5F5]">
                       Inbox
                     </h2>
                     {unreadCount > 0 && (
@@ -197,7 +197,7 @@ export function InboxModal() {
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <p className="text-[11px] text-[#71717A]">
                     {t.inboxPage.title}
                   </p>
                 </div>
@@ -208,16 +208,16 @@ export function InboxModal() {
                   <button
                     type="button"
                     onClick={markAllAsRead}
-                    className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-2.5 py-1 text-[11px] font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-2xs"
+                    className="inline-flex items-center gap-1 rounded-lg border border-[#242427] bg-[#19191B] px-2.5 py-1 text-[11px] font-medium text-[#F5F5F5] hover:bg-[#1C1C1F] transition-colors shadow-2xs"
                   >
-                    <Check className="h-3 w-3 text-zinc-500" />
+                    <Check className="h-3 w-3 text-[#71717A]" />
                     <span>{t.inboxPage.markAllRead}</span>
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={closeInbox}
-                  className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                  className="p-1.5 rounded-lg text-[#71717A] hover:text-[#F5F5F5] hover:bg-[#1C1C1F] transition-colors"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -225,7 +225,7 @@ export function InboxModal() {
             </div>
 
             {/* Filter Tabs */}
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar px-4 py-2 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30">
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar px-4 py-2 border-b border-[#1C1C1F] bg-[#141415]">
               {[
                 { id: "all", label: t.inboxPage.allMessages, count: ADMIN_MESSAGES.length },
                 { id: "unread", label: t.inboxPage.unread, count: unreadCount },
@@ -241,8 +241,8 @@ export function InboxModal() {
                   className={cn(
                     "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors",
                     selectedCategory === tab.id
-                      ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                      : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60"
+                      ? "bg-[#242427] text-[#F5F5F5] font-semibold"
+                      : "text-[#71717A] hover:text-[#F5F5F5] hover:bg-[#1C1C1F]"
                   )}
                 >
                   <span>{tab.label}</span>
@@ -251,8 +251,8 @@ export function InboxModal() {
                       className={cn(
                         "rounded-full px-1.5 py-0.2 text-[10px] font-mono",
                         selectedCategory === tab.id
-                          ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                          : "bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
+                          ? "bg-[#F5F5F5] text-[#080809]"
+                          : "bg-[#19191B] text-[#A1A1AA]"
                       )}
                     >
                       {tab.count}
@@ -272,10 +272,10 @@ export function InboxModal() {
                       key={msg.id}
                       onClick={() => handleOpenMessage(msg)}
                       className={cn(
-                        "group relative cursor-pointer rounded-xl border p-3.5 transition-all shadow-2xs hover:border-zinc-300 dark:hover:border-zinc-700",
+                        "group relative cursor-pointer rounded-xl border p-3.5 transition-all shadow-2xs hover:border-[#3F3F46]",
                         isRead
-                          ? "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] opacity-85"
-                          : "border-blue-500/40 bg-blue-500/[0.03] dark:bg-blue-500/[0.04] opacity-100 ring-1 ring-blue-500/20"
+                          ? "border-[#242427] bg-[#141415] opacity-85"
+                          : "border-blue-500/40 bg-blue-500/[0.04] opacity-100 ring-1 ring-blue-500/20"
                       )}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -284,12 +284,12 @@ export function InboxModal() {
                             className={cn(
                               "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-xs font-bold shadow-2xs",
                               msg.badge === "release"
-                                ? "bg-purple-500/10 border-purple-500/20 text-purple-600 dark:text-purple-400"
+                                ? "bg-purple-500/10 border-purple-500/20 text-purple-400"
                                 : msg.badge === "security"
-                                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                                 : msg.badge === "update"
-                                ? "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400"
-                                : "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400"
+                                ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
+                                : "bg-amber-500/10 border-amber-500/20 text-amber-400"
                             )}
                           >
                             <Sparkles className="h-3.5 w-3.5" />
@@ -297,10 +297,10 @@ export function InboxModal() {
 
                           <div className="min-w-0 space-y-0.5">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-semibold text-xs text-zinc-900 dark:text-white">
+                              <span className="font-semibold text-xs text-[#F5F5F5]">
                                 {msg.sender}
                               </span>
-                              <span className="rounded bg-zinc-100 dark:bg-zinc-800 px-1 py-0.2 text-[9px] font-mono text-zinc-500 uppercase">
+                              <span className="rounded bg-[#19191B] px-1 py-0.2 text-[9px] font-mono text-[#71717A] uppercase border border-[#242427]">
                                 {msg.senderRole}
                               </span>
                             </div>
@@ -309,21 +309,21 @@ export function InboxModal() {
                               className={cn(
                                 "text-xs tracking-tight",
                                 isRead
-                                  ? "font-medium text-zinc-800 dark:text-zinc-200"
-                                  : "font-bold text-zinc-900 dark:text-white"
+                                  ? "font-medium text-[#A1A1AA]"
+                                  : "font-bold text-[#F5F5F5]"
                               )}
                             >
                               {msg.title}
                             </h3>
 
-                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-1">
+                            <p className="text-[11px] text-[#71717A] line-clamp-1">
                               {msg.summary}
                             </p>
                           </div>
                         </div>
 
                         <div className="shrink-0 flex flex-col items-end gap-1.5 text-right">
-                          <span className="text-[10px] font-mono text-zinc-400 whitespace-nowrap">
+                          <span className="text-[10px] font-mono text-[#71717A] whitespace-nowrap">
                             {new Date(msg.createdAt).toLocaleDateString([], {
                               month: "short",
                               day: "numeric",
@@ -338,14 +338,14 @@ export function InboxModal() {
                   );
                 })
               ) : (
-                <div className="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-800 p-8 text-center space-y-2">
-                  <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400">
+                <div className="rounded-xl border border-dashed border-[#242427] bg-[#141415]/40 p-8 text-center space-y-2">
+                  <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-[#19191B] text-[#71717A]">
                     <Inbox className="h-4 w-4" />
                   </div>
-                  <p className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
+                  <p className="text-xs font-semibold text-[#F5F5F5]">
                     {t.inboxPage.emptyState}
                   </p>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  <p className="text-[11px] text-[#71717A]">
                     {t.inboxPage.noMessagesFound}
                   </p>
                 </div>

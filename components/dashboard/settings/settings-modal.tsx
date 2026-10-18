@@ -61,6 +61,7 @@ import {
   getOrganizationIntegrationsAction,
   deleteIntegrationAction,
 } from "@/lib/integrations/actions";
+import { disconnectStripeIntegrationAction } from "@/lib/integrations/stripe/actions";
 import {
   getGitHubRepositoriesAction,
   setDefaultGitHubRepositoryAction,
@@ -314,34 +315,34 @@ export function SettingsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 dark:bg-black/60 backdrop-blur-xs p-3 sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-3 sm:p-6"
       onClick={closeSettings}
     >
-      {/* Modal Dialog Window - SOLID OPAQUE BACKGROUND */}
+      {/* Modal Dialog Window */}
       <div
-        className="relative flex h-[820px] max-h-[94vh] w-full max-w-6xl xl:max-w-7xl overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] text-zinc-900 dark:text-zinc-100 shadow-2xl transition-colors duration-150"
+        className="relative flex h-[820px] max-h-[94vh] w-full max-w-6xl xl:max-w-7xl overflow-hidden rounded-2xl border border-[#242427] bg-[#141415] text-[#F5F5F5] shadow-2xl transition-colors duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ========================================================= */}
         {/* LEFT SETTINGS SIDEBAR                                    */}
         {/* ========================================================= */}
-        <aside className="w-56 shrink-0 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#121214] p-3 flex flex-col justify-between select-none">
+        <aside className="w-56 shrink-0 border-r border-[#1C1C1F] bg-[#080809] p-3 flex flex-col justify-between select-none">
           <div className="space-y-3 overflow-y-auto no-scrollbar">
             {/* Search Input */}
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#71717A]" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t.settings.searchPlaceholder}
-                className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] py-1.5 pl-8 pr-2.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:border-blue-500 focus:outline-none transition-colors"
+                className="w-full rounded-lg border border-[#242427] bg-[#141415] py-1.5 pl-8 pr-2.5 text-xs text-[#F5F5F5] placeholder-[#71717A] focus:border-[#3B82F6] focus:outline-none transition-colors"
               />
             </div>
 
             {/* Section: Account */}
             <div className="space-y-0.5">
-              <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+              <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-[#71717A]">
                 Account
               </span>
 
@@ -351,11 +352,11 @@ export function SettingsModal({
                 className={cn(
                   "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "profile"
-                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                    ? "bg-[#242427] text-[#F5F5F5] font-semibold"
+                    : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
                 )}
               >
-                <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-[10px] font-bold text-blue-400">
                   {userInitial}
                 </div>
                 <span className="truncate">{userName}</span>
@@ -367,11 +368,11 @@ export function SettingsModal({
                 className={cn(
                   "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "security"
-                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                    ? "bg-[#242427] text-[#F5F5F5] font-semibold"
+                    : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
                 )}
               >
-                <PhosphorWarningOctagon className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                <PhosphorWarningOctagon className="h-3.5 w-3.5 text-[#71717A]" />
                 <span>Security</span>
               </button>
 
@@ -381,11 +382,11 @@ export function SettingsModal({
                 className={cn(
                   "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "preferences"
-                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                    ? "bg-[#242427] text-[#F5F5F5] font-semibold"
+                    : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
                 )}
               >
-                <Sliders className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                <Sliders className="h-3.5 w-3.5 text-[#71717A]" />
                 <span>Preferences</span>
               </button>
 
@@ -395,11 +396,11 @@ export function SettingsModal({
                 className={cn(
                   "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "appearance"
-                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                    ? "bg-[#242427] text-[#F5F5F5] font-semibold"
+                    : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
                 )}
               >
-                <Palette className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                <Palette className="h-3.5 w-3.5 text-[#71717A]" />
                 <span>Appearance</span>
               </button>
 
@@ -409,11 +410,11 @@ export function SettingsModal({
                 className={cn(
                   "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "notifications"
-                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                    ? "bg-[#242427] text-[#F5F5F5] font-semibold"
+                    : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
                 )}
               >
-                <PhosphorBell className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                <PhosphorBell className="h-3.5 w-3.5 text-[#71717A]" />
                 <span>Notifications</span>
               </button>
             </div>
@@ -421,7 +422,7 @@ export function SettingsModal({
             {/* Section: Workspace */}
             {(hasCompanyView || hasIntegrationsView) && (
               <div className="space-y-0.5 pt-2">
-                <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-[#71717A]">
                   Workspace
                 </span>
 
@@ -432,11 +433,11 @@ export function SettingsModal({
                     className={cn(
                       "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                       activeTab === "workspace"
-                        ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                        : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                        ? "bg-[#242427] text-[#F5F5F5] font-semibold"
+                        : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
                     )}
                   >
-                    <PhosphorGear className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                    <PhosphorGear className="h-3.5 w-3.5 text-[#71717A]" />
                     <span>General</span>
                   </button>
                 )}
@@ -448,11 +449,11 @@ export function SettingsModal({
                     className={cn(
                       "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                       activeTab === "integrations"
-                        ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                        : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                        ? "bg-[#242427] text-[#F5F5F5] font-semibold"
+                        : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
                     )}
                   >
-                    <PhosphorPlugs className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                    <PhosphorPlugs className="h-3.5 w-3.5 text-[#71717A]" />
                     <span>Integrations</span>
                   </button>
                 )}
@@ -464,11 +465,11 @@ export function SettingsModal({
                     className={cn(
                       "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                       activeTab === "defaults"
-                        ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                        : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                        ? "bg-[#242427] text-[#F5F5F5] font-semibold"
+                        : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
                     )}
                   >
-                    <PhosphorGear className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                    <PhosphorGear className="h-3.5 w-3.5 text-[#71717A]" />
                     <span>Defaults</span>
                   </button>
                 )}
@@ -477,7 +478,7 @@ export function SettingsModal({
 
             {/* Section: Data & Security */}
             <div className="space-y-0.5 pt-2">
-              <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+              <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-[#71717A]">
                 Data & Security
               </span>
 
@@ -487,11 +488,11 @@ export function SettingsModal({
                 className={cn(
                   "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "privacy"
-                    ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                    ? "bg-[#242427] text-[#F5F5F5] font-semibold"
+                    : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
                 )}
               >
-                <FileText className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                <FileText className="h-3.5 w-3.5 text-[#71717A]" />
                 <span>Privacy & Data</span>
               </button>
 
@@ -502,11 +503,11 @@ export function SettingsModal({
                   className={cn(
                     "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                     activeTab === "audit_log"
-                      ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                      : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                      ? "bg-[#242427] text-[#F5F5F5] font-semibold"
+                      : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
                   )}
                 >
-                  <PhosphorClock className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                  <PhosphorClock className="h-3.5 w-3.5 text-[#71717A]" />
                   <span>Audit Log</span>
                 </button>
               )}
@@ -518,11 +519,11 @@ export function SettingsModal({
                   className={cn(
                     "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                     activeTab === "storage"
-                      ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                      : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                      ? "bg-[#242427] text-[#F5F5F5] font-semibold"
+                      : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
                   )}
                 >
-                  <PhosphorFiles className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                  <PhosphorFiles className="h-3.5 w-3.5 text-[#71717A]" />
                   <span>Storage</span>
                 </button>
               )}
@@ -531,7 +532,7 @@ export function SettingsModal({
             {/* Section: Access & Billing */}
             {hasBillingView && (
               <div className="space-y-0.5 pt-2">
-                <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-[#71717A]">
                   {t.settings.sections.accessAndBilling}
                 </span>
 
@@ -541,11 +542,11 @@ export function SettingsModal({
                   className={cn(
                     "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                     activeTab === "billing"
-                      ? "bg-zinc-200/80 dark:bg-zinc-800 text-zinc-900 dark:text-white font-semibold"
-                      : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 hover:text-zinc-900 dark:hover:text-zinc-200"
+                      ? "bg-[#242427] text-[#F5F5F5] font-semibold"
+                      : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
                   )}
                 >
-                  <PhosphorCreditCard className="h-3.5 w-3.5 text-zinc-500 dark:text-zinc-400" />
+                  <PhosphorCreditCard className="h-3.5 w-3.5 text-[#71717A]" />
                   <span>Usage & Billing</span>
                 </button>
               </div>
@@ -553,21 +554,21 @@ export function SettingsModal({
           </div>
 
           {/* Bottom Hint */}
-          <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 text-[10px] text-zinc-400 dark:text-zinc-500 font-mono">
+          <div className="pt-2 border-t border-[#1C1C1F] text-[10px] text-[#71717A] font-mono">
             <span>{t.settings.escToClose} &bull; {modKey} ,</span>
           </div>
         </aside>
 
         {/* ========================================================= */}
-        {/* RIGHT ACTIVE TAB CONTENT - SOLID OPAQUE                  */}
+        {/* RIGHT ACTIVE TAB CONTENT                                  */}
         {/* ========================================================= */}
-        <main className="flex-1 overflow-y-auto p-7 no-scrollbar relative bg-white dark:bg-[#161618]">
+        <main className="flex-1 overflow-y-auto p-7 no-scrollbar relative bg-[#0B0B0C] text-[#F5F5F5]">
           {/* Close button */}
           <button
             type="button"
             onClick={closeSettings}
             aria-label="Close settings"
-            className="absolute top-5 right-5 p-1 rounded-lg text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            className="absolute top-5 right-5 p-1.5 rounded-lg text-[#71717A] hover:text-[#F5F5F5] hover:bg-[#1C1C1F] transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -660,6 +661,8 @@ export function SettingsModal({
                         window.location.href = "/api/integrations/microsoft/connect?service=outlook_calendar";
                       } else if (item.id === "github") {
                         window.location.href = "/api/integrations/github/connect";
+                      } else if (item.id === "stripe") {
+                        window.location.href = "/api/integrations/stripe/connect";
                       } else {
                         setInfoModalItem(item);
                       }
@@ -683,7 +686,60 @@ export function SettingsModal({
                             </div>
                           </div>
 
-                          {item.id === "github" && connectedAccounts.length > 0 ? (
+                          {item.id === "stripe" && connectedAccounts.length > 0 ? (
+                            <div className="shrink-0 flex items-center gap-2">
+                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs">
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                <span className="font-mono text-[11px] font-medium text-zinc-800 dark:text-zinc-200">
+                                  {connectedAccounts[0].providerAccountId}
+                                </span>
+                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-wider ml-1">
+                                  Connected
+                                </span>
+                              </div>
+                              {canManageIntegrations && (
+                                <button
+                                  type="button"
+                                  disabled={deletingIntegrationId === connectedAccounts[0].id}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (confirm("Deseja desconectar a conta Stripe da empresa?")) {
+                                      setDeletingIntegrationId(connectedAccounts[0].id);
+                                      try {
+                                        const res = await disconnectStripeIntegrationAction();
+                                        if (!res.success) {
+                                          alert(res.error || "Erro ao desconectar Stripe.");
+                                        } else {
+                                          const data = res.data as { warning?: string; remoteRevocationConfirmed?: boolean } | undefined;
+                                          if (data?.warning) {
+                                            alert(data.warning);
+                                          }
+                                          await loadIntegrations();
+                                          window.dispatchEvent(
+                                            new CustomEvent("cb-integration-changed", {
+                                              detail: { provider: "stripe", status: "disconnected" },
+                                            })
+                                          );
+                                        }
+                                      } catch (err) {
+                                        console.error("Erro ao remover Stripe:", err);
+                                      } finally {
+                                        setDeletingIntegrationId(null);
+                                      }
+                                    }
+                                  }}
+                                  className="p-1 rounded-md text-zinc-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-40"
+                                  title="Desconectar conta Stripe"
+                                >
+                                  {deletingIntegrationId === connectedAccounts[0].id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />
+                                  ) : (
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                          ) : item.id === "github" && connectedAccounts.length > 0 ? (
                             <div className="shrink-0 flex items-center gap-2">
                               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs">
                                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
@@ -737,7 +793,7 @@ export function SettingsModal({
                                 onClick={handleConfigureClick}
                                 className="shrink-0 flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 px-2.5 py-1 text-xs font-medium text-zinc-800 dark:text-zinc-200 transition-colors shadow-2xs"
                               >
-                                <span>{item.id === "github" ? "Conectar" : (t.settings.integrationsTab.configure || "Configure")}</span>
+                                <span>{item.id === "github" || item.id === "stripe" ? "Conectar" : (t.settings.integrationsTab.configure || "Configure")}</span>
                                 <ExternalLink className="h-3 w-3 text-zinc-400" />
                               </button>
                             ) : null)

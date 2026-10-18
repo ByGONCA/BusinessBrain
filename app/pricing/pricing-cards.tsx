@@ -78,8 +78,8 @@ export function PricingCards({
               key={plan.id}
               className={`relative flex flex-col justify-between rounded-2xl border p-6 transition-all ${
                 isFeatured
-                  ? "border-blue-500/60 bg-gradient-to-b from-blue-950/20 to-slate-900/80 shadow-xl shadow-blue-500/10 ring-1 ring-blue-500/30"
-                  : "border-slate-800 bg-slate-900/50 backdrop-blur-sm hover:border-slate-700"
+                  ? "border-blue-500/50 bg-[#19191C] shadow-xl shadow-blue-500/5 ring-1 ring-blue-500/20"
+                  : "border-[#29292D] bg-[#141416] hover:border-[#3E3E44]"
               }`}
             >
               {isFeatured && (
@@ -92,27 +92,27 @@ export function PricingCards({
 
               <div>
                 <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-white">{plan.name}</h3>
+                  <h3 className="text-base font-bold text-[#F5F5F5]">{plan.name}</h3>
                   <Badge variant="secondary" className="text-[10px]">
                     7-Day Trial
                   </Badge>
                 </div>
 
                 <div className="mt-4 flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold text-white">
+                  <span className="text-4xl font-extrabold text-[#F5F5F5]">
                     ${plan.monthlyPriceUsd}
                   </span>
-                  <span className="text-xs text-slate-400">/ month</span>
+                  <span className="text-xs text-[#A1A1AA]">/ month</span>
                 </div>
 
-                <p className="mt-2 text-xs text-slate-400 leading-relaxed min-h-[36px]">
+                <p className="mt-2 text-xs text-[#A1A1AA] leading-relaxed min-h-[36px]">
                   {plan.description}
                 </p>
 
-                <div className="my-6 border-t border-slate-800/80" />
+                <div className="my-6 border-t border-[#29292D]" />
 
-                <div className="space-y-2.5 text-xs text-slate-300">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <div className="space-y-2.5 text-xs text-[#A1A1AA]">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-[#71717A]">
                     What&apos;s Included
                   </p>
                   {plan.features.map((feature) => (
@@ -120,13 +120,13 @@ export function PricingCards({
                       <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-blue-400 mt-0.5">
                         <Check className="h-3 w-3" />
                       </div>
-                      <span className="leading-snug">{feature}</span>
+                      <span className="leading-snug text-[#F5F5F5]">{feature}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="mt-8 pt-4 border-t border-slate-800/60">
+              <div className="mt-8 pt-4 border-t border-[#29292D]">
                 <Button
                   variant={isFeatured ? "primary" : "secondary"}
                   size="md"
@@ -148,7 +148,7 @@ export function PricingCards({
                     </>
                   )}
                 </Button>
-                <p className="mt-2 text-center text-[10px] text-slate-500">
+                <p className="mt-2 text-center text-[10px] text-[#71717A]">
                   No charge today. Free for 7 days.
                 </p>
               </div>

@@ -18,9 +18,18 @@ import { buildCompanyHierarchyTree } from "@/lib/connections/graph-algorithms";
 import { InteractiveGraphCanvas } from "./interactive-graph-canvas";
 import { HierarchyTreeView } from "./hierarchy-tree-view";
 import { NodeDetailsDrawer } from "./node-details-drawer";
-import { ShortestPathModal } from "./shortest-path-modal";
-import { CreateConnectionModal } from "./create-connection-modal";
+import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
+
+const ShortestPathModal = dynamic(
+  () => import("./shortest-path-modal").then((m) => m.ShortestPathModal),
+  { ssr: false }
+);
+
+const CreateConnectionModal = dynamic(
+  () => import("./create-connection-modal").then((m) => m.CreateConnectionModal),
+  { ssr: false }
+);
 import {
   Search,
   Plus,
@@ -436,33 +445,37 @@ export function CompanyMapWorkspace({
         )}
       </div>
 
-      {/* Shortest Path Finder Modal */}
-      <ShortestPathModal
-        isOpen={isPathModalOpen}
-        onClose={() => setIsPathModalOpen(false)}
-        allNodes={nodes}
-        allEdges={edges}
-        initialStartNodeId={pathStartNode?.id}
-        onApplyPathHighlight={(nodeIds, edgeIds) => {
-          setHighlightedPathNodeIds(nodeIds);
-          setHighlightedPathEdgeIds(edgeIds);
-          setActiveView("graph");
-        }}
-        onSelectNode={(node) => setSelectedNode(node)}
-        onOpenConnectModal={(src) => {
-          setConnectSourceNode(src);
-          setIsConnectModalOpen(true);
-        }}
-      />
+      {/* Shortest Path Finder Modal (Loaded on-demand) */}
+      {isPathModalOpen && (
+        <ShortestPathModal
+          isOpen={isPathModalOpen}
+          onClose={() => setIsPathModalOpen(false)}
+          allNodes={nodes}
+          allEdges={edges}
+          initialStartNodeId={pathStartNode?.id}
+          onApplyPathHighlight={(nodeIds, edgeIds) => {
+            setHighlightedPathNodeIds(nodeIds);
+            setHighlightedPathEdgeIds(edgeIds);
+            setActiveView("graph");
+          }}
+          onSelectNode={(node) => setSelectedNode(node)}
+          onOpenConnectModal={(src) => {
+            setConnectSourceNode(src);
+            setIsConnectModalOpen(true);
+          }}
+        />
+      )}
 
-      {/* Manual Connection Creation Modal */}
-      <CreateConnectionModal
-        isOpen={isConnectModalOpen}
-        onClose={() => setIsConnectModalOpen(false)}
-        allNodes={nodes}
-        initialSourceNodeId={connectSourceNode?.id}
-        onConnectionCreated={handleConnectionCreated}
-      />
+      {/* Manual Connection Creation Modal (Loaded on-demand) */}
+      {isConnectModalOpen && (
+        <CreateConnectionModal
+          isOpen={isConnectModalOpen}
+          onClose={() => setIsConnectModalOpen(false)}
+          allNodes={nodes}
+          initialSourceNodeId={connectSourceNode?.id}
+          onConnectionCreated={handleConnectionCreated}
+        />
+      )}
     </div>
   );
 }

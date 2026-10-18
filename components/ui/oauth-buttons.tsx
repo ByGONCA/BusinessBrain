@@ -4,7 +4,7 @@ import * as React from "react";
 import { initiateOAuthAction } from "@/lib/auth/actions";
 import { Button } from "./button";
 
-export function OAuthButtons() {
+export function OAuthButtons({ returnUrl }: { returnUrl?: string } = {}) {
   const [isLoading, setIsLoading] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
 
@@ -12,7 +12,7 @@ export function OAuthButtons() {
     setIsLoading(true);
     setErrorMessage(null);
     try {
-      const res = await initiateOAuthAction("github");
+      const res = await initiateOAuthAction("github", returnUrl);
       if (res.success && res.url) {
         window.location.href = res.url;
       } else {
@@ -38,7 +38,7 @@ export function OAuthButtons() {
         variant="secondary"
         onClick={handleGitHubOAuth}
         disabled={isLoading}
-        className="w-full gap-2.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border-slate-800"
+        className="w-full gap-2.5 bg-[#19191C] hover:bg-[#222225] text-[#F5F5F5] border border-[#29292D] shadow-sm"
       >
         <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
           <path

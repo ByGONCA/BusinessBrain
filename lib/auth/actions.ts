@@ -6,6 +6,7 @@ import { z } from "zod";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { rateLimit, getClientIp, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
+import { sanitizeRedirectUrl } from "@/lib/security/redirects";
 
 const authSchema = z.object({
   email: z.string().trim().email("Please provide a valid email address"),
@@ -19,7 +20,7 @@ export interface AuthState {
 }
 
 /**
- * Handles email/password sign-in with rate limiting.
+ * Handles email/password sign-in with rate limiting and secure returnUrl validation.
  */
 export async function signInAction(
   prevState: AuthState | null,
@@ -31,6 +32,12 @@ export async function signInAction(
     email: formData.get("email"),
     password: formData.get("password"),
   };
+
+  const rawReturnUrl = formData.get("returnUrl");
+  const returnUrl =
+    typeof rawReturnUrl === "string" && rawReturnUrl.trim().length > 0
+      ? sanitizeRedirectUrl(rawReturnUrl, "/dashboard")
+      : "/dashboard";
 
   const parsed = authSchema.safeParse(rawData);
   if (!parsed.success) {
@@ -67,7 +74,7 @@ export async function signInAction(
   }
 
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  redirect(returnUrl);
 }
 
 /**
@@ -101,6 +108,12 @@ export async function signUpAction(
     };
   }
 
+  const rawReturnUrl = formData.get("returnUrl");
+  const returnUrl =
+    typeof rawReturnUrl === "string" && rawReturnUrl.trim().length > 0
+      ? sanitizeRedirectUrl(rawReturnUrl, "/onboarding")
+      : "/onboarding";
+
   const parsed = authSchema.safeParse(rawData);
   if (!parsed.success) {
     return { error: parsed.error.errors[0]?.message || "Invalid sign up details." };
@@ -126,7 +139,7 @@ export async function signUpAction(
   }
 
   revalidatePath("/", "layout");
-  redirect("/onboarding");
+  redirect(returnUrl);
 }
 
 /**
@@ -134,7 +147,8 @@ export async function signUpAction(
  * Note: Google OAuth is deferred to future phases and not supported here.
  */
 export async function initiateOAuthAction(
-  provider: "github" = "github"
+  provider: "github" = "github",
+  rawReturnUrl?: string
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   if (provider !== "github") {
     return { success: false, error: "Only GitHub OAuth is supported in this phase." };
@@ -148,11 +162,12 @@ export async function initiateOAuthAction(
 
   const supabase = await createClient();
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const safeNext = sanitizeRedirectUrl(rawReturnUrl, "/dashboard");
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "github",
     options: {
-      redirectTo: `${appUrl}/api/auth/callback?next=/dashboard`,
+      redirectTo: `${appUrl}/api/auth/callback?next=${encodeURIComponent(safeNext)}`,
     },
   });
 

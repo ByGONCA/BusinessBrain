@@ -1118,7 +1118,7 @@ export function InteractiveGraphCanvas({
               className={cn(
                 "px-2 py-0.5 rounded-md text-[10px] font-semibold transition-colors",
                 focusDepth === null
-                  ? "bg-zinc-800 text-white dark:bg-zinc-200 dark:text-zinc-900 shadow-xs"
+                  ? "bg-[#242427] text-foreground border border-[#29292D] shadow-xs"
                   : "bg-muted/70 text-muted-foreground hover:text-foreground hover:bg-muted"
               )}
               title="Mostrar todo o grafo sem esmaecer nós distantes"

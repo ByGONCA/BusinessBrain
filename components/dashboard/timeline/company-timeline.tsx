@@ -332,7 +332,7 @@ export function CompanyTimeline({ events, organizationName: _organizationName }:
         )}
       >
         {/* The Clean Horizontal Timeline Line */}
-        <div className="absolute left-0 right-0 top-[45%] -translate-y-1/2 h-0.5 bg-zinc-300 dark:bg-zinc-800 pointer-events-none" />
+        <div className="absolute left-0 right-0 top-[45%] -translate-y-1/2 h-0.5 bg-[#242427] pointer-events-none" />
 
         {/* Dynamic Tick Notches on the Line */}
         {ticks.map((tick, idx) => (
@@ -342,18 +342,18 @@ export function CompanyTimeline({ events, organizationName: _organizationName }:
             style={{ left: `${tick.x}px` }}
           >
             {/* Notch crossing the line */}
-            <div className="h-2 w-px bg-zinc-400 dark:bg-zinc-700 -translate-y-1/2" />
+            <div className="h-2 w-px bg-[#3F3F46] -translate-y-1/2" />
             {/* Tick date label below the line */}
             <div className="flex items-baseline gap-1 mt-2">
               <span
-                className="text-[10px] font-mono text-zinc-500 dark:text-zinc-400"
+                className="text-[10px] font-mono text-[#71717A]"
                 suppressHydrationWarning
               >
                 {tick.label}
               </span>
               {tick.subLabel && (
                 <span
-                  className="text-[9px] font-mono text-zinc-400 dark:text-zinc-600 hidden sm:inline"
+                  className="text-[9px] font-mono text-[#71717A]/70 hidden sm:inline"
                   suppressHydrationWarning
                 >
                   {tick.subLabel}
@@ -405,7 +405,7 @@ export function CompanyTimeline({ events, organizationName: _organizationName }:
               {/* Connector stem to center line */}
               <div
                 className={cn(
-                  "absolute left-1/2 -translate-x-1/2 w-px bg-zinc-400 dark:bg-zinc-700 pointer-events-none transition-colors",
+                  "absolute left-1/2 -translate-x-1/2 w-px bg-[#3F3F46] pointer-events-none transition-colors",
                   isAbove ? "top-full h-[14px]" : "bottom-full h-[14px]",
                   isSelected && "bg-blue-500"
                 )}
@@ -417,10 +417,10 @@ export function CompanyTimeline({ events, organizationName: _organizationName }:
                 onClick={() => setSelectedEvent(event)}
                 className={cn(
                   "group relative flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium shadow-sm transition-all focus:outline-none",
-                  "bg-card text-card-foreground",
+                  "bg-[#141415] text-[#F5F5F5]",
                   isSelected
                     ? "ring-2 ring-blue-500 scale-105 border-blue-500 z-30"
-                    : "hover:scale-105 border-border hover:border-zinc-400"
+                    : "hover:scale-105 border-[#242427] hover:border-[#3F3F46]"
                 )}
               >
                 <div
@@ -437,9 +437,9 @@ export function CompanyTimeline({ events, organizationName: _organizationName }:
 
                 {/* Hover Tooltip */}
                 <div className="pointer-events-none absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center opacity-0 group-hover:opacity-100 transition-opacity z-50">
-                  <div className="whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-[11px] text-popover-foreground shadow-xl backdrop-blur-md">
+                  <div className="whitespace-nowrap rounded-md border border-[#242427] bg-[#202023] px-2 py-1 text-[11px] text-[#F5F5F5] shadow-xl backdrop-blur-md">
                     <p className="font-semibold">{event.title}</p>
-                    <p className="text-[9px] text-muted-foreground font-mono mt-0.5" suppressHydrationWarning>
+                    <p className="text-[9px] text-[#71717A] font-mono mt-0.5" suppressHydrationWarning>
                       {new Date(event.timestamp).toLocaleDateString([], {
                         month: "short",
                         day: "numeric",
@@ -456,7 +456,7 @@ export function CompanyTimeline({ events, organizationName: _organizationName }:
         {/* Selected Event Popover */}
         {selectedEvent && (
           <div
-            className="absolute top-1 left-1/2 -translate-x-1/2 z-40 w-[90%] max-w-sm rounded-xl border border-blue-500/40 bg-card p-3.5 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 text-card-foreground"
+            className="absolute top-1 left-1/2 -translate-x-1/2 z-40 w-[90%] max-w-sm rounded-xl border border-[#242427] bg-[#141415] p-3.5 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 text-[#F5F5F5]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-3">
@@ -472,7 +472,7 @@ export function CompanyTimeline({ events, organizationName: _organizationName }:
                   >
                     {CATEGORY_CONFIG[selectedEvent.category].label}
                   </span>
-                  <span className="text-[10px] font-mono text-slate-400">
+                  <span className="text-[10px] font-mono text-[#71717A]">
                     {new Date(selectedEvent.timestamp).toLocaleDateString([], {
                       month: "short",
                       day: "numeric",
@@ -481,10 +481,10 @@ export function CompanyTimeline({ events, organizationName: _organizationName }:
                   </span>
                 </div>
 
-                <h3 className="text-xs font-bold text-white pt-0.5">
+                <h3 className="text-xs font-bold text-[#F5F5F5] pt-0.5">
                   {selectedEvent.title}
                 </h3>
-                <p className="text-[11px] text-slate-300 leading-relaxed">
+                <p className="text-[11px] text-[#A1A1AA] leading-relaxed">
                   {selectedEvent.description}
                 </p>
               </div>
@@ -493,17 +493,17 @@ export function CompanyTimeline({ events, organizationName: _organizationName }:
                 type="button"
                 onClick={() => setSelectedEvent(null)}
                 aria-label="Fechar"
-                className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="p-1 rounded-md text-[#71717A] hover:text-[#F5F5F5] hover:bg-[#1C1C1F] transition-colors"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
 
             {(selectedEvent.author || selectedEvent.link) && (
-              <div className="mt-2.5 flex items-center justify-between gap-2 pt-2 border-t border-slate-800 text-[11px] text-slate-400">
+              <div className="mt-2.5 flex items-center justify-between gap-2 pt-2 border-t border-[#1C1C1F] text-[11px] text-[#71717A]">
                 {selectedEvent.author && (
-                  <span className="text-[10px] text-slate-400">
-                    Por: <strong className="text-slate-200">{selectedEvent.author.name}</strong>
+                  <span className="text-[10px] text-[#71717A]">
+                    Por: <strong className="text-[#F5F5F5]">{selectedEvent.author.name}</strong>
                   </span>
                 )}
                 {selectedEvent.link && (

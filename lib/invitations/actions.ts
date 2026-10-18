@@ -139,16 +139,18 @@ export async function createInvitationAction(params: {
     }
   }
 
-  // 3. Generate cryptographically secure single-use token
+  // 3. Generate cryptographically secure single-use token and its SHA-256 hash
   const token = crypto.randomBytes(32).toString("hex");
+  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  // 4. Insert invitation record (with fallback if migration 00022 has not run yet)
+  // 4. Insert invitation record (with fallback if migration 00022 or 00024 has not run yet)
   const invitePayload: Record<string, unknown> = {
     organization_id: targetOrgId,
     email: cleanEmail,
     role,
-    token,
+    token_hash: tokenHash,
+    token: null,
     status: "pending",
     invited_by: user.id,
     expires_at: expiresAt,
@@ -162,8 +164,8 @@ export async function createInvitationAction(params: {
     .select("*")
     .single();
 
-  if (insertError && isUndefinedColumnError(insertError)) {
-    // Fallback: insert without job_title and initial_team_ids
+  // Fallback: If migration 00022 has not run yet (missing optional job_title / initial_team_ids)
+  if (insertError && isUndefinedColumnError(insertError) && (insertError.message?.includes("job_title") || insertError.message?.includes("initial_team_ids"))) {
     delete invitePayload.job_title;
     delete invitePayload.initial_team_ids;
     const fallbackRes = await supabase
@@ -177,6 +179,9 @@ export async function createInvitationAction(params: {
 
   if (insertError || !newInvite) {
     logger.error("Failed to insert organization invitation", insertError, { targetOrgId });
+    if (insertError && isUndefinedColumnError(insertError) && insertError.message?.includes("token_hash")) {
+      return { success: false, error: "Database migration required: token_hash column missing." };
+    }
     return { success: false, error: insertError?.message || "Failed to create invitation." };
   }
 
@@ -350,12 +355,14 @@ export async function resendInvitationAction(
   }
 
   const newToken = crypto.randomBytes(32).toString("hex");
+  const newTokenHash = crypto.createHash("sha256").update(newToken).digest("hex");
   const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { error } = await supabase
+  let { error } = await supabase
     .from("organization_invitations")
     .update({
-      token: newToken,
+      token_hash: newTokenHash,
+      token: null,
       status: "pending",
       expires_at: newExpiresAt,
       updated_at: new Date().toISOString(),
@@ -364,6 +371,10 @@ export async function resendInvitationAction(
     .eq("organization_id", activeOrg.id);
 
   if (error) {
+    logger.error("Failed to resend invitation", error, { invitationId });
+    if (isUndefinedColumnError(error) && error.message?.includes("token_hash")) {
+      return { success: false, error: "Database migration required: token_hash column is missing." };
+    }
     return { success: false, error: error.message };
   }
 
@@ -387,6 +398,61 @@ export async function acceptInvitationAction(token: string): Promise<AcceptInvit
     return { success: false, error: "Authentication required. Please sign in or register to accept." };
   }
 
+  // 1. Compute SHA-256 hash of the token
+  const tokenHash = crypto.createHash("sha256").update(cleanToken).digest("hex");
+
+  // 2. Attempt atomic PostgreSQL RPC execution (FOR UPDATE, strict identity validation, role and team guards)
+  try {
+    const { data: rpcData, error: rpcError } = await supabase.rpc("accept_organization_invitation", {
+      p_token_hash: tokenHash,
+    });
+
+    if (!rpcError && rpcData) {
+      const res = rpcData as { success: boolean; organization_id?: string; error?: string; code?: string };
+      if (res.success && res.organization_id) {
+        // Set active organization cookie
+        const cookieStore = await cookies();
+        cookieStore.set(ACTIVE_ORG_COOKIE_NAME, res.organization_id, {
+          path: "/",
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 30,
+        });
+
+        revalidatePath("/", "layout");
+        return {
+          success: true,
+          organizationId: res.organization_id,
+        };
+      } else if (!res.success && res.error) {
+        return { success: false, error: res.error };
+      }
+    }
+
+    if (rpcError) {
+      // Check for security access denied violation from PostgreSQL
+      if (rpcError.code === "42501" || rpcError.message?.includes("Access denied")) {
+        return {
+          success: false,
+          error: rpcError.message || "Access denied: This invitation was issued to a different email address.",
+        };
+      }
+      // If error is not "function does not exist", log it
+      if (rpcError.code !== "42883" && rpcError.code !== "PGRST202") {
+        logger.warn("RPC accept_organization_invitation failed, attempting fallback", {
+          code: rpcError.code,
+          message: rpcError.message,
+        });
+      }
+    }
+  } catch (rpcErr) {
+    logger.warn("RPC invocation threw exception, falling back to application logic", {
+      error: rpcErr instanceof Error ? rpcErr.message : String(rpcErr),
+    });
+  }
+
+  // 3. Fallback path for unmigrated databases (with STRICT identity validation and atomic status lock)
   interface InvitationRecordWithOrg {
     id: string;
     organization_id: string;
@@ -399,11 +465,11 @@ export async function acceptInvitationAction(token: string): Promise<AcceptInvit
     organizations: { id: string; name: string; status: string } | null;
   }
 
-  // 1. Fetch invitation record by single-use token (with fallback if migration 00022 hasn't run)
   let invitation: InvitationRecordWithOrg | null = null;
   let inviteError: { message: string } | null = null;
 
-  const resWithColumns = await supabase
+  // Strict hash lookup: Query ONLY by deterministic SHA-256 token_hash
+  const resByHash = await supabase
     .from("organization_invitations")
     .select(`
       id,
@@ -420,39 +486,25 @@ export async function acceptInvitationAction(token: string): Promise<AcceptInvit
         status
       )
     `)
-    .eq("token", cleanToken)
+    .eq("token_hash", tokenHash)
     .maybeSingle();
 
-  if (resWithColumns.error && isUndefinedColumnError(resWithColumns.error)) {
-    const resFallback = await supabase
-      .from("organization_invitations")
-      .select(`
-        id,
-        organization_id,
-        email,
-        role,
-        status,
-        expires_at,
-        organizations (
-          id,
-          name,
-          status
-        )
-      `)
-      .eq("token", cleanToken)
-      .maybeSingle();
-    invitation = resFallback.data as unknown as InvitationRecordWithOrg | null;
-    inviteError = resFallback.error;
-  } else {
-    invitation = resWithColumns.data as unknown as InvitationRecordWithOrg | null;
-    inviteError = resWithColumns.error;
+  if (resByHash.error && isUndefinedColumnError(resByHash.error)) {
+    logger.error("Database schema error: token_hash column missing in organization_invitations", resByHash.error);
+    return {
+      success: false,
+      error: "Secure invitation verification unavailable. Please ensure database migrations (00024) are applied.",
+    };
   }
+
+  invitation = resByHash.data as unknown as InvitationRecordWithOrg | null;
+  inviteError = resByHash.error;
 
   if (inviteError || !invitation) {
     return { success: false, error: "Invalid or nonexistent invitation." };
   }
 
-  // 2. Validate invitation status and expiration
+  // Validate status and expiration
   if (invitation.status !== "pending") {
     return { success: false, error: `This invitation has already been ${invitation.status}.` };
   }
@@ -470,17 +522,32 @@ export async function acceptInvitationAction(token: string): Promise<AcceptInvit
     return { success: false, error: "The workspace is no longer active." };
   }
 
-  // 3. Optional validation: Verify user email matches invited email
-  if (user.email && user.email.toLowerCase() !== invitation.email.toLowerCase()) {
-    logger.warn("User accepted invitation sent to different email", {
+  // STRICT IDENTITY VALIDATION (SEC-01): User email MUST match invited email
+  if (!user.email || user.email.toLowerCase() !== invitation.email.toLowerCase()) {
+    logger.warn("Blocked attempt to accept invitation issued to different email", {
       userEmail: user.email,
       invitedEmail: invitation.email,
       invitationId: invitation.id,
     });
-    // We allow acceptance if logged in as requested by modern enterprise flows, but note it
+    return {
+      success: false,
+      error: `Access denied: This invitation was issued to ${invitation.email}. Please sign in with that account to accept.`,
+    };
   }
 
-  // 4. Check if user is already a member
+  // ATOMIC SINGLE-USE LOCK: Transition to accepted FIRST before mutating memberships
+  const { data: updateRes, error: updateErr } = await supabase
+    .from("organization_invitations")
+    .update({ status: "accepted", updated_at: new Date().toISOString() })
+    .eq("id", invitation.id)
+    .eq("status", "pending")
+    .select("id");
+
+  if (updateErr || !updateRes || updateRes.length === 0) {
+    return { success: false, error: "This invitation has already been accepted or is no longer valid." };
+  }
+
+  // Add user as organization member
   const { data: existingMember } = await supabase
     .from("organization_members")
     .select("id, job_title")
@@ -489,7 +556,6 @@ export async function acceptInvitationAction(token: string): Promise<AcceptInvit
     .maybeSingle();
 
   if (!existingMember) {
-    // Add user as organization member with optional job_title
     const memberInsert: Record<string, unknown> = {
       organization_id: invitation.organization_id,
       user_id: user.id,
@@ -500,29 +566,18 @@ export async function acceptInvitationAction(token: string): Promise<AcceptInvit
     }
 
     const { error: memberError } = await supabase.from("organization_members").insert(memberInsert);
-
     if (memberError) {
       logger.error("Failed to add user to organization_members", memberError);
       return { success: false, error: "Failed to join organization. Please try again." };
     }
   } else if (invitation.job_title && invitation.job_title.trim() && !existingMember.job_title) {
-    // Member exists but had no job title set: populate it from invitation
     await supabase
       .from("organization_members")
       .update({ job_title: invitation.job_title.trim() })
       .eq("id", existingMember.id);
   }
 
-  // Sync profile job_title if present in invitation
-  if (invitation.job_title && invitation.job_title.trim()) {
-    await supabase
-      .from("profiles")
-      .update({ job_title: invitation.job_title.trim() })
-      .eq("id", user.id)
-      .or("job_title.is.null,job_title.eq.''");
-  }
-
-  // Assign initial teams if specified in invitation (strictly validated to this organization)
+  // Assign initial teams strictly validated to this organization
   if (
     invitation.initial_team_ids &&
     Array.isArray(invitation.initial_team_ids) &&
@@ -558,13 +613,7 @@ export async function acceptInvitationAction(token: string): Promise<AcceptInvit
     }
   }
 
-  // 5. Mark invitation as accepted (single-use enforcement)
-  await supabase
-    .from("organization_invitations")
-    .update({ status: "accepted", updated_at: new Date().toISOString() })
-    .eq("id", invitation.id);
-
-  // 6. Set active organization cookie
+  // Set active organization cookie
   const cookieStore = await cookies();
   cookieStore.set(ACTIVE_ORG_COOKIE_NAME, invitation.organization_id, {
     path: "/",

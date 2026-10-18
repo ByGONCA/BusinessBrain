@@ -1,7 +1,10 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
-import { Building2, ShieldCheck, ArrowRight, AlertTriangle, CheckCircle2 } from "lucide-react";
+import crypto from "node:crypto";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { generateInvitationServerToken } from "@/lib/security/authorization";
+import { rateLimit, getClientIp } from "@/lib/security/rate-limit";
+import { Building2, ShieldCheck, ArrowRight, AlertTriangle, Clock } from "lucide-react";
 import { AcceptInvitationButton } from "@/components/invitations/accept-invitation-button";
 
 interface InvitePageProps {
@@ -12,33 +15,76 @@ interface InvitePageProps {
 
 export default async function InvitePage({ params }: InvitePageProps) {
   const { token } = await params;
-  if (!token) {
+  if (!token || typeof token !== "string" || token.trim().length === 0) {
     redirect("/login");
+  }
+
+  const cleanToken = token.trim();
+
+  // 1. Distributed Rate Limiting via PostgreSQL rate_limit_buckets (Shared across Vercel instances)
+  const clientIp = await getClientIp();
+  const rl = await rateLimit("invite-view", clientIp, {
+    limit: 10,
+    windowSeconds: 60,
+    failClosed: false,
+  });
+
+  if (!rl.success) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4 text-zinc-100">
+        <div className="max-w-md w-full p-6 rounded-2xl bg-zinc-900 border border-zinc-800 text-center space-y-4 shadow-xl">
+          <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto">
+            <Clock className="w-6 h-6" />
+          </div>
+          <h1 className="text-xl font-bold tracking-tight">Too Many Requests</h1>
+          <p className="text-sm text-zinc-400">
+            You have made too many attempts to view invitation links. Please wait a moment before trying again.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Fetch invitation details
-  const { data: invitation, error } = await supabase
-    .from("organization_invitations")
-    .select(`
-      id,
-      organization_id,
-      email,
-      role,
-      status,
-      expires_at,
-      organizations (
-        id,
-        name,
-        slug
-      )
-    `)
-    .eq("token", token)
-    .maybeSingle();
+  // 2. Compute SHA-256 hash of incoming raw token
+  const tokenHash = crypto.createHash("sha256").update(cleanToken).digest("hex");
 
-  if (error || !invitation) {
+  // 3. Fetch invitation details via secure Server Gateway (RPC) with cryptographic proof
+  let invitation: {
+    id: string;
+    organization_id: string;
+    organization_name: string;
+    organization_slug: string;
+    email: string;
+    role: string;
+    status: string;
+    expires_at: string;
+    is_expired?: boolean;
+  } | null = null;
+
+  try {
+    const serviceClient = createServiceClient();
+    const serverToken = generateInvitationServerToken(tokenHash);
+
+    const { data: rpcData, error: rpcError } = await serviceClient.rpc("get_invitation_details", {
+      p_token_hash: tokenHash,
+      p_server_token: serverToken,
+    });
+
+    if (!rpcError && rpcData && rpcData.length > 0) {
+      invitation = rpcData[0];
+    } else if (rpcError) {
+      // Fail closed: Never query plaintext tokens.
+      console.warn("RPC get_invitation_details failed or returned error:", rpcError.message);
+    }
+  } catch (err) {
+    // Fail closed: If error occurs, invitation remains null
+    console.warn("Error calling get_invitation_details gateway:", err);
+  }
+
+  if (!invitation) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-950 p-4 text-zinc-100">
         <div className="max-w-md w-full p-6 rounded-2xl bg-zinc-900 border border-zinc-800 text-center space-y-4 shadow-xl">
@@ -63,7 +109,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
   }
 
   const isExpired = new Date(invitation.expires_at) < new Date();
-  const org = invitation.organizations as unknown as { id: string; name: string; slug: string } | null;
+  const orgName = invitation.organization_name || "the workspace";
 
   if (invitation.status !== "pending" || isExpired) {
     return (
@@ -74,7 +120,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
           </div>
           <h1 className="text-xl font-bold tracking-tight">Invitation Expired</h1>
           <p className="text-sm text-zinc-400">
-            This invitation to join <strong>{org?.name || "the workspace"}</strong> has {isExpired ? "expired" : invitation.status}. Please request a fresh invitation link.
+            This invitation to join <strong>{orgName}</strong> has {isExpired ? "expired" : invitation.status}. Please request a fresh invitation link.
           </p>
           <div className="pt-2">
             <Link
@@ -98,9 +144,9 @@ export default async function InvitePage({ params }: InvitePageProps) {
         </div>
 
         <div className="space-y-1.5">
-          <h1 className="text-xl font-bold tracking-tight text-white">Join {org?.name || "Workspace"}</h1>
+          <h1 className="text-xl font-bold tracking-tight text-white">Join {orgName}</h1>
           <p className="text-xs text-zinc-400 leading-relaxed">
-            You have been invited to collaborate in <strong>{org?.name}</strong> as an{" "}
+            You have been invited to collaborate in <strong>{orgName}</strong> as an{" "}
             <span className="font-semibold text-zinc-200 capitalize">{invitation.role}</span>.
           </p>
         </div>
@@ -120,7 +166,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
         </div>
 
         {user ? (
-          <AcceptInvitationButton token={token} orgName={org?.name || "Workspace"} />
+          <AcceptInvitationButton token={token} orgName={orgName} />
         ) : (
           <div className="space-y-2.5">
             <Link

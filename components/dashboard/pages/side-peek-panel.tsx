@@ -2,12 +2,25 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useSidePeek } from "./side-peek-context";
 import { getPageAction, getPageBreadcrumbsAction } from "@/lib/pages/actions";
 import { PageRecord, PageBreadcrumbItem } from "@/lib/pages/types";
-import { BlockEditor } from "./block-editor";
 import { PageBreadcrumbs } from "./page-breadcrumbs";
+
+const BlockEditor = dynamic(
+  () => import("./block-editor").then((mod) => mod.BlockEditor),
+  {
+    loading: () => (
+      <div className="flex flex-col items-center justify-center h-64 gap-2 text-muted-foreground">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+        <span className="text-xs">Loading editor...</span>
+      </div>
+    ),
+    ssr: false,
+  }
+);
 
 export function SidePeekPanel() {
   const router = useRouter();

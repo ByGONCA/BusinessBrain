@@ -14,23 +14,23 @@ export default function ForgotPasswordPage() {
   );
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 py-12 text-slate-100">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#0B0B0C] px-4 py-12 text-[#F5F5F5]">
       <div className="w-full max-w-sm">
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-500/20">
-            <Sparkles className="h-5 w-5" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#19191C] border border-[#29292D] text-[#F5F5F5] shadow-sm">
+            <Sparkles className="h-5 w-5 text-blue-400" />
           </div>
-          <h2 className="mt-4 text-xl font-bold tracking-tight text-white">
+          <h2 className="mt-4 text-xl font-bold tracking-tight text-[#F5F5F5]">
             Reset your password
           </h2>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-[#A1A1AA]">
             Enter your email to receive a password reset link
           </p>
         </div>
 
         {/* Card */}
-        <div className="mt-8 rounded-xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl backdrop-blur-sm">
+        <div className="mt-8 rounded-xl border border-[#29292D] bg-[#141416] p-6 shadow-xl">
           {state?.success ? (
             <div className="text-center space-y-4 py-2">
               <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">

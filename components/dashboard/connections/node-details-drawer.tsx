@@ -120,12 +120,12 @@ export function NodeDetailsDrawer({
   return (
     <div
       className={cn(
-        "flex flex-col w-80 sm:w-96 h-full bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 shadow-xl z-20 animate-in slide-in-from-right duration-200",
+        "flex flex-col w-80 sm:w-96 h-full bg-[#141415] border-l border-[#242427] shadow-xl z-20 animate-in slide-in-from-right duration-200",
         className
       )}
     >
       {/* Header */}
-      <div className="flex items-start justify-between p-4 border-b border-zinc-200 dark:border-zinc-800">
+      <div className="flex items-start justify-between p-4 border-b border-[#242427]">
         <div className="flex items-start gap-3 min-w-0 pr-2">
           <div className={cn("p-2 rounded-xl border shrink-0 flex items-center justify-center", cfg.color)}>
             {node.type === "page" ? (
@@ -135,10 +135,10 @@ export function NodeDetailsDrawer({
             )}
           </div>
           <div className="min-w-0">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-400">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-[#71717A]">
               {cfg.label}
             </span>
-            <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
+            <h3 className="text-base font-bold text-foreground truncate">
               {node.title}
             </h3>
           </div>
@@ -147,7 +147,7 @@ export function NodeDetailsDrawer({
         <button
           type="button"
           onClick={onClose}
-          className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+          className="p-1.5 rounded-lg text-[#71717A] hover:text-foreground hover:bg-[#1C1C1F] transition-colors"
           title="Close details"
         >
           <X className="h-4 w-4" />
@@ -180,7 +180,7 @@ export function NodeDetailsDrawer({
           <button
             type="button"
             onClick={() => onOpenConnectModal(node)}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs font-medium text-zinc-700 dark:text-zinc-300 transition-colors"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-[#242427] hover:bg-[#1C1C1F] text-xs font-medium text-foreground transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Connect</span>
@@ -188,9 +188,9 @@ export function NodeDetailsDrawer({
         </div>
 
         {/* Focus Mode & Path Finder Row */}
-        <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800 space-y-2.5">
+        <div className="p-3 rounded-xl bg-[#19191B] border border-[#242427] space-y-2.5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+            <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
               <Eye className="h-3.5 w-3.5 text-blue-500" /> Foco / Vizinhança
             </span>
             <div className="flex items-center gap-1">
@@ -203,7 +203,7 @@ export function NodeDetailsDrawer({
                     "px-2 py-0.5 rounded text-[11px] font-semibold transition-colors",
                     focusDepth === d
                       ? "bg-blue-600 text-white"
-                      : "bg-white dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-600"
+                      : "bg-[#202023] text-[#A1A1AA] hover:bg-[#242427] hover:text-foreground"
                   )}
                   title={`Ver vizinhança a até ${d} salto${d > 1 ? "s" : ""}`}
                 >
@@ -216,8 +216,8 @@ export function NodeDetailsDrawer({
                 className={cn(
                   "px-2 py-0.5 rounded text-[11px] font-semibold transition-colors",
                   focusDepth === null
-                    ? "bg-zinc-700 text-white dark:bg-zinc-300 dark:text-zinc-900"
-                    : "bg-white dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-600"
+                    ? "bg-[#242427] text-foreground border border-[#29292D]"
+                    : "bg-[#202023] text-[#A1A1AA] hover:bg-[#242427] hover:text-foreground"
                 )}
                 title="Mostrar todo o grafo sem esmaecer nós distantes"
               >
@@ -233,7 +233,7 @@ export function NodeDetailsDrawer({
                 const nextDepth = focusDepth === null ? 1 : Math.min(3, focusDepth + 1);
                 onSetFocusDepth(nextDepth);
               }}
-              className="flex-1 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-xs font-medium hover:bg-blue-100 transition-colors text-center"
+              className="flex-1 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-medium hover:bg-blue-500/20 transition-colors text-center"
             >
               Expandir Vizinhança (+1 hop)
             </button>
@@ -243,7 +243,7 @@ export function NodeDetailsDrawer({
                 onClose();
                 onSetFocusDepth(null);
               }}
-              className="py-1.5 px-2.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs transition-colors"
+              className="py-1.5 px-2.5 rounded-lg border border-[#242427] text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-foreground text-xs transition-colors"
               title="Regressar à visão geral completa"
             >
               Visão Geral
@@ -253,7 +253,7 @@ export function NodeDetailsDrawer({
           <button
             type="button"
             onClick={() => onOpenPathModal(node)}
-            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-xs text-zinc-600 dark:text-zinc-400 font-medium transition-colors"
+            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-[#242427] hover:bg-[#1C1C1F] text-xs text-[#A1A1AA] hover:text-foreground font-medium transition-colors"
           >
             <Route className="h-3.5 w-3.5 text-emerald-500" />
             <span>Encontrar Caminho para Outro Nó...</span>
@@ -262,35 +262,35 @@ export function NodeDetailsDrawer({
 
         {/* Statistics Pill */}
         <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800">
-            <span className="block text-lg font-bold text-zinc-900 dark:text-zinc-100">
+          <div className="p-2 rounded-xl bg-[#19191B] border border-[#242427]">
+            <span className="block text-lg font-bold text-foreground">
               {node.degree}
             </span>
-            <span className="text-[10px] text-zinc-400">Total Conn</span>
+            <span className="text-[10px] text-[#71717A]">Total Conn</span>
           </div>
-          <div className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800">
-            <span className="block text-lg font-bold text-blue-600 dark:text-blue-400">
+          <div className="p-2 rounded-xl bg-[#19191B] border border-[#242427]">
+            <span className="block text-lg font-bold text-blue-400">
               {node.outDegree}
             </span>
-            <span className="text-[10px] text-zinc-400">Outgoing</span>
+            <span className="text-[10px] text-[#71717A]">Outgoing</span>
           </div>
-          <div className="p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-800">
-            <span className="block text-lg font-bold text-indigo-600 dark:text-indigo-400">
+          <div className="p-2 rounded-xl bg-[#19191B] border border-[#242427]">
+            <span className="block text-lg font-bold text-indigo-400">
               {node.inDegree}
             </span>
-            <span className="text-[10px] text-zinc-400">Backlinks</span>
+            <span className="text-[10px] text-[#71717A]">Backlinks</span>
           </div>
         </div>
 
         {/* Outgoing Connections */}
         <div className="space-y-2">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#71717A] flex items-center gap-1.5">
             <ArrowRight className="h-3.5 w-3.5 text-blue-500" />
             Outgoing Connections ({outgoingEdges.length})
           </h4>
 
           {outgoingEdges.length === 0 ? (
-            <p className="text-xs text-zinc-400 italic">No outgoing connections.</p>
+            <p className="text-xs text-[#71717A] italic">No outgoing connections.</p>
           ) : (
             <div className="space-y-1.5">
               {outgoingEdges.map((e) => {
@@ -301,18 +301,18 @@ export function NodeDetailsDrawer({
                 return (
                   <div
                     key={e.id}
-                    className="group flex items-center justify-between p-2 rounded-lg border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/40 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
+                    className="group flex items-center justify-between p-2 rounded-lg border border-[#242427] bg-[#19191B] hover:border-[#29292D] transition-colors"
                   >
                     <div
                       onClick={() => targetNode && onSelectNode(targetNode)}
                       className="min-w-0 flex-1 cursor-pointer pr-2"
                     >
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">
+                        <span className="text-[10px] font-semibold text-blue-400">
                           → {relLabel}
                         </span>
                         {e.isStructural && (
-                          <span className="text-[9px] px-1 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 font-mono">
+                          <span className="text-[9px] px-1 py-0.2 rounded bg-[#242427] text-[#A1A1AA] font-mono">
                             Hierarchy
                           </span>
                         )}
@@ -321,7 +321,7 @@ export function NodeDetailsDrawer({
                         {targetNode?.type === "page" && (
                           <PageIcon icon={targetNode.icon} pageId={targetNode.id} className="text-xs shrink-0" imgClassName="h-3.5 w-3.5 rounded object-cover" />
                         )}
-                        <p className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                        <p className="text-xs font-medium text-foreground truncate">
                           {targetTitle}
                         </p>
                       </div>
@@ -332,7 +332,7 @@ export function NodeDetailsDrawer({
                         type="button"
                         disabled={isDeletingId === e.id}
                         onClick={() => handleRemoveEdge(e, relLabel)}
-                        className="p-1 rounded text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="p-1 rounded text-[#71717A] hover:text-red-400 hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Remove connection"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -347,13 +347,13 @@ export function NodeDetailsDrawer({
 
         {/* Incoming Backlinks */}
         <div className="space-y-2">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-500 flex items-center gap-1.5">
-            <ArrowLeft className="h-3.5 w-3.5 text-indigo-500" />
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#71717A] flex items-center gap-1.5">
+            <ArrowLeft className="h-3.5 w-3.5 text-indigo-400" />
             Incoming Backlinks ({incomingEdges.length})
           </h4>
 
           {incomingEdges.length === 0 ? (
-            <p className="text-xs text-zinc-400 italic">No incoming backlinks.</p>
+            <p className="text-xs text-[#71717A] italic">No incoming backlinks.</p>
           ) : (
             <div className="space-y-1.5">
               {incomingEdges.map((e) => {
@@ -364,18 +364,18 @@ export function NodeDetailsDrawer({
                 return (
                   <div
                     key={e.id}
-                    className="group flex items-center justify-between p-2 rounded-lg border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/40 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors"
+                    className="group flex items-center justify-between p-2 rounded-lg border border-[#242427] bg-[#19191B] hover:border-[#29292D] transition-colors"
                   >
                     <div
                       onClick={() => sourceNode && onSelectNode(sourceNode)}
                       className="min-w-0 flex-1 cursor-pointer pr-2"
                     >
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400">
+                        <span className="text-[10px] font-semibold text-indigo-400">
                           ← {reverseLabel}
                         </span>
                         {e.isStructural && (
-                          <span className="text-[9px] px-1 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300 font-mono">
+                          <span className="text-[9px] px-1 py-0.2 rounded bg-[#242427] text-[#A1A1AA] font-mono">
                             Hierarchy
                           </span>
                         )}
@@ -384,7 +384,7 @@ export function NodeDetailsDrawer({
                         {sourceNode?.type === "page" && (
                           <PageIcon icon={sourceNode.icon} pageId={sourceNode.id} className="text-xs shrink-0" imgClassName="h-3.5 w-3.5 rounded object-cover" />
                         )}
-                        <p className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                        <p className="text-xs font-medium text-foreground truncate">
                           {sourceTitle}
                         </p>
                       </div>
@@ -395,7 +395,7 @@ export function NodeDetailsDrawer({
                         type="button"
                         disabled={isDeletingId === e.id}
                         onClick={() => handleRemoveEdge(e, reverseLabel)}
-                        className="p-1 rounded text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="p-1 rounded text-[#71717A] hover:text-red-400 hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Remove connection"
                       >
                         <Trash2 className="h-3.5 w-3.5" />

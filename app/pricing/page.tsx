@@ -29,14 +29,14 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
   const entitlement = activeOrg ? await getOrganizationEntitlement(activeOrg.id) : null;
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
+    <div className="flex min-h-screen flex-col bg-[#0B0B0C] text-[#F5F5F5]">
       {/* Top Header */}
-      <header className="flex h-16 w-full items-center justify-between border-b border-slate-800/80 px-6 sm:px-12 backdrop-blur-md">
+      <header className="flex h-16 w-full items-center justify-between border-b border-[#29292D] px-6 sm:px-12 bg-[#09090A]/80 backdrop-blur-md">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white shadow-lg shadow-blue-500/20">
-            <Sparkles className="h-4 w-4" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#19191C] border border-[#29292D] text-[#F5F5F5] shadow-sm">
+            <Sparkles className="h-4 w-4 text-blue-400" />
           </div>
-          <span className="text-base font-bold tracking-tight text-white">
+          <span className="text-base font-bold tracking-tight text-[#F5F5F5]">
             Company Brain
           </span>
         </Link>
@@ -44,8 +44,8 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
         <div className="flex items-center gap-3">
           {user ? (
             <div className="flex items-center gap-3">
-              <span className="text-xs text-slate-400 hidden sm:inline">
-                Signed in as <span className="text-slate-200 font-medium">{user.email}</span>
+              <span className="text-xs text-[#A1A1AA] hidden sm:inline">
+                Signed in as <span className="text-[#F5F5F5] font-medium">{user.email}</span>
               </span>
               {entitlement?.isEntitled && (
                 <Link href="/dashboard">
@@ -86,9 +86,9 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
           )}
 
           {wasCanceled && (
-            <div className="mb-8 rounded-xl border border-slate-800 bg-slate-900/60 p-4 text-xs text-slate-300">
-              <p className="font-semibold text-sm text-slate-200">Checkout Canceled</p>
-              <p className="mt-1 text-slate-400">
+            <div className="mb-8 rounded-xl border border-[#29292D] bg-[#141416] p-4 text-xs text-[#A1A1AA]">
+              <p className="font-semibold text-sm text-[#F5F5F5]">Checkout Canceled</p>
+              <p className="mt-1 text-[#71717A]">
                 You can select a plan and start your free trial whenever you are ready.
               </p>
             </div>
@@ -99,11 +99,11 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
             <span>7-Day Full Access Free Trial on All Plans</span>
           </div>
 
-          <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-white sm:text-5xl">
+          <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-[#F5F5F5] sm:text-5xl">
             Predictable pricing for your company&apos;s memory
           </h1>
 
-          <p className="mt-4 text-sm text-slate-400 max-w-xl mx-auto leading-relaxed">
+          <p className="mt-4 text-sm text-[#A1A1AA] max-w-xl mx-auto leading-relaxed">
             Every plan includes an unrestricted 7-day free trial. Cancel anytime before your trial ends and you will not be charged.
           </p>
 
@@ -119,28 +119,28 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
           </div>
 
           {/* FAQ / Trust Indicators */}
-          <div className="mt-20 border-t border-slate-800/80 pt-12">
+          <div className="mt-20 border-t border-[#29292D] pt-12">
             <div className="grid grid-cols-1 gap-6 text-left sm:grid-cols-3">
-              <div className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-5">
+              <div className="rounded-xl border border-[#29292D] bg-[#141416] p-5 shadow-sm">
                 <ShieldCheck className="h-5 w-5 text-blue-400 mb-2" />
-                <h4 className="text-xs font-semibold text-slate-200">Enterprise Isolation</h4>
-                <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
+                <h4 className="text-xs font-semibold text-[#F5F5F5]">Enterprise Isolation</h4>
+                <p className="mt-1 text-[11px] text-[#A1A1AA] leading-relaxed">
                   Every organization operates within an isolated PostgreSQL schema enforced with Row Level Security.
                 </p>
               </div>
 
-              <div className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-5">
+              <div className="rounded-xl border border-[#29292D] bg-[#141416] p-5 shadow-sm">
                 <HelpCircle className="h-5 w-5 text-blue-400 mb-2" />
-                <h4 className="text-xs font-semibold text-slate-200">How do free trials work?</h4>
-                <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
+                <h4 className="text-xs font-semibold text-[#F5F5F5]">How do free trials work?</h4>
+                <p className="mt-1 text-[11px] text-[#A1A1AA] leading-relaxed">
                   You get 7 days of full access to explore Company Brain. You can cancel at any time with one click.
                 </p>
               </div>
 
-              <div className="rounded-xl border border-slate-800/60 bg-slate-900/30 p-5">
+              <div className="rounded-xl border border-[#29292D] bg-[#141416] p-5 shadow-sm">
                 <Sparkles className="h-5 w-5 text-blue-400 mb-2" />
-                <h4 className="text-xs font-semibold text-slate-200">Can I switch plans later?</h4>
-                <p className="mt-1 text-[11px] text-slate-400 leading-relaxed">
+                <h4 className="text-xs font-semibold text-[#F5F5F5]">Can I switch plans later?</h4>
+                <p className="mt-1 text-[11px] text-[#A1A1AA] leading-relaxed">
                   Yes, you can upgrade, downgrade, or update your workspace subscription at any time.
                 </p>
               </div>
@@ -150,7 +150,7 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 px-6 py-6 text-center text-xs text-slate-500">
+      <footer className="border-t border-[#29292D] px-6 py-6 text-center text-xs text-[#71717A]">
         Company Brain &copy; {new Date().getFullYear()}. Secure billing via Stripe.
       </footer>
     </div>
