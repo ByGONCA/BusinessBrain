@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { verifyAccessOrRedirect } from "@/lib/organizations/entitlements";
 import { getCompanyGraphData } from "@/lib/connections/queries";
-import { createClient } from "@/lib/supabase/server";
 import { CompanyMapWorkspace } from "@/components/dashboard/connections/company-map-workspace";
 import { EntityType } from "@/lib/connections/types";
 
@@ -23,37 +22,26 @@ export default async function ConnectionsPage({ searchParams }: ConnectionsPageP
   const initialSelectedNodeId = resolvedParams.node;
   const initialFocusDepth = resolvedParams.focus ? parseInt(resolvedParams.focus, 10) : undefined;
 
-  const supabase = await createClient();
+  // Fetch unified graph data (cached & organization-scoped)
+  const graphData = await getCompanyGraphData(activeOrg.id);
 
-  // Parallel data loading with lightweight metadata boundary (no heavy block contents)
-  const [graphData, pagesRes, entitiesRes] = await Promise.all([
-    getCompanyGraphData(activeOrg.id),
-    supabase
-      .from("pages")
-      .select("id, title, icon, parent_page_id")
-      .eq("organization_id", activeOrg.id)
-      .eq("is_archived", false)
-      .order("is_favorite", { ascending: false })
-      .order("position", { ascending: true })
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("company_entities")
-      .select("id, title, type")
-      .eq("organization_id", activeOrg.id),
-  ]);
+  // Derive pages and entities directly from graphData nodes without redundant roundtrips
+  const pages = graphData.nodes
+    .filter((n) => n.type === "page")
+    .map((p) => ({
+      id: p.id,
+      title: p.title || "Untitled Page",
+      icon: p.icon || "📄",
+      parent_page_id: p.parentId || null,
+    }));
 
-  const pages = (pagesRes.data || []).map((p) => ({
-    id: p.id,
-    title: p.title || "Untitled Page",
-    icon: p.icon || "📄",
-    parent_page_id: p.parent_page_id,
-  }));
-
-  const entities = (entitiesRes.data || []).map((e) => ({
-    id: e.id,
-    title: e.title,
-    type: e.type as EntityType,
-  }));
+  const entities = graphData.nodes
+    .filter((n) => n.type !== "page")
+    .map((e) => ({
+      id: e.id,
+      title: e.title,
+      type: e.type as EntityType,
+    }));
 
   return (
     <CompanyMapWorkspace

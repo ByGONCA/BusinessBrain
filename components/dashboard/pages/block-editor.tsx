@@ -36,6 +36,7 @@ import {
   getPageActivityAction,
   getPageVersionsAction,
   getPageCommentsAction,
+  getPageLatestRevisionAction,
 } from "@/lib/pages/actions";
 import { PageAttachmentsPanel } from "./page-attachments-panel";
 
@@ -315,8 +316,16 @@ export function BlockEditor({
     initialText: "",
   });
 
-  const [saveStatus, setSaveStatus] = React.useState<"saved" | "saving" | "error">("saved");
+  const [saveStatus, setSaveStatus] = React.useState<"saved" | "saving" | "error" | "conflict" | "offline">("saved");
   const [focusedBlockId, setFocusedBlockId] = React.useState<string | null>(null);
+
+  // Condition 4.4: Concurrency control & conflict resolution states
+  const currentRevisionRef = React.useRef<number>(page.revision_id ?? 1);
+  const isConflictSuspendedRef = React.useRef<boolean>(false);
+  const [conflictModalOpen, setConflictModalOpen] = React.useState<boolean>(false);
+  const [conflictErrorMessage, setConflictErrorMessage] = React.useState<string>("");
+  const [conflictLoading, setConflictLoading] = React.useState<boolean>(false);
+  const [conflictActionMessage, setConflictActionMessage] = React.useState<string | null>(null);
 
   // Load existing connections on mount
   React.useEffect(() => {
@@ -483,6 +492,11 @@ export function BlockEditor({
         blocks: newBlocks,
       };
 
+      // Condition 4.4: If in conflict state, autosave is strictly suspended
+      if (isConflictSuspendedRef.current) {
+        return;
+      }
+
       setSaveStatus("saving");
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
@@ -490,6 +504,8 @@ export function BlockEditor({
 
       saveTimeoutRef.current = setTimeout(async () => {
         try {
+          if (isConflictSuspendedRef.current) return;
+
           const payloadTitle = newTitle !== undefined ? newTitle : pendingSaveRef.current.title;
           const payloadIcon = newIcon !== undefined ? newIcon : pendingSaveRef.current.icon;
           const res = await savePageContentAction({
@@ -497,10 +513,23 @@ export function BlockEditor({
             title: payloadTitle,
             icon: payloadIcon,
             blocks: newBlocks,
+            expectedRevision: currentRevisionRef.current,
           });
 
           if (res?.success) {
+            if (typeof res.newRevision === "number") {
+              currentRevisionRef.current = res.newRevision;
+            }
             setSaveStatus("saved");
+          } else if (res?.code === "STALE_WRITE") {
+            // Condition 4.4: Immediately suspend autosave, cancel timers, preserve local draft, show conflict UI
+            isConflictSuspendedRef.current = true;
+            if (saveTimeoutRef.current) {
+              clearTimeout(saveTimeoutRef.current);
+            }
+            setSaveStatus("conflict");
+            setConflictErrorMessage(res.error || "A página foi modificada por outro utilizador ou noutro separador.");
+            setConflictModalOpen(true);
           } else {
             setSaveStatus("error");
           }
@@ -627,6 +656,7 @@ export function BlockEditor({
   // Flush on unmount and beforeunload if saving
   React.useEffect(() => {
     const handleBeforeUnload = () => {
+      if (isConflictSuspendedRef.current) return;
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
         const { title: t, icon: ic, blocks: b } = pendingSaveRef.current;
@@ -635,6 +665,7 @@ export function BlockEditor({
           title: t,
           icon: ic,
           blocks: b,
+          expectedRevision: currentRevisionRef.current,
         }).catch(() => {});
       }
     };
@@ -643,6 +674,7 @@ export function BlockEditor({
 
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
+      if (isConflictSuspendedRef.current) return;
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
         const { title: t, icon: ic, blocks: b } = pendingSaveRef.current;
@@ -651,6 +683,7 @@ export function BlockEditor({
           title: t,
           icon: ic,
           blocks: b,
+          expectedRevision: currentRevisionRef.current,
         }).catch(() => {});
       }
     };
@@ -2340,6 +2373,25 @@ export function BlockEditor({
                 <span className="hidden sm:inline">Guardado</span>
               </span>
             )}
+            {saveStatus === "conflict" && (
+              <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-semibold">
+                <AlertCircle className="h-3.5 w-3.5" />
+                <span>Conflito de versão</span>
+                <button
+                  type="button"
+                  onClick={() => setConflictModalOpen(true)}
+                  className="underline ml-1 cursor-pointer font-bold hover:opacity-80"
+                >
+                  Resolver
+                </button>
+              </span>
+            )}
+            {saveStatus === "offline" && (
+              <span className="flex items-center gap-1.5 text-zinc-500">
+                <AlertCircle className="h-3.5 w-3.5" />
+                <span>Sem rede</span>
+              </span>
+            )}
             {saveStatus === "error" && (
               <span className="flex items-center gap-1 text-red-500">
                 <AlertCircle className="h-3.5 w-3.5" />
@@ -2347,6 +2399,10 @@ export function BlockEditor({
                 <button
                   type="button"
                   onClick={() => {
+                    if (isConflictSuspendedRef.current) {
+                      setConflictModalOpen(true);
+                      return;
+                    }
                     const { title: t, icon: ic, blocks: b } = pendingSaveRef.current;
                     setSaveStatus("saving");
                     savePageContentAction({
@@ -2354,8 +2410,20 @@ export function BlockEditor({
                       title: t,
                       icon: ic,
                       blocks: b,
+                      expectedRevision: currentRevisionRef.current,
                     })
-                      .then((res) => setSaveStatus(res?.success ? "saved" : "error"))
+                      .then((res) => {
+                        if (res?.success) {
+                          if (typeof res.newRevision === "number") currentRevisionRef.current = res.newRevision;
+                          setSaveStatus("saved");
+                        } else if (res?.code === "STALE_WRITE") {
+                          isConflictSuspendedRef.current = true;
+                          setSaveStatus("conflict");
+                          setConflictModalOpen(true);
+                        } else {
+                          setSaveStatus("error");
+                        }
+                      })
                       .catch(() => setSaveStatus("error"));
                   }}
                   className="underline ml-1 cursor-pointer font-semibold hover:opacity-80"
@@ -2702,6 +2770,176 @@ export function BlockEditor({
           onRefresh={loadComments}
         />
       )}
+
+      {/* Condition 4.4: Concurrency Conflict Resolution Dialog */}
+      {conflictModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-2xl max-w-lg w-full p-6 text-zinc-900 dark:text-zinc-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 text-amber-600 dark:text-amber-400 mb-4">
+              <div className="p-2.5 rounded-full bg-amber-100 dark:bg-amber-950/60">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg leading-tight">Conflito de Versão Detetado</h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                  A gravação automática foi suspensa para evitar perda de dados.
+                </p>
+              </div>
+            </div>
+
+            <p className="text-sm text-zinc-600 dark:text-zinc-300 mb-5 leading-relaxed">
+              Esta página foi modificada noutro separador ou por outro membro da equipa desde que a abriu. O seu rascunho local está <strong>100% preservado em memória</strong>. Escolha como deseja proceder:
+            </p>
+
+            {conflictActionMessage && (
+              <div className="mb-4 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-xs border border-emerald-200 dark:border-emerald-800">
+                {conflictActionMessage}
+              </div>
+            )}
+
+            {conflictErrorMessage && (
+              <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs border border-red-200 dark:border-red-800">
+                {conflictErrorMessage}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {/* Option 1: Reload */}
+              <div className="p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">1. Recarregar versão do servidor</h4>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                      Descarta o rascunho deste separador e carrega a versão mais recente gravada no servidor.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={conflictLoading}
+                    onClick={() => {
+                      if (window.confirm("Atenção: O rascunho local deste separador será descartado. Tem a certeza que deseja recarregar a versão do servidor?")) {
+                        window.location.reload();
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs font-medium rounded-md bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 whitespace-nowrap transition-colors"
+                  >
+                    Recarregar
+                  </button>
+                </div>
+              </div>
+
+              {/* Option 2: Save Copy */}
+              <div className="p-3.5 rounded-lg border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/40 transition-colors">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">2. Guardar cópia recuperada</h4>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+                      Cria uma nova página com o seu rascunho completo, garantindo que nada é perdido ou sobrescrito.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={conflictLoading}
+                    onClick={async () => {
+                      try {
+                        setConflictLoading(true);
+                        setConflictErrorMessage("");
+                        const copyTitle = `${pendingSaveRef.current.title || title || "Página"} (Rascunho Recuperado)`;
+                        const res = await createPageAction({
+                          parentPageId: page.parent_page_id,
+                          title: copyTitle,
+                          icon: pendingSaveRef.current.icon || icon,
+                          initialBlocks: pendingSaveRef.current.blocks,
+                        });
+                        if (res.success && res.page) {
+                          setConflictActionMessage(`Cópia recuperada criada com sucesso! Página: "${copyTitle}"`);
+                        } else {
+                          setConflictErrorMessage(res.error || "Falha ao criar cópia da página.");
+                        }
+                      } catch {
+                        setConflictErrorMessage("Erro inesperado ao criar cópia recuperada.");
+                      } finally {
+                        setConflictLoading(false);
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs font-medium rounded-md bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 whitespace-nowrap transition-colors"
+                  >
+                    {conflictLoading ? "A guardar..." : "Guardar Cópia"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Option 3: Force overwrite consciously */}
+              <div className="p-3.5 rounded-lg border border-amber-200 dark:border-amber-900/60 bg-amber-50/40 dark:bg-amber-950/20">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-amber-900 dark:text-amber-200">3. Substituir no servidor</h4>
+                    <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                      Atualiza o token de revisão e grava o seu rascunho local, sobrescrevendo as alterações remotas.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={conflictLoading}
+                    onClick={async () => {
+                      if (!window.confirm("Confirmação: Isto irá sobrescrever as alterações mais recentes no servidor pelo seu rascunho local. Continuar?")) {
+                        return;
+                      }
+                      try {
+                        setConflictLoading(true);
+                        setConflictErrorMessage("");
+                        // 1. Fetch latest revision from server
+                        const revRes = await getPageLatestRevisionAction(page.id);
+                        if (!revRes.success || revRes.revisionId === undefined) {
+                          setConflictErrorMessage("Não foi possível obter a revisão atual do servidor.");
+                          setConflictLoading(false);
+                          return;
+                        }
+                        // 2. Consciously save with the latest revision token
+                        const saveRes = await savePageContentAction({
+                          pageId: page.id,
+                          title: pendingSaveRef.current.title,
+                          icon: pendingSaveRef.current.icon,
+                          blocks: pendingSaveRef.current.blocks,
+                          expectedRevision: revRes.revisionId,
+                        });
+                        if (saveRes.success) {
+                          if (typeof saveRes.newRevision === "number") {
+                            currentRevisionRef.current = saveRes.newRevision;
+                          }
+                          isConflictSuspendedRef.current = false;
+                          setSaveStatus("saved");
+                          setConflictModalOpen(false);
+                        } else {
+                          setConflictErrorMessage(saveRes.error || "Não foi possível sobrescrever. Tente novamente.");
+                        }
+                      } catch {
+                        setConflictErrorMessage("Erro inesperado ao forçar gravação.");
+                      } finally {
+                        setConflictLoading(false);
+                      }
+                    }}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-md bg-amber-600 hover:bg-amber-700 text-white whitespace-nowrap transition-colors"
+                  >
+                    {conflictLoading ? "A substituir..." : "Substituir"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setConflictModalOpen(false)}
+                className="px-4 py-1.5 text-xs font-medium rounded-lg text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              >
+                Fechar janela
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

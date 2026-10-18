@@ -216,6 +216,7 @@ export interface PageRecord {
   last_edited_by?: string | null;
   created_at: string;
   updated_at: string;
+  revision_id?: number;
   created_by_profile?: PageAuthorProfile | null;
   last_edited_by_profile?: PageAuthorProfile | null;
 }

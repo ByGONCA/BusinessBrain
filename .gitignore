@@ -17,6 +17,7 @@
 # Misc
 .DS_Store
 *.pem
+*.bak
 
 # Debug
 npm-debug.log*
@@ -34,3 +35,7 @@ database/migrations/*_STAGING.sql
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Local Graphify & Python Environment
+.venv/
+graphify-out/

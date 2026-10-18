@@ -1,7 +1,8 @@
 # AGENTS.md — Rules & Architecture Guidelines for AI Coding Agents
 
 > **Project**: Company Brain  
-> **Mission**: The memory and intelligence layer for modern companies.
+> **Mission**: The memory and intelligence layer for modern companies.  
+> **Toolkit**: Vibe Coding Toolkit integrated (Harness Engineering, Modular Context, Strict Quality Gates).
 
 ---
 
@@ -21,21 +22,52 @@ Company Brain is an enterprise operating system designed to aggregate knowledge,
 
 ---
 
-## 2. Tech Stack
+## 2. Canonical Commands
 
-- **Framework**: Next.js (App Router, Server Components first)
-- **Language**: TypeScript (strict mode enabled, zero `any` policy)
-- **Styling**: Tailwind CSS
-- **Database & Auth**: Supabase (PostgreSQL, Supabase Auth via `@supabase/ssr`, Storage, Row Level Security)
-- **Payments**: Stripe (`stripe`, `@stripe/stripe-js`)
-- **AI (Future)**: Google Gemini (via modular `lib/ai/` interface)
-- **Icons**: `lucide-react`
-- **Validation**: `zod`
-- **Deployment Target**: Vercel
+Always use real project commands; do not invent scripts:
+
+- **Develop (Turbopack)**: `npm run dev:turbo`
+- **Build**: `npm run build`
+- **Lint**: `npm run lint`
+- **Typecheck**: `npm run typecheck`
+- **Foundation Verification**: `npm run typecheck && npm run lint`
 
 ---
 
-## 3. Strict Multi-Tenancy & Authorization Rules
+## 3. Working Agreements
+
+1. **Smallest Complete Solution**:
+   - Complete requests with the smallest sufficient change; reuse existing `lib/` utilities, components, and patterns.
+   - No speculative refactors or unrequested dependencies.
+2. **Concise Communication**:
+   - Concise conversational responses in the user's language. Technical explanations on request; standard professional phrasing in code, docs, and commits.
+3. **Proportional Workflow**:
+   - Match workflow depth to task risk: understand → design → plan when needed → implement → verify → review.
+   - Propose architectural specs in `docs/specs/` for non-trivial modifications before coding.
+4. **Subagents & Model Selection**:
+   - Delegate only for context isolation or parallel waves.
+   - Lightweight models (`flash_lite` / `flash`) for search, logs, file inventory, and mechanical verification.
+   - High-capability models (`pro`) for architecture, multi-tenant security, RLS policies, and differential review.
+   - Subagents inherit session model (`inherit`); no external providers or unrequested paid proxies.
+5. **On-Demand Context Loading**:
+   - Consult canonical documents on demand; never dump full files into context:
+     - Scope & Acceptance: [`docs/PRODUCT.md`](./docs/PRODUCT.md) & [`docs/ROADMAP.md`](./docs/ROADMAP.md)
+     - System Architecture: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
+     - Database & SQL: [`docs/DATABASE.md`](./docs/DATABASE.md)
+     - Verification & Quality: [`docs/quality.md`](./docs/quality.md)
+     - Setup & Evidence: [`docs/setup.md`](./docs/setup.md)
+     - Design & Accessibility: [`docs/design.md`](./docs/design.md) & [`DESIGN.md`](./DESIGN.md) (consult only for UI/frontend tasks; ignore in backend)
+     - Onboarding: [`docs/onboarding.md`](./docs/onboarding.md)
+
+---
+
+## 4. Skills & Progressive Disclosure
+
+Skills in `.agents/skills/` are discovered automatically via the native `<skills>` catalog. Load individual skill instructions on demand according to task domain (Architecture, Security, React/Next.js, Supabase/Stripe, UI/Design, E2E Testing).
+
+---
+
+## 5. Strict Multi-Tenancy & Authorization Rules
 
 1. **Every business record belongs to an organization**:
    All tenant tables (`subscriptions`, `projects`, `tasks`, `documents`, etc.) must have an `organization_id uuid not null references organizations(id) on delete cascade` column.
@@ -50,7 +82,7 @@ Company Brain is an enterprise operating system designed to aggregate knowledge,
 
 ---
 
-## 4. Security & Billing Rules
+## 6. Security & Billing Rules
 
 1. **Zero Secret Leakage**:
    - Never expose `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, or `GEMINI_API_KEY` to the browser.
@@ -73,7 +105,7 @@ Company Brain is an enterprise operating system designed to aggregate knowledge,
 
 ---
 
-## 5. Coding Conventions
+## 7. Coding Conventions
 
 - **Server Components by Default**:
   Keep components as Server Components unless interactivity (`useState`, `useEffect`, event listeners) is strictly required. Place client components in discrete leaf nodes with `'use client'`.
@@ -86,7 +118,7 @@ Company Brain is an enterprise operating system designed to aggregate knowledge,
 
 ---
 
-## 6. Prohibited Actions for AI Agents (DO NOT DO)
+## 8. Prohibited Actions for AI Agents (DO NOT DO)
 
 - ❌ **DO NOT** implement real Gemini/LLM API calls or vector searches in this phase.
 - ❌ **DO NOT** implement Google OAuth before explicitly requested (this phase strictly supports Email/Password and GitHub OAuth).

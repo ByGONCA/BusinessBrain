@@ -57,6 +57,7 @@ export async function createPageAction(params?: {
   title?: string;
   icon?: string;
   templateId?: string;
+  initialBlocks?: EditorBlock[];
 }): Promise<{ success: boolean; page?: PageRecord; error?: string }> {
   try {
     const supabase = await createClient();
@@ -78,11 +79,13 @@ export async function createPageAction(params?: {
       return { success: false, error: "Forbidden: You do not have permission to create pages." };
     }
 
-    let initialBlocks: EditorBlock[] = [{
-      id: crypto.randomUUID(),
-      type: "paragraph",
-      content: "",
-    }];
+    let initialBlocks: EditorBlock[] = params?.initialBlocks && Array.isArray(params.initialBlocks) && params.initialBlocks.length > 0
+      ? params.initialBlocks.map((b) => ({ ...b, id: crypto.randomUUID() }))
+      : [{
+          id: crypto.randomUUID(),
+          type: "paragraph",
+          content: "",
+        }];
     let initialTitle = params?.title?.trim() || "Untitled";
     let initialIcon = "📄";
     if (params?.icon) {
@@ -203,10 +206,16 @@ export async function savePageContentAction(params: {
   icon?: string;
   iconFileId?: string | null;
   blocks: EditorBlock[];
-}): Promise<{ success: boolean; error?: string }> {
+  expectedRevision?: number;
+}): Promise<{
+  success: boolean;
+  newRevision?: number;
+  code?: string;
+  error?: string;
+}> {
   try {
     if (!isValidUuid(params.pageId)) {
-      return { success: false, error: "Invalid page ID" };
+      return { success: false, code: "INVALID_PAGE_ID", error: "Invalid page ID" };
     }
 
     const supabase = await createClient();
@@ -215,25 +224,97 @@ export async function savePageContentAction(params: {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, code: "UNAUTHORIZED", error: "Unauthorized" };
     }
 
     const activeOrg = await getActiveOrganization();
     if (!activeOrg) {
-      return { success: false, error: "No active organization" };
+      return { success: false, code: "NO_WORKSPACE", error: "No active organization" };
     }
 
     const canEdit = await hasPermission(user.id, activeOrg.id, "pages.edit");
     if (!canEdit) {
-      return { success: false, error: "Forbidden: You do not have permission to edit pages." };
+      return { success: false, code: "FORBIDDEN", error: "Forbidden: You do not have permission to edit pages." };
     }
 
+    const contentText = extractPlainText(params.blocks);
+
+    // Try executing through atomic save_page_content RPC when expectedRevision is provided
+    if (params.expectedRevision !== undefined) {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc("save_page_content", {
+        p_page_id: params.pageId,
+        p_expected_revision: params.expectedRevision,
+        p_title: typeof params.title === "string" ? params.title : null,
+        p_icon: typeof params.icon === "string" ? params.icon : null,
+        p_icon_file_id: params.iconFileId && isValidUuid(params.iconFileId) ? params.iconFileId : null,
+        p_content: params.blocks,
+        p_content_text: contentText,
+      });
+
+      if (!rpcErr && rpcData && typeof rpcData === "object" && (rpcData as { success?: boolean }).success) {
+        return {
+          success: true,
+          newRevision: Number((rpcData as { revision_id: number }).revision_id),
+        };
+      }
+
+      if (rpcErr) {
+        const msg = rpcErr.message || "";
+        if (msg.includes("STALE_WRITE")) {
+          return {
+            success: false,
+            code: "STALE_WRITE",
+            error: "A página foi modificada por outro utilizador ou noutro separador.",
+          };
+        }
+        if (msg.includes("MISSING_OCC_TOKEN")) {
+          return {
+            success: false,
+            code: "MISSING_OCC_TOKEN",
+            error: "Token de revisão ausente ou inválido.",
+          };
+        }
+        if (msg.includes("FORBIDDEN") || (rpcErr as { code?: string }).code === "42501") {
+          return {
+            success: false,
+            code: "FORBIDDEN",
+            error: "Forbidden: You do not have permission to edit pages.",
+          };
+        }
+        if (msg.includes("NOT_FOUND") || (rpcErr as { code?: string }).code === "P0002") {
+          return {
+            success: false,
+            code: "NOT_FOUND",
+            error: "Página não encontrada no workspace.",
+          };
+        }
+        if ((rpcErr as { code?: string }).code === "40P01" || msg.includes("deadlock")) {
+          return {
+            success: false,
+            code: "DEADLOCK",
+            error: "Conflito temporário de bloqueio no servidor.",
+          };
+        }
+
+        // If the RPC does not exist yet (PGRST202), proceed with resilient fallback below
+        if ((rpcErr as { code?: string }).code !== "PGRST202" && !msg.includes("function public.save_page_content")) {
+          logger.error("RPC save_page_content failed", rpcErr, { pageId: params.pageId });
+          return { success: false, code: "RPC_ERROR", error: rpcErr.message };
+        }
+      }
+    }
+
+    // Resilient fallback: direct update path (used during initial migration / local dev)
     const updates: Record<string, unknown> = {
       content: params.blocks,
-      content_text: extractPlainText(params.blocks),
+      content_text: contentText,
       last_edited_by: user.id,
       updated_at: new Date().toISOString(),
     };
+
+    if (params.expectedRevision !== undefined) {
+      updates.revision_id = params.expectedRevision + 1;
+    }
 
     if (typeof params.title === "string") {
       const parsedTitle = pageTitleSchema.safeParse(params.title);
@@ -272,9 +353,10 @@ export async function savePageContentAction(params: {
       .eq("id", params.pageId)
       .eq("organization_id", activeOrg.id);
 
-    // Resilience fallback: If the database does not have `last_edited_by` column yet (migration 00016 pending in Supabase)
-    if (error && (error.message?.includes("last_edited_by") || (error as { code?: string }).code === "PGRST204")) {
+    // Resilience fallback: If the database does not have revision_id or last_edited_by column yet
+    if (error && (error.message?.includes("revision_id") || error.message?.includes("last_edited_by") || (error as { code?: string }).code === "PGRST204")) {
       const fallbackUpdates = { ...updates };
+      delete fallbackUpdates.revision_id;
       delete fallbackUpdates.last_edited_by;
       const retryResult = await supabase
         .from("pages")
@@ -285,8 +367,8 @@ export async function savePageContentAction(params: {
     }
 
     if (error) {
-      logger.error("Failed to save page content", error, { pageId: params.pageId });
-      return { success: false, error: error.message };
+      logger.error("Failed to save page content in fallback path", error, { pageId: params.pageId });
+      return { success: false, code: "UPDATE_FAILED", error: error.message };
     }
 
     // Throttle content_edited activity & version snapshotting (at most once every 5 minutes per user)
@@ -336,10 +418,11 @@ export async function savePageContentAction(params: {
       // Activity logging does not block autosave
     }
 
-    return { success: true };
+    const calculatedNewRevision = params.expectedRevision !== undefined ? params.expectedRevision + 1 : undefined;
+    return { success: true, newRevision: calculatedNewRevision };
   } catch (err: unknown) {
     logger.error("Unexpected error in savePageContentAction", err);
-    return { success: false, error: "Failed to save page" };
+    return { success: false, code: "UNEXPECTED_ERROR", error: "Failed to save page" };
   }
 }
 
@@ -815,6 +898,38 @@ export async function searchPagesAction(searchTerm: string = ""): Promise<PageRe
       .eq("is_archived", false);
 
     if (term) {
+      // 1. Try multilingual full-text search RPC first
+      try {
+        const { data: searchResults, error: searchError } = await supabase.rpc("global_workspace_search", {
+          p_query: term,
+          p_limit: 20,
+          p_organization_id: activeOrg.id,
+        });
+
+        if (!searchError && searchResults && Array.isArray(searchResults) && searchResults.length > 0) {
+          const pageIds = searchResults
+            .filter((r: { result_type: string }) => r.result_type === "page")
+            .map((r: { result_id: string }) => r.result_id);
+
+          if (pageIds.length > 0) {
+            const { data: pageRows } = await supabase
+              .from("pages")
+              .select("id, organization_id, parent_page_id, title, icon, content_text, position, is_archived, archived_at, created_by, created_at, updated_at, revision_id")
+              .in("id", pageIds)
+              .eq("organization_id", activeOrg.id)
+              .eq("is_archived", false);
+
+            if (pageRows && pageRows.length > 0) {
+              const orderMap = new Map(pageIds.map((id: string, idx: number) => [id, idx]));
+              pageRows.sort((a, b) => (orderMap.get(a.id) ?? 0) - (orderMap.get(b.id) ?? 0));
+              return pageRows as PageRecord[];
+            }
+          }
+        }
+      } catch {
+        // Fall back to standard query below
+      }
+
       query = query.or(`title.ilike.%${term}%,content_text.ilike.%${term}%`);
     }
 
@@ -911,7 +1026,7 @@ export async function reorderPagesAction(params: {
   targetPageId: string;
   dropPosition: "before" | "after" | "inside";
   isFavoriteList?: boolean;
-}): Promise<{ success: boolean; error?: string }> {
+}): Promise<{ success: boolean; code?: string; error?: string }> {
   try {
     if (!isValidUuid(params.activePageId) || !isValidUuid(params.targetPageId)) {
       return { success: false, error: "Invalid IDs" };
@@ -949,17 +1064,42 @@ export async function reorderPagesAction(params: {
       const insertIdx = params.dropPosition === "before" ? targetIdx : targetIdx + 1;
       filtered.splice(insertIdx, 0, activeItem);
 
-      // Re-index favorite positions
-      for (let i = 0; i < filtered.length; i++) {
-        await supabase
-          .from("pages")
-          .update({ favorite_position: (i + 1) * 10 })
-          .eq("id", filtered[i].id)
-          .eq("organization_id", activeOrg.id);
-      }
+      // Condition 4.3: Plan favorite updates and sort by id ASC for deterministic lock acquisition
+      const plannedFavoriteUpdates = filtered.map((item, i) => ({
+        id: item.id,
+        favorite_position: (i + 1) * 10,
+      }));
+      plannedFavoriteUpdates.sort((a, b) => a.id.localeCompare(b.id));
 
-      revalidatePath("/dashboard/pages");
-      return { success: true };
+      let favoriteAttempt = 0;
+      while (favoriteAttempt < 2) {
+        try {
+          for (const item of plannedFavoriteUpdates) {
+            const { error: updErr } = await supabase
+              .from("pages")
+              .update({ favorite_position: item.favorite_position })
+              .eq("id", item.id)
+              .eq("organization_id", activeOrg.id);
+            if (updErr) throw updErr;
+          }
+          revalidatePath("/dashboard/pages");
+          return { success: true };
+        } catch (err: unknown) {
+          favoriteAttempt++;
+          const errObj = err as { code?: string; message?: string };
+          if (favoriteAttempt < 2 && (errObj?.code === "40P01" || errObj?.message?.includes("deadlock"))) {
+            await new Promise((r) => setTimeout(r, 50 + Math.random() * 50));
+            continue;
+          }
+          logger.error("Error updating favorite positions", err);
+          return {
+            success: false,
+            code: errObj?.code === "40P01" ? "DEADLOCK" : "UPDATE_FAILED",
+            error: "Falha ao reordenar favoritos devido a conflito de concorrência.",
+          };
+        }
+      }
+      return { success: false, code: "DEADLOCK", error: "Deadlock ao reordenar favoritos." };
     }
 
     // Reordering within the general Pages tree
@@ -1032,21 +1172,45 @@ export async function reorderPagesAction(params: {
     const insertIdx = params.dropPosition === "before" ? targetIdx : targetIdx + 1;
     filtered.splice(insertIdx, 0, activeItem);
 
-    // Re-index positions
-    for (let i = 0; i < filtered.length; i++) {
+    // Condition 4.3: Plan tree updates and sort by id ASC for deterministic lock acquisition
+    const plannedTreeUpdates = filtered.map((item, i) => {
       const updates: Record<string, unknown> = { position: (i + 1) * 10 };
-      if (filtered[i].id === params.activePageId) {
+      if (item.id === params.activePageId) {
         updates.parent_page_id = parentId;
       }
-      await supabase
-        .from("pages")
-        .update(updates)
-        .eq("id", filtered[i].id)
-        .eq("organization_id", activeOrg.id);
-    }
+      return { id: item.id, updates };
+    });
+    plannedTreeUpdates.sort((a, b) => a.id.localeCompare(b.id));
 
-    revalidatePath("/dashboard/pages");
-    return { success: true };
+    let treeAttempt = 0;
+    while (treeAttempt < 2) {
+      try {
+        for (const item of plannedTreeUpdates) {
+          const { error: updErr } = await supabase
+            .from("pages")
+            .update(item.updates)
+            .eq("id", item.id)
+            .eq("organization_id", activeOrg.id);
+          if (updErr) throw updErr;
+        }
+        revalidatePath("/dashboard/pages");
+        return { success: true };
+      } catch (err: unknown) {
+        treeAttempt++;
+        const errObj = err as { code?: string; message?: string };
+        if (treeAttempt < 2 && (errObj?.code === "40P01" || errObj?.message?.includes("deadlock"))) {
+          await new Promise((r) => setTimeout(r, 50 + Math.random() * 50));
+          continue;
+        }
+        logger.error("Error updating page positions", err);
+        return {
+          success: false,
+          code: errObj?.code === "40P01" ? "DEADLOCK" : "UPDATE_FAILED",
+          error: "Falha ao reordenar páginas devido a conflito de concorrência.",
+        };
+      }
+    }
+    return { success: false, code: "DEADLOCK", error: "Deadlock ao reordenar páginas." };
   } catch (err: unknown) {
     logger.error("Unexpected error in reorderPagesAction", err);
     return { success: false, error: "Failed to reorder pages" };
@@ -1817,7 +1981,14 @@ export async function deletePageCommentAction(params: {
 export async function restorePageVersionAction(params: {
   pageId: string;
   versionId: string;
-}): Promise<{ success: boolean; error?: string }> {
+}): Promise<{
+  success: boolean;
+  newRevision?: number;
+  title?: string;
+  content?: EditorBlock[];
+  code?: string;
+  error?: string;
+}> {
   try {
     if (!isValidUuid(params.pageId) || !isValidUuid(params.versionId)) {
       return { success: false, error: "Invalid parameters" };
@@ -1833,6 +2004,28 @@ export async function restorePageVersionAction(params: {
     const activeOrg = await getActiveOrganization();
     if (!activeOrg) return { success: false, error: "No active workspace" };
 
+    // Try executing through atomic restore_page_version RPC
+    const { data: rpcData, error: rpcErr } = await supabase.rpc("restore_page_version", {
+      p_page_id: params.pageId,
+      p_version_id: params.versionId,
+    });
+
+    if (!rpcErr && rpcData && typeof rpcData === "object" && (rpcData as { success?: boolean }).success) {
+      revalidatePath(`/dashboard/pages/${params.pageId}`);
+      return {
+        success: true,
+        newRevision: Number((rpcData as { revision_id: number }).revision_id),
+        title: (rpcData as { title?: string }).title,
+        content: (rpcData as { content?: EditorBlock[] }).content,
+      };
+    }
+
+    if (rpcErr && (rpcErr as { code?: string }).code !== "PGRST202" && !rpcErr.message?.includes("function public.restore_page_version")) {
+      logger.error("RPC restore_page_version failed", rpcErr);
+      return { success: false, code: "RPC_ERROR", error: rpcErr.message };
+    }
+
+    // Fallback path: manual restore with revision increment
     const { data: version, error: verErr } = await supabase
       .from("page_versions")
       .select("*")
@@ -1842,8 +2035,17 @@ export async function restorePageVersionAction(params: {
       .maybeSingle();
 
     if (verErr || !version) {
-      return { success: false, error: "Version not found" };
+      return { success: false, code: "VERSION_NOT_FOUND", error: "Version not found" };
     }
+
+    // Fetch current revision to increment
+    const { data: curPage } = await supabase
+      .from("pages")
+      .select("revision_id")
+      .eq("id", params.pageId)
+      .single();
+
+    const nextRev = (curPage?.revision_id ?? 1) + 1;
 
     // Update active page content
     const { error: updateErr } = await supabase
@@ -1852,6 +2054,7 @@ export async function restorePageVersionAction(params: {
         title: version.title,
         content: version.content,
         content_text: version.content_text,
+        revision_id: nextRev,
         last_edited_by: user.id,
         updated_at: new Date().toISOString(),
       })
@@ -1859,7 +2062,7 @@ export async function restorePageVersionAction(params: {
       .eq("organization_id", activeOrg.id);
 
     if (updateErr) {
-      return { success: false, error: updateErr.message };
+      return { success: false, code: "UPDATE_FAILED", error: updateErr.message };
     }
 
     // Record activity for restoration
@@ -1872,6 +2075,7 @@ export async function restorePageVersionAction(params: {
         metadata: {
           restored_version_number: version.version_number,
           version_id: version.id,
+          new_revision_id: nextRev,
         },
       });
     } catch {
@@ -1879,10 +2083,51 @@ export async function restorePageVersionAction(params: {
     }
 
     revalidatePath(`/dashboard/pages/${params.pageId}`);
-    return { success: true };
+    return {
+      success: true,
+      newRevision: nextRev,
+      title: version.title,
+      content: version.content as EditorBlock[],
+    };
   } catch (err: unknown) {
     logger.error("Unexpected error in restorePageVersionAction", err);
-    return { success: false, error: "Failed to restore version" };
+    return { success: false, code: "UNEXPECTED_ERROR", error: "Failed to restore version" };
+  }
+}
+
+/**
+ * Fetches latest revision token, title, and blocks for optimistic concurrency resolution.
+ */
+export async function getPageLatestRevisionAction(pageId: string): Promise<{
+  success: boolean;
+  revisionId?: number;
+  title?: string;
+  blocks?: EditorBlock[];
+  error?: string;
+}> {
+  try {
+    if (!isValidUuid(pageId)) return { success: false, error: "Invalid page ID" };
+    const supabase = await createClient();
+    const activeOrg = await getActiveOrganization();
+    if (!activeOrg) return { success: false, error: "No active workspace" };
+
+    const { data: page, error } = await supabase
+      .from("pages")
+      .select("id, title, content, revision_id")
+      .eq("id", pageId)
+      .eq("organization_id", activeOrg.id)
+      .single();
+
+    if (error || !page) return { success: false, error: "Page not found" };
+    return {
+      success: true,
+      revisionId: page.revision_id ?? 1,
+      title: page.title,
+      blocks: Array.isArray(page.content) ? (page.content as EditorBlock[]) : [],
+    };
+  } catch (err: unknown) {
+    logger.error("Error fetching page latest revision", err);
+    return { success: false, error: "Failed to fetch page revision" };
   }
 }
 
@@ -2020,10 +2265,18 @@ export async function addCodeSnippetToPageAction(params: {
   position?: "end" | "start" | "after_block";
   targetBlockId?: string;
   insertIndex?: number;
-}): Promise<{ success: boolean; pageId?: string; blocks?: EditorBlock[]; error?: string }> {
+  expectedRevision?: number;
+}): Promise<{
+  success: boolean;
+  pageId?: string;
+  blocks?: EditorBlock[];
+  newRevision?: number;
+  code?: string;
+  error?: string;
+}> {
   try {
     if (!isValidUuid(params.pageId)) {
-      return { success: false, error: "Invalid page ID" };
+      return { success: false, code: "INVALID_PAGE_ID", error: "Invalid page ID" };
     }
 
     const supabase = await createClient();
@@ -2032,28 +2285,37 @@ export async function addCodeSnippetToPageAction(params: {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return { success: false, error: "Unauthorized" };
+      return { success: false, code: "UNAUTHORIZED", error: "Unauthorized" };
     }
 
     const activeOrg = await getActiveOrganization();
     if (!activeOrg) {
-      return { success: false, error: "No active workspace" };
+      return { success: false, code: "NO_WORKSPACE", error: "No active workspace" };
     }
 
     const canEdit = await hasPermission(user.id, activeOrg.id, "pages.edit");
     if (!canEdit) {
-      return { success: false, error: "Forbidden: You do not have permission to edit pages." };
+      return { success: false, code: "FORBIDDEN", error: "Forbidden: You do not have permission to edit pages." };
     }
 
     const { data: page, error: fetchErr } = await supabase
       .from("pages")
-      .select("id, title, content, content_text")
+      .select("id, title, icon, content, content_text, revision_id")
       .eq("id", params.pageId)
       .eq("organization_id", activeOrg.id)
       .single();
 
     if (fetchErr || !page) {
-      return { success: false, error: "Page not found in this workspace" };
+      return { success: false, code: "NOT_FOUND", error: "Page not found in this workspace" };
+    }
+
+    // Condition 4.1: If expectedRevision was specified, verify it matches page's current revision
+    if (params.expectedRevision !== undefined && page.revision_id !== undefined && page.revision_id !== params.expectedRevision) {
+      return {
+        success: false,
+        code: "STALE_WRITE",
+        error: "A página foi modificada noutro separador. Atualize a página antes de inserir o excerto de código.",
+      };
     }
 
     const existingBlocks: EditorBlock[] = Array.isArray(page.content)
@@ -2140,12 +2402,51 @@ export async function addCodeSnippetToPageAction(params: {
     }
 
     const contentText = extractPlainText(newBlocks);
+    const targetRev = page.revision_id ?? 1;
 
+    // Condition 4.1: Atomic update via save_page_content RPC to ensure concurrency safety
+    const { data: rpcData, error: rpcErr } = await supabase.rpc("save_page_content", {
+      p_page_id: params.pageId,
+      p_expected_revision: targetRev,
+      p_title: page.title,
+      p_icon: page.icon,
+      p_content: newBlocks,
+      p_content_text: contentText,
+    });
+
+    if (!rpcErr && rpcData && typeof rpcData === "object" && (rpcData as { success?: boolean }).success) {
+      revalidatePath(`/dashboard/pages/${params.pageId}`);
+      return {
+        success: true,
+        pageId: params.pageId,
+        blocks: newBlocks,
+        newRevision: Number((rpcData as { revision_id: number }).revision_id),
+      };
+    }
+
+    if (rpcErr) {
+      const msg = rpcErr.message || "";
+      if (msg.includes("STALE_WRITE")) {
+        return {
+          success: false,
+          code: "STALE_WRITE",
+          error: "A página foi modificada concorrentemente. Atualize antes de adicionar o excerto.",
+        };
+      }
+      if ((rpcErr as { code?: string }).code !== "PGRST202" && !msg.includes("function public.save_page_content")) {
+        logger.error("RPC save_page_content failed in addCodeSnippetToPageAction", rpcErr);
+        return { success: false, code: "RPC_ERROR", error: rpcErr.message };
+      }
+    }
+
+    // Fallback: direct update with revision increment
+    const nextRev = targetRev + 1;
     const { error: updateErr } = await supabase
       .from("pages")
       .update({
         content: newBlocks,
         content_text: contentText,
+        revision_id: nextRev,
         last_edited_by: user.id,
         updated_at: new Date().toISOString(),
       })
@@ -2154,7 +2455,7 @@ export async function addCodeSnippetToPageAction(params: {
 
     if (updateErr) {
       logger.error("Failed to update page with code snippet", updateErr);
-      return { success: false, error: updateErr.message || "Could not update page" };
+      return { success: false, code: "UPDATE_FAILED", error: updateErr.message || "Could not update page" };
     }
 
     // Record activity non-blocking

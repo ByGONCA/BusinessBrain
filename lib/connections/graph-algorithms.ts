@@ -175,15 +175,14 @@ export function findShortestPathBFS(
 
   const { undirected } = buildAdjacencyList(allNodes, allEdges);
   const visited = new Set<string>();
+  const cameFrom = new Map<string, { prevId: string; edge: GraphEdge; direction: "forward" | "reverse" }>();
 
-  // Queue stores [currentNodeId, path]
-  const queue: Array<[string, ShortestPathStep[]]> = [
-    [startNodeId, [{ node: nodeMap.get(startNodeId)! }]],
-  ];
+  const queue: string[] = [startNodeId];
   visited.add(startNodeId);
+  let head = 0;
 
-  while (queue.length > 0) {
-    const [currentId, currentPath] = queue.shift()!;
+  while (head < queue.length) {
+    const currentId = queue[head++];
 
     // Sort neighbors deterministically by neighborId, then edge id
     const neighbors = [...(undirected.get(currentId) || [])].sort((a, b) =>
@@ -191,31 +190,34 @@ export function findShortestPathBFS(
     );
 
     for (const { neighborId, edge } of neighbors) {
+      if (visited.has(neighborId)) continue;
+
       const direction: "forward" | "reverse" = edge.source === currentId ? "forward" : "reverse";
+      visited.add(neighborId);
+      cameFrom.set(neighborId, { prevId: currentId, edge, direction });
 
       if (neighborId === targetNodeId) {
-        const targetNode = nodeMap.get(targetNodeId)!;
-        const completePath: ShortestPathStep[] = [
-          ...currentPath,
-          { node: targetNode, edge, direction },
-        ];
+        // Reconstruct path from target to start in O(path_length)
+        const path: ShortestPathStep[] = [];
+        let curr = targetNodeId;
+
+        while (curr !== startNodeId) {
+          const stepInfo = cameFrom.get(curr)!;
+          const node = nodeMap.get(curr)!;
+          path.unshift({ node, edge: stepInfo.edge, direction: stepInfo.direction });
+          curr = stepInfo.prevId;
+        }
+
+        path.unshift({ node: nodeMap.get(startNodeId)! });
+
         return {
           found: true,
-          path: completePath,
-          totalHops: completePath.length - 1,
+          path,
+          totalHops: path.length - 1,
         };
       }
 
-      if (!visited.has(neighborId)) {
-        visited.add(neighborId);
-        const neighborNode = nodeMap.get(neighborId);
-        if (neighborNode) {
-          queue.push([
-            neighborId,
-            [...currentPath, { node: neighborNode, edge, direction }],
-          ]);
-        }
-      }
+      queue.push(neighborId);
     }
   }
 
@@ -353,9 +355,10 @@ export function computeDeterministicGraphLayout(
     const comp: GraphNode[] = [];
     const queue: string[] = [node.id];
     visited.add(node.id);
+    let head = 0;
 
-    while (queue.length > 0) {
-      const currId = queue.shift()!;
+    while (head < queue.length) {
+      const currId = queue[head++];
       const currNode = nodeMap.get(currId);
       if (currNode) comp.push(currNode);
 

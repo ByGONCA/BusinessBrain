@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "npx tsx scripts/test-runner.ts"
   },
   "dependencies": {
     "@stripe/stripe-js": "^5.5.0",

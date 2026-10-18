@@ -138,11 +138,15 @@ export function InteractiveGraphCanvas({
   const transformRef = React.useRef(transform);
   transformRef.current = transform;
 
+  // Dynamic wake reference for idle loop suspension (PERF-03)
+  const wakeLoopRef = React.useRef<(minAlpha?: number) => void>(() => {});
+
   // Immediate synchronous transform update helper to avoid stale coordinate lag during rapid events
   const applyTransform = React.useCallback(
     (next: { x: number; y: number; scale: number }) => {
       transformRef.current = next;
       setTransform(next);
+      wakeLoopRef.current();
     },
     []
   );
@@ -266,6 +270,7 @@ export function InteractiveGraphCanvas({
     simNodesRef.current = newSimNodes;
     simEdgesRef.current = newSimEdges;
     alphaRef.current = 1.0;
+    wakeLoopRef.current(1.0);
   }, [nodes, edges, filterType]);
 
   // 2. Center/Fit to view
@@ -328,9 +333,10 @@ export function InteractiveGraphCanvas({
     });
   }, [selectedNodeId, applyTransform]);
 
-  // 3. Force-directed physical simulation loop + render loop
+  // 3. Force-directed physical simulation loop + render loop (with idle sleep)
   React.useEffect(() => {
-    let animId: number;
+    let animId: number | null = null;
+    let isLoopRunning = false;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -439,10 +445,19 @@ export function InteractiveGraphCanvas({
         alphaRef.current *= 0.985;
       }
 
-      // 4. Render
+      // 4. Render current frame
       render(activeCtx, width, height, dpr);
 
-      animId = requestAnimationFrame(step);
+      // PERF-03: Suspend loop when physical energy cools below threshold and no user gesture is active
+      const isDragging = !!draggedNodeRef.current;
+      const isInteracting = isInteractingRef.current;
+
+      if (alphaRef.current > 0.005 || isDragging || isInteracting) {
+        animId = requestAnimationFrame(step);
+      } else {
+        isLoopRunning = false;
+        animId = null;
+      }
     }
 
     function render(c: CanvasRenderingContext2D, w: number, h: number, dpr: number) {
@@ -738,8 +753,25 @@ export function InteractiveGraphCanvas({
       c.restore();
     }
 
-    animId = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(animId);
+    const wakeLoop = (minAlpha?: number) => {
+      if (minAlpha !== undefined && alphaRef.current < minAlpha) {
+        alphaRef.current = minAlpha;
+      }
+      if (!isLoopRunning) {
+        isLoopRunning = true;
+        animId = requestAnimationFrame(step);
+      }
+    };
+
+    wakeLoopRef.current = wakeLoop;
+    wakeLoop(1.0);
+
+    return () => {
+      if (animId !== null) {
+        cancelAnimationFrame(animId);
+      }
+      isLoopRunning = false;
+    };
   }, [selectedNodeId, focusDepth, highlightedPathNodeIds, highlightedPathEdgeIds]);
 
   // Handle Resize for High-DPI Canvas with ResizeObserver
@@ -763,6 +795,7 @@ export function InteractiveGraphCanvas({
         canvas.height = targetH;
         canvas.style.width = `${width}px`;
         canvas.style.height = `${height}px`;
+        wakeLoopRef.current();
       }
     }
 
@@ -812,6 +845,7 @@ export function InteractiveGraphCanvas({
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return; // Only left click
+    wakeLoopRef.current();
     const { x, y } = screenToCanvas(e.clientX, e.clientY);
     const hitNode = getNodeAtPoint(x, y);
 
@@ -826,6 +860,7 @@ export function InteractiveGraphCanvas({
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    wakeLoopRef.current();
     const { x, y } = screenToCanvas(e.clientX, e.clientY);
     const hitNode = getNodeAtPoint(x, y);
     hoveredNodeRef.current = hitNode;
@@ -899,6 +934,7 @@ export function InteractiveGraphCanvas({
       draggedNodeRef.current.vx = 0;
       draggedNodeRef.current.vy = 0;
       alphaRef.current = 0.4;
+      wakeLoopRef.current(0.4);
     } else if (isInteractingRef.current) {
       applyTransform({
         ...transformRef.current,
@@ -911,6 +947,7 @@ export function InteractiveGraphCanvas({
   };
 
   const handleMouseUp = () => {
+    wakeLoopRef.current();
     if (draggedNodeRef.current) {
       draggedNodeRef.current.isDragging = false;
       draggedNodeRef.current = null;

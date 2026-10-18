@@ -17,7 +17,7 @@ import { isValidUuid } from "@/lib/security/authorization";
 import { logger } from "@/lib/security/logger";
 
 export const PAGE_METADATA_COLUMNS =
-  "id, organization_id, parent_page_id, title, icon, icon_file_id, position, is_favorite, favorite_position, is_archived, archived_at, created_by, last_edited_by, created_at, updated_at";
+  "id, organization_id, parent_page_id, title, icon, icon_file_id, position, is_favorite, favorite_position, is_archived, archived_at, created_by, last_edited_by, created_at, updated_at, revision_id";
 
 /**
  * Retrieves all active (non-archived) pages for an organization, ordered by position and creation.
@@ -195,7 +195,10 @@ export async function searchPages(organizationId: string, searchTerm: string): P
   }
 
   const supabase = await createClient();
-  const term = searchTerm.trim();
+  const term = searchTerm.trim().replace(/[,()"\\\[\]{}]/g, "");
+  if (!term) {
+    return [];
+  }
 
   const { data, error } = await supabase
     .from("pages")

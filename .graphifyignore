@@ -1,0 +1,56 @@
+# BusinessBrain Graphify Exclusions
+# Never index secrets, dependencies, build artifacts, environments, or internal agent logs
+
+# Git & Agent internals
+.git/
+.agents/
+.gemini/
+.claude/
+.codex/
+.cursor/
+
+# Python Virtual Environments
+.venv/
+venv/
+__pycache__/
+
+# Dependencies & Package Managers
+node_modules/
+.pnp/
+.pnp.js
+.yarn/
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+bun.lock*
+
+# Next.js, Vercel & Build artifacts
+.next/
+out/
+build/
+dist/
+coverage/
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# Graphify's own outputs
+graphify-out/
+
+# Secrets, Environment Files & Keys (MANDATORY)
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+auth.json
+credentials.json
+database/migrations/*_STAGING.sql
+
+# Logs & Temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.bak

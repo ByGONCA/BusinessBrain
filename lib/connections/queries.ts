@@ -34,7 +34,7 @@ export const getCompanyGraphData = cache(
       const [pagesRes, entitiesRes, connectionsRes, legacyBlockRes] = await Promise.all([
         supabase
           .from("pages")
-          .select("id, title, icon, parent_page_id, content_text, created_at, organization_id")
+          .select("id, title, icon, parent_page_id, created_at, organization_id")
           .eq("organization_id", organizationId)
           .eq("is_archived", false)
           .limit(1000),
@@ -109,8 +109,7 @@ export const getCompanyGraphData = cache(
       // Transform Pages to GraphNodes
       const pageNodes: GraphNode[] = pages.map((p) => {
         const isDraft =
-          (!p.title || p.title.trim() === "Untitled") &&
-          (!p.content_text || p.content_text.trim() === "");
+          !p.title || p.title.trim() === "" || p.title.trim() === "Untitled";
 
         return {
           id: p.id,
