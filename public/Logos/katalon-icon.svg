@@ -1,8 +1,1 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="256px" height="393px" viewBox="0 0 256 393" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" preserveAspectRatio="xMidYMid">
-    <title>Katalon</title>
-    <g>
-        <polygon fill="#19D89F" points="256 261.406518 127.998039 261.406518 127.998039 392.131834 256 392.131834"></polygon>
-        <polygon fill="#000000" points="128.00147 0 0 130.725316 0 261.450632 128.00147 261.450632 255.959153 130.725316 255.959153 0"></polygon>
-    </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="256" height="393" preserveAspectRatio="xMidYMid" version="1.1" viewBox="0 0 256 393"><title>Katalon</title><g><polygon fill="#19D89F" points="256 261.407 127.998 261.407 127.998 392.132 256 392.132"/><polygon fill="#000" points="128.001 0 0 130.725 0 261.451 128.001 261.451 255.959 130.725 255.959 0"/></g></svg>

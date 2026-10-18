@@ -1,7 +1,1 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="256px" height="255px" viewBox="0 0 256 255" version="1.1" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid">
-    <title>Mailjet</title>
-    <g>
-        <polygon fill="#9585F4" points="1.42108547e-14 97.9914749 93.4083546 140.330776 112.177323 121.670929 64.3819267 99.9556692 212.56948 43.2122762 155.607843 190.745098 134.001705 143.386189 115.123615 162.155158 116.105712 164.337596 157.462916 255.017903 256 -7.10542736e-15"></polygon>
-    </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="255" preserveAspectRatio="xMidYMid" version="1.1" viewBox="0 0 256 255"><title>Mailjet</title><g><polygon fill="#9585F4" points="0 97.991 93.408 140.331 112.177 121.671 64.382 99.956 212.569 43.212 155.608 190.745 134.002 143.386 115.124 162.155 116.106 164.338 157.463 255.018 256 0"/></g></svg>
