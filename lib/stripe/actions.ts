@@ -80,6 +80,14 @@ export async function createCheckoutSessionAction(
     };
   }
 
+  // Stripe Price IDs must begin with "price_" (or "plan_").
+  // If a numerical literal price (e.g. "29") is passed, provide a precise, actionable explanation.
+  if (!stripePriceId.startsWith("price_") && !stripePriceId.startsWith("plan_")) {
+    return {
+      error: `Configuração inválida para STRIPE_${planId.toUpperCase()}_PRICE_ID ("${stripePriceId}"). O Stripe exige o identificador de objeto de preço (ex.: "price_1P..."), e não o valor numérico em dinheiro. Acede ao Stripe Dashboard -> Product Catalog -> ${planId.toUpperCase()} -> Copiar ID do Preço.`,
+    };
+  }
+
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const trialDays = getTrialDays();
 
@@ -175,3 +183,81 @@ export async function createCheckoutSessionAction(
     };
   }
 }
+
+/**
+ * Creates a Stripe Customer Billing Portal Session.
+ * Allows workspace Owners and Admins to manage payment methods, upgrade/downgrade plans,
+ * and view billing receipts self-serve.
+ */
+export async function createCustomerPortalSessionAction(): Promise<{
+  url?: string;
+  error?: string;
+}> {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Authentication required." };
+  }
+
+  const activeOrg = await getActiveOrganization();
+  if (!activeOrg) {
+    return { error: "No active workspace selected." };
+  }
+
+  // Permission verification: Only Owner or Admin can manage billing
+  const canManageBilling =
+    activeOrg.role === "owner" ||
+    activeOrg.role === "admin" ||
+    (await hasPermission(user.id, activeOrg.id, "billing.manage"));
+
+  if (!canManageBilling) {
+    return { error: "Forbidden: Only workspace owners and admins can manage billing." };
+  }
+
+  // Rate limit portal session generation
+  const rl = await rateLimit(`stripe-portal:${activeOrg.id}`, user.id, RATE_LIMIT_PRESETS.MUTATIONS);
+  if (!rl.success) {
+    return { error: "Too many portal requests. Please wait a moment." };
+  }
+
+  try {
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("stripe_customer_id")
+      .eq("organization_id", activeOrg.id)
+      .maybeSingle();
+
+    if (!sub || !sub.stripe_customer_id) {
+      return {
+        error: "No active billing customer found for this workspace. Please start a subscription first.",
+      };
+    }
+
+    const stripe = getStripeClient();
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: sub.stripe_customer_id,
+      return_url: `${appUrl}/dashboard/settings?tab=billing`,
+    });
+
+    if (!portalSession.url) {
+      return { error: "Failed to generate billing portal URL." };
+    }
+
+    return { url: portalSession.url };
+  } catch (err: unknown) {
+    logger.error("Failed to create Stripe billing portal session", err, {
+      orgId: activeOrg.id,
+      userId: user.id,
+    });
+    return {
+      error: "Unable to connect to Stripe Billing Portal at this time. Please try again later.",
+    };
+  }
+}
+

@@ -11,6 +11,8 @@ import { SidePeekProvider } from "@/components/dashboard/pages/side-peek-context
 import { DashboardSplitLayout } from "@/components/dashboard/dashboard-split-layout";
 
 import { resolveUserPermissions } from "@/lib/permissions/resolver";
+import { getUserOnboardingState } from "@/lib/onboarding/queries";
+import { GuidedTour } from "@/components/dashboard/tour/guided-tour";
 
 export default async function DashboardLayout({
   children,
@@ -19,14 +21,15 @@ export default async function DashboardLayout({
 }) {
   const { user, organizations, activeOrg, entitlement } = await verifyAccessOrRedirect();
 
-  const [pageTree, favoritePages, initialIntegrations, userPerms] = activeOrg
+  const [pageTree, favoritePages, initialIntegrations, userPerms, onboardingState] = activeOrg
     ? await Promise.all([
         getPageTree(activeOrg.id),
         getFavoritePagesForOrg(activeOrg.id),
         getOrganizationIntegrations(activeOrg.id),
         resolveUserPermissions(user.id, activeOrg.id),
+        getUserOnboardingState(),
       ])
-    : [[], [], [], null];
+    : [[], [], [], null, null];
 
   return (
     <SidebarProvider>
@@ -64,6 +67,12 @@ export default async function DashboardLayout({
 
               {/* Inbox Modal Window (Loaded on-demand) */}
               <LazyInboxModal />
+
+              {/* Guided Interactive In-App Tour */}
+              <GuidedTour
+                initialTourCompleted={onboardingState?.tourCompleted ?? true}
+                initialTourStep={onboardingState?.tourStep ?? 0}
+              />
             </div>
           </SidePeekProvider>
         </InboxProvider>

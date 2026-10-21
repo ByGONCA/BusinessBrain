@@ -20,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import { usePlatform } from "@/lib/hooks/use-platform";
 import { useLanguage } from "@/lib/i18n";
+import { resetTourAction } from "@/lib/onboarding/actions";
 
 export interface HelpMenuProps {
   placement?: "bottom" | "top";
@@ -89,6 +90,7 @@ export function HelpMenu({
       {triggerVariant === "account-item" ? (
         <button
           type="button"
+          data-tour="help-menu"
           onClick={() => {
             setIsOpen(!isOpen);
             setIsMoreOpen(false);
@@ -110,6 +112,7 @@ export function HelpMenu({
       ) : triggerVariant === "quick-nav" ? (
         <button
           type="button"
+          data-tour="help-menu"
           onClick={() => {
             setIsOpen(!isOpen);
             setIsMoreOpen(false);
@@ -127,6 +130,7 @@ export function HelpMenu({
       ) : (
         <button
           type="button"
+          data-tour="help-menu"
           onClick={() => {
             setIsOpen(!isOpen);
             setIsMoreOpen(false);
@@ -165,6 +169,19 @@ export function HelpMenu({
         >
           {/* Top Actions Group */}
           <div className="space-y-0.5">
+            <button
+              type="button"
+              onClick={async () => {
+                setIsOpen(false);
+                await resetTourAction();
+                window.dispatchEvent(new CustomEvent("businessbrain:restart-tour"));
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors text-left"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
+              <span>Restart Interactive Tour</span>
+            </button>
+
             <Link
               href="/dashboard/knowledge"
               onClick={() => setIsOpen(false)}

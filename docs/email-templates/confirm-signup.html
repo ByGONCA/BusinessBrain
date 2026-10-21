@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirm Your Company Brain Account</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #09090b;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #f4f4f5;
+    }
+    .wrapper {
+      width: 100%;
+      table-layout: fixed;
+      background-color: #09090b;
+      padding: 40px 0;
+    }
+    .main {
+      background-color: #141416;
+      margin: 0 auto;
+      width: 100%;
+      max-width: 540px;
+      border: 1px solid #27272a;
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .header {
+      padding: 32px 36px 20px;
+      text-align: center;
+    }
+    .logo {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #ffffff;
+      text-decoration: none;
+    }
+    .logo-badge {
+      display: inline-block;
+      width: 36px;
+      height: 36px;
+      line-height: 36px;
+      background: #2563eb;
+      border-radius: 10px;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 18px;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    .content {
+      padding: 0 36px 36px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin: 0 0 12px;
+      color: #f4f4f5;
+      letter-spacing: -0.3px;
+    }
+    p {
+      font-size: 14px;
+      line-height: 22px;
+      color: #a1a1aa;
+      margin: 0 0 24px;
+    }
+    .btn {
+      display: inline-block;
+      background-color: #2563eb;
+      color: #ffffff !important;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 13px 28px;
+      border-radius: 8px;
+      text-decoration: none;
+      margin-bottom: 24px;
+    }
+    .code-box {
+      background-color: #1e1e22;
+      border: 1px solid #3f3f46;
+      border-radius: 10px;
+      padding: 16px;
+      margin: 20px 0 24px;
+      text-align: center;
+    }
+    .code-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #71717a;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .code-digits {
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: 6px;
+      color: #ffffff;
+    }
+    .divider {
+      border-top: 1px solid #27272a;
+      margin: 24px 0;
+    }
+    .footer {
+      font-size: 12px;
+      line-height: 18px;
+      color: #71717a;
+      padding: 0 36px 28px;
+      text-align: center;
+    }
+    .fallback-url {
+      word-break: break-all;
+      color: #3b82f6;
+      text-decoration: underline;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="main">
+      <div class="header">
+        <div class="logo-badge">CB</div>
+        <div><a href="{{ .SiteURL }}" class="logo">Company Brain</a></div>
+      </div>
+      <div class="content">
+        <h1>Confirm your email address</h1>
+        <p>Thanks for creating your Company Brain workspace. Please confirm your email address by clicking the button below or using your verification code:</p>
+        
+        <a href="{{ .ConfirmationURL }}" class="btn">Confirm Email Address</a>
+
+        <div class="code-box">
+          <div class="code-label">Verification Code</div>
+          <div class="code-digits">{{ .Token }}</div>
+        </div>
+
+        <p style="font-size: 12px; color: #71717a; margin-bottom: 0;">
+          If the button above does not work, copy and paste this link into your browser:<br>
+          <a href="{{ .ConfirmationURL }}" class="fallback-url">{{ .ConfirmationURL }}</a>
+        </p>
+      </div>
+      <div class="footer">
+        <div class="divider"></div>
+        <p>This verification link and code will expire shortly. If you did not sign up for Company Brain, you can safely ignore this email.</p>
+        <p>&copy; Company Brain. The memory & intelligence layer for modern companies.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

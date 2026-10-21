@@ -125,6 +125,9 @@ export function PeopleHub({
   const [inviteTeamId, setInviteTeamId] = React.useState("");
   const [isSendingInvite, setIsSendingInvite] = React.useState(false);
   const [createdInviteLink, setCreatedInviteLink] = React.useState<string | null>(null);
+  const [inviteEmailSent, setInviteEmailSent] = React.useState<boolean | null>(null);
+  const [inviteEmailError, setInviteEmailError] = React.useState<string | null>(null);
+  const [invitedTargetEmail, setInvitedTargetEmail] = React.useState<string>("");
   const [inviteError, setInviteError] = React.useState<string | null>(null);
   const [copiedToken, setCopiedToken] = React.useState(false);
 
@@ -170,19 +173,25 @@ export function PeopleHub({
       setInviteError("Please select a team for the member.");
       return;
     }
+    const targetEmail = inviteEmail.trim();
     setIsSendingInvite(true);
     setInviteError(null);
     setCreatedInviteLink(null);
+    setInviteEmailSent(null);
+    setInviteEmailError(null);
+    setInvitedTargetEmail(targetEmail);
     try {
       const res = await createInvitationAction({
         organizationId: activeOrg.id,
-        email: inviteEmail.trim(),
+        email: targetEmail,
         role: "member",
         jobTitle: undefined,
         initialTeamIds: inviteTeamId ? [inviteTeamId] : undefined,
       });
       if (res.success) {
         setCreatedInviteLink(res.inviteLink || null);
+        setInviteEmailSent(res.emailSent ?? false);
+        setInviteEmailError(res.emailError || null);
         setInviteEmail("");
         setInviteTeamId("");
         await loadInvitations();
@@ -234,7 +243,11 @@ export function PeopleHub({
     if (res.success) {
       if (res.inviteLink) {
         navigator.clipboard?.writeText(res.inviteLink);
-        alert(`New invitation link copied to clipboard:\n${res.inviteLink}`);
+      }
+      if (res.emailSent) {
+        alert("Invitation email resent successfully! The link has also been copied to your clipboard.");
+      } else {
+        alert(`Invitation refreshed. Note: email delivery was not sent (${res.emailError || "Email provider not configured"}).\n\nNew link copied to clipboard:\n${res.inviteLink}`);
       }
       await loadInvitations();
     } else {
@@ -561,6 +574,9 @@ export function PeopleHub({
                     setInviteTeamId("");
                     setInviteError(null);
                     setCreatedInviteLink(null);
+                    setInviteEmailSent(null);
+                    setInviteEmailError(null);
+                    setInvitedTargetEmail("");
                     setCopiedToken(false);
                     setIsInviteModalOpen(true);
                   }}
@@ -1698,13 +1714,27 @@ export function PeopleHub({
 
             {createdInviteLink ? (
               <div className="space-y-4 py-2">
-                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 flex items-start gap-2">
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
-                  <div>
-                    <span className="font-semibold block">Invitation created successfully!</span>
-                    <span>Share the link below with your team member. It expires in 7 days and can only be used once.</span>
+                {inviteEmailSent ? (
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-300 flex items-start gap-2">
+                    <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
+                    <div>
+                      <span className="font-semibold block">Invitation email dispatched!</span>
+                      <span>
+                        An email invitation was successfully sent to <strong className="text-white">{invitedTargetEmail}</strong>. You can also copy the direct single-use link below.
+                      </span>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-300 flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+                    <div>
+                      <span className="font-semibold block">Invitation created (Email delivery skipped)</span>
+                      <span>
+                        {inviteEmailError || "The email provider is not configured. Please share the invitation link below directly with your team member."}
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-zinc-300">Invite Link</label>
@@ -1736,6 +1766,9 @@ export function PeopleHub({
                     onClick={() => {
                       setIsInviteModalOpen(false);
                       setCreatedInviteLink(null);
+                      setInviteEmailSent(null);
+                      setInviteEmailError(null);
+                      setInvitedTargetEmail("");
                     }}
                     className="px-4 py-1.5 text-xs font-semibold rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors cursor-pointer"
                   >

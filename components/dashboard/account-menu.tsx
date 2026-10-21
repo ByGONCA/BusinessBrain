@@ -287,6 +287,7 @@ export function AccountMenu({
       {/* Account Control Button (Fixed at Bottom-Left) */}
       <button
         type="button"
+        data-tour="settings-billing"
         onClick={() => setIsOpen(!isOpen)}
         aria-expanded={isOpen}
         aria-haspopup="menu"

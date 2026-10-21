@@ -88,6 +88,19 @@ export async function verifyAccessOrRedirect(): Promise<{
     redirect("/login");
   }
 
+  // Authoritative server-side MFA check: enforce AAL2 if account has active factors
+  const supabase = await createClient();
+  try {
+    const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aalData && aalData.currentLevel === "aal1" && aalData.nextLevel === "aal2") {
+      redirect("/auth/mfa");
+    }
+  } catch (mfaErr) {
+    if (mfaErr && typeof mfaErr === "object" && "digest" in mfaErr) {
+      throw mfaErr; // Re-throw Next.js redirect exception
+    }
+  }
+
   const organizations = await getUserOrganizations();
   if (organizations.length === 0) {
     redirect("/onboarding");

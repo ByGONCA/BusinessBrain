@@ -3,20 +3,36 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Sparkles, ArrowRight, Loader2 } from "lucide-react";
+import { Sparkles, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
 import { signUpAction, AuthState } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OAuthButtons } from "@/components/ui/oauth-buttons";
+import { PasswordChecklist } from "@/components/auth/password-checklist";
+import { checkPasswordRequirements } from "@/lib/auth/password-rules";
 
 function SignUpForm({ returnUrl }: { returnUrl: string }) {
   const [state, formAction, isPending] = React.useActionState<AuthState, FormData>(
     signUpAction,
     {}
   );
+  const [password, setPassword] = React.useState("");
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [isPasswordTouched, setIsPasswordTouched] = React.useState(false);
+
+  const validation = React.useMemo(() => {
+    return checkPasswordRequirements(password);
+  }, [password]);
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    if (!validation.allMet) {
+      e.preventDefault();
+      setIsPasswordTouched(true);
+    }
+  };
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} onSubmit={handleSubmit} className="space-y-4">
       {returnUrl && <input type="hidden" name="returnUrl" value={returnUrl} />}
 
       {state?.error && (
@@ -42,14 +58,43 @@ function SignUpForm({ returnUrl }: { returnUrl: string }) {
         autoComplete="email"
       />
 
-      <Input
-        label="Password"
-        name="password"
-        type="password"
-        placeholder="At least 6 characters"
-        required
-        autoComplete="new-password"
-      />
+      <div className="space-y-2">
+        <Input
+          label="Password"
+          name="password"
+          type={showPassword ? "text" : "password"}
+          placeholder="Min. 8 chars (Aa, 123, & #$!)"
+          required
+          autoComplete="new-password"
+          value={password}
+          onChange={(e) => {
+            setPassword(e.target.value);
+            setIsPasswordTouched(true);
+          }}
+          onFocus={() => setIsPasswordTouched(true)}
+          rightElement={
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="text-[#71717A] hover:text-[#F5F5F5] transition-colors focus:outline-none p-1"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              tabIndex={-1}
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <Eye className="h-4 w-4" aria-hidden="true" />
+              )}
+            </button>
+          }
+        />
+
+        {/* Real-time Password Requirements Checklist */}
+        <PasswordChecklist
+          validation={validation}
+          touched={isPasswordTouched || password.length > 0}
+        />
+      </div>
 
       {/* Consents */}
       <div className="space-y-2.5 pt-1 text-xs text-[#A1A1AA]">
@@ -85,8 +130,9 @@ function SignUpForm({ returnUrl }: { returnUrl: string }) {
 
       <Button
         type="submit"
-        disabled={isPending}
-        className="w-full gap-2 mt-2"
+        disabled={isPending || !validation.allMet}
+        title={!validation.allMet ? "Please satisfy all password requirements" : undefined}
+        className="w-full gap-2 mt-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isPending ? (
           <>

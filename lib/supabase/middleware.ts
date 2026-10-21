@@ -83,24 +83,53 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
+  const isMfaRoute =
+    request.nextUrl.pathname === "/auth/mfa" || request.nextUrl.pathname === "/mfa";
+
   // Only authenticate/refresh session when auth cookies are present
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Redirect unauthenticated users from protected routes to login
-  if (!user && isProtectedRoute) {
+  // Redirect unauthenticated users from protected routes or MFA route to login
+  if (!user && (isProtectedRoute || isMfaRoute)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirectedFrom", request.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from auth entry pages to dashboard
-  if (user && isAuthRoute) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+  // Handle authenticated users and Multi-Factor Authentication (AAL2)
+  if (user) {
+    try {
+      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      const requiresMfa = aalData?.currentLevel === "aal1" && aalData?.nextLevel === "aal2";
+
+      if (requiresMfa) {
+        if (!isMfaRoute) {
+          const url = request.nextUrl.clone();
+          url.pathname = "/auth/mfa";
+          return NextResponse.redirect(url);
+        }
+        return supabaseResponse;
+      }
+    } catch {
+      // Graceful bypass if project does not have MFA configured
+    }
+
+    // If user has satisfied AAL requirements and visits /auth/mfa, send to dashboard
+    if (isMfaRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+
+    // Redirect authenticated users away from auth entry pages to dashboard
+    if (isAuthRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;

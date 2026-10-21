@@ -745,6 +745,7 @@ export function SidebarPageTree({
       {pagesList.length === 0 ? (
         <button
           type="button"
+          data-tour="new-page-btn"
           onClick={handleCreateRootPage}
           className="group flex w-full items-center gap-2 rounded-md px-2.5 h-[32px] text-[13px] font-medium text-[#71717A] hover:bg-[#18181B] hover:text-[#FAFAFA] transition-colors"
         >
@@ -756,6 +757,7 @@ export function SidebarPageTree({
           {pagesList.map((page) => renderNode(page, 0))}
           <button
             type="button"
+            data-tour="new-page-btn"
             onClick={handleCreateRootPage}
             className="group flex w-full items-center gap-2 rounded-md px-2 h-[30px] text-[12.5px] font-medium text-[#71717A] hover:bg-[#18181B] hover:text-[#FAFAFA] transition-colors"
           >

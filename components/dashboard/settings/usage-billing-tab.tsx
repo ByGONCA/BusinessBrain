@@ -21,6 +21,7 @@ import { OrganizationEntitlement } from "@/lib/organizations/entitlements";
 import { SUBSCRIPTION_PLANS } from "@/lib/stripe/config";
 import { SubscriptionTier } from "@/lib/stripe/types";
 import { cn } from "@/lib/utils";
+import { createCustomerPortalSessionAction } from "@/lib/stripe/actions";
 
 interface UsageBillingTabProps {
   entitlement: OrganizationEntitlement | null;
@@ -38,6 +39,8 @@ export function UsageBillingTab({ entitlement, closeSettings }: UsageBillingTabP
   const [showAddCreditsModal, setShowAddCreditsModal] = React.useState(false);
   const [selectedPack, setSelectedPack] = React.useState<string>("pack_2m");
   const [purchaseStatus, setPurchaseStatus] = React.useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = React.useState(false);
+  const [portalError, setPortalError] = React.useState<string | null>(null);
 
   const planTier = (entitlement?.plan || "starter") as SubscriptionTier;
   const planConfig = SUBSCRIPTION_PLANS[planTier] || SUBSCRIPTION_PLANS.starter;
@@ -137,17 +140,48 @@ export function UsageBillingTab({ entitlement, closeSettings }: UsageBillingTabP
               </div>
             )}
 
-            <div className="flex items-center justify-between pt-1 border-t border-zinc-200 dark:border-zinc-800">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-1 border-t border-zinc-200 dark:border-zinc-800">
               <span className="text-xs text-zinc-500">Billed monthly with automated entitlement verification.</span>
-              <Link
-                href="/pricing"
-                onClick={closeSettings}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors"
-              >
-                <span>Change Plan</span>
-                <ExternalLink className="h-3 w-3 text-zinc-400" />
-              </Link>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={portalLoading}
+                  onClick={async () => {
+                    setPortalLoading(true);
+                    setPortalError(null);
+                    try {
+                      const res = await createCustomerPortalSessionAction();
+                      if (res.error) {
+                        setPortalError(res.error);
+                      } else if (res.url) {
+                        window.location.href = res.url;
+                      }
+                    } catch {
+                      setPortalError("Falha ao abrir portal de faturação.");
+                    } finally {
+                      setPortalLoading(false);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-3 py-1.5 text-xs font-medium text-zinc-800 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors disabled:opacity-50"
+                >
+                  <CreditCard className="h-3.5 w-3.5 text-zinc-500" />
+                  <span>{portalLoading ? "A abrir..." : "Portal Stripe"}</span>
+                  <ExternalLink className="h-3 w-3 text-zinc-400" />
+                </button>
+                <Link
+                  href="/pricing"
+                  onClick={closeSettings}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+                >
+                  <span>Mudar Plano</span>
+                </Link>
+              </div>
             </div>
+            {portalError && (
+              <p className="text-[11px] text-red-500 bg-red-50 dark:bg-red-950/30 p-2 rounded border border-red-200 dark:border-red-900">
+                {portalError}
+              </p>
+            )}
           </div>
 
           {/* AI Credits & Token Balance Card */}

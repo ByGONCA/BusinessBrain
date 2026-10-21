@@ -320,11 +320,53 @@ export function BusinessMetricsSection({
               {snapshot.totalActiveCustomersCount}
             </span>
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Clientes únicos com pagamentos ou subscrições ativas
-          </p>
+          <div className="mt-1 flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>{primaryTotals.trialingSubscribersCount || 0} em trial</span>
+            {primaryTotals.canceledSubscribersCount > 0 && (
+              <span className="text-[10px] text-zinc-400">
+                {primaryTotals.canceledSubscribersCount} cancelados
+              </span>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Monthly History Mini-Chart / Trajectory View */}
+      {snapshot.monthlyHistory && snapshot.monthlyHistory[primaryCurrency] && snapshot.monthlyHistory[primaryCurrency].length > 0 && (
+        <div className="rounded-xl border border-border/80 bg-card/40 p-4 shadow-2xs space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-xs font-semibold text-foreground">Trajetória de Receita Mensal Liquidada</h3>
+              <p className="text-[10px] text-muted-foreground">Volume de cash-flow líquido mensal (últimos 12 meses)</p>
+            </div>
+            <span className="text-[10px] font-mono text-muted-foreground uppercase">{primaryCurrency}</span>
+          </div>
+          <div className="flex items-end gap-1.5 h-20 pt-2 border-b border-border/50">
+            {(() => {
+              const points = snapshot.monthlyHistory[primaryCurrency];
+              const maxNet = Math.max(...points.map((p) => Math.max(0, p.netRevenueCents)), 1);
+              return points.map((p) => {
+                const heightPercent = Math.max(8, Math.round((Math.max(0, p.netRevenueCents) / maxNet) * 100));
+                return (
+                  <div key={p.monthKey} className="flex-1 flex flex-col items-center gap-1 group relative">
+                    <div
+                      style={{ height: `${heightPercent}%` }}
+                      className="w-full rounded-t bg-blue-500/60 group-hover:bg-blue-400 transition-colors"
+                    />
+                    <div className="absolute -top-7 hidden group-hover:flex px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-700 text-[9px] text-white whitespace-nowrap z-10 shadow-lg">
+                      {p.monthKey}: {formatCents(p.netRevenueCents, primaryCurrency)}
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+          <div className="flex justify-between text-[9px] text-muted-foreground font-mono">
+            <span>{snapshot.monthlyHistory[primaryCurrency][0]?.monthKey || ""}</span>
+            <span>{snapshot.monthlyHistory[primaryCurrency][snapshot.monthlyHistory[primaryCurrency].length - 1]?.monthKey || ""}</span>
+          </div>
+        </div>
+      )}
 
       {/* Dunning / At Risk Subscriptions Banner */}
       {primaryTotals.atRiskDunningMrrCents > 0 && (

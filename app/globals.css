@@ -45,6 +45,12 @@ html.light {
     -webkit-font-smoothing: antialiased;
     transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
   }
+
+  /* Suppress browser native password reveal/clear buttons */
+  input[type="password"]::-ms-reveal,
+  input[type="password"]::-ms-clear {
+    display: none;
+  }
 }
 
 @layer utilities {

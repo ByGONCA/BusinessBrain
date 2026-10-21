@@ -28,6 +28,8 @@ export interface CurrencyFinancialTotals {
   openDisputesCents: number; // Funds currently held in open disputes
   stripeFeesCents: number; // Processing fees
   activeSubscribersCount: number;
+  trialingSubscribersCount: number; // Subscriptions in trial period (trialing)
+  canceledSubscribersCount: number; // Subscriptions canceled or terminated
   atRiskSubscribersCount: number;
   discountedSubscribersCount: number;
 }
@@ -376,6 +378,8 @@ export async function computeStripeMetricsFromApi(params: {
         openDisputesCents: 0,
         stripeFeesCents: 0,
         activeSubscribersCount: 0,
+        trialingSubscribersCount: 0,
+        canceledSubscribersCount: 0,
         atRiskSubscribersCount: 0,
         discountedSubscribersCount: 0,
       };
@@ -419,6 +423,12 @@ export async function computeStripeMetricsFromApi(params: {
         const norm = normalizeSubscriptionToMonthlyCents(sub);
         const bucket = getCurrencyBucket(norm.currency);
         const custId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
+
+        if (sub.status === "trialing") {
+          bucket.trialingSubscribersCount += 1;
+        } else if (sub.status === "canceled") {
+          bucket.canceledSubscribersCount += 1;
+        }
 
         if (norm.isAtRiskDunning) {
           bucket.atRiskDunningMrrCents += norm.netEffectiveMonthlyCents;

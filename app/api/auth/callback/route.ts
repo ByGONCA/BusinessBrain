@@ -22,11 +22,32 @@ export async function GET(request: Request) {
   const rawNext = searchParams.get("next");
   const safeNext = sanitizeRedirectUrl(rawNext, "/dashboard");
 
+  // Check if provider returned an authorization error (e.g. user canceled Google or GitHub consent)
+  const oauthError = searchParams.get("error");
+  if (oauthError) {
+    logger.warn("OAuth provider returned error on callback", {
+      error: oauthError,
+      desc: searchParams.get("error_description"),
+    });
+    const errorKey = oauthError === "access_denied" ? "oauth_cancelled" : "auth-code-error";
+    return NextResponse.redirect(`${baseUrl}/login?error=${errorKey}`);
+  }
+
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
+      // Check if Multi-Factor Authentication (AAL2) is required for this account
+      try {
+        const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (aalData && aalData.currentLevel === "aal1" && aalData.nextLevel === "aal2") {
+          return NextResponse.redirect(`${baseUrl}/auth/mfa?returnUrl=${encodeURIComponent(safeNext)}`);
+        }
+      } catch (aalErr) {
+        logger.warn("Could not check MFA assurance level during OAuth callback", { error: aalErr });
+      }
+
       // Check if user has an organization
       const organizations = await getUserOrganizations();
 

@@ -26,10 +26,13 @@ import {
   StripeFinancialSnapshot,
   MetricFreshnessStatus,
 } from "@/lib/integrations/stripe/analytics";
+import { getUserOnboardingState } from "@/lib/onboarding/queries";
+import { FirstStepsChecklist } from "@/components/dashboard/checklist/first-steps-checklist";
 
 export default async function DashboardOverviewPage() {
   const activeOrg = await getActiveOrganization();
   const timelineEvents = activeOrg ? await getCompanyTimelineEvents(activeOrg.id) : [];
+  const onboardingState = await getUserOnboardingState();
 
   let decisionsCount = 0;
   let projectsCount = 0;
@@ -124,6 +127,16 @@ export default async function DashboardOverviewPage() {
           </Link>
         </div>
       </div>
+
+      {/* First-Use Actionable Checklist */}
+      {activeOrg && (
+        <FirstStepsChecklist
+          initialState={onboardingState?.checklistState || {}}
+          hasPages={pagesCount > 0}
+          hasMultipleMembers={membersCount > 1}
+          organizationId={activeOrg.id}
+        />
+      )}
 
       {/* Real Business Data & Financial Metrics (Stripe Connect) */}
       {activeOrg && (

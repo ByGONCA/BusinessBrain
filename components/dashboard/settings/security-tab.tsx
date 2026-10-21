@@ -22,14 +22,18 @@ import {
   resendVerificationEmailAction,
   updateEmailAddressAction,
   changePasswordAction,
+  initiatePhoneVerificationAction,
+  verifyPhoneCodeAction,
+  removePhoneNumberAction,
 } from "@/lib/settings/actions";
-import { requestPasswordResetAction } from "@/lib/auth/actions";
+import { requestPasswordResetAction, initiateOAuthAction } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/client";
 
 interface SecurityTabProps {
   user: {
     id: string;
     email?: string;
+    phone?: string;
     email_confirmed_at?: string | null;
     created_at?: string;
     app_metadata?: {
@@ -79,10 +83,40 @@ export function SecurityTab({ user }: SecurityTabProps) {
   const [verifyCode, setVerifyCode] = React.useState("");
   const [mfaError, setMfaError] = React.useState<string | null>(null);
   const [mfaSuccess, setMfaSuccess] = React.useState<string | null>(null);
+  const [copiedSecret, setCopiedSecret] = React.useState(false);
+
+  // Phone / SMS 2FA State
+  const [currentPhone, setCurrentPhone] = React.useState<string | null>(user.phone || null);
+  const [editingPhone, setEditingPhone] = React.useState(false);
+  const [phoneInput, setPhoneInput] = React.useState("");
+  const [phoneCode, setPhoneCode] = React.useState("");
+  const [awaitingPhoneCode, setAwaitingPhoneCode] = React.useState(false);
+  const [sendingPhoneSms, setSendingPhoneSms] = React.useState(false);
+  const [verifyingPhone, setVerifyingPhone] = React.useState(false);
+  const [phoneStatus, setPhoneStatus] = React.useState<{ success?: boolean; message?: string; error?: string } | null>(null);
 
   // Sessions state
   const [signingOutOthers, setSigningOutOthers] = React.useState(false);
   const [sessionMessage, setSessionMessage] = React.useState<string | null>(null);
+
+  // OAuth connect state
+  const [connectingProvider, setConnectingProvider] = React.useState<"google" | "github" | null>(null);
+  const [oauthError, setOauthError] = React.useState<string | null>(null);
+
+  // Fetch phone number from profile on mount
+  React.useEffect(() => {
+    async function loadProfilePhone() {
+      try {
+        const { data } = await supabase.from("profiles").select("phone_number").eq("id", user.id).maybeSingle();
+        if (data?.phone_number) {
+          setCurrentPhone(data.phone_number);
+        }
+      } catch {
+        // graceful ignore
+      }
+    }
+    loadProfilePhone();
+  }, [supabase, user.id]);
 
   // Fetch MFA factors on mount
   const checkMfaStatus = React.useCallback(async () => {
@@ -118,7 +152,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
     try {
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: "totp",
-        friendlyName: "Company Brain Authenticator",
+        friendlyName: "Google Authenticator",
       });
       if (error) {
         setMfaError(error.message);
@@ -129,6 +163,84 @@ export function SecurityTab({ user }: SecurityTabProps) {
     } catch (err: unknown) {
       setMfaError((err as Error).message || "Failed to start 2FA enrollment");
       setEnrollingMfa(false);
+    }
+  };
+
+  const handleCopySecret = (secret: string) => {
+    navigator.clipboard.writeText(secret);
+    setCopiedSecret(true);
+    setTimeout(() => setCopiedSecret(false), 2000);
+  };
+
+  const handleSendPhoneCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phoneInput.trim()) return;
+    setSendingPhoneSms(true);
+    setPhoneStatus(null);
+    try {
+      const res = await initiatePhoneVerificationAction(phoneInput);
+      if (res.success) {
+        setPhoneStatus({ success: true, message: res.message });
+        setAwaitingPhoneCode(true);
+      } else {
+        setPhoneStatus({ success: false, error: res.error });
+      }
+    } finally {
+      setSendingPhoneSms(false);
+    }
+  };
+
+  const handleVerifyPhoneCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phoneCode.trim()) return;
+    setVerifyingPhone(true);
+    setPhoneStatus(null);
+    try {
+      const res = await verifyPhoneCodeAction(phoneInput, phoneCode);
+      if (res.success) {
+        setPhoneStatus({ success: true, message: res.message });
+        setCurrentPhone(phoneInput.trim());
+        setAwaitingPhoneCode(false);
+        setEditingPhone(false);
+        setPhoneCode("");
+      } else {
+        setPhoneStatus({ success: false, error: res.error });
+      }
+    } finally {
+      setVerifyingPhone(false);
+    }
+  };
+
+  const handleRemovePhone = async () => {
+    if (!confirm("Are you sure you want to remove your phone number?")) return;
+    setPhoneStatus(null);
+    try {
+      const res = await removePhoneNumberAction();
+      if (res.success) {
+        setCurrentPhone(null);
+        setPhoneStatus({ success: true, message: "Phone number removed." });
+      } else {
+        setPhoneStatus({ success: false, error: res.error });
+      }
+    } catch {
+      setPhoneStatus({ success: false, error: "Failed to remove phone number." });
+    }
+  };
+
+  const handleConnectOAuth = async (provider: "google" | "github") => {
+    setConnectingProvider(provider);
+    setOauthError(null);
+    try {
+      const res = await initiateOAuthAction(provider, "/dashboard/settings");
+      if (res.success && res.url) {
+        window.location.href = res.url;
+      } else {
+        setOauthError(res.error || `Failed to initiate ${provider} connection.`);
+        setConnectingProvider(null);
+      }
+    } catch (err: unknown) {
+      setOauthError((err as Error)?.message || `Failed to initiate ${provider} connection.`);
+      setConnectingProvider(null);
     }
   };
 
@@ -165,6 +277,9 @@ export function SecurityTab({ user }: SecurityTabProps) {
   };
 
   const handleDisableMfa = async (factorId: string) => {
+    if (!confirm("Are you sure you want to disable two-factor authentication? This will remove 2FA protection from your account.")) {
+      return;
+    }
     setMfaError(null);
     try {
       const { error } = await supabase.auth.mfa.unenroll({ factorId });
@@ -273,7 +388,18 @@ export function SecurityTab({ user }: SecurityTabProps) {
     }
   };
 
-  const providers = user.app_metadata?.providers || [user.app_metadata?.provider || "email"];
+  const providers = React.useMemo(() => {
+    const set = new Set<string>();
+    if (user.app_metadata?.provider) set.add(user.app_metadata.provider);
+    if (Array.isArray(user.app_metadata?.providers)) {
+      user.app_metadata.providers.forEach((p) => set.add(p));
+    }
+    if (Array.isArray(user.identities)) {
+      user.identities.forEach((id) => set.add(id.provider));
+    }
+    if (set.size === 0) set.add("email");
+    return Array.from(set);
+  }, [user.app_metadata, user.identities]);
 
   return (
     <div className="space-y-6 max-w-xl">
@@ -337,6 +463,9 @@ export function SecurityTab({ user }: SecurityTabProps) {
       {/* ========================================================= */}
       {/* TWO-FACTOR AUTHENTICATION (MFA / TOTP)                    */}
       {/* ========================================================= */}
+      {/* ========================================================= */}
+      {/* TWO-FACTOR AUTHENTICATION (MFA / TOTP)                    */}
+      {/* ========================================================= */}
       <div className="space-y-3 pt-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -347,7 +476,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
           </div>
           {hasActiveMfa && (
             <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-              Enabled
+              Active
             </span>
           )}
         </div>
@@ -360,11 +489,16 @@ export function SecurityTab({ user }: SecurityTabProps) {
 
         {!hasActiveMfa && !enrollingMfa && (
           <div className="flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d]">
-            <div>
-              <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">Authenticator App</p>
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                Generate 6-digit codes on your mobile authenticator app.
-              </p>
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200/50 dark:border-blue-900/40">
+                <QrCode className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">Google Authenticator / TOTP</p>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  Generate 6-digit codes on your mobile authenticator app.
+                </p>
+              </div>
             </div>
             <button
               type="button"
@@ -381,7 +515,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
         {enrollingMfa && enrollData && (
           <div className="rounded-xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/30 dark:bg-blue-950/20 p-4 space-y-3">
             <p className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-              Scan this QR code with your Authenticator App
+              Scan this QR code with Google Authenticator or your preferred 2FA app
             </p>
             {enrollData.totp?.qr_code && (
               <div className="flex justify-center p-2 bg-white rounded-lg border border-zinc-200 max-w-[200px] mx-auto">
@@ -394,10 +528,19 @@ export function SecurityTab({ user }: SecurityTabProps) {
             )}
             {enrollData.totp?.secret && (
               <div className="text-center space-y-1">
-                <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">Or enter secret key:</p>
-                <code className="text-xs font-mono font-bold bg-white dark:bg-zinc-800 px-2 py-1 rounded border border-zinc-300 dark:border-zinc-700 select-all">
-                  {enrollData.totp.secret}
-                </code>
+                <p className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">Or enter secret key manually:</p>
+                <div className="flex items-center justify-center gap-2">
+                  <code className="text-xs font-mono font-bold bg-white dark:bg-zinc-800 px-2 py-1 rounded border border-zinc-300 dark:border-zinc-700 select-all">
+                    {enrollData.totp.secret}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => handleCopySecret(enrollData.totp?.secret || "")}
+                    className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                  >
+                    {copiedSecret ? "Copied!" : "Copy"}
+                  </button>
+                </div>
               </div>
             )}
             <form onSubmit={handleVerifyMfaEnrollment} className="flex gap-2 pt-2">
@@ -405,14 +548,14 @@ export function SecurityTab({ user }: SecurityTabProps) {
                 type="text"
                 placeholder="6-digit verification code"
                 value={verifyCode}
-                onChange={(e) => setVerifyCode(e.target.value)}
+                onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ""))}
                 maxLength={6}
                 className="flex-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs font-mono text-center tracking-widest text-zinc-900 dark:text-zinc-100 placeholder:tracking-normal focus:outline-none focus:border-blue-500"
               />
               <button
                 type="submit"
                 disabled={verifyCode.length < 6}
-                className="rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition-colors disabled:opacity-50 cursor-pointer"
               >
                 Verify & Activate
               </button>
@@ -422,7 +565,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
                   setEnrollingMfa(false);
                   setEnrollData(null);
                 }}
-                className="rounded-lg border border-zinc-300 dark:border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="rounded-lg border border-zinc-300 dark:border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
               >
                 Cancel
               </button>
@@ -436,7 +579,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
               <Check className="h-4 w-4 text-emerald-500" />
               <div>
                 <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                  TOTP Authenticator Active
+                  Google Authenticator (TOTP) Active
                 </p>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                   Your account requires a code when logging in from new devices.
@@ -450,7 +593,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
                     key={f.id}
                     type="button"
                     onClick={() => handleDisableMfa(f.id)}
-                    className="rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 px-2.5 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-100 transition-colors"
+                    className="rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 px-2.5 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-100 transition-colors cursor-pointer"
                   >
                     Disable 2FA
                   </button>
@@ -458,6 +601,131 @@ export function SecurityTab({ user }: SecurityTabProps) {
             )}
           </div>
         )}
+
+        {/* --------------------------------------------------------- */}
+        {/* PHONE / SMS VERIFICATION & RECOVERY                       */}
+        {/* --------------------------------------------------------- */}
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] p-3.5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/40">
+                <Smartphone className="h-4 w-4" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                  Mobile Phone & SMS Verification
+                </p>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {currentPhone
+                    ? `Verified number: ${currentPhone}`
+                    : "Add your phone number for SMS security and account recovery."}
+                </p>
+              </div>
+            </div>
+            {currentPhone && !editingPhone ? (
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  Verified
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEditingPhone(true)}
+                  className="text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 underline"
+                >
+                  Change
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemovePhone}
+                  className="text-xs text-red-500 hover:text-red-600 underline ml-1"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              !editingPhone && (
+                <button
+                  type="button"
+                  onClick={() => setEditingPhone(true)}
+                  className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+                >
+                  Add Phone
+                </button>
+              )
+            )}
+          </div>
+
+          {editingPhone && (
+            <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
+              {!awaitingPhoneCode ? (
+                <form onSubmit={handleSendPhoneCode} className="flex gap-2">
+                  <input
+                    type="tel"
+                    placeholder="+351 912 345 678"
+                    value={phoneInput}
+                    onChange={(e) => setPhoneInput(e.target.value)}
+                    className="flex-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#141416] px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={sendingPhoneSms || !phoneInput.trim()}
+                    className="rounded-lg bg-zinc-900 dark:bg-white px-3 py-1.5 text-xs font-semibold text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
+                  >
+                    {sendingPhoneSms ? "Sending SMS..." : "Send Code"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingPhone(false);
+                      setPhoneInput("");
+                    }}
+                    className="rounded-lg border border-zinc-300 dark:border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    Cancel
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleVerifyPhoneCode} className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="6-digit SMS code"
+                    value={phoneCode}
+                    onChange={(e) => setPhoneCode(e.target.value.replace(/\D/g, ""))}
+                    maxLength={6}
+                    className="flex-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#141416] px-3 py-1.5 text-xs font-mono text-center tracking-widest text-zinc-900 dark:text-zinc-100 placeholder:tracking-normal focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={verifyingPhone || phoneCode.length < 6}
+                    className="rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
+                  >
+                    {verifyingPhone ? "Verifying..." : "Verify SMS Code"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAwaitingPhoneCode(false);
+                      setPhoneCode("");
+                    }}
+                    className="rounded-lg border border-zinc-300 dark:border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    Back
+                  </button>
+                </form>
+              )}
+
+              {phoneStatus && (
+                <p
+                  className={`text-xs ${
+                    phoneStatus.success ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"
+                  }`}
+                >
+                  {phoneStatus.message || phoneStatus.error}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ========================================================= */}
@@ -467,6 +735,13 @@ export function SecurityTab({ user }: SecurityTabProps) {
         <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300">
           Connected Sign-in Methods
         </h3>
+
+        {oauthError && (
+          <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-2.5 text-xs text-red-400">
+            {oauthError}
+          </div>
+        )}
+
         <div className="space-y-2">
           {/* Email / Password */}
           <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d]">
@@ -482,6 +757,50 @@ export function SecurityTab({ user }: SecurityTabProps) {
             </span>
           </div>
 
+          {/* Google OAuth */}
+          <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d]">
+            <div className="flex items-center gap-2.5">
+              <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                />
+              </svg>
+              <div>
+                <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">Google OAuth</p>
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {providers.includes("google") ? "Connected to your Google profile" : "Available for sign-in"}
+                </p>
+              </div>
+            </div>
+            {providers.includes("google") ? (
+              <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                Connected
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleConnectOAuth("google")}
+                disabled={connectingProvider !== null}
+                className="rounded bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer"
+              >
+                {connectingProvider === "google" ? "Connecting..." : "Connect"}
+              </button>
+            )}
+          </div>
+
           {/* GitHub OAuth */}
           <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d]">
             <div className="flex items-center gap-2.5">
@@ -489,7 +808,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
               <div>
                 <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">GitHub OAuth</p>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  {providers.includes("github") ? "Connected to your GitHub profile" : "Not connected"}
+                  {providers.includes("github") ? "Connected to your GitHub profile" : "Available for sign-in"}
                 </p>
               </div>
             </div>
@@ -498,9 +817,14 @@ export function SecurityTab({ user }: SecurityTabProps) {
                 Connected
               </span>
             ) : (
-              <span className="rounded bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[10px] font-medium text-zinc-500">
-                Available
-              </span>
+              <button
+                type="button"
+                onClick={() => handleConnectOAuth("github")}
+                disabled={connectingProvider !== null}
+                className="rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-white px-2.5 py-1 text-[11px] font-medium transition-colors border border-zinc-700 cursor-pointer"
+              >
+                {connectingProvider === "github" ? "Connecting..." : "Connect"}
+              </button>
             )}
           </div>
         </div>

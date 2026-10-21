@@ -4,9 +4,12 @@ import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { z } from "zod";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getActiveOrganization, ACTIVE_ORG_COOKIE_NAME } from "@/lib/organizations/queries";
-import { isValidUuid } from "@/lib/security/authorization";
+import { isValidUuid, generateInvitationServerToken } from "@/lib/security/authorization";
+import { getOrganizationEntitlement } from "@/lib/organizations/entitlements";
+import { SUBSCRIPTION_PLANS } from "@/lib/stripe/config";
+import { extractTokenFromInput } from "./utils";
 import { logger } from "@/lib/security/logger";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { hasPermission } from "@/lib/permissions/resolver";
@@ -15,7 +18,11 @@ import {
   CreateInvitationResult,
   AcceptInvitationResult,
   InvitationRole,
+  PendingUserInvitation,
+  InvitationPreview,
+  ResendInvitationResult,
 } from "./types";
+import { sendInvitationEmail } from "@/lib/email/templates/invitation";
 
 const emailSchema = z.string().trim().email("Please provide a valid email address").max(255);
 
@@ -186,6 +193,36 @@ export async function createInvitationAction(params: {
   }
 
 
+  // Construct single-use acceptance link and absolute URL
+  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  const baseUrl = configuredAppUrl.replace(/\/+$/, "");
+  const inviteLink = `/invite/${token}`;
+  const absoluteInviteLink = `${baseUrl}${inviteLink}`;
+
+  // Resolve organization name for the invitation email
+  let orgName = activeOrg?.name;
+  if (!orgName && targetOrgId) {
+    const { data: orgRecord } = await supabase
+      .from("organizations")
+      .select("name")
+      .eq("id", targetOrgId)
+      .maybeSingle();
+    orgName = orgRecord?.name;
+  }
+  const displayOrgName = orgName || "Company Brain Workspace";
+  const inviterName = user.user_metadata?.full_name || user.email?.split("@")[0] || "A team member";
+
+  // Dispatch transactional email (safe, non-throwing; unconfigured returns sent: false)
+  const emailRes = await sendInvitationEmail({
+    to: cleanEmail,
+    organizationName: displayOrgName,
+    inviterName,
+    inviterEmail: user.email,
+    inviteUrl: absoluteInviteLink,
+    role,
+    expiresAt,
+  });
+
   // Record audit log entry
   try {
     await supabase.from("audit_logs").insert({
@@ -196,19 +233,23 @@ export async function createInvitationAction(params: {
       action: "invitation.created",
       resource_type: "organization_invitation",
       resource_name: cleanEmail,
-      metadata: { role, invitation_id: newInvite.id },
+      metadata: {
+        role,
+        invitation_id: newInvite.id,
+        email_sent: emailRes.sent,
+        email_error: emailRes.error || null,
+      },
     });
   } catch {}
 
   revalidatePath("/dashboard/people");
 
-  // Construct single-use acceptance link
-  const inviteLink = `/invite/${token}`;
-
   return {
     success: true,
     invitation: newInvite as OrganizationInvitation,
     inviteLink,
+    emailSent: emailRes.sent,
+    emailError: emailRes.error,
   };
 }
 
@@ -333,7 +374,7 @@ export async function revokeInvitationAction(invitationId: string): Promise<{ su
  */
 export async function resendInvitationAction(
   invitationId: string
-): Promise<{ success: boolean; inviteLink?: string; error?: string }> {
+): Promise<ResendInvitationResult> {
   if (!isValidUuid(invitationId)) {
     return { success: false, error: "Invalid invitation ID." };
   }
@@ -354,11 +395,45 @@ export async function resendInvitationAction(
     return { success: false, error: "Forbidden: You do not have permission to manage invitations." };
   }
 
+  // Fetch the existing invitation to verify state and obtain recipient email/role
+  const { data: existingInvite, error: fetchErr } = await supabase
+    .from("organization_invitations")
+    .select("id, email, role, status, organization_id")
+    .eq("id", invitationId)
+    .eq("organization_id", activeOrg.id)
+    .maybeSingle();
+
+  if (fetchErr || !existingInvite) {
+    return { success: false, error: "Invitation not found." };
+  }
+
+  if (existingInvite.status === "accepted") {
+    return { success: false, error: "This invitation has already been accepted." };
+  }
+
+  if (existingInvite.status === "revoked") {
+    return { success: false, error: "This invitation has been revoked. Please create a new invitation." };
+  }
+
+  // Rate limit: 60s cooldown per recipient email to prevent email spam / abuse
+  const rl = await rateLimit("resend-invitation", existingInvite.email.toLowerCase(), {
+    limit: 1,
+    windowSeconds: 60,
+  });
+
+  if (!rl.success) {
+    const waitSeconds = rl.resetSeconds > 0 ? rl.resetSeconds : 60;
+    return {
+      success: false,
+      error: `Please wait ${waitSeconds} seconds before resending an invitation to this email address.`,
+    };
+  }
+
   const newToken = crypto.randomBytes(32).toString("hex");
   const newTokenHash = crypto.createHash("sha256").update(newToken).digest("hex");
   const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  let { error } = await supabase
+  let { error: updateError } = await supabase
     .from("organization_invitations")
     .update({
       token_hash: newTokenHash,
@@ -370,16 +445,56 @@ export async function resendInvitationAction(
     .eq("id", invitationId)
     .eq("organization_id", activeOrg.id);
 
-  if (error) {
-    logger.error("Failed to resend invitation", error, { invitationId });
-    if (isUndefinedColumnError(error) && error.message?.includes("token_hash")) {
+  if (updateError) {
+    logger.error("Failed to resend invitation", updateError, { invitationId });
+    if (isUndefinedColumnError(updateError) && updateError.message?.includes("token_hash")) {
       return { success: false, error: "Database migration required: token_hash column is missing." };
     }
-    return { success: false, error: error.message };
+    return { success: false, error: updateError.message };
   }
 
+  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  const baseUrl = configuredAppUrl.replace(/\/+$/, "");
+  const inviteLink = `/invite/${newToken}`;
+  const absoluteInviteLink = `${baseUrl}${inviteLink}`;
+  const inviterName = user.user_metadata?.full_name || user.email?.split("@")[0] || "A team member";
+
+  // Dispatch transactional email (safe, non-throwing; unconfigured returns sent: false)
+  const emailRes = await sendInvitationEmail({
+    to: existingInvite.email,
+    organizationName: activeOrg.name || "Company Brain Workspace",
+    inviterName,
+    inviterEmail: user.email,
+    inviteUrl: absoluteInviteLink,
+    role: existingInvite.role,
+    expiresAt: newExpiresAt,
+  });
+
+  // Record audit log entry
+  try {
+    await supabase.from("audit_logs").insert({
+      organization_id: activeOrg.id,
+      actor_id: user.id,
+      actor_name: user.user_metadata?.full_name || user.email || "Member",
+      actor_email: user.email,
+      action: "invitation.resent",
+      resource_type: "organization_invitation",
+      resource_name: existingInvite.email,
+      metadata: {
+        invitation_id: invitationId,
+        email_sent: emailRes.sent,
+        email_error: emailRes.error || null,
+      },
+    });
+  } catch {}
+
   revalidatePath("/dashboard/people");
-  return { success: true, inviteLink: `/invite/${newToken}` };
+  return {
+    success: true,
+    inviteLink,
+    emailSent: emailRes.sent,
+    emailError: emailRes.error,
+  };
 }
 
 /**
@@ -400,6 +515,50 @@ export async function acceptInvitationAction(token: string): Promise<AcceptInvit
 
   // 1. Compute SHA-256 hash of the token
   const tokenHash = crypto.createHash("sha256").update(cleanToken).digest("hex");
+
+  // 1.5. Pre-validate member seat limit from organization entitlement
+  try {
+    const serviceClient = createServiceClient();
+    const { data: invRecord } = await serviceClient
+      .from("organization_invitations")
+      .select("id, organization_id, email, status, expires_at")
+      .eq("token_hash", tokenHash)
+      .maybeSingle();
+
+    if (invRecord) {
+      if (invRecord.status !== "pending") {
+        return { success: false, error: `This invitation has already been ${invRecord.status}.` };
+      }
+      if (new Date(invRecord.expires_at) < new Date()) {
+        return { success: false, error: "This invitation has expired. Please request a new one." };
+      }
+
+      const entitlement = await getOrganizationEntitlement(invRecord.organization_id);
+      const planTier = entitlement.plan || "starter";
+      const maxMembers = SUBSCRIPTION_PLANS[planTier]?.limits?.maxMembers ?? 10;
+
+      const { count: currentMemberCount } = await serviceClient
+        .from("organization_members")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", invRecord.organization_id);
+
+      const { data: alreadyMember } = await serviceClient
+        .from("organization_members")
+        .select("id")
+        .eq("organization_id", invRecord.organization_id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!alreadyMember && (currentMemberCount ?? 0) >= maxMembers) {
+        return {
+          success: false,
+          error: `O limite de membros do plano (${maxMembers} membros) para este workspace foi atingido. Solicita ao administrador que faça upgrade do plano.`,
+        };
+      }
+    }
+  } catch (limitErr) {
+    logger.warn("Member limit pre-check failed, continuing with atomic acceptance", { limitErr });
+  }
 
   // 2. Attempt atomic PostgreSQL RPC execution (FOR UPDATE, strict identity validation, role and team guards)
   try {
@@ -812,4 +971,384 @@ export async function removeMemberAction(params: {
 
   revalidatePath("/dashboard/people");
   return { success: true };
+}
+
+/**
+ * Retrieves pending invitations issued to the currently authenticated user's email.
+ * Multi-tenant safe: Restricts strictly to the authenticated user's verified email.
+ */
+export async function getMyPendingInvitationsAction(): Promise<{
+  success: boolean;
+  invitations: PendingUserInvitation[];
+  error?: string;
+}> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || !user.email) {
+    return { success: true, invitations: [] };
+  }
+
+  const cleanEmail = user.email.toLowerCase().trim();
+
+  try {
+    // 1. Primary path: Call dedicated SECURITY DEFINER RPC that projects only safe scalar fields
+    const rpcRes = await (supabase.rpc as unknown as (name: string) => Promise<{ data: unknown; error: unknown }>)("get_my_pending_invitations");
+    if (!rpcRes.error && Array.isArray(rpcRes.data)) {
+      interface RpcInvRow {
+        id: string;
+        organization_id: string;
+        organization_name: string;
+        organization_slug: string;
+        email: string;
+        role: string;
+        status: string;
+        expires_at: string;
+        created_at: string;
+      }
+      const mapped: PendingUserInvitation[] = (rpcRes.data as RpcInvRow[]).map((row) => ({
+        id: row.id,
+        organizationId: row.organization_id,
+        organizationName: row.organization_name || "Workspace",
+        organizationSlug: row.organization_slug || "",
+        email: row.email,
+        role: (row.role === "admin" ? "admin" : "member") as InvitationRole,
+        expiresAt: row.expires_at,
+        createdAt: row.created_at,
+      }));
+      return { success: true, invitations: mapped };
+    }
+
+    // 2. Fallback path (strictly bounded for pre-migration compatibility):
+    // If the RPC does not exist yet in schema cache (PGRST202 or function not found),
+    // query via service client strictly filtered by the authenticated user's verified email.
+    // If the RPC returned an authorization error or permission denial (e.g. 42501), DO NOT bypass it.
+    const rpcErr = rpcRes.error as { code?: string; message?: string } | null;
+    const isRpcMissing =
+      rpcErr?.code === "PGRST202" ||
+      rpcErr?.code === "42883" ||
+      (typeof rpcErr?.message === "string" &&
+        rpcErr.message.toLowerCase().includes("could not find the function") &&
+        rpcErr.message.toLowerCase().includes("schema cache"));
+
+    if (isRpcMissing) {
+      const escapedEmail = cleanEmail.replace(/[%_]/g, "\\$&");
+      const serviceClient = createServiceClient();
+      const { data: sData, error: sError } = await serviceClient
+        .from("organization_invitations")
+        .select(`
+          id,
+          organization_id,
+          email,
+          role,
+          status,
+          expires_at,
+          created_at,
+          organizations (
+            id,
+            name,
+            slug
+          )
+        `)
+        .eq("status", "pending")
+        .ilike("email", escapedEmail)
+        .gt("expires_at", new Date().toISOString());
+
+      if (sError) {
+        logger.error("Failed to query user pending invitations in fallback", sError);
+        return { success: false, invitations: [], error: sError.message };
+      }
+
+      interface OrgRef {
+        id: string;
+        name: string;
+        slug: string;
+      }
+      interface InvRow {
+        id: string;
+        organization_id: string;
+        email: string;
+        role: string;
+        expires_at: string;
+        created_at: string;
+        organizations: OrgRef | null;
+      }
+
+      const filtered = ((sData as unknown as InvRow[]) || []).filter(
+        (row) => row.email && row.email.toLowerCase().trim() === cleanEmail
+      );
+
+      const mapped: PendingUserInvitation[] = filtered.map((row) => ({
+        id: row.id,
+        organizationId: row.organization_id,
+        organizationName: row.organizations?.name || "Workspace",
+        organizationSlug: row.organizations?.slug || "",
+        email: row.email,
+        role: (row.role === "admin" ? "admin" : "member") as InvitationRole,
+        expiresAt: row.expires_at,
+        createdAt: row.created_at,
+      }));
+
+      return { success: true, invitations: mapped };
+    }
+
+    // Security Guard: An RPC authentication or permission error must NEVER trigger service_role bypass
+    logger.error("RPC get_my_pending_invitations failed with security or database error", rpcRes.error);
+    return { success: false, invitations: [], error: "Failed to load pending invitations." };
+  } catch (err: unknown) {
+    logger.error("Error in getMyPendingInvitationsAction", err);
+    return { success: false, invitations: [], error: "Failed to load pending invitations." };
+  }
+}
+
+/**
+ * Previews an invitation by token or full URL link without accepting it.
+ * Validates expiration, status, and indicates whether the caller's email matches.
+ */
+export async function getInvitationPreviewByTokenAction(
+  tokenOrLink: string
+): Promise<{
+  success: boolean;
+  invitation?: InvitationPreview;
+  error?: string;
+}> {
+  const cleanToken = extractTokenFromInput(tokenOrLink);
+  if (!cleanToken || cleanToken.length < 16) {
+    return { success: false, error: "Formato de token ou link de convite inválido." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const tokenHash = crypto.createHash("sha256").update(cleanToken).digest("hex");
+  const serverToken = generateInvitationServerToken(tokenHash);
+
+  try {
+    const serviceClient = createServiceClient();
+    const { data: rpcData, error: rpcError } = await serviceClient.rpc("get_invitation_details", {
+      p_token_hash: tokenHash,
+      p_server_token: serverToken,
+    });
+
+    interface RawRpcInv {
+      id: string;
+      organization_id: string;
+      organization_name: string;
+      organization_slug: string;
+      email: string;
+      role: string;
+      status: string;
+      expires_at: string;
+    }
+
+    let rawInv: RawRpcInv | null = null;
+    if (!rpcError && rpcData && (rpcData as RawRpcInv[]).length > 0) {
+      rawInv = (rpcData as RawRpcInv[])[0];
+    } else {
+      // Fallback query by token_hash
+      const { data: fallbackData } = await serviceClient
+        .from("organization_invitations")
+        .select(`
+          id,
+          organization_id,
+          email,
+          role,
+          status,
+          expires_at,
+          organizations (
+            name,
+            slug
+          )
+        `)
+        .eq("token_hash", tokenHash)
+        .maybeSingle();
+
+      if (fallbackData) {
+        const orgData = fallbackData.organizations as unknown as { name?: string; slug?: string } | null;
+        rawInv = {
+          id: fallbackData.id,
+          organization_id: fallbackData.organization_id,
+          organization_name: orgData?.name || "Workspace",
+          organization_slug: orgData?.slug || "",
+          email: fallbackData.email,
+          role: fallbackData.role,
+          status: fallbackData.status,
+          expires_at: fallbackData.expires_at,
+        };
+      }
+    }
+
+    if (!rawInv) {
+      return { success: false, error: "Convite não encontrado ou link inválido." };
+    }
+
+    const isExpired = new Date(rawInv.expires_at) < new Date();
+    const currentUserEmail = user?.email?.toLowerCase().trim();
+    const invitedEmail = rawInv.email?.toLowerCase().trim();
+    const emailMatchesUser = !!currentUserEmail && currentUserEmail === invitedEmail;
+
+    const preview: InvitationPreview = {
+      id: rawInv.id,
+      organizationId: rawInv.organization_id,
+      organizationName: rawInv.organization_name || "Workspace",
+      organizationSlug: rawInv.organization_slug || "",
+      invitedEmail: rawInv.email,
+      role: rawInv.role,
+      status: rawInv.status,
+      expiresAt: rawInv.expires_at,
+      isExpired,
+      emailMatchesUser,
+      currentUserEmail: user?.email,
+      rawToken: cleanToken,
+    };
+
+    return {
+      success: true,
+      invitation: preview,
+    };
+  } catch (err: unknown) {
+    logger.error("Error in getInvitationPreviewByTokenAction", err);
+    return { success: false, error: "Falha ao validar convite." };
+  }
+}
+
+/**
+ * Accepts an invitation directly by invitation ID for the verified logged-in user.
+ * Avoids passing or re-exposing raw tokens over the network.
+ */
+export async function acceptMyPendingInvitationAction(
+  invitationId: string
+): Promise<AcceptInvitationResult> {
+  if (!isValidUuid(invitationId)) {
+    return { success: false, error: "Invalid invitation ID." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || !user.email) {
+    return { success: false, error: "Authentication required to accept invitations." };
+  }
+
+  const userEmail = user.email.toLowerCase().trim();
+
+  // Rate limit
+  const rl = await rateLimit("accept-invitation", user.id, RATE_LIMIT_PRESETS.MUTATIONS);
+  if (!rl.success) {
+    return { success: false, error: "Too many attempts. Please wait a moment." };
+  }
+
+  const serviceClient = createServiceClient();
+  const { data: inv, error: invErr } = await serviceClient
+    .from("organization_invitations")
+    .select("id, organization_id, email, status, expires_at, token_hash")
+    .eq("id", invitationId)
+    .maybeSingle();
+
+  if (invErr || !inv) {
+    return { success: false, error: "Invitation not found." };
+  }
+
+  if (inv.email.toLowerCase().trim() !== userEmail) {
+    return {
+      success: false,
+      error: `Access denied: This invitation was issued to ${inv.email}.`,
+    };
+  }
+
+  if (inv.status !== "pending") {
+    return { success: false, error: `This invitation has already been ${inv.status}.` };
+  }
+
+  if (new Date(inv.expires_at) < new Date()) {
+    return { success: false, error: "This invitation has expired." };
+  }
+
+  // Member seat limit check from subscription tier truth
+  const entitlement = await getOrganizationEntitlement(inv.organization_id);
+  const planTier = entitlement.plan || "starter";
+  const maxMembers = SUBSCRIPTION_PLANS[planTier]?.limits?.maxMembers ?? 10;
+
+  const { count: currentMemberCount } = await serviceClient
+    .from("organization_members")
+    .select("id", { count: "exact", head: true })
+    .eq("organization_id", inv.organization_id);
+
+  const { data: alreadyMember } = await serviceClient
+    .from("organization_members")
+    .select("id")
+    .eq("organization_id", inv.organization_id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!alreadyMember && (currentMemberCount ?? 0) >= maxMembers) {
+    return {
+      success: false,
+      error: `O limite de membros do plano (${maxMembers} membros) para este workspace foi atingido. Solicita ao administrador que faça upgrade do plano.`,
+    };
+  }
+
+  // If token_hash exists, execute atomic PostgreSQL RPC accept_organization_invitation
+  if (inv.token_hash) {
+    const { data: rpcData, error: rpcError } = await supabase.rpc("accept_organization_invitation", {
+      p_token_hash: inv.token_hash,
+    });
+
+    if (!rpcError && rpcData) {
+      const res = rpcData as { success: boolean; organization_id?: string; error?: string };
+      if (res.success && res.organization_id) {
+        const cookieStore = await cookies();
+        cookieStore.set(ACTIVE_ORG_COOKIE_NAME, res.organization_id, {
+          path: "/",
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 30,
+        });
+
+        revalidatePath("/", "layout");
+        return { success: true, organizationId: res.organization_id };
+      }
+      if (!res.success && res.error) {
+        return { success: false, error: res.error };
+      }
+    }
+  }
+
+  // Fallback direct execution if RPC failed or token_hash not backfilled
+  const { data: updated, error: updateErr } = await serviceClient
+    .from("organization_invitations")
+    .update({ status: "accepted", updated_at: new Date().toISOString() })
+    .eq("id", inv.id)
+    .eq("status", "pending")
+    .select("id");
+
+  if (updateErr || !updated || updated.length === 0) {
+    return { success: false, error: "This invitation has already been accepted or is no longer valid." };
+  }
+
+  if (!alreadyMember) {
+    await serviceClient.from("organization_members").insert({
+      organization_id: inv.organization_id,
+      user_id: user.id,
+      role: "member",
+    });
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set(ACTIVE_ORG_COOKIE_NAME, inv.organization_id, {
+    path: "/",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24 * 30,
+  });
+
+  revalidatePath("/", "layout");
+  return { success: true, organizationId: inv.organization_id };
 }

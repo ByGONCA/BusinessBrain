@@ -18,6 +18,23 @@ export interface SettingsActionResult {
 }
 
 /**
+ * Ensures user has satisfied 2FA (AAL2) requirements before performing sensitive account actions.
+ */
+async function assertAal2IfEnrolled(supabase: Awaited<ReturnType<typeof createClient>>): Promise<{ error?: string }> {
+  try {
+    const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aalData && aalData.currentLevel === "aal1" && aalData.nextLevel === "aal2") {
+      return {
+        error: "Two-factor authentication (AAL2) required. Please complete your MFA challenge before performing sensitive account actions.",
+      };
+    }
+  } catch {
+    // Graceful ignore if MFA is not enabled
+  }
+  return {};
+}
+
+/**
  * Resends the signup confirmation email to the current user if not yet confirmed.
  */
 export async function resendVerificationEmailAction(): Promise<SettingsActionResult> {
@@ -75,6 +92,11 @@ export async function updateEmailAddressAction(newEmail: string): Promise<Settin
     return { success: false, error: "Authentication required." };
   }
 
+  const aalCheck = await assertAal2IfEnrolled(supabase);
+  if (aalCheck.error) {
+    return { success: false, error: aalCheck.error };
+  }
+
   if (user.email?.toLowerCase() === parsed.data.toLowerCase()) {
     return { success: false, error: "This is already your active email address." };
   }
@@ -120,6 +142,11 @@ export async function changePasswordAction(newPassword: string): Promise<Setting
 
   if (!user) {
     return { success: false, error: "Authentication required." };
+  }
+
+  const aalCheck = await assertAal2IfEnrolled(supabase);
+  if (aalCheck.error) {
+    return { success: false, error: aalCheck.error };
   }
 
   const rl = await rateLimit("password-change", user.id, RATE_LIMIT_PRESETS.AUTH_STRICT);
@@ -778,5 +805,151 @@ export async function exportWorkspaceDataAction(orgId: string): Promise<{
   } catch (err) {
     logger.error("Exception in exportWorkspaceDataAction", err, { orgId, userId: user.id });
     return { success: false, error: "Unable to export workspace data." };
+  }
+}
+
+/**
+ * Initiates phone number verification by sending an SMS OTP via Supabase Auth
+ */
+export async function initiatePhoneVerificationAction(phoneNumber: string): Promise<SettingsActionResult> {
+  const cleanedPhone = phoneNumber.trim().replace(/\s+/g, "");
+  // Simple E.164 phone validation: + followed by 7 to 15 digits
+  if (!/^\+[1-9]\d{6,14}$/.test(cleanedPhone)) {
+    return {
+      success: false,
+      error: "Please enter a valid international phone number starting with + and country code (e.g. +351912345678).",
+    };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Authentication required." };
+  }
+
+  const aalCheck = await assertAal2IfEnrolled(supabase);
+  if (aalCheck.error) {
+    return { success: false, error: aalCheck.error };
+  }
+
+  const rl = await rateLimit("phone-verify", user.id, RATE_LIMIT_PRESETS.AUTH_STRICT);
+  if (!rl.success) {
+    return { success: false, error: "Too many SMS requests. Please wait a few moments before trying again." };
+  }
+
+  try {
+    const { error } = await supabase.auth.updateUser({
+      phone: cleanedPhone,
+    });
+
+    if (error) {
+      logger.warn("Failed to initiate phone verification SMS", { error: error.message, userId: user.id });
+      if (error.message.includes("phone_provider_disabled") || error.message.includes("Unsupported phone provider")) {
+        return {
+          success: false,
+          error: "SMS delivery is currently disabled in the staging authentication provider. Please use Google Authenticator (TOTP) for MFA.",
+        };
+      }
+      return { success: false, error: error.message };
+    }
+
+    return {
+      success: true,
+      message: `Verification code sent via SMS to ${cleanedPhone}.`,
+    };
+  } catch (err) {
+    logger.error("Exception in initiatePhoneVerificationAction", err, { userId: user.id });
+    return { success: false, error: "Unable to send verification SMS." };
+  }
+}
+
+/**
+ * Verifies the SMS OTP code and saves the phone number to the profile
+ */
+export async function verifyPhoneCodeAction(phoneNumber: string, code: string): Promise<SettingsActionResult> {
+  const cleanedPhone = phoneNumber.trim().replace(/\s+/g, "");
+  const cleanedCode = code.trim();
+
+  if (!cleanedCode || cleanedCode.length < 6) {
+    return { success: false, error: "Please enter a valid 6-digit verification code." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Authentication required." };
+  }
+
+  try {
+    const { error: otpError } = await supabase.auth.verifyOtp({
+      phone: cleanedPhone,
+      token: cleanedCode,
+      type: "phone_change",
+    });
+
+    if (otpError) {
+      logger.warn("Invalid phone verification OTP", { error: otpError.message, userId: user.id });
+      return { success: false, error: otpError.message || "Invalid or expired SMS verification code." };
+    }
+
+    // Save phone number to user profile
+    await supabase
+      .from("profiles")
+      .update({
+        phone_number: cleanedPhone,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+
+    revalidatePath("/dashboard");
+    return {
+      success: true,
+      message: "Phone number successfully verified and attached to your account!",
+    };
+  } catch (err) {
+    logger.error("Exception in verifyPhoneCodeAction", err, { userId: user.id });
+    return { success: false, error: "Failed to verify phone code." };
+  }
+}
+
+/**
+ * Removes a verified phone number from the user account
+ */
+export async function removePhoneNumberAction(): Promise<SettingsActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Authentication required." };
+  }
+
+  const aalCheck = await assertAal2IfEnrolled(supabase);
+  if (aalCheck.error) {
+    return { success: false, error: aalCheck.error };
+  }
+
+  try {
+    // Clear phone in profile
+    await supabase
+      .from("profiles")
+      .update({
+        phone_number: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+
+    revalidatePath("/dashboard");
+    return { success: true, message: "Phone number removed from account." };
+  } catch (err) {
+    logger.error("Exception in removePhoneNumberAction", err, { userId: user.id });
+    return { success: false, error: "Failed to remove phone number." };
   }
 }

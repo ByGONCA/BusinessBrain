@@ -22,6 +22,16 @@ export interface CreateInvitationResult {
   success: boolean;
   invitation?: OrganizationInvitation;
   inviteLink?: string;
+  emailSent?: boolean;
+  emailError?: string;
+  error?: string;
+}
+
+export interface ResendInvitationResult {
+  success: boolean;
+  inviteLink?: string;
+  emailSent?: boolean;
+  emailError?: string;
   error?: string;
 }
 
@@ -30,4 +40,30 @@ export interface AcceptInvitationResult {
   organizationId?: string;
   organizationName?: string;
   error?: string;
+}
+
+export interface PendingUserInvitation {
+  id: string;
+  organizationId: string;
+  organizationName: string;
+  organizationSlug: string;
+  email: string;
+  role: InvitationRole;
+  expiresAt: string;
+  createdAt: string;
+}
+
+export interface InvitationPreview {
+  id: string;
+  organizationId: string;
+  organizationName: string;
+  organizationSlug: string;
+  invitedEmail: string;
+  role: string;
+  status: string;
+  expiresAt: string;
+  isExpired: boolean;
+  emailMatchesUser: boolean;
+  currentUserEmail?: string;
+  rawToken: string;
 }

@@ -370,10 +370,13 @@ export function Sidebar({
       item.isActive && "bg-[#202024] text-[#FFFFFF] font-medium border border-[#2E2E34]/50 shadow-2xs"
     );
 
+    const dataTour = item.id === "connections" ? "company-map" : undefined;
+
     return isInboxItem ? (
       <button
         key={item.id}
         type="button"
+        data-tour={dataTour}
         onClick={openInbox}
         className={itemClass}
       >
@@ -383,6 +386,7 @@ export function Sidebar({
       <Link
         key={item.id}
         href={item.href}
+        data-tour={dataTour}
         prefetch={false}
         className={itemClass}
       >
@@ -576,7 +580,7 @@ export function Sidebar({
             </div>
           ) : (
             /* EXPANDED MODE: Logo link to Landing Page ('/') + Collapse Button */
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between" data-tour="org-switcher">
               <Link
                 href="/"
                 className="flex items-center justify-center rounded-md p-0.5 hover:bg-[#141416] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600"
@@ -604,6 +608,7 @@ export function Sidebar({
           {!isCompact ? (
             <button
               type="button"
+              data-tour="search-bar"
               onClick={() => setSearchOpen(true)}
               className="flex w-full items-center gap-2 rounded-lg border border-[#242428] bg-[#141416] px-2.5 h-9 text-xs text-[#71717A] hover:border-[#323238] hover:text-[#D4D4D8] transition-colors shadow-2xs mt-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600"
             >
@@ -759,7 +764,7 @@ export function Sidebar({
 
               {/* 2. Pages Section (Expandable Tree) */}
               {activeOrg && (
-                <div className="space-y-0.5">
+                <div className="space-y-0.5" data-tour="knowledge-tree">
                   {renderGroupToggle("pages", "Pages", PhosphorBookOpen, isGroupExpanded("pages"), pathname.startsWith("/dashboard/pages"))}
 
                   {isGroupExpanded("pages") && (
