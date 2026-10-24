@@ -95,6 +95,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ## Documentation
 
 - [AGENTS.md](AGENTS.md) — Architecture invariants & rules for AI assistants
+- [docs/AI_CONTEXT.md](docs/AI_CONTEXT.md) — Compact, canonical context for AI coding agents
+- [docs/AI_TASK_PROMPT.md](docs/AI_TASK_PROMPT.md) — Reusable prompt for handing off a new task to an AI agent
 - [docs/PRODUCT.md](docs/PRODUCT.md) — Product vision & MVP specification
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — System architecture & security boundaries
 - [docs/DATABASE.md](docs/DATABASE.md) — Database design, RLS policies & future entities
