@@ -44,17 +44,22 @@ export function PricingCards({
     setLoadingPlan(planId);
     try {
       const result = await createCheckoutSessionAction(planId);
-      if (result.error) {
+      if (result?.error) {
         setErrorMessage(result.error);
         setLoadingPlan(null);
         return;
       }
 
-      if (result.url) {
+      if (result?.url) {
         window.location.href = result.url;
+        return;
       }
-    } catch (err: any) {
-      setErrorMessage(err.message || "Failed to start checkout.");
+
+      setErrorMessage("Não foi possível gerar a sessão de checkout da Stripe. Tente novamente.");
+      setLoadingPlan(null);
+    } catch (err: unknown) {
+      const errObj = err as { message?: string };
+      setErrorMessage(errObj?.message || "Ocorreu um erro ao iniciar o checkout.");
       setLoadingPlan(null);
     }
   };

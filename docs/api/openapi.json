@@ -1,0 +1,266 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "BusinessBrain Enterprise Public API",
+    "version": "1.0.0",
+    "description": "Enterprise API for BusinessBrain — The memory and intelligence layer for modern companies. Provides programmatic access to projects, documents, metrics, integrations, and synchronized discussions."
+  },
+  "servers": [
+    {
+      "url": "https://api.businessbrain.com/api/v1",
+      "description": "Production server"
+    },
+    {
+      "url": "http://localhost:3000/api/v1",
+      "description": "Local development server"
+    }
+  ],
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ],
+  "paths": {
+    "/projects": {
+      "get": {
+        "summary": "List Workspace Projects",
+        "operationId": "listProjects",
+        "description": "Returns all projects scoped to the authenticated organization. Requires scope: read:projects.",
+        "responses": {
+          "200": {
+            "description": "Projects successfully retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectsResponse"
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/documents": {
+      "get": {
+        "summary": "List Knowledge Documents",
+        "operationId": "listDocuments",
+        "description": "Returns pages and knowledge documents. Requires scope: read:documents.",
+        "responses": {
+          "200": {
+            "description": "Documents successfully retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentsResponse"
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
+      "post": {
+        "summary": "Create Knowledge Document",
+        "operationId": "createDocument",
+        "description": "Creates a new document in the workspace. Requires scope: write:documents.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDocumentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Document created successfully"
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "summary": "Get Workspace Business & SaaS Metrics",
+        "operationId": "getMetrics",
+        "description": "Retrieves high-level counts and SaaS metrics. Requires scope: read:metrics.",
+        "responses": {
+          "200": {
+            "description": "Metrics retrieved successfully"
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/integrations": {
+      "get": {
+        "summary": "List Connected Integrations & Sync History",
+        "operationId": "listIntegrations",
+        "description": "Returns active integrations and recent sync job logs. Requires scope: read:integrations.",
+        "responses": {
+          "200": {
+            "description": "Integrations list retrieved successfully"
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/discussions": {
+      "get": {
+        "summary": "List External Discussions",
+        "operationId": "listDiscussions",
+        "description": "Queries synced GitHub PRs/issues and Slack channel messages. Requires scope: read:discussions.",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["github", "slack", "google_meet"]
+            },
+            "description": "Filter by external provider"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Discussions retrieved successfully"
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/keys": {
+      "get": {
+        "summary": "List API Keys",
+        "operationId": "listKeys",
+        "description": "Lists active and revoked API keys for the organization. Requires scope: admin.",
+        "responses": {
+          "200": {
+            "description": "API keys list"
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      },
+      "post": {
+        "summary": "Generate New API Key",
+        "operationId": "generateKey",
+        "description": "Creates a new API key. Raw secret returned once. Requires scope: admin.",
+        "responses": {
+          "201": {
+            "description": "API key generated successfully"
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "cb_live_...",
+        "description": "Enter your BusinessBrain API Key with prefix cb_live_"
+      }
+    },
+    "schemas": {
+      "ProjectsResponse": {
+        "type": "object",
+        "properties": {
+          "organization": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "name": { "type": "string" }
+            }
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "name": { "type": "string" },
+                "description": { "type": "string" },
+                "status": { "type": "string" },
+                "priority": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "DocumentsResponse": {
+        "type": "object",
+        "properties": {
+          "organizationId": { "type": "string", "format": "uuid" },
+          "documents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "title": { "type": "string" },
+                "icon": { "type": "string" },
+                "created_at": { "type": "string", "format": "date-time" }
+              }
+            }
+          }
+        }
+      },
+      "CreateDocumentRequest": {
+        "type": "object",
+        "required": ["title"],
+        "properties": {
+          "title": { "type": "string", "example": "Architecture Decision Record 004" },
+          "icon": { "type": "string", "example": "📐" },
+          "content": { "type": "object" }
+        }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Authentication failed or token is missing",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string", "example": "Unauthorized" },
+                "message": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Insufficient scope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "properties": {
+                "error": { "type": "string", "example": "Forbidden" },
+                "message": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Malformed request payload"
+      }
+    }
+  }
+}

@@ -15,7 +15,7 @@ export default async function TimelinePage() {
           <PhosphorClock className="h-5 w-5 text-blue-500" />
           <h1 className="text-xl font-bold tracking-tight text-white">Company Timeline</h1>
           {activeOrg && (
-            <span className="rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-400 border border-blue-500/20">
+            <span className="text-xs text-zinc-300 font-medium ml-1">
               {activeOrg.name}
             </span>
           )}

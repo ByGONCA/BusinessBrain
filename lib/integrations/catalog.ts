@@ -148,6 +148,42 @@ export const INTEGRATION_CATALOG: IntegrationDefinition[] = [
     envVars: ["SHOPIFY_API_KEY", "SHOPIFY_API_SECRET"],
     docsUrl: "https://shopify.dev/docs/api",
   },
+  {
+    id: "slack",
+    name: "Slack",
+    category: "communication",
+    descriptionKey: "slack",
+    authType: "oauth2",
+    badge: "OAuth 2.0",
+    website: "https://slack.com",
+    logoUrl: "/Logos/slack-icon.svg",
+    envVars: ["SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET", "SLACK_SIGNING_SECRET"],
+    docsUrl: "https://api.slack.com",
+  },
+  {
+    id: "confluence",
+    name: "Confluence",
+    category: "operations",
+    descriptionKey: "confluence",
+    authType: "api_key",
+    badge: "Cloud REST / Space Import",
+    website: "https://www.atlassian.com/software/confluence",
+    logoUrl: "/Logos/confluence-icon.svg",
+    envVars: ["CONFLUENCE_DOMAIN", "CONFLUENCE_API_TOKEN"],
+    docsUrl: "https://developer.atlassian.com/cloud/confluence/rest/v1/intro/",
+  },
+  {
+    id: "notion",
+    name: "Notion",
+    category: "operations",
+    descriptionKey: "notion",
+    authType: "api_key",
+    badge: "Internal Integration",
+    website: "https://www.notion.so",
+    logoUrl: "/Logos/notion-icon.svg",
+    envVars: ["NOTION_API_KEY"],
+    docsUrl: "https://developers.notion.com",
+  },
 ];
 
 export function getIntegrationById(id: IntegrationProvider | string): IntegrationDefinition | undefined {
@@ -174,6 +210,8 @@ export function getProviderLogoUrl(provider: string): string | undefined {
     stripe: "/Logos/stripe.svg",
     shopify: "/Logos/shopify.svg",
     slack: "/Logos/slack-icon.svg",
+    confluence: "/Logos/confluence-icon.svg",
+    notion: "/Logos/notion-icon.svg",
   };
 
   return mapping[provider.toLowerCase()];

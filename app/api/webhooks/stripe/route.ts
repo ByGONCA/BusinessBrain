@@ -91,6 +91,43 @@ export async function POST(req: Request) {
           const plan = session.metadata?.plan || "starter";
 
           if (orgId) {
+            // Multi-tenant collision check: ensure customerId and subscriptionId do not belong to another workspace
+            if (customerId) {
+              const { data: customerCollision } = await supabase
+                .from("subscriptions")
+                .select("organization_id")
+                .eq("stripe_customer_id", customerId)
+                .neq("organization_id", orgId)
+                .maybeSingle();
+
+              if (customerCollision) {
+                logger.error("Security Alert: Checkout customer belongs to another workspace", {
+                  customerId,
+                  collidingOrgId: customerCollision.organization_id,
+                  targetOrgId: orgId,
+                });
+                break;
+              }
+            }
+
+            if (subscriptionId) {
+              const { data: subCollision } = await supabase
+                .from("subscriptions")
+                .select("organization_id")
+                .eq("stripe_subscription_id", subscriptionId)
+                .neq("organization_id", orgId)
+                .maybeSingle();
+
+              if (subCollision) {
+                logger.error("Security Alert: Checkout subscription belongs to another workspace", {
+                  subscriptionId,
+                  collidingOrgId: subCollision.organization_id,
+                  targetOrgId: orgId,
+                });
+                break;
+              }
+            }
+
             const sub = await stripe.subscriptions.retrieve(subscriptionId);
 
             const trialStart = sub.trial_start
@@ -123,10 +160,45 @@ export async function POST(req: Request) {
             });
 
             if (rpcError) {
-              logger.error("Failed to sync Stripe subscription via RPC", rpcError, {
+              if (rpcError.code === "23505" || rpcError.message?.includes("Cross-tenant collision")) {
+                logger.error("Security Alert: Webhook RPC sync rejected due to cross-tenant collision in checkout.session.completed", {
+                  error: rpcError.message,
+                  orgId,
+                  subscriptionId,
+                });
+                break;
+              }
+
+              logger.warn("Failed to sync Stripe subscription via RPC, falling back to direct upsert", {
                 orgId,
                 subscriptionId,
+                error: rpcError.message,
               });
+
+              const { error: upsertError } = await supabase.from("subscriptions").upsert(
+                {
+                  organization_id: orgId,
+                  stripe_customer_id: customerId,
+                  stripe_subscription_id: subscriptionId,
+                  plan,
+                  status: sub.status,
+                  trial_start: trialStart,
+                  trial_end: trialEnd,
+                  current_period_start: currentPeriodStart,
+                  current_period_end: currentPeriodEnd,
+                  cancel_at_period_end: sub.cancel_at_period_end,
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: "organization_id" }
+              );
+
+              if (upsertError) {
+                logger.error("Failed to sync Stripe subscription via fallback upsert", upsertError, {
+                  orgId,
+                  subscriptionId,
+                });
+                break;
+              }
             } else {
               logger.info(`[Stripe Webhook] Synced subscription ${subscriptionId} for org ${orgId}`);
             }
@@ -157,7 +229,76 @@ export async function POST(req: Request) {
           ? new Date((sub as { current_period_end: number }).current_period_end * 1000).toISOString()
           : null;
 
+        // Out-of-order event guard & Multi-tenant collision check:
         if (orgId) {
+          // Multi-tenant collision check: ensure customerId and subscriptionId do not belong to another workspace
+          if (customerId) {
+            const { data: customerCollision } = await supabase
+              .from("subscriptions")
+              .select("organization_id")
+              .eq("stripe_customer_id", customerId)
+              .neq("organization_id", orgId)
+              .maybeSingle();
+
+            if (customerCollision) {
+              logger.error("Security Alert: Subscription update customer belongs to another workspace", {
+                customerId,
+                collidingOrgId: customerCollision.organization_id,
+                targetOrgId: orgId,
+              });
+              break;
+            }
+          }
+
+          if (subscriptionId) {
+            const { data: subCollision } = await supabase
+              .from("subscriptions")
+              .select("organization_id")
+              .eq("stripe_subscription_id", subscriptionId)
+              .neq("organization_id", orgId)
+              .maybeSingle();
+
+            if (subCollision) {
+              logger.error("Security Alert: Subscription update belongs to another workspace", {
+                subscriptionId,
+                collidingOrgId: subCollision.organization_id,
+                targetOrgId: orgId,
+              });
+              break;
+            }
+          }
+
+          const { data: existingSub } = await supabase
+            .from("subscriptions")
+            .select("status, stripe_subscription_id, updated_at")
+            .eq("organization_id", orgId)
+            .maybeSingle();
+
+          const eventTimeMs = event.created * 1000;
+          const existingUpdatedMs = existingSub?.updated_at ? new Date(existingSub.updated_at).getTime() : 0;
+
+          // If the subscription in DB is canceled for this same subscription ID,
+          // and the incoming event claims an active status, verify against live Stripe API
+          // to ensure stale retries or clock-skewed out-of-order events do not resurrect it.
+          if (
+            existingSub?.status === "canceled" &&
+            existingSub?.stripe_subscription_id === subscriptionId &&
+            sub.status !== "canceled"
+          ) {
+            try {
+              const liveSub = await stripe.subscriptions.retrieve(subscriptionId);
+              if (liveSub.status === "canceled") {
+                logger.warn(`[Stripe Webhook] Live Stripe verification confirmed subscription is canceled. Dropping out-of-order update: ${subscriptionId}`);
+                break;
+              }
+            } catch (err: unknown) {
+              logger.warn(`[Stripe Webhook] Error fetching live subscription for canceled state check; dropping event to prevent invalid reactivation: ${subscriptionId}`, {
+                error: err instanceof Error ? err.message : String(err),
+              });
+              break;
+            }
+          }
+
           const { error: rpcError } = await supabase.rpc("sync_stripe_subscription", {
             p_organization_id: orgId,
             p_stripe_customer_id: customerId,
@@ -173,14 +314,67 @@ export async function POST(req: Request) {
           });
 
           if (rpcError) {
-            logger.error("Failed to sync updated Stripe subscription via RPC", rpcError, {
+            if (rpcError.code === "23505" || rpcError.message?.includes("Cross-tenant collision")) {
+              logger.error("Security Alert: Webhook RPC sync rejected due to cross-tenant collision in subscription.updated", {
+                error: rpcError.message,
+                orgId,
+                subscriptionId,
+              });
+              break;
+            }
+
+            logger.warn("Failed to sync updated Stripe subscription via RPC, falling back to direct upsert", {
               orgId,
               subscriptionId,
+              error: rpcError.message,
             });
+
+            const { error: upsertError } = await supabase.from("subscriptions").upsert(
+              {
+                organization_id: orgId,
+                stripe_customer_id: customerId,
+                stripe_subscription_id: subscriptionId,
+                plan,
+                status: sub.status,
+                trial_start: trialStart,
+                trial_end: trialEnd,
+                current_period_start: currentPeriodStart,
+                current_period_end: currentPeriodEnd,
+                cancel_at_period_end: sub.cancel_at_period_end,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: "organization_id" }
+            );
+
+            if (upsertError) {
+              logger.error("Failed to sync updated Stripe subscription via fallback upsert", upsertError, {
+                orgId,
+                subscriptionId,
+              });
+              break;
+            }
           }
         } else {
-          // If no orgId in metadata, update by subscription ID
-          await supabase
+          // If no orgId in metadata, verify existing state by subscription ID before updating
+          const { data: existingSubById } = await supabase
+            .from("subscriptions")
+            .select("status, stripe_subscription_id")
+            .eq("stripe_subscription_id", subscriptionId)
+            .maybeSingle();
+
+          if (existingSubById?.status === "canceled" && sub.status !== "canceled") {
+            try {
+              const liveSub = await stripe.subscriptions.retrieve(subscriptionId);
+              if (liveSub.status === "canceled") {
+                logger.warn(`[Stripe Webhook] Live Stripe verification confirmed subscription is canceled. Dropping out-of-order update (no orgId): ${subscriptionId}`);
+                break;
+              }
+            } catch {
+              break;
+            }
+          }
+
+          const { error: updateError } = await supabase
             .from("subscriptions")
             .update({
               status: sub.status,
@@ -192,6 +386,13 @@ export async function POST(req: Request) {
               updated_at: new Date().toISOString(),
             })
             .eq("stripe_subscription_id", subscriptionId);
+
+          if (updateError) {
+            logger.error("Failed to update subscription by ID without metadata", updateError, {
+              subscriptionId,
+            });
+            break;
+          }
         }
 
         logger.info(`[Stripe Webhook] Updated subscription ${subscriptionId} status: ${sub.status}`);
@@ -206,13 +407,20 @@ export async function POST(req: Request) {
         });
 
         if (rpcError) {
-          await supabase
+          const { error: cancelError } = await supabase
             .from("subscriptions")
             .update({
               status: "canceled",
               updated_at: new Date().toISOString(),
             })
             .eq("stripe_subscription_id", sub.id);
+
+          if (cancelError) {
+            logger.error("Failed to cancel subscription via fallback update", cancelError, {
+              subscriptionId: sub.id,
+            });
+            break;
+          }
         }
 
         logger.info(`[Stripe Webhook] Subscription canceled: ${sub.id}`);
@@ -241,7 +449,8 @@ export async function POST(req: Request) {
               updated_at: new Date().toISOString(),
             })
             .eq("stripe_subscription_id", subId)
-            .neq("status", "trialing");
+            .neq("status", "trialing")
+            .neq("status", "canceled");
         }
 
         logger.info(`[Stripe Webhook] Payment succeeded for invoice: ${invoice.id}`);
@@ -262,7 +471,8 @@ export async function POST(req: Request) {
               status: "past_due",
               updated_at: new Date().toISOString(),
             })
-            .eq("stripe_subscription_id", subId);
+            .eq("stripe_subscription_id", subId)
+            .neq("status", "canceled");
 
           logger.warn(`[Stripe Webhook] Payment failed for invoice ${invoice.id}. Marked as past_due.`);
         }

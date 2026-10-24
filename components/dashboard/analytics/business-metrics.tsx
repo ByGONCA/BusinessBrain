@@ -14,6 +14,9 @@ import {
   Users,
   AlertCircle,
   ExternalLink,
+  PieChart,
+  Activity,
+  TrendingDown,
 } from "lucide-react";
 import {
   StripeFinancialSnapshot,
@@ -197,7 +200,7 @@ export function BusinessMetricsSection({
               </h2>
               <span
                 className={cn(
-                  "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium border",
+                  "inline-flex items-center gap-1.5 text-xs font-medium",
                   statusBadge.className
                 )}
               >
@@ -256,7 +259,7 @@ export function BusinessMetricsSection({
         <div className="rounded-xl border border-border/80 bg-card/40 p-4 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">MRR Ativo (Efetivo)</span>
-            <span className="rounded-full bg-emerald-500/10 px-1.5 py-0.2 text-[10px] font-semibold text-emerald-400">
+            <span className="text-xs font-medium text-emerald-400">
               Contratado
             </span>
           </div>
@@ -295,7 +298,7 @@ export function BusinessMetricsSection({
         <div className="rounded-xl border border-border/80 bg-card/40 p-4 shadow-2xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">Receita Líquida (12m)</span>
-            <span className="rounded-full bg-blue-500/10 px-1.5 py-0.2 text-[10px] font-semibold text-blue-400">
+            <span className="text-xs font-medium text-blue-400">
               Liquidado
             </span>
           </div>
@@ -331,12 +334,136 @@ export function BusinessMetricsSection({
         </div>
       </div>
 
+      {/* Secondary SaaS Metrics Grid (Fase 3.3 & Fase 3.5) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Metric A: ARPU */}
+        <div className="rounded-xl border border-border/70 bg-card/30 p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium text-muted-foreground">ARPU (Receita Média / Subscritor)</span>
+            <Activity className="h-3 w-3 text-muted-foreground" />
+          </div>
+          <div className="mt-1.5 flex items-baseline justify-between">
+            <span className="text-lg font-bold tracking-tight text-foreground">
+              {formatCents(primaryTotals.arpuCents || 0, primaryTotals.currency)}
+            </span>
+          </div>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">
+            {primaryTotals.activeSubscribersCount > 0 ? "Por subscrição ativa contratada" : "Sem subscrições ativas"}
+          </p>
+        </div>
+
+        {/* Metric B: Churn Rate */}
+        <div className="rounded-xl border border-border/70 bg-card/30 p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium text-muted-foreground">Taxa de Churn</span>
+            <span className="text-[10px] font-medium text-muted-foreground">Cancelamentos</span>
+          </div>
+          <div className="mt-1.5 flex items-baseline justify-between">
+            <span className="text-lg font-bold tracking-tight text-foreground">
+              {primaryTotals.churnRatePercentage != null ? `${primaryTotals.churnRatePercentage}%` : "0.0%"}
+            </span>
+          </div>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">
+            {primaryTotals.canceledSubscribersCount} canceladas no histórico
+          </p>
+        </div>
+
+        {/* Metric C: Trial Conversion Rate */}
+        <div className="rounded-xl border border-border/70 bg-card/30 p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium text-muted-foreground">Conversão de Trials</span>
+            <span className="rounded-full bg-blue-500/10 px-1 py-0.2 text-[9px] font-semibold text-blue-400">
+              Funil
+            </span>
+          </div>
+          <div className="mt-1.5 flex items-baseline justify-between">
+            <span className="text-lg font-bold tracking-tight text-foreground">
+              {primaryTotals.trialConversionRatePercentage != null ? `${primaryTotals.trialConversionRatePercentage}%` : "0.0%"}
+            </span>
+          </div>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">
+            {primaryTotals.trialingSubscribersCount || 0} atualmente em avaliação
+          </p>
+        </div>
+
+        {/* Metric D: Performance Projection (Estimativa Estatística) */}
+        <div className="rounded-xl border border-border/70 bg-card/30 p-3.5 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-medium text-muted-foreground">Projeção Próximo Mês</span>
+            <span className="rounded-full bg-purple-500/10 px-1.5 py-0.2 text-[9px] font-semibold text-purple-400 border border-purple-500/20">
+              Estimativa
+            </span>
+          </div>
+          <div className="mt-1.5 flex items-baseline justify-between">
+            <span className="text-lg font-bold tracking-tight text-foreground">
+              {formatCents(primaryTotals.performanceAnalysis?.projectedNextMonthMrrCents ?? primaryTotals.activeMrrCents, primaryTotals.currency)}
+            </span>
+          </div>
+          <p className="mt-0.5 text-[10px] text-muted-foreground italic">
+            Run-rate contratual estimado
+          </p>
+        </div>
+      </div>
+
+      {/* Revenue Breakdown by Plan (Fase 3.4) */}
+      {primaryTotals.revenueByPlan && Object.keys(primaryTotals.revenueByPlan).length > 0 && (
+        <div className="rounded-xl border border-border/80 bg-card/40 p-4 shadow-2xs space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <PieChart className="h-4 w-4 text-blue-400" />
+              <h3 className="text-xs font-semibold text-foreground">Distribuição da Receita por Plano</h3>
+            </div>
+            <span className="text-[10px] text-muted-foreground font-mono uppercase">{primaryCurrency}</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+            {Object.values(primaryTotals.revenueByPlan).map((plan) => (
+              <div key={plan.planName} className="rounded-lg border border-border/60 bg-background/50 p-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-foreground">{plan.planName}</span>
+                  <span className="text-muted-foreground text-[11px]">{plan.subscribersCount} subs</span>
+                </div>
+                <div className="mt-1.5 flex items-baseline justify-between text-xs">
+                  <span className="font-medium text-foreground">{formatCents(plan.mrrCents, primaryCurrency)}</span>
+                  <span className="text-[10px] text-blue-400 font-medium">{plan.percentageOfMrr}%</span>
+                </div>
+                <div className="mt-1.5 h-1.5 w-full bg-muted/60 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full"
+                    style={{ width: `${Math.min(100, Math.max(0, plan.percentageOfMrr))}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Monthly History Mini-Chart / Trajectory View */}
       {snapshot.monthlyHistory && snapshot.monthlyHistory[primaryCurrency] && snapshot.monthlyHistory[primaryCurrency].length > 0 && (
         <div className="rounded-xl border border-border/80 bg-card/40 p-4 shadow-2xs space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xs font-semibold text-foreground">Trajetória de Receita Mensal Liquidada</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-semibold text-foreground">Trajetória de Receita Mensal Liquidada</h3>
+                {primaryTotals.performanceAnalysis?.momRevenueGrowthPercentage != null && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9px] font-semibold",
+                      primaryTotals.performanceAnalysis.momRevenueGrowthPercentage >= 0
+                        ? "bg-emerald-500/10 text-emerald-400"
+                        : "bg-red-500/10 text-red-400"
+                    )}
+                  >
+                    {primaryTotals.performanceAnalysis.momRevenueGrowthPercentage >= 0 ? (
+                      <TrendingUp className="h-2.5 w-2.5" />
+                    ) : (
+                      <TrendingDown className="h-2.5 w-2.5" />
+                    )}
+                    {primaryTotals.performanceAnalysis.momRevenueGrowthPercentage > 0 ? "+" : ""}
+                    {primaryTotals.performanceAnalysis.momRevenueGrowthPercentage}% MoM
+                  </span>
+                )}
+              </div>
               <p className="text-[10px] text-muted-foreground">Volume de cash-flow líquido mensal (últimos 12 meses)</p>
             </div>
             <span className="text-[10px] font-mono text-muted-foreground uppercase">{primaryCurrency}</span>

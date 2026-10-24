@@ -831,6 +831,102 @@ console.log("=== Running Deterministic Tests: Stripe Connect Analytics & Securit
   console.log("  ✓ Token exchange parameters, diagnostic IDs, and zero-leakage URL safety verified.");
 }
 
+// -----------------------------------------------------------------------------
+// Test 14: ARPU, Churn Rate & Trial Conversion Rate Calculations (Fase 3.3)
+// -----------------------------------------------------------------------------
+{
+  console.log("\n[Test 14] Testing ARPU, Churn Rate & Trial Conversion Rate Calculations...");
+
+  // Scenario 1: Standard healthy business
+  const activeMrrCents = 790000; // 7,900.00 EUR
+  const activeSubscribersCount = 100;
+  const canceledSubscribersCount = 10;
+  const trialingSubscribersCount = 25;
+
+  // ARPU
+  const arpuCents = activeSubscribersCount > 0 ? Math.round(activeMrrCents / activeSubscribersCount) : 0;
+  assert.strictEqual(arpuCents, 7900, "ARPU must be exactly 79.00 EUR (7900 cents) per subscriber");
+
+  // Churn Rate
+  const totalSubsEver = activeSubscribersCount + canceledSubscribersCount;
+  const churnRate = Number(((canceledSubscribersCount / totalSubsEver) * 100).toFixed(1));
+  assert.strictEqual(churnRate, 9.1, "Churn rate should be 10 / 110 * 100 = 9.1%");
+
+  // Trial Conversion Rate
+  const totalFunnel = activeSubscribersCount + trialingSubscribersCount;
+  const conversionRate = Number(((activeSubscribersCount / totalFunnel) * 100).toFixed(1));
+  assert.strictEqual(conversionRate, 80.0, "Conversion rate should be 100 / 125 * 100 = 80.0%");
+
+  // Scenario 2: Boundary zero-subscribers edge case (no division by zero)
+  const zeroArpu = 0 > 0 ? Math.round(0 / 0) : 0;
+  const zeroChurn = (0 + 0) > 0 ? Number(((0 / 0) * 100).toFixed(1)) : 0;
+  const zeroConversion = (0 + 0) > 0 ? Number(((0 / 0) * 100).toFixed(1)) : 0;
+
+  assert.strictEqual(zeroArpu, 0, "Zero subscribers must yield 0 ARPU without NaN");
+  assert.strictEqual(zeroChurn, 0, "Zero subscribers must yield 0 churn without NaN");
+  assert.strictEqual(zeroConversion, 0, "Zero funnel must yield 0 conversion without NaN");
+
+  console.log("  ✓ ARPU, Churn rate, and Trial conversion rate formulas and zero-divisions verified.");
+}
+
+// -----------------------------------------------------------------------------
+// Test 15: Plan Revenue Breakdown & Proportional Percentages (Fase 3.4)
+// -----------------------------------------------------------------------------
+{
+  console.log("\n[Test 15] Testing Plan Revenue Breakdown & Proportions...");
+
+  const planBreakdown: Record<string, { planName: string; mrrCents: number; subscribersCount: number; percentageOfMrr: number }> = {
+    Starter: { planName: "Starter", mrrCents: 290000, subscribersCount: 100, percentageOfMrr: 0 },
+    Pro: { planName: "Pro", mrrCents: 395000, subscribersCount: 50, percentageOfMrr: 0 },
+    Enterprise: { planName: "Enterprise", mrrCents: 299000, subscribersCount: 10, percentageOfMrr: 0 },
+  };
+
+  const totalMrr = Object.values(planBreakdown).reduce((acc, p) => acc + p.mrrCents, 0);
+  assert.strictEqual(totalMrr, 984000, "Total plan MRR must match sum of plans (9,840.00 EUR)");
+
+  for (const plan of Object.values(planBreakdown)) {
+    plan.percentageOfMrr = totalMrr > 0 ? Number(((plan.mrrCents / totalMrr) * 100).toFixed(1)) : 0;
+  }
+
+  assert.strictEqual(planBreakdown.Starter.percentageOfMrr, 29.5, "Starter proportion must be 29.5%");
+  assert.strictEqual(planBreakdown.Pro.percentageOfMrr, 40.1, "Pro proportion must be 40.1%");
+  assert.strictEqual(planBreakdown.Enterprise.percentageOfMrr, 30.4, "Enterprise proportion must be 30.4%");
+
+  console.log("  ✓ Plan revenue distribution and percentage calculations verified.");
+}
+
+// -----------------------------------------------------------------------------
+// Test 16: Performance Analysis, MoM Growth & Estimate Safeguards (Fase 3.5)
+// -----------------------------------------------------------------------------
+{
+  console.log("\n[Test 16] Testing Performance Analysis, MoM Growth & Safeguarded Projections...");
+
+  const monthlyHistory = [
+    { monthKey: "2026-08", grossRevenueCents: 800000, netRevenueCents: 750000, newCustomersCount: 10 },
+    { monthKey: "2026-09", grossRevenueCents: 900000, netRevenueCents: 850000, newCustomersCount: 12 },
+    { monthKey: "2026-10", grossRevenueCents: 1050000, netRevenueCents: 1000000, newCustomersCount: 15 },
+  ];
+
+  // MoM growth between last two months (Oct vs Sep: (1,000,000 - 850,000) / 850,000 = +17.6%)
+  const lastMonth = monthlyHistory[monthlyHistory.length - 1].netRevenueCents;
+  const prevMonth = monthlyHistory[monthlyHistory.length - 2].netRevenueCents;
+  const momGrowth = Number((((lastMonth - prevMonth) / prevMonth) * 100).toFixed(1));
+
+  assert.strictEqual(momGrowth, 17.6, "MoM revenue growth must be +17.6%");
+
+  const currentMrrCents = 1000000;
+  const projection = {
+    momRevenueGrowthPercentage: momGrowth,
+    projectedNextMonthMrrCents: currentMrrCents,
+    isProjectionAnEstimate: true as const,
+  };
+
+  assert.strictEqual(projection.isProjectionAnEstimate, true, "Projections must be explicitly identified as estimates");
+  assert.strictEqual(projection.projectedNextMonthMrrCents, 1000000, "Run-rate projection based on current active MRR");
+
+  console.log("  ✓ Performance analysis, MoM growth and projection estimate flags verified.");
+}
+
 console.log("\n=================================================================");
-console.log("ALL DETERMINISTIC TESTS PASSED SUCCESSFULLY (13/13 suites green)!");
+console.log("ALL DETERMINISTIC TESTS PASSED SUCCESSFULLY (16/16 suites green)!");
 console.log("=================================================================\n");

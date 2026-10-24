@@ -37,7 +37,7 @@ export async function getDecryptedGitHubToken(organizationId: string): Promise<{
 
   const { data: integration, error } = await supabase
     .from("organization_integrations")
-    .select("id, encrypted_access_token, provider_account_id, account_email, status")
+    .select("id, encrypted_access_token, provider_account_id, account_email, metadata, status")
     .eq("organization_id", organizationId)
     .eq("provider", "github")
     .eq("status", "connected")
@@ -51,7 +51,7 @@ export async function getDecryptedGitHubToken(organizationId: string): Promise<{
     const accessToken = decryptToken(integration.encrypted_access_token);
     return {
       accessToken,
-      accountLogin: integration.provider_account_id,
+      accountLogin: ((integration.metadata as any)?.github_login) || integration.provider_account_id,
       accountEmail: integration.account_email || undefined,
     };
   } catch (err) {

@@ -1,7 +1,13 @@
 import { type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { isPublicApiEnabled, publicApiUnavailableResponse } from "@/lib/api-keys/feature-flag";
 
 export async function proxy(request: NextRequest) {
+  // Block all external access to Enterprise Public API (/api/v1/*) when disabled by default
+  if (request.nextUrl.pathname.startsWith("/api/v1") && !isPublicApiEnabled()) {
+    return publicApiUnavailableResponse();
+  }
+
   return updateSession(request);
 }
 

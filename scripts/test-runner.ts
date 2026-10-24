@@ -117,6 +117,16 @@ const SUITES: TestSuite[] = [
     file: "scripts/test-storage-security.ts",
     description: "17 tests: Direct SDK bypass prevention, granular RLS (files.view/upload/delete), MIME/SVG validation, traversal",
   },
+  {
+    name: "Phase 4 Integrations & Ecosystem Engine",
+    file: "scripts/test-phase4-integrations-and-api.ts",
+    description: "50 tests: Migration 00036, multi-tenant isolation, API keys, HMAC signatures, Confluence/Notion transpilers, deduplication",
+  },
+  {
+    name: "Phase 4 Public API Deactivation Guard",
+    file: "scripts/test-public-api-disabled.ts",
+    description: "23 tests: Strict 404 blocking across all /api/v1/* routes, middleware fail-closed, feature flag isolation, UI removal",
+  },
 ];
 
 async function runSuite(suite: TestSuite): Promise<{ success: boolean; durationMs: number; output: string }> {

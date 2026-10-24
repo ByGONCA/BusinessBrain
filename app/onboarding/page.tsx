@@ -235,7 +235,7 @@ export default function OnboardingPage() {
                   <div className="h-5 w-5 rounded-full border border-[#27272A] bg-[#18181B]" />
                 )}
                 <span className={provisioningPhase >= 1 ? "text-[#F5F5F5]" : "text-[#71717A]"}>
-                  A aplicar isolamento de dados PostgreSQL RLS
+                  A configurar privacidade e segurança do espaço de trabalho
                 </span>
               </div>
 

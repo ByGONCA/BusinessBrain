@@ -12,7 +12,9 @@ export type IntegrationProvider =
   | "google"
   | "google_drive"
   | "microsoft"
-  | "slack";
+  | "slack"
+  | "confluence"
+  | "notion";
 
 export type IntegrationStatus = "connected" | "disconnected" | "error" | "needs_reauth";
 

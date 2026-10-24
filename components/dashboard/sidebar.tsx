@@ -14,6 +14,7 @@ import {
   Briefcase,
   Layers,
   ChevronRight,
+  TrendingUp,
 } from "lucide-react";
 import {
   PhosphorHouse,
@@ -154,7 +155,8 @@ export function Sidebar({
       pathname.startsWith("/dashboard/projects") ||
       pathname.startsWith("/dashboard/tasks") ||
       pathname.startsWith("/dashboard/goals") ||
-      pathname.startsWith("/dashboard/meetings")
+      pathname.startsWith("/dashboard/meetings") ||
+      pathname.startsWith("/dashboard/finance")
     ) {
       if (!isGroupExpanded("work")) toggleGroup("work");
     } else if (pathname.startsWith("/dashboard/pages")) {
@@ -245,6 +247,13 @@ export function Sidebar({
       href: "/dashboard/meetings",
       icon: PhosphorCalendarDots,
       isActive: pathname.startsWith("/dashboard/meetings"),
+    },
+    {
+      id: "finance",
+      name: t.sidebar.finance || "Finance",
+      href: "/dashboard/finance",
+      icon: TrendingUp,
+      isActive: pathname.startsWith("/dashboard/finance"),
     },
   ];
 

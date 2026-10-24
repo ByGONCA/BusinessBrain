@@ -14,7 +14,7 @@ export default function BrainPage() {
             <h1 className="text-xl font-bold tracking-tight text-foreground">
               Company Brain
             </h1>
-            <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-semibold text-blue-400 border border-blue-500/20">
+            <span className="text-xs font-medium text-blue-400 flex items-center gap-1.5">
               AI Layer
             </span>
           </div>
@@ -78,12 +78,12 @@ export default function BrainPage() {
         <Card className="p-4 bg-card border-border">
           <CardHeader className="flex-row items-center justify-between pb-1.5 p-0 space-y-0">
             <CardTitle className="text-xs font-medium text-muted-foreground">
-              RAG Isolation
+              Data Privacy
             </CardTitle>
             <Layers className="h-4 w-4 text-amber-400" />
           </CardHeader>
           <CardContent className="p-0 pt-1">
-            <div className="text-xl font-bold text-foreground">RLS Guard</div>
+            <div className="text-xl font-bold text-foreground">Protected</div>
             <p className="text-[10px] text-muted-foreground mt-0.5">Strict tenant isolation</p>
           </CardContent>
         </Card>

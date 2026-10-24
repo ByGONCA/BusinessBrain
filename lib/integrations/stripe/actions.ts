@@ -112,6 +112,7 @@ export async function disconnectStripeIntegrationAction(): Promise<ActionResult>
   });
 
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/finance");
   revalidatePath("/dashboard/settings");
 
   return {
@@ -177,6 +178,7 @@ export async function refreshStripeMetricsAction(): Promise<ActionResult> {
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/finance");
 
   return {
     success: true,

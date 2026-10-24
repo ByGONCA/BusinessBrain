@@ -121,7 +121,7 @@ export function UsageBillingTab({ entitlement, closeSettings }: UsageBillingTabP
                   {entitlement?.plan || "Starter"} Plan
                 </h3>
               </div>
-              <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <span className="flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
                 <Check className="h-3 w-3" />
                 <span>{entitlement?.isTrial ? "Active 7-Day Trial" : "Active Subscription"}</span>
               </span>

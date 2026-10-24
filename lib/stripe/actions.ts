@@ -1,14 +1,17 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import type Stripe from "stripe";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getActiveOrganization } from "@/lib/organizations/queries";
+import { getOrganizationEntitlement, OrganizationEntitlement } from "@/lib/organizations/entitlements";
 import { getStripeClient } from "./client";
-import { resolveStripePriceId, getTrialDays } from "./config";
+import { resolveStripePriceId, getTrialDays, SUBSCRIPTION_PLANS } from "./config";
 import { SubscriptionTier } from "./types";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
 import { hasPermission } from "@/lib/permissions/resolver";
+import { getServerAuthToken } from "@/lib/security/authorization";
 
 export interface CheckoutActionState {
   error?: string;
@@ -62,8 +65,10 @@ export async function createCheckoutSessionAction(
     return { error: `Invalid plan selected: "${planId}".` };
   }
 
-  // Resolve Stripe Price ID server-side
-  const stripePriceId = resolveStripePriceId(planId);
+  const planConfig = SUBSCRIPTION_PLANS[planId as SubscriptionTier];
+  if (!planConfig) {
+    return { error: `Plan configuration not found for "${planId}".` };
+  }
 
   // Check if Stripe is configured in environment
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -74,19 +79,37 @@ export async function createCheckoutSessionAction(
     };
   }
 
-  if (!stripePriceId) {
-    return {
-      error: `Missing Stripe Price ID for plan "${planId}". Please configure STRIPE_${planId.toUpperCase()}_PRICE_ID in .env.local.`,
-    };
-  }
+  // Resolve Stripe Price ID server-side
+  const stripePriceId = resolveStripePriceId(planId);
 
-  // Stripe Price IDs must begin with "price_" (or "plan_").
-  // If a numerical literal price (e.g. "29") is passed, provide a precise, actionable explanation.
-  if (!stripePriceId.startsWith("price_") && !stripePriceId.startsWith("plan_")) {
-    return {
-      error: `Configuração inválida para STRIPE_${planId.toUpperCase()}_PRICE_ID ("${stripePriceId}"). O Stripe exige o identificador de objeto de preço (ex.: "price_1P..."), e não o valor numérico em dinheiro. Acede ao Stripe Dashboard -> Product Catalog -> ${planId.toUpperCase()} -> Copiar ID do Preço.`,
-    };
-  }
+  // Determine line items: Use Stripe Price ID if valid, or fallback gracefully to inline price_data
+  const hasValidPriceId =
+    Boolean(stripePriceId) &&
+    (stripePriceId!.startsWith("price_") || stripePriceId!.startsWith("plan_"));
+
+  const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = hasValidPriceId
+    ? [
+        {
+          price: stripePriceId!,
+          quantity: 1,
+        },
+      ]
+    : [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: `${planConfig.name} Plan`,
+              description: planConfig.description,
+            },
+            unit_amount: planConfig.monthlyPriceUsd * 100,
+            recurring: {
+              interval: "month",
+            },
+          },
+          quantity: 1,
+        },
+      ];
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const trialDays = getTrialDays();
@@ -145,12 +168,7 @@ export async function createCheckoutSessionAction(
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
-      line_items: [
-        {
-          price: stripePriceId,
-          quantity: 1,
-        },
-      ],
+      line_items: lineItems,
       subscription_data: {
         trial_period_days: trialDays,
         metadata: {
@@ -261,3 +279,358 @@ export async function createCustomerPortalSessionAction(): Promise<{
   }
 }
 
+// Short-term in-memory cache to debounce redundant rapid Stripe API requests for the same session ID
+const sessionVerificationCache = new Map<string, { timestamp: number; result: any }>();
+const VERIFICATION_CACHE_TTL_MS = 3000; // 3 seconds debounce
+
+/**
+ * Server-side verification and fallback synchronization for completed Stripe Checkout sessions.
+ * 
+ * Invoked when returning from Stripe Checkout (/checkout/success) to ensure the workspace
+ * receives immediate access even if the asynchronous webhook has not finalized on the server yet.
+ * 
+ * Strict Security Invariants:
+ * - Session ID must be valid format (starts with "cs_").
+ * - User must be authenticated and activeOrg resolved.
+ * - Caller must possess billing management authority for the organization.
+ * - Session must belong strictly to activeOrg.id and user.id.
+ * - Livemode environment must match configured STRIPE_SECRET_KEY.
+ * - Session status must be "complete" and subscription status must be "active" or "trialing".
+ * - Customer ID and Subscription ID must never belong to a foreign organization.
+ * - Persists verified subscription to public.subscriptions using the service_role boundary.
+ */
+export async function verifyAndSyncCheckoutSession(sessionId: string): Promise<{
+  success: boolean;
+  isEntitled: boolean;
+  entitlement?: OrganizationEntitlement;
+  error?: string;
+  code?: string;
+}> {
+  if (!sessionId || typeof sessionId !== "string" || !sessionId.startsWith("cs_") || sessionId.length > 255) {
+    return {
+      success: false,
+      isEntitled: false,
+      error: "Invalid checkout session format.",
+      code: "INVALID_SESSION_ID",
+    };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      success: false,
+      isEntitled: false,
+      error: "Authentication required.",
+      code: "UNAUTHORIZED",
+    };
+  }
+
+  const activeOrg = await getActiveOrganization();
+  if (!activeOrg) {
+    return {
+      success: false,
+      isEntitled: false,
+      error: "No active workspace selected.",
+      code: "NO_ACTIVE_ORG",
+    };
+  }
+
+  // Permission verification: Only Owner, Admin or billing manager can perform verification sync
+  const canManageBilling =
+    activeOrg.role === "owner" ||
+    activeOrg.role === "admin" ||
+    (await hasPermission(user.id, activeOrg.id, "billing.manage"));
+
+  if (!canManageBilling) {
+    return {
+      success: false,
+      isEntitled: false,
+      error: "Forbidden: Only workspace owners and admins can manage billing.",
+      code: "FORBIDDEN_PERMISSIONS",
+    };
+  }
+
+  // 1. Check if the workspace is already entitled in the local database (webhook delivered fast)
+  const existingEntitlement = await getOrganizationEntitlement(activeOrg.id);
+  if (existingEntitlement.isEntitled) {
+    return {
+      success: true,
+      isEntitled: true,
+      entitlement: existingEntitlement,
+    };
+  }
+
+  // Check short-term cache to avoid duplicate upstream Stripe API calls within TTL
+  const cacheKey = `${activeOrg.id}:${sessionId}`;
+  const cached = sessionVerificationCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < VERIFICATION_CACHE_TTL_MS) {
+    return cached.result;
+  }
+
+  // 2. Retrieve the session directly from Stripe with server secret
+  try {
+    const stripe = getStripeClient();
+    const session = await stripe.checkout.sessions.retrieve(sessionId, {
+      expand: ["subscription"],
+    });
+
+    // Verify session environment alignment (live vs test mode)
+    const isLiveKey = process.env.STRIPE_SECRET_KEY?.startsWith("sk_live_");
+    if (isLiveKey !== undefined && session.livemode !== isLiveKey) {
+      logger.warn("Security Alert: Checkout session livemode mismatch", {
+        sessionLivemode: session.livemode,
+        isLiveKey,
+        sessionId,
+      });
+      return {
+        success: false,
+        isEntitled: false,
+        error: "Forbidden: Checkout session environment mismatch.",
+        code: "FORBIDDEN_ENV_MISMATCH",
+      };
+    }
+
+    // Verify session completion
+    if (session.status !== "complete") {
+      const pendingResult = {
+        success: false,
+        isEntitled: false,
+        error: "Stripe checkout session has not completed yet.",
+        code: "SESSION_INCOMPLETE",
+      };
+      sessionVerificationCache.set(cacheKey, { timestamp: Date.now(), result: pendingResult });
+      return pendingResult;
+    }
+
+    // Verify tenant isolation & authorization: must belong to activeOrg
+    if (!session.metadata?.organization_id || session.metadata.organization_id !== activeOrg.id) {
+      logger.warn("Security Alert: Checkout session organization mismatch", {
+        sessionOrgId: session.metadata?.organization_id,
+        activeOrgId: activeOrg.id,
+        userId: user.id,
+      });
+      return {
+        success: false,
+        isEntitled: false,
+        error: "Forbidden: Checkout session belongs to a different organization.",
+        code: "FORBIDDEN_ORG_MISMATCH",
+      };
+    }
+
+    // Verify user ownership strictly
+    if (!session.metadata?.user_id || session.metadata.user_id !== user.id) {
+      logger.warn("Security Alert: Checkout session user mismatch", {
+        sessionUserId: session.metadata?.user_id,
+        authUserId: user.id,
+      });
+      return {
+        success: false,
+        isEntitled: false,
+        error: "Forbidden: Checkout session belongs to a different user.",
+        code: "FORBIDDEN_USER_MISMATCH",
+      };
+    }
+
+    const rawSub = session.subscription;
+    if (!rawSub) {
+      return {
+        success: false,
+        isEntitled: false,
+        error: "No subscription associated with checkout session.",
+        code: "NO_SUBSCRIPTION",
+      };
+    }
+
+    const sub = typeof rawSub === "string" ? await stripe.subscriptions.retrieve(rawSub) : rawSub;
+    const subscriptionId = sub.id;
+    const customerId =
+      typeof session.customer === "string"
+        ? session.customer
+        : session.customer?.id || "";
+    const plan = session.metadata?.plan || "starter";
+
+    // Subscription status validation: Only active or trialing are entitled
+    if (sub.status !== "active" && sub.status !== "trialing") {
+      logger.warn("Checkout session subscription is not in an entitled state", {
+        subscriptionId: sub.id,
+        status: sub.status,
+        orgId: activeOrg.id,
+      });
+      const invalidStatusResult = {
+        success: false,
+        isEntitled: false,
+        error: `Subscription status is '${sub.status}'. Access is only granted for active or trialing subscriptions.`,
+        code: "SUBSCRIPTION_STATUS_INVALID",
+      };
+      sessionVerificationCache.set(cacheKey, { timestamp: Date.now(), result: invalidStatusResult });
+      return invalidStatusResult;
+    }
+
+    const trialStart = sub.trial_start
+      ? new Date(sub.trial_start * 1000).toISOString()
+      : null;
+    const trialEnd = sub.trial_end
+      ? new Date(sub.trial_end * 1000).toISOString()
+      : null;
+
+    const currentPeriodStart = (sub as { current_period_start?: number }).current_period_start
+      ? new Date((sub as { current_period_start: number }).current_period_start * 1000).toISOString()
+      : new Date().toISOString();
+    const currentPeriodEnd = (sub as { current_period_end?: number }).current_period_end
+      ? new Date((sub as { current_period_end: number }).current_period_end * 1000).toISOString()
+      : null;
+
+    const serviceClient = createServiceClient();
+
+    // Multi-tenant Collision Defense: verify customer_id and subscription_id do not belong to another organization
+    if (customerId) {
+      const { data: customerCollision } = await serviceClient
+        .from("subscriptions")
+        .select("organization_id")
+        .eq("stripe_customer_id", customerId)
+        .neq("organization_id", activeOrg.id)
+        .maybeSingle();
+
+      if (customerCollision) {
+        logger.error("Security Alert: Stripe customer ID is already bound to another organization", {
+          customerId,
+          collidingOrgId: customerCollision.organization_id,
+          attemptedOrgId: activeOrg.id,
+        });
+        return {
+          success: false,
+          isEntitled: false,
+          error: "Security violation: Stripe customer belongs to another workspace.",
+          code: "FORBIDDEN_CUSTOMER_COLLISION",
+        };
+      }
+    }
+
+    if (subscriptionId) {
+      const { data: subCollision } = await serviceClient
+        .from("subscriptions")
+        .select("organization_id")
+        .eq("stripe_subscription_id", subscriptionId)
+        .neq("organization_id", activeOrg.id)
+        .maybeSingle();
+
+      if (subCollision) {
+        logger.error("Security Alert: Stripe subscription ID is already bound to another organization", {
+          subscriptionId,
+          collidingOrgId: subCollision.organization_id,
+          attemptedOrgId: activeOrg.id,
+        });
+        return {
+          success: false,
+          isEntitled: false,
+          error: "Security violation: Stripe subscription belongs to another workspace.",
+          code: "FORBIDDEN_SUBSCRIPTION_COLLISION",
+        };
+      }
+    }
+
+    // Synchronize to database using privileged service_role boundary
+    const serverToken = getServerAuthToken("stripe-webhook");
+
+    const { error: rpcError } = await serviceClient.rpc("sync_stripe_subscription", {
+      p_organization_id: activeOrg.id,
+      p_stripe_customer_id: customerId,
+      p_stripe_subscription_id: subscriptionId,
+      p_plan: plan,
+      p_status: sub.status,
+      p_trial_start: trialStart,
+      p_trial_end: trialEnd,
+      p_current_period_start: currentPeriodStart,
+      p_current_period_end: currentPeriodEnd,
+      p_cancel_at_period_end: sub.cancel_at_period_end,
+      p_server_token: serverToken,
+    });
+
+    if (rpcError) {
+      if (rpcError.code === "23505" || rpcError.message?.includes("Cross-tenant collision")) {
+        logger.error("Security Alert: RPC rejected sync due to cross-tenant collision", {
+          error: rpcError.message,
+          orgId: activeOrg.id,
+          customerId,
+          subscriptionId,
+        });
+        return {
+          success: false,
+          isEntitled: false,
+          error: "Security violation: Stripe customer or subscription belongs to another workspace.",
+          code: "FORBIDDEN_COLLISION",
+        };
+      }
+
+      logger.warn("RPC sync_stripe_subscription failed during session verify, falling back to direct upsert", {
+        error: rpcError.message,
+        orgId: activeOrg.id,
+      });
+
+      const { error: upsertError } = await serviceClient.from("subscriptions").upsert(
+        {
+          organization_id: activeOrg.id,
+          stripe_customer_id: customerId,
+          stripe_subscription_id: subscriptionId,
+          plan,
+          status: sub.status,
+          trial_start: trialStart,
+          trial_end: trialEnd,
+          current_period_start: currentPeriodStart,
+          current_period_end: currentPeriodEnd,
+          cancel_at_period_end: sub.cancel_at_period_end,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "organization_id" }
+      );
+
+      if (upsertError) {
+        logger.error("Direct upsert fallback failed during checkout verification", upsertError, {
+          orgId: activeOrg.id,
+          subscriptionId,
+          hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+        });
+        const isPermissionError =
+          upsertError.message?.includes("permission denied") ||
+          rpcError?.message?.includes("permission denied");
+
+        return {
+          success: false,
+          isEntitled: false,
+          error:
+            isPermissionError && !process.env.SUPABASE_SERVICE_ROLE_KEY
+              ? "Configuração de servidor incompleta: SUPABASE_SERVICE_ROLE_KEY em falta no .env.local para sincronizar subscrições."
+              : "Database persistence failed during subscription synchronization.",
+          code: isPermissionError ? "PERMISSION_DENIED_SERVICE_KEY_MISSING" : "PERSISTENCE_ERROR",
+        };
+      }
+    }
+
+    logger.info(`[Session Fallback Sync] Verified and synchronized subscription ${subscriptionId} for org ${activeOrg.id}`);
+
+    // Re-query fresh entitlement from database to ensure persistence
+    const freshEntitlement = await getOrganizationEntitlement(activeOrg.id);
+    const finalResult = {
+      success: true,
+      isEntitled: freshEntitlement.isEntitled,
+      entitlement: freshEntitlement,
+    };
+    sessionVerificationCache.set(cacheKey, { timestamp: Date.now(), result: finalResult });
+    return finalResult;
+  } catch (err: unknown) {
+    logger.error("Error verifying Stripe checkout session", err, {
+      sessionId,
+      orgId: activeOrg.id,
+    });
+    return {
+      success: false,
+      isEntitled: false,
+      error: "Unable to verify checkout session with Stripe. Please try again or wait for webhook confirmation.",
+      code: "STRIPE_VERIFICATION_ERROR",
+    };
+  }
+}

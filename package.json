@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbo",
     "dev:turbo": "next dev --turbo",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "npx tsx scripts/test-runner.ts"
+    "test": "npx tsx scripts/test-runner.ts",
+    "dev:webpack": "next dev"
   },
   "dependencies": {
     "@stripe/stripe-js": "^5.5.0",

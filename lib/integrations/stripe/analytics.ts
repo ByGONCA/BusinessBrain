@@ -15,6 +15,19 @@ export const MAX_PAGES_PER_QUERY_SAFEGUARD = 50; // Safety guard: up to 5,000 it
 
 export type MetricFreshnessStatus = "fresh" | "stale" | "expired" | "syncing" | "error";
 
+export interface PlanRevenueBreakdown {
+  planName: string;
+  mrrCents: number;
+  subscribersCount: number;
+  percentageOfMrr: number;
+}
+
+export interface PerformanceAnalysisSnapshot {
+  momRevenueGrowthPercentage: number | null; // Month-over-month growth from monthlyHistory
+  projectedNextMonthMrrCents: number; // Linear run-rate estimate
+  isProjectionAnEstimate: true; // Explicit safeguard: must be identified as estimate
+}
+
 export interface CurrencyFinancialTotals {
   currency: string;
   activeMrrCents: number; // Net effective MRR after discounts (ACTIVE only)
@@ -22,6 +35,9 @@ export interface CurrencyFinancialTotals {
   discountSavingsMrrCents: number; // Total deduzido por descontos activos
   atRiskDunningMrrCents: number; // Subscriptions in past_due within grace period (SEPARATE)
   arrCents: number; // activeMrrCents * 12
+  arpuCents?: number; // Average Revenue Per User (activeMrrCents / activeSubscribersCount)
+  churnRatePercentage?: number; // Cancellations / (Active + Canceled) * 100
+  trialConversionRatePercentage?: number; // Active / (Active + Trialing) * 100
   grossRevenueCents: number; // Total volume charged in period
   netRevenueCents: number; // Gross - refunds - lost disputes - fees
   totalRefundsCents: number; // Deducted refunds
@@ -32,6 +48,8 @@ export interface CurrencyFinancialTotals {
   canceledSubscribersCount: number; // Subscriptions canceled or terminated
   atRiskSubscribersCount: number;
   discountedSubscribersCount: number;
+  revenueByPlan?: Record<string, PlanRevenueBreakdown>;
+  performanceAnalysis?: PerformanceAnalysisSnapshot;
 }
 
 export interface MonthlyMetricPoint {
@@ -372,6 +390,9 @@ export async function computeStripeMetricsFromApi(params: {
         discountSavingsMrrCents: 0,
         atRiskDunningMrrCents: 0,
         arrCents: 0,
+        arpuCents: 0,
+        churnRatePercentage: 0,
+        trialConversionRatePercentage: 0,
         grossRevenueCents: 0,
         netRevenueCents: 0,
         totalRefundsCents: 0,
@@ -382,6 +403,7 @@ export async function computeStripeMetricsFromApi(params: {
         canceledSubscribersCount: 0,
         atRiskSubscribersCount: 0,
         discountedSubscribersCount: 0,
+        revenueByPlan: {},
       };
       monthlyHistoryMap[c] = {};
     }
@@ -430,6 +452,28 @@ export async function computeStripeMetricsFromApi(params: {
           bucket.canceledSubscribersCount += 1;
         }
 
+        // Track plan name distribution
+        const firstItem = sub.items?.data?.[0];
+        const rawPlanName = (
+          sub.metadata?.plan ||
+          firstItem?.price?.nickname ||
+          firstItem?.price?.lookup_key ||
+          (firstItem?.price?.recurring?.interval === "year" ? "Anual" : "Mensal")
+        ).toString();
+        const planName = rawPlanName.charAt(0).toUpperCase() + rawPlanName.slice(1);
+
+        if (!bucket.revenueByPlan) {
+          bucket.revenueByPlan = {};
+        }
+        if (!bucket.revenueByPlan[planName]) {
+          bucket.revenueByPlan[planName] = {
+            planName,
+            mrrCents: 0,
+            subscribersCount: 0,
+            percentageOfMrr: 0,
+          };
+        }
+
         if (norm.isAtRiskDunning) {
           bucket.atRiskDunningMrrCents += norm.netEffectiveMonthlyCents;
           bucket.atRiskSubscribersCount += 1;
@@ -439,6 +483,8 @@ export async function computeStripeMetricsFromApi(params: {
           bucket.grossContractualMrrCents += norm.grossMonthlyCents;
           bucket.discountSavingsMrrCents += norm.discountMonthlyCents;
           bucket.activeSubscribersCount += 1;
+          bucket.revenueByPlan[planName].mrrCents += norm.netEffectiveMonthlyCents;
+          bucket.revenueByPlan[planName].subscribersCount += 1;
           if (norm.discountMonthlyCents > 0) {
             bucket.discountedSubscribersCount += 1;
           }
@@ -533,17 +579,65 @@ export async function computeStripeMetricsFromApi(params: {
     throw btErr;
   }
 
-  // Compute ARR per currency (active net MRR * 12)
-  for (const c of Object.keys(currencyMap)) {
-    currencyMap[c].arrCents = currencyMap[c].activeMrrCents * 12;
-  }
-
   // Format monthly history sorted
   const formattedMonthlyHistory: Record<string, MonthlyMetricPoint[]> = {};
   for (const c of Object.keys(monthlyHistoryMap)) {
     formattedMonthlyHistory[c] = Object.values(monthlyHistoryMap[c]).sort((a, b) =>
       a.monthKey.localeCompare(b.monthKey)
     );
+  }
+
+  // Compute derived SaaS metrics (ARR, ARPU, Churn, Trial Conversion, Plan Percentages, Performance)
+  for (const c of Object.keys(currencyMap)) {
+    const bucket = currencyMap[c];
+    bucket.arrCents = bucket.activeMrrCents * 12;
+
+    // ARPU = activeMrrCents / activeSubscribersCount
+    bucket.arpuCents =
+      bucket.activeSubscribersCount > 0
+        ? Math.round(bucket.activeMrrCents / bucket.activeSubscribersCount)
+        : 0;
+
+    // Churn Rate = Canceled / (Active + Canceled) * 100
+    const totalSubsEver = bucket.activeSubscribersCount + bucket.canceledSubscribersCount;
+    bucket.churnRatePercentage =
+      totalSubsEver > 0
+        ? Number(((bucket.canceledSubscribersCount / totalSubsEver) * 100).toFixed(1))
+        : 0;
+
+    // Trial Conversion Rate = Active / (Active + Trialing) * 100
+    const totalFunnel = bucket.activeSubscribersCount + bucket.trialingSubscribersCount;
+    bucket.trialConversionRatePercentage =
+      totalFunnel > 0
+        ? Number(((bucket.activeSubscribersCount / totalFunnel) * 100).toFixed(1))
+        : 0;
+
+    // Plan breakdown percentages
+    if (bucket.revenueByPlan) {
+      for (const plan of Object.values(bucket.revenueByPlan)) {
+        plan.percentageOfMrr =
+          bucket.activeMrrCents > 0
+            ? Number(((plan.mrrCents / bucket.activeMrrCents) * 100).toFixed(1))
+            : 0;
+      }
+    }
+
+    // Performance analysis & Run-Rate projection (MoM & next month estimate)
+    const history = formattedMonthlyHistory[c] || [];
+    let momGrowth: number | null = null;
+    if (history.length >= 2) {
+      const lastMonth = history[history.length - 1].netRevenueCents;
+      const prevMonth = history[history.length - 2].netRevenueCents;
+      if (prevMonth > 0) {
+        momGrowth = Number((((lastMonth - prevMonth) / prevMonth) * 100).toFixed(1));
+      }
+    }
+
+    bucket.performanceAnalysis = {
+      momRevenueGrowthPercentage: momGrowth,
+      projectedNextMonthMrrCents: bucket.activeMrrCents,
+      isProjectionAnEstimate: true,
+    };
   }
 
   const primaryCurrency = Object.keys(currencyMap)[0] || "eur";
@@ -620,12 +714,15 @@ export async function getOrFetchStripeFinancialSnapshot(
   options: { forceRefresh?: boolean } = {}
 ): Promise<{ snapshot: StripeFinancialSnapshot | null; status: MetricFreshnessStatus; error?: string }> {
   // 1. Fetch organization integration for Stripe
-  const { data: integration, error: intError } = await supabase
+  const { data: integrations, error: intError } = await supabase
     .from("organization_integrations")
     .select("provider_account_id, encrypted_access_token, status, metadata")
     .eq("organization_id", organizationId)
     .eq("provider", "stripe")
-    .maybeSingle();
+    .order("updated_at", { ascending: false })
+    .limit(1);
+
+  const integration = integrations?.[0];
 
   if (intError || !integration || integration.status !== "connected") {
     return { snapshot: null, status: "error", error: "Stripe not connected for this workspace." };
@@ -688,19 +785,25 @@ export async function getOrFetchStripeFinancialSnapshot(
     }
   }
 
-  // 5. Acquire lease-based mutex (2 minutes duration)
-  const newLockUntil = new Date(now.getTime() + MUTEX_LEASE_DURATION_MS).toISOString();
-  await supabase
-    .from("organization_metric_snapshots")
-    .upsert(
-      {
-        organization_id: organizationId,
-        metric_type: "stripe_financial_overview",
-        status: "syncing",
-        sync_lock_until: newLockUntil,
-      },
-      { onConflict: "organization_id,metric_type" }
-    );
+  // 5. Acquire lease-based mutex (2 minutes duration) with resilience
+  try {
+    const { createServiceClient } = await import("@/lib/supabase/server");
+    const privilegedDb = createServiceClient();
+    const newLockUntil = new Date(now.getTime() + MUTEX_LEASE_DURATION_MS).toISOString();
+    await privilegedDb
+      .from("organization_metric_snapshots")
+      .upsert(
+        {
+          organization_id: organizationId,
+          metric_type: "stripe_financial_overview",
+          status: "syncing",
+          sync_lock_until: newLockUntil,
+        },
+        { onConflict: "organization_id,metric_type" }
+      );
+  } catch (lockErr) {
+    logger.warn("Could not acquire snapshot mutex in database, continuing computation in memory", { lockErr });
+  }
 
   // 6. Execute Stripe API computation with full cursor pagination
   try {
@@ -713,25 +816,31 @@ export async function getOrFetchStripeFinancialSnapshot(
 
     const checksum = computeSnapshotChecksum(computedSnapshot);
 
-    // 7. Persist lean snapshot (1 row) and release mutex
-    await supabase
-      .from("organization_metric_snapshots")
-      .upsert(
-        {
-          organization_id: organizationId,
-          metric_type: "stripe_financial_overview",
-          payload: computedSnapshot,
-          currency_summaries: computedSnapshot.currencies,
-          computed_at: computedSnapshot.computedAt,
-          expires_at: computedSnapshot.expiresAt,
-          status: "fresh",
-          checksum,
-          payload_size_bytes: computedSnapshot.provenance.payloadSizeBytes,
-          sync_lock_until: null,
-          error_details: null,
-        },
-        { onConflict: "organization_id,metric_type" }
-      );
+    // 7. Persist lean snapshot (1 row) and release mutex (resilient to DB write restrictions)
+    try {
+      const { createServiceClient } = await import("@/lib/supabase/server");
+      const privilegedDb = createServiceClient();
+      await privilegedDb
+        .from("organization_metric_snapshots")
+        .upsert(
+          {
+            organization_id: organizationId,
+            metric_type: "stripe_financial_overview",
+            payload: computedSnapshot,
+            currency_summaries: computedSnapshot.currencies,
+            computed_at: computedSnapshot.computedAt,
+            expires_at: computedSnapshot.expiresAt,
+            status: "fresh",
+            checksum,
+            payload_size_bytes: computedSnapshot.provenance.payloadSizeBytes,
+            sync_lock_until: null,
+            error_details: null,
+          },
+          { onConflict: "organization_id,metric_type" }
+        );
+    } catch (persistErr) {
+      logger.warn("Could not persist computed snapshot to database cache, returning in-memory snapshot", { persistErr });
+    }
 
     return { snapshot: computedSnapshot, status: "fresh" };
   } catch (apiErr: unknown) {
@@ -739,15 +848,19 @@ export async function getOrFetchStripeFinancialSnapshot(
     logger.error("Error computing Stripe financial snapshot", apiErr, { organizationId });
 
     // Release lock and mark error or preserve last snapshot with stale flag
-    await supabase
-      .from("organization_metric_snapshots")
-      .update({
-        status: "error",
-        sync_lock_until: null,
-        error_details: errorMessage,
-      })
-      .eq("organization_id", organizationId)
-      .eq("metric_type", "stripe_financial_overview");
+    try {
+      await supabase
+        .from("organization_metric_snapshots")
+        .update({
+          status: "error",
+          sync_lock_until: null,
+          error_details: errorMessage,
+        })
+        .eq("organization_id", organizationId)
+        .eq("metric_type", "stripe_financial_overview");
+    } catch {
+      // Ignore cache release error
+    }
 
     if (existingSnapshot?.payload) {
       const stalePayload = existingSnapshot.payload as StripeFinancialSnapshot;
