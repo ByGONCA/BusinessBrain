@@ -3,9 +3,31 @@
 @tailwind utilities;
 
 :root,
-html,
-html.dark,
 html.light {
+  /* Editorial Light Theme for BusinessBrain */
+  --background: #FAF9F5;
+  --foreground: #18181B;
+  --card: #FFFFFF;
+  --card-foreground: #18181B;
+  --surface-secondary: #F4F3EE;
+  --surface-elevated: #FFFFFF;
+  --muted: #F4F3EE;
+  --muted-foreground: #71717A;
+  --secondary-foreground: #52525B;
+  --border: #E5E5E0;
+  --border-subtle: #EFEFEA;
+  --sidebar: #F4F3EE;
+  --sidebar-border: #E5E5E0;
+  --hover: #EFEFEA;
+  --selected: #E5E5DF;
+  --accent: #2563EB;
+  --accent-foreground: #FFFFFF;
+  --metric-green: #10B981;
+  --metric-red: #EF4444;
+  --metric-amber: #F59E0B;
+}
+
+html.dark {
   /* Minimalist Premium Dark Theme (Linear/Stripe Reference Aesthetic) */
   --background: #09090B;
   --foreground: #F4F4F5;
@@ -178,4 +200,108 @@ html.dark .bb-code-regex, .dark .bb-code-regex { color: #d16969 !important; }
   border-radius: 9999px;
   display: inline-block;
   flex-shrink: 0;
+}
+
+/* ==========================================================================
+   BusinessBrain Animation System — Editorial Motion & Interactions
+   ========================================================================== */
+
+:root {
+  --ease-editorial: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Scroll-triggered reveal primitives */
+.reveal-init {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 550ms var(--ease-editorial), transform 550ms var(--ease-editorial);
+  will-change: opacity, transform;
+}
+
+.reveal-init.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Stagger delay scales */
+.stagger-1 { transition-delay: 60ms; }
+.stagger-2 { transition-delay: 120ms; }
+.stagger-3 { transition-delay: 180ms; }
+.stagger-4 { transition-delay: 240ms; }
+.stagger-5 { transition-delay: 300ms; }
+.stagger-6 { transition-delay: 360ms; }
+.stagger-7 { transition-delay: 420ms; }
+.stagger-8 { transition-delay: 480ms; }
+
+/* Micro-interaction lift */
+.hover-lift {
+  transition: transform 200ms var(--ease-editorial), box-shadow 200ms var(--ease-editorial), border-color 200ms ease;
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Smooth Accordion Expansion (CSS Grid Rows Fr trick) */
+.accordion-grid {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 260ms var(--ease-editorial), opacity 220ms ease;
+  opacity: 0;
+}
+.accordion-grid.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+/* SVG Line Draw Animation */
+@keyframes graphLineReveal {
+  from {
+    stroke-dashoffset: 120;
+    opacity: 0.2;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+.animate-graph-edge {
+  stroke-dasharray: 120;
+  animation: graphLineReveal 1s var(--ease-editorial) forwards;
+}
+
+/* Strict Accessibility: Reduced Motion Contract */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .reveal-init,
+  .reveal-init.is-revealed {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .hover-lift:hover {
+    transform: none !important;
+  }
+
+  .accordion-grid,
+  .accordion-grid.is-open {
+    grid-template-rows: 1fr !important;
+    opacity: 1 !important;
+    transition: none !important;
+  }
+
+  .animate-graph-edge {
+    stroke-dashoffset: 0 !important;
+    animation: none !important;
+  }
 }

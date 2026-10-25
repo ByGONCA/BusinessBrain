@@ -8,9 +8,9 @@ import { FinanceDashboard } from "@/components/dashboard/finance/finance-dashboa
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Finanças | BusinessBrain",
+  title: "Corporate Finance | BusinessBrain",
   description:
-    "Painel de controlo financeiro, métricas de receita, faturação, economia SaaS e retenção no BusinessBrain.",
+    "Corporate finance dashboard, revenue trajectory, SaaS economics, and retention cohorts in BusinessBrain.",
 };
 
 export default async function FinancePage() {
@@ -21,25 +21,15 @@ export default async function FinancePage() {
 
   if (activeOrg) {
     const supabase = await createClient();
-    const { data: stripeIntegrations } = await supabase
-      .from("organization_integrations")
-      .select("provider_account_id, status")
-      .eq("organization_id", activeOrg.id)
-      .eq("provider", "stripe")
-      .eq("status", "connected")
-      .order("updated_at", { ascending: false })
-      .limit(1);
+    const snapshotResult = await getOrFetchStripeFinancialSnapshot(
+      supabase,
+      activeOrg.id
+    );
 
-    const stripeIntegration = stripeIntegrations?.[0] || null;
-
-    if (stripeIntegration) {
-      isStripeConnected = true;
-      const snapshotResult = await getOrFetchStripeFinancialSnapshot(
-        supabase,
-        activeOrg.id
-      );
-      stripeSnapshot = snapshotResult.snapshot;
-    }
+    isStripeConnected =
+      snapshotResult.isConnected ??
+      (snapshotResult.error !== "Stripe not connected for this workspace.");
+    stripeSnapshot = snapshotResult.snapshot;
   }
 
   return (

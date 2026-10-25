@@ -25,3 +25,5 @@ export function getAIProvider(providerName = "gemini"): AIProvider {
 }
 
 export * from "./types";
+export * from "./config";
+

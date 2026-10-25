@@ -3,107 +3,24 @@ import { SupabaseClient } from "@supabase/supabase-js";
 import { decryptToken } from "@/lib/crypto/encryption";
 import { logger } from "@/lib/security/logger";
 import { getStripeClient } from "@/lib/stripe/client";
+import { stripeFinancialMemoryCache } from "./cache";
 import type Stripe from "stripe";
 
-// Default business configuration
-export const DEFAULT_DUNNING_GRACE_PERIOD_DAYS = 14;
-export const SNAPSHOT_FRESH_DURATION_MS = 15 * 60 * 1000; // 15 minutes
-export const SNAPSHOT_STALE_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
-export const MUTEX_LEASE_DURATION_MS = 2 * 60 * 1000; // 2 minutes lease for lock recovery
-export const PAYLOAD_MAX_BYTES_SAFEGUARD = 32 * 1024; // 32 KB safeguard limit
-export const MAX_PAGES_PER_QUERY_SAFEGUARD = 50; // Safety guard: up to 5,000 items per query
-
-export type MetricFreshnessStatus = "fresh" | "stale" | "expired" | "syncing" | "error";
-
-export interface PlanRevenueBreakdown {
-  planName: string;
-  mrrCents: number;
-  subscribersCount: number;
-  percentageOfMrr: number;
-}
-
-export interface PerformanceAnalysisSnapshot {
-  momRevenueGrowthPercentage: number | null; // Month-over-month growth from monthlyHistory
-  projectedNextMonthMrrCents: number; // Linear run-rate estimate
-  isProjectionAnEstimate: true; // Explicit safeguard: must be identified as estimate
-}
-
-export interface CurrencyFinancialTotals {
-  currency: string;
-  activeMrrCents: number; // Net effective MRR after discounts (ACTIVE only)
-  grossContractualMrrCents: number; // Gross contractual MRR de tabela (antes de descontos)
-  discountSavingsMrrCents: number; // Total deduzido por descontos activos
-  atRiskDunningMrrCents: number; // Subscriptions in past_due within grace period (SEPARATE)
-  arrCents: number; // activeMrrCents * 12
-  arpuCents?: number; // Average Revenue Per User (activeMrrCents / activeSubscribersCount)
-  churnRatePercentage?: number; // Cancellations / (Active + Canceled) * 100
-  trialConversionRatePercentage?: number; // Active / (Active + Trialing) * 100
-  grossRevenueCents: number; // Total volume charged in period
-  netRevenueCents: number; // Gross - refunds - lost disputes - fees
-  totalRefundsCents: number; // Deducted refunds
-  openDisputesCents: number; // Funds currently held in open disputes
-  stripeFeesCents: number; // Processing fees
-  activeSubscribersCount: number;
-  trialingSubscribersCount: number; // Subscriptions in trial period (trialing)
-  canceledSubscribersCount: number; // Subscriptions canceled or terminated
-  atRiskSubscribersCount: number;
-  discountedSubscribersCount: number;
-  revenueByPlan?: Record<string, PlanRevenueBreakdown>;
-  performanceAnalysis?: PerformanceAnalysisSnapshot;
-}
-
-export interface MonthlyMetricPoint {
-  monthKey: string; // YYYY-MM
-  grossRevenueCents: number;
-  netRevenueCents: number;
-  newCustomersCount: number;
-}
-
-export interface StripeFinancialSnapshot {
-  organizationId: string;
-  connectedAccountId: string;
-  accountEmail?: string;
-  livemode: boolean;
-  computedAt: string;
-  expiresAt: string;
-  freshnessStatus: MetricFreshnessStatus;
-  primaryCurrency: string;
-  currencies: Record<string, CurrencyFinancialTotals>;
-  monthlyHistory: Record<string, MonthlyMetricPoint[]>; // currency -> 12-month points
-  totalActiveCustomersCount: number; // Deduplicated customer IDs across all active subs/charges
-  totalAtRiskCustomersCount: number;
-  dunningGracePeriodDays: number;
-  timezone: string;
-  provenance: {
-    source: "stripe_connect_api";
-    apiVersion: string;
-    sampledChargesCount: number;
-    sampledSubscriptionsCount: number;
-    sampledBalanceTransactionsCount: number;
-    lastSyncedAt: string;
-    payloadSizeBytes: number;
-    safeguardPruned: boolean;
-    pagesTraversedSubscriptions: number;
-    pagesTraversedBalanceTransactions: number;
-    hasMoreUnfetched: boolean;
-  };
-  errorDetails?: string;
-}
-
-export interface SubscriptionNormalizationResult {
-  monthlyAmountCents: number; // Net effective monthly amount (for backward compat)
-  grossMonthlyCents: number; // List price MRR before discounts
-  netEffectiveMonthlyCents: number; // Effective MRR after active discounts
-  discountMonthlyCents: number; // Amount saved per month due to discount
-  discountType: "percentage" | "fixed_amount" | "none";
-  discountDescription: string;
-  isRecurringDiscount: boolean;
-  currency: string;
-  isPaused: boolean;
-  isAtRiskDunning: boolean;
-  isExcluded: boolean;
-  dunningDaysElapsed: number;
-}
+export * from "./types";
+export * from "./cache";
+import {
+  DEFAULT_DUNNING_GRACE_PERIOD_DAYS,
+  SNAPSHOT_FRESH_DURATION_MS,
+  SNAPSHOT_STALE_DURATION_MS,
+  MUTEX_LEASE_DURATION_MS,
+  PAYLOAD_MAX_BYTES_SAFEGUARD,
+  MAX_PAGES_PER_QUERY_SAFEGUARD,
+  MetricFreshnessStatus,
+  CurrencyFinancialTotals,
+  MonthlyMetricPoint,
+  StripeFinancialSnapshot,
+  SubscriptionNormalizationResult,
+} from "./types";
 
 /**
  * Calculates start of 12-month window aligned with timezone.
@@ -587,30 +504,51 @@ export async function computeStripeMetricsFromApi(params: {
     );
   }
 
-  // Compute derived SaaS metrics (ARR, ARPU, Churn, Trial Conversion, Plan Percentages, Performance)
+  // Compute derived SaaS metrics (ARR, ARPU, Churn, Retention, Trial Conversion, Plan Percentages, Performance)
   for (const c of Object.keys(currencyMap)) {
     const bucket = currencyMap[c];
     bucket.arrCents = bucket.activeMrrCents * 12;
 
-    // ARPU = activeMrrCents / activeSubscribersCount
+    // ARPU = activeMrrCents / activeSubscribersCount (null if no active subscribers)
     bucket.arpuCents =
       bucket.activeSubscribersCount > 0
         ? Math.round(bucket.activeMrrCents / bucket.activeSubscribersCount)
-        : 0;
+        : null;
 
-    // Churn Rate = Canceled / (Active + Canceled) * 100
+    // Churn & Retention Rates (Strict definition: requires eligible population, else null)
     const totalSubsEver = bucket.activeSubscribersCount + bucket.canceledSubscribersCount;
     bucket.churnRatePercentage =
       totalSubsEver > 0
         ? Number(((bucket.canceledSubscribersCount / totalSubsEver) * 100).toFixed(1))
-        : 0;
+        : null;
 
-    // Trial Conversion Rate = Active / (Active + Trialing) * 100
+    bucket.retentionRatePercentage =
+      totalSubsEver > 0
+        ? Number(((bucket.activeSubscribersCount / totalSubsEver) * 100).toFixed(1))
+        : null;
+
+    // Trial Conversion Rate = Active / (Active + Trialing) * 100 (null if zero funnel)
     const totalFunnel = bucket.activeSubscribersCount + bucket.trialingSubscribersCount;
     bucket.trialConversionRatePercentage =
       totalFunnel > 0
         ? Number(((bucket.activeSubscribersCount / totalFunnel) * 100).toFixed(1))
+        : null;
+
+    // Estimated LTV (ARPU / Churn Rate)
+    bucket.ltvCents =
+      bucket.arpuCents && bucket.churnRatePercentage && bucket.churnRatePercentage > 0
+        ? Math.round(bucket.arpuCents / (bucket.churnRatePercentage / 100))
+        : null;
+
+    // MRR Churn: estimate based on canceled subscribers count * ARPU
+    bucket.mrrChurnCents =
+      bucket.canceledSubscribersCount > 0 && bucket.arpuCents
+        ? bucket.canceledSubscribersCount * bucket.arpuCents
         : 0;
+
+    // GRR & NRR: null until multi-cohort expansion tracking is commissioned
+    bucket.grrPercentage = null;
+    bucket.nrrPercentage = null;
 
     // Plan breakdown percentages
     if (bucket.revenueByPlan) {
@@ -706,169 +644,214 @@ function computeSnapshotChecksum(snapshot: StripeFinancialSnapshot): string {
 }
 
 /**
- * Retrieves the current financial snapshot or fetches on demand with multi-instance mutex protection.
+ * Retrieves the current financial snapshot or fetches on demand with multi-tier caching and mutex protection.
+ *
+ * Tier 1: In-memory bounded cache with strict tenant isolation (60s TTL). Eliminates DB roundtrips.
+ * Tier 2: Supabase single-row metric snapshot (15 min fresh TTL, up to 24h stale).
+ * Single-Flight Coalescing: Protects against stampede/thundering herd across concurrent requests.
  */
 export async function getOrFetchStripeFinancialSnapshot(
   supabase: SupabaseClient,
   organizationId: string,
   options: { forceRefresh?: boolean } = {}
-): Promise<{ snapshot: StripeFinancialSnapshot | null; status: MetricFreshnessStatus; error?: string }> {
-  // 1. Fetch organization integration for Stripe
-  const { data: integrations, error: intError } = await supabase
-    .from("organization_integrations")
-    .select("provider_account_id, encrypted_access_token, status, metadata")
-    .eq("organization_id", organizationId)
-    .eq("provider", "stripe")
-    .order("updated_at", { ascending: false })
-    .limit(1);
-
-  const integration = integrations?.[0];
-
-  if (intError || !integration || integration.status !== "connected") {
-    return { snapshot: null, status: "error", error: "Stripe not connected for this workspace." };
-  }
-
-  const connectedAccountId = integration.provider_account_id;
-  const accessToken = integration.encrypted_access_token
-    ? decryptToken(integration.encrypted_access_token)
-    : "";
-
-  // 2. Fetch organization timezone and currency
-  const { data: orgData } = await supabase
-    .from("organizations")
-    .select("default_timezone, default_currency")
-    .eq("id", organizationId)
-    .single();
-
-  const timezone = orgData?.default_timezone || "Europe/Lisbon";
-
-  // 3. Check existing snapshot in database
-  const { data: existingSnapshot } = await supabase
-    .from("organization_metric_snapshots")
-    .select("payload, computed_at, expires_at, status, sync_lock_until, error_details")
-    .eq("organization_id", organizationId)
-    .eq("metric_type", "stripe_financial_overview")
-    .maybeSingle();
-
-  const now = new Date();
-
-  // Evaluate existing snapshot freshness
-  if (existingSnapshot && !options.forceRefresh) {
-    const computedAtDate = new Date(existingSnapshot.computed_at);
-    const expiresAtDate = new Date(existingSnapshot.expires_at);
-    const ageMs = now.getTime() - computedAtDate.getTime();
-
-    const snapshotPayload = existingSnapshot.payload as StripeFinancialSnapshot;
-
-    if (now <= expiresAtDate && existingSnapshot.status === "fresh") {
-      return { snapshot: snapshotPayload, status: "fresh" };
-    }
-
-    if (ageMs < SNAPSHOT_STALE_DURATION_MS) {
-      // Return stale snapshot immediately to prevent UI blocking
-      snapshotPayload.freshnessStatus = "stale";
-      return { snapshot: snapshotPayload, status: "stale" };
-    }
-  }
-
-  // 4. Concurrency Mutex: check if another instance holds an active lease
-  const lockExpires = existingSnapshot?.sync_lock_until
-    ? new Date(existingSnapshot.sync_lock_until)
-    : null;
-
-  if (lockExpires && now < lockExpires) {
-    // Another instance is currently syncing -> return existing snapshot as stale or wait
-    if (existingSnapshot?.payload) {
-      const snap = existingSnapshot.payload as StripeFinancialSnapshot;
-      snap.freshnessStatus = "syncing";
-      return { snapshot: snap, status: "syncing" };
-    }
-  }
-
-  // 5. Acquire lease-based mutex (2 minutes duration) with resilience
-  try {
-    const { createServiceClient } = await import("@/lib/supabase/server");
-    const privilegedDb = createServiceClient();
-    const newLockUntil = new Date(now.getTime() + MUTEX_LEASE_DURATION_MS).toISOString();
-    await privilegedDb
-      .from("organization_metric_snapshots")
-      .upsert(
-        {
-          organization_id: organizationId,
-          metric_type: "stripe_financial_overview",
-          status: "syncing",
-          sync_lock_until: newLockUntil,
-        },
-        { onConflict: "organization_id,metric_type" }
-      );
-  } catch (lockErr) {
-    logger.warn("Could not acquire snapshot mutex in database, continuing computation in memory", { lockErr });
-  }
-
-  // 6. Execute Stripe API computation with full cursor pagination
-  try {
-    const computedSnapshot = await computeStripeMetricsFromApi({
-      connectedAccountId,
-      accessToken,
-      timezone,
+): Promise<{
+  snapshot: StripeFinancialSnapshot | null;
+  status: MetricFreshnessStatus;
+  isConnected?: boolean;
+  error?: string;
+}> {
+  // If forceRefresh requested, purge in-memory L1 cache for this tenant
+  if (options.forceRefresh) {
+    stripeFinancialMemoryCache.invalidateOrganization(organizationId, "financial_snapshot");
+  } else {
+    // Check Tier 1 (In-Memory Tenant-Isolated L1 Cache)
+    const memCached = stripeFinancialMemoryCache.get<StripeFinancialSnapshot>(
       organizationId,
-    });
-
-    const checksum = computeSnapshotChecksum(computedSnapshot);
-
-    // 7. Persist lean snapshot (1 row) and release mutex (resilient to DB write restrictions)
-    try {
-      const { createServiceClient } = await import("@/lib/supabase/server");
-      const privilegedDb = createServiceClient();
-      await privilegedDb
-        .from("organization_metric_snapshots")
-        .upsert(
-          {
-            organization_id: organizationId,
-            metric_type: "stripe_financial_overview",
-            payload: computedSnapshot,
-            currency_summaries: computedSnapshot.currencies,
-            computed_at: computedSnapshot.computedAt,
-            expires_at: computedSnapshot.expiresAt,
-            status: "fresh",
-            checksum,
-            payload_size_bytes: computedSnapshot.provenance.payloadSizeBytes,
-            sync_lock_until: null,
-            error_details: null,
-          },
-          { onConflict: "organization_id,metric_type" }
-        );
-    } catch (persistErr) {
-      logger.warn("Could not persist computed snapshot to database cache, returning in-memory snapshot", { persistErr });
+      "financial_snapshot",
+      "overview"
+    );
+    if (memCached) {
+      return { snapshot: memCached, status: "fresh", isConnected: true };
     }
-
-    return { snapshot: computedSnapshot, status: "fresh" };
-  } catch (apiErr: unknown) {
-    const errorMessage = apiErr instanceof Error ? apiErr.message : "Stripe API communication failed.";
-    logger.error("Error computing Stripe financial snapshot", apiErr, { organizationId });
-
-    // Release lock and mark error or preserve last snapshot with stale flag
-    try {
-      await supabase
-        .from("organization_metric_snapshots")
-        .update({
-          status: "error",
-          sync_lock_until: null,
-          error_details: errorMessage,
-        })
-        .eq("organization_id", organizationId)
-        .eq("metric_type", "stripe_financial_overview");
-    } catch {
-      // Ignore cache release error
-    }
-
-    if (existingSnapshot?.payload) {
-      const stalePayload = existingSnapshot.payload as StripeFinancialSnapshot;
-      stalePayload.freshnessStatus = "error";
-      stalePayload.errorDetails = errorMessage;
-      return { snapshot: stalePayload, status: "error", error: errorMessage };
-    }
-
-    return { snapshot: null, status: "error", error: errorMessage };
   }
+
+  // Coalesce concurrent requests for the same tenant to prevent thundering herd
+  const cacheKey = options.forceRefresh ? `overview_force_${Date.now()}` : "overview";
+
+  return stripeFinancialMemoryCache.coalesce(
+    organizationId,
+    "financial_snapshot",
+    cacheKey,
+    async () => {
+      // 1. Fetch organization integration for Stripe with lean projection
+      const { data: integrations, error: intError } = await supabase
+        .from("organization_integrations")
+        .select("provider_account_id, encrypted_access_token, status")
+        .eq("organization_id", organizationId)
+        .eq("provider", "stripe")
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+      const integration = integrations?.[0];
+
+      if (intError || !integration || integration.status !== "connected") {
+        return {
+          snapshot: null,
+          status: "error" as MetricFreshnessStatus,
+          isConnected: false,
+          error: "Stripe not connected for this workspace.",
+        };
+      }
+
+      const connectedAccountId = integration.provider_account_id;
+      const accessToken = integration.encrypted_access_token
+        ? decryptToken(integration.encrypted_access_token)
+        : "";
+
+      // 2. Fetch organization timezone with lean projection
+      const { data: orgData } = await supabase
+        .from("organizations")
+        .select("default_timezone")
+        .eq("id", organizationId)
+        .single();
+
+      const timezone = orgData?.default_timezone || "Europe/Lisbon";
+
+      // 3. Check existing Tier 2 snapshot in database (lean projection)
+      const { data: existingSnapshot } = await supabase
+        .from("organization_metric_snapshots")
+        .select("payload, computed_at, expires_at, status, sync_lock_until, error_details")
+        .eq("organization_id", organizationId)
+        .eq("metric_type", "stripe_financial_overview")
+        .maybeSingle();
+
+      const now = new Date();
+
+      // Evaluate existing Tier 2 snapshot freshness
+      if (existingSnapshot && !options.forceRefresh) {
+        const computedAtDate = new Date(existingSnapshot.computed_at);
+        const expiresAtDate = new Date(existingSnapshot.expires_at);
+        const ageMs = now.getTime() - computedAtDate.getTime();
+
+        const snapshotPayload = existingSnapshot.payload as StripeFinancialSnapshot;
+
+        if (now <= expiresAtDate && existingSnapshot.status === "fresh") {
+          // Populate Tier 1 L1 cache for subsequent fast reads (60s)
+          stripeFinancialMemoryCache.set(organizationId, "financial_snapshot", "overview", snapshotPayload, 60 * 1000);
+          return { snapshot: snapshotPayload, status: "fresh" as MetricFreshnessStatus, isConnected: true };
+        }
+
+        if (ageMs < SNAPSHOT_STALE_DURATION_MS) {
+          // Return stale snapshot immediately to prevent UI blocking
+          snapshotPayload.freshnessStatus = "stale";
+          return { snapshot: snapshotPayload, status: "stale" as MetricFreshnessStatus, isConnected: true };
+        }
+      }
+
+      // 4. Concurrency Mutex: check if another instance holds an active lease
+      const lockExpires = existingSnapshot?.sync_lock_until
+        ? new Date(existingSnapshot.sync_lock_until)
+        : null;
+
+      if (lockExpires && now < lockExpires) {
+        // Another instance is currently syncing -> return existing snapshot as stale or wait
+        if (existingSnapshot?.payload) {
+          const snap = existingSnapshot.payload as StripeFinancialSnapshot;
+          snap.freshnessStatus = "syncing";
+          return { snapshot: snap, status: "syncing" as MetricFreshnessStatus, isConnected: true };
+        }
+      }
+
+      // 5. Acquire lease-based mutex (2 minutes duration) with resilience
+      try {
+        const { createServiceClient } = await import("@/lib/supabase/server");
+        const privilegedDb = createServiceClient();
+        const newLockUntil = new Date(now.getTime() + MUTEX_LEASE_DURATION_MS).toISOString();
+        await privilegedDb
+          .from("organization_metric_snapshots")
+          .upsert(
+            {
+              organization_id: organizationId,
+              metric_type: "stripe_financial_overview",
+              status: "syncing",
+              sync_lock_until: newLockUntil,
+            },
+            { onConflict: "organization_id,metric_type" }
+          );
+      } catch (lockErr) {
+        logger.warn("Could not acquire snapshot mutex in database, continuing computation in memory", { lockErr });
+      }
+
+      // 6. Execute Stripe API computation with full cursor pagination
+      try {
+        const computedSnapshot = await computeStripeMetricsFromApi({
+          connectedAccountId,
+          accessToken,
+          timezone,
+          organizationId,
+        });
+
+        const checksum = computeSnapshotChecksum(computedSnapshot);
+
+        // 7. Persist lean snapshot (1 row) and release mutex (resilient to DB write restrictions)
+        try {
+          const { createServiceClient } = await import("@/lib/supabase/server");
+          const privilegedDb = createServiceClient();
+          await privilegedDb
+            .from("organization_metric_snapshots")
+            .upsert(
+              {
+                organization_id: organizationId,
+                metric_type: "stripe_financial_overview",
+                payload: computedSnapshot,
+                currency_summaries: computedSnapshot.currencies,
+                computed_at: computedSnapshot.computedAt,
+                expires_at: computedSnapshot.expiresAt,
+                status: "fresh",
+                checksum,
+                payload_size_bytes: computedSnapshot.provenance.payloadSizeBytes,
+                sync_lock_until: null,
+                error_details: null,
+              },
+              { onConflict: "organization_id,metric_type" }
+            );
+        } catch (persistErr) {
+          logger.warn("Could not persist computed snapshot to database cache, returning in-memory snapshot", { persistErr });
+        }
+
+        // Cache in Tier 1 in-memory L1 cache
+        stripeFinancialMemoryCache.set(organizationId, "financial_snapshot", "overview", computedSnapshot, 60 * 1000);
+
+        return { snapshot: computedSnapshot, status: "fresh" as MetricFreshnessStatus, isConnected: true };
+      } catch (apiErr: unknown) {
+        const errorMessage = apiErr instanceof Error ? apiErr.message : "Stripe API communication failed.";
+        logger.error("Error computing Stripe financial snapshot", apiErr, { organizationId });
+
+        // Release lock and mark error or preserve last snapshot with stale flag
+        try {
+          await supabase
+            .from("organization_metric_snapshots")
+            .update({
+              status: "error",
+              sync_lock_until: null,
+              error_details: errorMessage,
+            })
+            .eq("organization_id", organizationId)
+            .eq("metric_type", "stripe_financial_overview");
+        } catch {
+          // Ignore cache release error
+        }
+
+        if (existingSnapshot?.payload) {
+          const stalePayload = existingSnapshot.payload as StripeFinancialSnapshot;
+          stalePayload.freshnessStatus = "error";
+          stalePayload.errorDetails = errorMessage;
+          return { snapshot: stalePayload, status: "error" as MetricFreshnessStatus, isConnected: true, error: errorMessage };
+        }
+
+        return { snapshot: null, status: "error" as MetricFreshnessStatus, isConnected: true, error: errorMessage };
+      }
+    },
+    60 * 1000
+  );
 }

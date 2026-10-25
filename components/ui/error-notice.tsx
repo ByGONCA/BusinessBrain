@@ -242,7 +242,7 @@ export function ErrorPanel({
             type="button"
             onClick={handleRetry}
             disabled={isRetrying}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1e1014] hover:bg-[#2c151b] active:scale-[0.98] text-[#f2eceb] hover:text-white px-5 py-2.5 text-xs sm:text-sm font-medium border border-[#4a1c24] hover:border-[#6a2532] transition-all duration-200 shadow-md hover:shadow-red-950/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef4444] disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1e1014] hover:bg-[#2c151b] active:scale-[0.98] text-[#f2eceb] hover:text-white px-5 py-2.5 text-xs sm:text-sm font-medium border border-[#4a1c24] hover:border-[#6a2532] transition-all duration-200 shadow-md hover:shadow-red-950/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef4444] disabled:opacity-60"
           >
             <RotateCcw className={`h-3.5 w-3.5 ${isRetrying ? "animate-spin" : ""}`} />
             <span>{isRetrying ? "Retrying..." : "Try again"}</span>
@@ -253,7 +253,7 @@ export function ErrorPanel({
           <button
             type="button"
             onClick={handleRefresh}
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-[#120c0e] hover:bg-[#1a1114] active:scale-[0.98] text-[#cfc5c7] hover:text-white px-5 py-2.5 text-xs sm:text-sm font-medium border border-[#2e151a] hover:border-[#461e25] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef4444]"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#120c0e] hover:bg-[#1a1114] active:scale-[0.98] text-[#cfc5c7] hover:text-white px-5 py-2.5 text-xs sm:text-sm font-medium border border-[#2e151a] hover:border-[#461e25] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef4444]"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             <span>Refresh page</span>
@@ -263,7 +263,7 @@ export function ErrorPanel({
         {showDashboardLink && (
           <a
             href="/dashboard"
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-[#120c0e] hover:bg-[#1a1114] active:scale-[0.98] text-[#cfc5c7] hover:text-white px-5 py-2.5 text-xs sm:text-sm font-medium border border-[#2e151a] hover:border-[#461e25] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef4444]"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#120c0e] hover:bg-[#1a1114] active:scale-[0.98] text-[#cfc5c7] hover:text-white px-5 py-2.5 text-xs sm:text-sm font-medium border border-[#2e151a] hover:border-[#461e25] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef4444]"
           >
             <Home className="h-3.5 w-3.5" />
             <span>Dashboard</span>

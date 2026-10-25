@@ -19,8 +19,8 @@ export default function DashboardError({ error, reset }: DashboardErrorProps) {
   return (
     <div className="flex flex-1 items-center justify-center p-6 sm:p-10 min-h-[60vh]">
       <ErrorPanel
-        title="Unable to display this view"
-        description="A temporary network or server interruption occurred. You can reload this view safely without losing your workspace state."
+        title="Unable to load this view"
+        description={error?.message || "A temporary interruption occurred while loading this dashboard view. You can reload safely without losing your workspace state."}
         digest={error?.digest}
         onRetry={reset}
         showRefresh={true}

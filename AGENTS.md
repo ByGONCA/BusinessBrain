@@ -59,8 +59,16 @@ Always use real project commands; do not invent scripts:
 
 ## 3. Working Agreements & Permanent Operating Rules
 
-1. **Context Consultation Before Action**:
-   - Always read relevant context, canonical documents, and the actual code state before starting any phase or task.
+1. **Context Consultation Before Action & Investigation Protocol**:
+   - **Mandatory Rule**: Antes de iniciar uma pesquisa exploratória no repositório, consulta primeiro as instruções aplicáveis e o mapa da base de código ([`docs/CODEBASE_MAP.md`](./docs/CODEBASE_MAP.md)).
+   - Segue este procedimento estruturado em cada tarefa:
+     - **Passo A — Consultar**: Lê as instruções aplicáveis e consulta o mapa Markdown (`docs/CODEBASE_MAP.md`). Identifica a funcionalidade, o fluxo ou o componente correspondente.
+     - **Passo B — Localizar**: Usa os caminhos documentados no mapa para abrir diretamente os ficheiros relevantes. Não executes pesquisas globais por hábito quando a documentação já indica onde está a implementação.
+     - **Passo C — Confirmar**: Verifica se os caminhos, funções, imports e comportamentos documentados continuam a corresponder ao código real. Corrige discrepâncias antes de depender delas.
+     - **Passo D — Expandir apenas quando necessário**: Se os ficheiros identificados não bastarem, faz pesquisas cirúrgicas direcionadas por símbolos, funções ou imports exatos (`git grep "ExactSymbol"`). Evita varrimentos globais repetidos.
+     - **Passo E — Investigar as dependências**: Antes de modificar código, mapeia o fluxo completo entre frontend (`components/`, `app/`), backend (`lib/[domain]/actions.ts`), base de dados (`database/migrations/`) e serviços externos.
+     - **Passo F — Atualizar o conhecimento**: Ao identificar alterações arquiteturais relevantes não documentadas, atualiza o mapa (`docs/CODEBASE_MAP.md`).
+     - **Atalhos Pragmáticos**: Se o pedido do utilizador já especificar o ficheiro/símbolo exato, ou se a tarefa for editar a própria documentação/mapa, navega diretamente para o alvo sem burocracia ou leituras redundantes.
    - Cross-reference `docs/` against current codebase files; never assume a feature is missing or complete based solely on a textual roadmap.
 2. **Smallest Complete Solution**:
    - Complete requests with the smallest sufficient change; reuse existing `lib/` utilities, components, and patterns.
@@ -90,6 +98,7 @@ Always use real project commands; do not invent scripts:
     - Subagents inherit session model (`inherit`); no external providers or unrequested paid proxies.
 12. **On-Demand Context Loading**:
     - Consult canonical documents on demand; never dump full files into context:
+      - Codebase Map & Investigation Index: [`docs/CODEBASE_MAP.md`](./docs/CODEBASE_MAP.md)
       - Scope & Product Principles: [`docs/PRODUCT.md`](./docs/PRODUCT.md)
       - Roadmap & Planned Slices: [`docs/ROADMAP.md`](./docs/ROADMAP.md)
       - System Architecture: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
@@ -167,7 +176,7 @@ Skills in `.agents/skills/` are discovered automatically via the native `<skills
   Never clutter interfaces with purposeless elements:
   - Do NOT place `<Info />` tooltip icons as decorative placeholders next to headers or titles unless they open an active, purposeful interactive element.
   - Do NOT surface internal provenance / verification banners (e.g., "Fonte Verificada", "Stripe Live (EUR)", internal account IDs) into normal user dashboards.
-  - Do NOT display internal database / security engineering jargon (e.g., "RLS", "PostgreSQL RLS de Linha de Defesa", "Criptografia AES-256", "RLS Guard", "Perímetro Ativo") across user dashboard cards. Security is enforced strictly in the database/backend; executive UI must display actual business value, organizational memory, and team activity.
+  - Do NOT display internal database / security engineering jargon (e.g., "RLS", "PostgreSQL RLS de Linha de Defesa", "Criptografia AES-256", "RLS Guard", "Perímetro Ativo", "Built with strict security perimeters", "Enterprise Workspace Isolation & Encryption", "Cryptographic Webhooks", "Least-Privilege Scopes", "Proprietary Tenant Scope", "Security Perimeters") anywhere in the application interface, including dashboard cards, marketing landing pages, and the footer. Security is enforced strictly in the database/backend; executive UI and marketing pages must display actual business value, organizational memory, and team activity, never technical propaganda or security brag banners.
 
 ---
 
@@ -189,7 +198,7 @@ Skills in `.agents/skills/` are discovered automatically via the native `<skills
 - ❌ **DO NOT** use deprecated Supabase auth packages (`@supabase/auth-helpers-nextjs`). Always use `@supabase/ssr`.
 - ❌ **DO NOT** use rounded bubbles, pill badges, chip capsules, or fake rounded pill buttons (`rounded-full` / oval chip shapes with borders/backgrounds containing static text, status, or tags). Status, metadata, and tags must always be displayed cleanly with typography, subtle colors, or inline text dots/indicators, never encased in rounded bubble pills that resemble clickable buttons.
 - ❌ **DO NOT** hardcode Portuguese (or any other language) strings directly into user-facing UI components or pages. The app supports English, Portuguese, Spanish, and French; all strings must use the `lib/i18n` dictionary system and adapt dynamically to the user's selected language. Default locale is English (`en`).
-- ❌ **DO NOT** display internal engineering jargon or database security terms (e.g. "RLS", "PostgreSQL Linha de Defesa", "AES-256-GCM", "RLS Guard", "Perímetro Ativo") in user dashboard cards or executive views. Security belongs in the database and backend, never as decorative badges on the UI.
+- ❌ **DO NOT** display internal engineering jargon, security banners, or technical brag sections (e.g. "RLS", "PostgreSQL Linha de Defesa", "AES-256-GCM", "RLS Guard", "Perímetro Ativo", "Built with strict security perimeters", "Enterprise Workspace Isolation & Encryption", "Cryptographic Webhooks", "Least-Privilege Scopes", "Proprietary Tenant Scope") anywhere in user dashboard cards, marketing pages, or the footer. Security belongs strictly in the database, infrastructure, and backend, never as decorative badges, text, or sections on the UI.
 - ❌ **DO NOT** add decorative, purposeless `<Info />` icons next to chart titles, revenue headers, or KPI labels.
 - ❌ **DO NOT** surface internal debug / verification banners (e.g. "Fonte Verificada", "Stripe Live (EUR)", account ID banners) in standard user dashboards.
 - ❌ **DO NOT** render raw, static percentages without directional arrows (`TrendingUp`, `TrendingDown`, `ArrowUpRight`, `ArrowDownRight`) and semantic styling.

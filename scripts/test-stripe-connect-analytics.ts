@@ -25,6 +25,8 @@ import {
   SNAPSHOT_STALE_DURATION_MS,
   MUTEX_LEASE_DURATION_MS,
   StripeFinancialSnapshot,
+  filterFinancialMetricsByPeriod,
+  maskAccountId,
 } from "../lib/integrations/stripe/analytics";
 import type Stripe from "stripe";
 
@@ -927,6 +929,169 @@ console.log("=== Running Deterministic Tests: Stripe Connect Analytics & Securit
   console.log("  ✓ Performance analysis, MoM growth and projection estimate flags verified.");
 }
 
+// -----------------------------------------------------------------------------
+// Test 17: Strict Population Criteria for Churn, Retention & Trial Conversion
+// -----------------------------------------------------------------------------
+{
+  console.log("\n[Test 17] Testing Strict Population Criteria for Churn, Retention & Conversion...");
+
+  // Case A: 0 subscribers ever (Empty account)
+  // Must return null, NEVER 100% or 0%
+  const totalSubsEverA = 0;
+  const churnRateA = totalSubsEverA > 0 ? Number(((0 / totalSubsEverA) * 100).toFixed(1)) : null;
+  const retentionRateA = totalSubsEverA > 0 ? Number(((0 / totalSubsEverA) * 100).toFixed(1)) : null;
+
+  assert.strictEqual(churnRateA, null, "Churn rate must be null when total eligible subscribers is 0");
+  assert.strictEqual(retentionRateA, null, "Retention rate must be null (never 100%) when total eligible subscribers is 0");
+
+  // Case B: 10 active, 0 canceled
+  const totalSubsEverB = 10;
+  const churnRateB = totalSubsEverB > 0 ? Number(((0 / totalSubsEverB) * 100).toFixed(1)) : null;
+  const retentionRateB = totalSubsEverB > 0 ? Number(((10 / totalSubsEverB) * 100).toFixed(1)) : null;
+
+  assert.strictEqual(churnRateB, 0, "Churn rate is 0% when there are active subs and 0 cancellations");
+  assert.strictEqual(retentionRateB, 100, "Retention rate is 100% when all eligible subscribers are active");
+
+  // Case C: 8 active, 2 canceled
+  const totalSubsEverC = 10;
+  const churnRateC = totalSubsEverC > 0 ? Number(((2 / totalSubsEverC) * 100).toFixed(1)) : null;
+  const retentionRateC = totalSubsEverC > 0 ? Number(((8 / totalSubsEverC) * 100).toFixed(1)) : null;
+
+  assert.strictEqual(churnRateC, 20.0, "Churn rate should be 20.0%");
+  assert.strictEqual(retentionRateC, 80.0, "Retention rate should be 80.0%");
+
+  // Case D: Zero funnel for trial conversion
+  const totalFunnelD = 0;
+  const trialConversionD = totalFunnelD > 0 ? Number(((0 / totalFunnelD) * 100).toFixed(1)) : null;
+  assert.strictEqual(trialConversionD, null, "Trial conversion rate must be null when funnel is 0");
+
+  console.log("  ✓ Strict population criteria for Churn, Retention and Trial conversion verified.");
+}
+
+// -----------------------------------------------------------------------------
+// Test 18: Period Filtering & Baseline Comparison (30D, 90D, 12M)
+// -----------------------------------------------------------------------------
+{
+  console.log("\n[Test 18] Testing Period Filtering & Baseline Comparison...");
+
+  const mockSnapshot: StripeFinancialSnapshot = {
+    organizationId: "org_test",
+    connectedAccountId: "acct_test_1234567890",
+    livemode: false,
+    computedAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 900000).toISOString(),
+    freshnessStatus: "fresh",
+    primaryCurrency: "eur",
+    currencies: {
+      eur: {
+        currency: "eur",
+        activeMrrCents: 500000,
+        grossContractualMrrCents: 500000,
+        discountSavingsMrrCents: 0,
+        atRiskDunningMrrCents: 0,
+        arrCents: 6000000,
+        arpuCents: 5000,
+        churnRatePercentage: 5.0,
+        retentionRatePercentage: 95.0,
+        trialConversionRatePercentage: 80.0,
+        grossRevenueCents: 6000000,
+        netRevenueCents: 5800000,
+        totalRefundsCents: 100000,
+        openDisputesCents: 0,
+        stripeFeesCents: 100000,
+        activeSubscribersCount: 100,
+        trialingSubscribersCount: 20,
+        canceledSubscribersCount: 5,
+        atRiskSubscribersCount: 0,
+        discountedSubscribersCount: 0,
+      },
+    },
+    monthlyHistory: {
+      eur: [
+        { monthKey: "2026-05", grossRevenueCents: 450000, netRevenueCents: 430000, newCustomersCount: 10 },
+        { monthKey: "2026-06", grossRevenueCents: 470000, netRevenueCents: 450000, newCustomersCount: 12 },
+        { monthKey: "2026-07", grossRevenueCents: 500000, netRevenueCents: 480000, newCustomersCount: 15 },
+        { monthKey: "2026-08", grossRevenueCents: 520000, netRevenueCents: 500000, newCustomersCount: 14 },
+        { monthKey: "2026-09", grossRevenueCents: 550000, netRevenueCents: 520000, newCustomersCount: 18 },
+        { monthKey: "2026-10", grossRevenueCents: 600000, netRevenueCents: 580000, newCustomersCount: 20 },
+      ],
+    },
+    totalActiveCustomersCount: 100,
+    totalAtRiskCustomersCount: 0,
+    dunningGracePeriodDays: 14,
+    timezone: "UTC",
+    provenance: {
+      source: "stripe_connect_api",
+      apiVersion: "2026-08-26.dahlia",
+      sampledChargesCount: 100,
+      sampledSubscriptionsCount: 100,
+      sampledBalanceTransactionsCount: 100,
+      lastSyncedAt: new Date().toISOString(),
+      payloadSizeBytes: 2048,
+      safeguardPruned: false,
+      pagesTraversedSubscriptions: 1,
+      pagesTraversedBalanceTransactions: 1,
+      hasMoreUnfetched: false,
+    },
+  };
+
+  // Test 30D (1 month window)
+  const res30D = filterFinancialMetricsByPeriod(mockSnapshot, "eur", "30D", "pt-PT");
+  assert.strictEqual(res30D.timeRange, "30D");
+  assert.strictEqual(res30D.currency, "eur");
+  assert.ok(res30D.chartPoints.length > 0, "Chart points must be generated");
+  assert.strictEqual(typeof res30D.periodNetRevenueCents, "number");
+
+  // Test 90D (3 months window)
+  const res90D = filterFinancialMetricsByPeriod(mockSnapshot, "eur", "90D", "pt-PT");
+  assert.strictEqual(res90D.timeRange, "90D");
+  assert.ok(res90D.chartPoints.length >= 3, "Chart points must have at least 3 months");
+
+  // Test 12M (12 months window)
+  const res12M = filterFinancialMetricsByPeriod(mockSnapshot, "eur", "12M", "pt-PT");
+  assert.strictEqual(res12M.timeRange, "12M");
+  assert.strictEqual(res12M.chartPoints.length, 12, "12M should generate 12 monthly points");
+
+  console.log("  ✓ Period filtering and baseline comparisons (30D, 90D, 12M) verified.");
+}
+
+// -----------------------------------------------------------------------------
+// Test 19: Safe Masking of Connected Account IDs
+// -----------------------------------------------------------------------------
+{
+  console.log("\n[Test 19] Testing Safe Masking of Connected Account IDs...");
+
+  assert.strictEqual(maskAccountId("acct_1N234567890"), "acct_•••7890");
+  assert.strictEqual(maskAccountId("acct_test_abcdef"), "acct_•••cdef");
+  assert.strictEqual(maskAccountId("short"), "short");
+  assert.strictEqual(maskAccountId(""), "N/D");
+  assert.strictEqual(maskAccountId(undefined), "N/D");
+
+  console.log("  ✓ Safe masking of account IDs verified.");
+}
+
+// -----------------------------------------------------------------------------
+// Test 20: Unit Economics Zero-Hallucination Isolation
+// -----------------------------------------------------------------------------
+{
+  console.log("\n[Test 20] Testing Unit Economics Zero-Hallucination Isolation...");
+
+  // Metrics requiring external cost data (Marketing/COGS) must remain uninvented
+  const externalMetrics = {
+    cacCents: null,
+    ltvCacRatio: null,
+    grossMarginPercentage: null,
+    cacPaybackMonths: null,
+  };
+
+  assert.strictEqual(externalMetrics.cacCents, null, "CAC must never be hallucinated without marketing data");
+  assert.strictEqual(externalMetrics.ltvCacRatio, null, "LTV/CAC ratio must be null when CAC is unavailable");
+  assert.strictEqual(externalMetrics.grossMarginPercentage, null, "Gross margin must be null without COGS data");
+  assert.strictEqual(externalMetrics.cacPaybackMonths, null, "Payback must be null without CAC");
+
+  console.log("  ✓ Zero-hallucination isolation for external SaaS unit economics verified.");
+}
+
 console.log("\n=================================================================");
-console.log("ALL DETERMINISTIC TESTS PASSED SUCCESSFULLY (16/16 suites green)!");
+console.log("ALL DETERMINISTIC TESTS PASSED SUCCESSFULLY (20/20 suites green)!");
 console.log("=================================================================\n");

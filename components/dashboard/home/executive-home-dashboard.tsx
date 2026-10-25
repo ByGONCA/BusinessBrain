@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useState, useMemo } from "react";
-import Link from "next/link";
+import NextLink from "next/link";
 import {
   Sparkles,
   ArrowUpRight,
@@ -85,6 +85,8 @@ export interface ExecutiveHomeDashboardProps {
   isStripeConnected: boolean;
   stripeAccountId?: string;
   checklistState?: Record<string, boolean | undefined>;
+  demoMode?: boolean;
+  onDemoNavigate?: (href: string) => void;
 }
 
 // Fallback visual nodes for interactive radar if workspace graph is brand new
@@ -143,7 +145,31 @@ export function ExecutiveHomeDashboard({
   isStripeConnected,
   stripeAccountId,
   checklistState,
+  demoMode,
+  onDemoNavigate,
 }: ExecutiveHomeDashboardProps) {
+  const Link = React.useCallback(
+    ({ href, className, children, ...rest }: any) => {
+      if (demoMode && onDemoNavigate) {
+        return (
+          <button
+            type="button"
+            onClick={() => onDemoNavigate(href)}
+            className={cn("text-left cursor-pointer", className)}
+            {...rest}
+          >
+            {children}
+          </button>
+        );
+      }
+      return (
+        <NextLink href={href} className={className} {...rest}>
+          {children}
+        </NextLink>
+      );
+    },
+    [demoMode, onDemoNavigate]
+  );
   const { t, locale, interpolate } = useLanguage();
   const h = t.homeDashboard;
   const intlLocale = locale === "en" ? "en-US" : locale === "pt" ? "pt-PT" : locale === "es" ? "es-ES" : "fr-FR";
@@ -412,9 +438,9 @@ export function ExecutiveHomeDashboard({
               {netRevenueFormatted}
             </span>
           </div>
-          <div className="mt-1 flex items-center justify-between text-[11px]">
-            <span className="text-zinc-400">{h.consolidatedNetCash}</span>
-            <span className="text-blue-400 font-medium group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5">
+          <div className="mt-2 pt-2 border-t border-white/[0.04] flex items-center justify-between gap-1 text-[11px]">
+            <span className="text-zinc-400 truncate">{h.consolidatedNetCash}</span>
+            <span className="text-blue-400 font-medium whitespace-nowrap group-hover:translate-x-0.5 transition-transform flex items-center gap-0.5 shrink-0">
               {h.viewFinance} <ArrowRight className="h-3 w-3" />
             </span>
           </div>
@@ -627,7 +653,7 @@ export function ExecutiveHomeDashboard({
         </div>
 
         {/* Right Column (5 cols): Architecture Decisions (ADRs) */}
-        <div className="lg:col-span-5 bg-[#121316] border border-white/[0.08] rounded-2xl p-6 relative hover:border-white/15 transition-all shadow-sm flex flex-col justify-between">
+        <div className="lg:col-span-5 bg-[#121316] border border-white/[0.08] rounded-2xl p-6 relative hover:border-white/15 transition-all shadow-sm flex flex-col justify-between overflow-hidden">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
               <div className="flex items-center gap-2">
@@ -652,10 +678,10 @@ export function ExecutiveHomeDashboard({
                   <Link
                     key={dec.id}
                     href={`/dashboard/decisions?id=${dec.id}`}
-                    className="flex items-center justify-between py-3 px-2 hover:bg-white/[0.03] rounded-xl transition-colors group"
+                    className="flex items-start justify-between py-2.5 px-2 hover:bg-white/[0.03] rounded-xl transition-colors group"
                   >
-                    <div className="min-w-0 pr-3">
-                      <p className="text-xs font-semibold text-zinc-200 group-hover:text-amber-300 transition-colors truncate">
+                    <div className="min-w-0 pr-2 flex-1">
+                      <p className="text-xs font-semibold text-zinc-200 group-hover:text-amber-300 transition-colors line-clamp-2 leading-snug">
                         {dec.title}
                       </p>
                       <p className="text-[11px] text-zinc-500 mt-0.5 flex items-center gap-2">
@@ -664,7 +690,7 @@ export function ExecutiveHomeDashboard({
                         <span className="text-emerald-400">{h.accepted}</span>
                       </p>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-zinc-600 group-hover:text-zinc-300 transition-colors shrink-0" />
+                    <ChevronRight className="h-4 w-4 text-zinc-600 group-hover:text-zinc-300 transition-colors shrink-0 mt-0.5" />
                   </Link>
                 ))
               ) : (

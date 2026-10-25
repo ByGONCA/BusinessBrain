@@ -7,7 +7,7 @@ import { TypographyProvider } from "@/components/theme/typography-provider";
 import { LanguageProvider } from "@/lib/i18n/context";
 
 export const metadata: Metadata = {
-  title: "Company Brain - Your Company's Memory & Intelligence Layer",
+  title: "BusinessBrain — Where your company remembers everything",
   description:
     "A clean, scalable operating system that brings company knowledge, decisions, projects, meetings, and context together.",
 };
@@ -20,9 +20,26 @@ const themeScript = `
       var locale = localStorage.getItem('cb_locale');
       var typo = localStorage.getItem('cb_typography_settings');
       var root = document.documentElement;
-      root.classList.add('dark');
-      root.classList.remove('light');
-      root.style.colorScheme = 'dark';
+
+      var isDark = false;
+      if (saved === 'dark') {
+        isDark = true;
+      } else if (saved === 'light') {
+        isDark = false;
+      } else {
+        isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+
+      if (isDark) {
+        root.classList.add('dark');
+        root.classList.remove('light');
+        root.style.colorScheme = 'dark';
+      } else {
+        root.classList.add('light');
+        root.classList.remove('dark');
+        root.style.colorScheme = 'light';
+      }
+
       if (contrast === 'high') {
         root.setAttribute('data-contrast', 'high');
       }

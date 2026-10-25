@@ -37,6 +37,7 @@ interface AccountMenuProps {
   organizations: OrganizationWithRole[];
   activeOrg: OrganizationWithRole | null;
   entitlement: OrganizationEntitlement | null;
+  demoMode?: boolean;
 }
 
 // Deterministic pastel color palette for company avatars
@@ -63,6 +64,7 @@ export function AccountMenu({
   organizations,
   activeOrg,
   entitlement,
+  demoMode,
 }: AccountMenuProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -99,6 +101,10 @@ export function AccountMenu({
   }, [isOpen]);
 
   const handleSelectOrg = async (orgId: string) => {
+    if (demoMode) {
+      setIsOpen(false);
+      return;
+    }
     if (orgId === activeOrg?.id) {
       setIsOpen(false);
       return;
@@ -117,6 +123,10 @@ export function AccountMenu({
   };
 
   const handleSignOut = () => {
+    if (demoMode) {
+      setIsOpen(false);
+      return;
+    }
     startSignOutTransition(async () => {
       await signOutAction();
     });

@@ -34,7 +34,7 @@ export default async function NotFound() {
           </h1>
           <Link
             href={homeHref}
-            className="mt-6 inline-flex items-center justify-center rounded-full bg-[#161112]/90 hover:bg-[#221618] active:scale-[0.98] text-[#f0ebea] hover:text-white px-5 py-2.5 text-xs font-medium border border-[#3c1c21]/80 hover:border-[#58222b] transition-all duration-200 backdrop-blur-md shadow-lg hover:shadow-red-950/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef4444]"
+            className="mt-6 inline-flex items-center justify-center rounded-xl bg-[#161112]/90 hover:bg-[#221618] active:scale-[0.98] text-[#f0ebea] hover:text-white px-5 py-2.5 text-xs font-medium border border-[#3c1c21]/80 hover:border-[#58222b] transition-all duration-200 backdrop-blur-md shadow-lg hover:shadow-red-950/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef4444]"
           >
             Back to home
           </Link>
@@ -53,7 +53,7 @@ export default async function NotFound() {
           </h1>
           <Link
             href={homeHref}
-            className="mt-7 inline-flex items-center justify-center rounded-full bg-[#161112]/90 hover:bg-[#221618] active:scale-[0.98] text-[#f0ebea] hover:text-white px-6 py-2.5 text-sm font-medium border border-[#3c1c21]/80 hover:border-[#58222b] transition-all duration-200 backdrop-blur-md shadow-lg hover:shadow-red-950/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef4444]"
+            className="mt-7 inline-flex items-center justify-center rounded-xl bg-[#161112]/90 hover:bg-[#221618] active:scale-[0.98] text-[#f0ebea] hover:text-white px-6 py-2.5 text-sm font-medium border border-[#3c1c21]/80 hover:border-[#58222b] transition-all duration-200 backdrop-blur-md shadow-lg hover:shadow-red-950/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ef4444]"
           >
             Back to home
           </Link>

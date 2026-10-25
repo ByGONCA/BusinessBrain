@@ -127,6 +127,26 @@ const SUITES: TestSuite[] = [
     file: "scripts/test-public-api-disabled.ts",
     description: "23 tests: Strict 404 blocking across all /api/v1/* routes, middleware fail-closed, feature flag isolation, UI removal",
   },
+  {
+    name: "Codebase Map Integrity Validator",
+    file: "scripts/test-codebase-map-validator.ts",
+    description: "10 tests: Deterministic path integrity check, traversal rejection, missing file detection, glob & command safety",
+  },
+  {
+    name: "Data Architecture & Multi-Tier Cache",
+    file: "scripts/test-data-architecture-cache.ts",
+    description: "19 tests: Strict tenant cache isolation, anti-stampede coalescing, TTL eviction, bounded capacity, 32KB payload limits",
+  },
+  {
+    name: "Corporate Finance UI, Period Math & Quad-Locale i18n",
+    file: "scripts/test-corporate-finance-ui-i18n.ts",
+    description: "82 tests: Quad-locale parity, zero leakage, dynamic granularity, decoupled MRR/ARR, modal pagination",
+  },
+  {
+    name: "Theme System & Demo Data Isolation",
+    file: "scripts/test-theme-and-demo-isolation.ts",
+    description: "4 audits: Automatic/Light/Dark mode transitions, strict demo data isolation, route integrity, 3-day trial terms",
+  },
 ];
 
 async function runSuite(suite: TestSuite): Promise<{ success: boolean; durationMs: number; output: string }> {

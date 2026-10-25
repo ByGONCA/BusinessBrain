@@ -62,6 +62,9 @@ interface SidebarProps {
   favoritePages?: PageRecord[];
   archivedPages?: PageRecord[];
   initialIntegrations?: OrganizationIntegration[];
+  demoMode?: boolean;
+  activeDemoPath?: string;
+  onDemoNavigate?: (href: string) => void;
 }
 
 interface NavItem {
@@ -92,9 +95,13 @@ export function Sidebar({
   favoritePages = [],
   archivedPages = [],
   initialIntegrations = [],
+  demoMode = false,
+  activeDemoPath,
+  onDemoNavigate,
 }: SidebarProps) {
   const rawPathname = usePathname();
   const pathname = rawPathname || "";
+  const effectivePath = demoMode && activeDemoPath ? activeDemoPath : pathname;
   const { formatShortcut } = usePlatform();
   const { t } = useLanguage();
   const { openInbox, isInboxOpen, unreadCount } = useInbox();
@@ -150,33 +157,33 @@ export function Sidebar({
 
   // Auto-expand parent group of active route
   React.useEffect(() => {
-    if (!pathname) return;
+    if (!effectivePath) return;
     if (
-      pathname.startsWith("/dashboard/projects") ||
-      pathname.startsWith("/dashboard/tasks") ||
-      pathname.startsWith("/dashboard/goals") ||
-      pathname.startsWith("/dashboard/meetings") ||
-      pathname.startsWith("/dashboard/finance")
+      effectivePath.startsWith("/dashboard/projects") ||
+      effectivePath.startsWith("/dashboard/tasks") ||
+      effectivePath.startsWith("/dashboard/goals") ||
+      effectivePath.startsWith("/dashboard/meetings") ||
+      effectivePath.startsWith("/dashboard/finance")
     ) {
       if (!isGroupExpanded("work")) toggleGroup("work");
-    } else if (pathname.startsWith("/dashboard/pages")) {
+    } else if (effectivePath.startsWith("/dashboard/pages")) {
       if (!isGroupExpanded("pages")) toggleGroup("pages");
     } else if (
-      pathname.startsWith("/dashboard/brain") ||
-      pathname.startsWith("/dashboard/decisions") ||
-      pathname.startsWith("/dashboard/knowledge") ||
-      pathname.startsWith("/dashboard/connections") ||
-      pathname.startsWith("/dashboard/timeline")
+      effectivePath.startsWith("/dashboard/brain") ||
+      effectivePath.startsWith("/dashboard/decisions") ||
+      effectivePath.startsWith("/dashboard/knowledge") ||
+      effectivePath.startsWith("/dashboard/connections") ||
+      effectivePath.startsWith("/dashboard/timeline")
     ) {
       if (!isGroupExpanded("brain")) toggleGroup("brain");
     } else if (
-      pathname.startsWith("/dashboard/people") ||
-      pathname.startsWith("/dashboard/teams") ||
-      pathname.startsWith("/dashboard/github")
+      effectivePath.startsWith("/dashboard/people") ||
+      effectivePath.startsWith("/dashboard/teams") ||
+      effectivePath.startsWith("/dashboard/github")
     ) {
       if (!isGroupExpanded("company")) toggleGroup("company");
     }
-  }, [pathname]);
+  }, [effectivePath]);
 
   // Close flyout on pathname change
   React.useEffect(() => {
@@ -191,7 +198,7 @@ export function Sidebar({
       name: t.sidebar.home || "Home",
       href: "/dashboard",
       icon: PhosphorHouse,
-      isActive: pathname === "/dashboard",
+      isActive: effectivePath === "/dashboard",
     },
     {
       id: "inbox",
@@ -207,14 +214,14 @@ export function Sidebar({
       name: t.sidebar.calendar || "Calendar",
       href: "/dashboard/calendar",
       icon: PhosphorCalendar,
-      isActive: pathname === "/dashboard/calendar" || pathname.startsWith("/dashboard/calendar/"),
+      isActive: effectivePath === "/dashboard/calendar" || effectivePath.startsWith("/dashboard/calendar/"),
     },
     {
       id: "email",
       name: t.sidebar.email || "Email",
       href: "/dashboard/email",
       icon: Mail,
-      isActive: pathname === "/dashboard/email" || pathname.startsWith("/dashboard/email/"),
+      isActive: effectivePath === "/dashboard/email" || effectivePath.startsWith("/dashboard/email/"),
     },
   ];
 
@@ -225,35 +232,35 @@ export function Sidebar({
       name: t.sidebar.projects || "Projects",
       href: "/dashboard/projects",
       icon: PhosphorFolder,
-      isActive: pathname.startsWith("/dashboard/projects"),
+      isActive: effectivePath.startsWith("/dashboard/projects"),
     },
     {
       id: "tasks",
       name: t.sidebar.tasks || "Tasks",
       href: "/dashboard/tasks",
       icon: PhosphorCheckSquare,
-      isActive: pathname.startsWith("/dashboard/tasks"),
+      isActive: effectivePath.startsWith("/dashboard/tasks"),
     },
     {
       id: "goals",
       name: t.sidebar.goals || "Goals",
       href: "/dashboard/goals",
       icon: PhosphorTarget,
-      isActive: pathname.startsWith("/dashboard/goals"),
+      isActive: effectivePath.startsWith("/dashboard/goals"),
     },
     {
       id: "meetings",
       name: t.sidebar.meetings || "Meetings",
       href: "/dashboard/meetings",
       icon: PhosphorCalendarDots,
-      isActive: pathname.startsWith("/dashboard/meetings"),
+      isActive: effectivePath.startsWith("/dashboard/meetings"),
     },
     {
       id: "finance",
       name: t.sidebar.finance || "Finance",
       href: "/dashboard/finance",
       icon: TrendingUp,
-      isActive: pathname.startsWith("/dashboard/finance"),
+      isActive: effectivePath.startsWith("/dashboard/finance"),
     },
   ];
 
@@ -263,35 +270,35 @@ export function Sidebar({
       name: "Brain",
       href: "/dashboard/brain",
       icon: PhosphorBrain,
-      isActive: pathname.startsWith("/dashboard/brain"),
+      isActive: effectivePath.startsWith("/dashboard/brain"),
     },
     {
       id: "decisions",
       name: t.sidebar.decisions || "Decisions",
       href: "/dashboard/decisions",
       icon: PhosphorGitBranch,
-      isActive: pathname.startsWith("/dashboard/decisions"),
+      isActive: effectivePath.startsWith("/dashboard/decisions"),
     },
     {
       id: "knowledge",
       name: t.sidebar.knowledge || "Knowledge",
       href: "/dashboard/knowledge",
       icon: PhosphorBookOpen,
-      isActive: pathname.startsWith("/dashboard/knowledge"),
+      isActive: effectivePath.startsWith("/dashboard/knowledge"),
     },
     {
       id: "connections",
       name: t.sidebar.companyMap || "Company Map",
       href: "/dashboard/connections",
       icon: PhosphorNetwork,
-      isActive: pathname.startsWith("/dashboard/connections"),
+      isActive: effectivePath.startsWith("/dashboard/connections"),
     },
     {
       id: "timeline",
       name: t.sidebar.timeline || "Timeline",
       href: "/dashboard/timeline",
       icon: PhosphorClock,
-      isActive: pathname.startsWith("/dashboard/timeline"),
+      isActive: effectivePath.startsWith("/dashboard/timeline"),
     },
   ];
 
@@ -301,7 +308,7 @@ export function Sidebar({
       name: t.sidebar.people || "People & Teams",
       href: "/dashboard/people",
       icon: PhosphorUserList,
-      isActive: pathname.startsWith("/dashboard/people") || pathname.startsWith("/dashboard/teams"),
+      isActive: effectivePath.startsWith("/dashboard/people") || effectivePath.startsWith("/dashboard/teams"),
     },
     ...(isGitHubConnected
       ? [
@@ -310,7 +317,7 @@ export function Sidebar({
             name: "GitHub",
             href: "/dashboard/github",
             icon: PhosphorGithubLogo,
-            isActive: pathname.startsWith("/dashboard/github"),
+            isActive: effectivePath.startsWith("/dashboard/github"),
           },
         ]
       : []),
@@ -563,7 +570,9 @@ export function Sidebar({
         id="main-sidebar"
         data-sidebar="true"
         className={cn(
-          "fixed md:sticky top-0 left-0 flex h-screen shrink-0 flex-col border-r border-[#1E1E22] bg-[#09090B] select-none z-50 transition-all duration-200 ease-in-out",
+          demoMode
+            ? "relative flex h-full max-h-full shrink-0 flex-col border-r border-[#1E1E22] bg-[#09090B] select-none transition-all duration-200 ease-in-out"
+            : "fixed md:sticky top-0 left-0 flex h-screen shrink-0 flex-col border-r border-[#1E1E22] bg-[#09090B] select-none z-50 transition-all duration-200 ease-in-out",
           // Mobile state
           isMobileOpen ? "translate-x-0 w-60 shadow-2xl" : "-translate-x-full md:translate-x-0",
           // Desktop compact vs expanded
@@ -711,7 +720,7 @@ export function Sidebar({
         {/* ========================================================= */}
         {/* Navigation List: Unified Vertical List with Dropdowns      */}
         {/* ========================================================= */}
-        <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-1.5 no-scrollbar overflow-x-hidden">
+        <nav className="flex-1 space-y-1 overflow-y-auto px-2 py-1.5 overscroll-contain overflow-x-hidden no-scrollbar">
           {/* ================= COMPACT MODE (Icon-Rail) ============= */}
           {isCompact ? (
             <div className="flex flex-col items-center gap-1">
@@ -730,7 +739,7 @@ export function Sidebar({
                   prefetch={false}
                   className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600",
-                    pathname.startsWith("/dashboard/pages")
+                    effectivePath.startsWith("/dashboard/pages")
                       ? "bg-[#202024] text-[#FFFFFF] border border-[#2E2E34]/50 shadow-2xs"
                       : "text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#18181B]"
                   )}
@@ -774,7 +783,7 @@ export function Sidebar({
               {/* 2. Pages Section (Expandable Tree) */}
               {activeOrg && (
                 <div className="space-y-0.5" data-tour="knowledge-tree">
-                  {renderGroupToggle("pages", "Pages", PhosphorBookOpen, isGroupExpanded("pages"), pathname.startsWith("/dashboard/pages"))}
+                  {renderGroupToggle("pages", "Pages", PhosphorBookOpen, isGroupExpanded("pages"), effectivePath.startsWith("/dashboard/pages"))}
 
                   {isGroupExpanded("pages") && (
                     <div className="ml-3 pl-2.5 border-l border-[#242428] pt-0.5 my-0.5 animate-in fade-in duration-150">

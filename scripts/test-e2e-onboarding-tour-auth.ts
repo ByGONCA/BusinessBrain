@@ -186,10 +186,10 @@ async function runE2ETests() {
   // Section 6: Stripe Trial & Price ID Security
   console.log("\n[Audit 6] Stripe Free Trial & Server-Side Security");
   {
-    assert(getTrialDays() === 7, "Free trial duration is strictly configured to 7 days");
-    assert(SUBSCRIPTION_PLANS.starter.trialDays === 7, "Starter plan includes 7-day free trial");
-    assert(SUBSCRIPTION_PLANS.pro.trialDays === 7, "Pro plan includes 7-day free trial");
-    assert(SUBSCRIPTION_PLANS.enterprise.trialDays === 7, "Enterprise plan includes 7-day free trial");
+    assert(getTrialDays() === 3, "Free trial duration is strictly configured to 3 days");
+    assert(SUBSCRIPTION_PLANS.starter.trialDays === 3, "Starter plan includes 3-day free trial");
+    assert(SUBSCRIPTION_PLANS.pro.trialDays === 3, "Pro plan includes 3-day free trial");
+    assert(SUBSCRIPTION_PLANS.enterprise.trialDays === 3, "Enterprise plan includes 3-day free trial");
 
     // Client price tampering resistance: client submits plan name, server resolves price
     assert(resolveStripePriceId("starter") === process.env.STRIPE_STARTER_PRICE_ID, "Starter plan resolves server-side price ID");

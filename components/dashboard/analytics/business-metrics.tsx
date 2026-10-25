@@ -18,11 +18,11 @@ import {
   Activity,
   TrendingDown,
 } from "lucide-react";
-import {
+import type {
   StripeFinancialSnapshot,
   MetricFreshnessStatus,
   CurrencyFinancialTotals,
-} from "@/lib/integrations/stripe/analytics";
+} from "@/lib/integrations/stripe/types";
 import { refreshStripeMetricsAction } from "@/lib/integrations/stripe/actions";
 import { cn } from "@/lib/utils";
 
@@ -530,18 +530,10 @@ export function BusinessMetricsSection({
         </div>
       )}
 
-      {/* Provenance footer */}
-      <div className="flex flex-wrap items-center justify-between text-[10px] text-muted-foreground/80 pt-0.5 px-1">
+      {/* Sync footer */}
+      <div className="flex items-center justify-end text-[11px] text-zinc-500 pt-1 px-1">
         <span>
-          Proveniência: Stripe Connect Standard • Payload: {snapshot.provenance.payloadSizeBytes} bytes
-          {snapshot.provenance.safeguardPruned && " (Salvaguarda de 32 KB aplicada)"}
-          {snapshot.provenance.pagesTraversedSubscriptions > 1 &&
-            ` • Pág. Subscrições: ${snapshot.provenance.pagesTraversedSubscriptions}`}
-          {snapshot.provenance.pagesTraversedBalanceTransactions > 1 &&
-            ` • Pág. Transações: ${snapshot.provenance.pagesTraversedBalanceTransactions}`}
-        </span>
-        <span>
-          Última consulta: {new Date(snapshot.computedAt).toLocaleString("pt-PT")}
+          Última atualização: {new Date(snapshot.computedAt).toLocaleString("pt-PT")}
         </span>
       </div>
     </div>

@@ -116,6 +116,7 @@ interface BlockEditorProps {
   };
   onPageTitleChange?: (newTitle: string) => void;
   onPageIconChange?: (newIcon: string) => void;
+  demoMode?: boolean;
 }
 
 export function BlockEditor({
@@ -123,6 +124,7 @@ export function BlockEditor({
   currentUser,
   onPageTitleChange,
   onPageIconChange,
+  demoMode,
 }: BlockEditorProps) {
   const router = useRouter();
   const [title, setTitle] = React.useState(page.title || "Untitled");
@@ -504,6 +506,10 @@ export function BlockEditor({
 
       saveTimeoutRef.current = setTimeout(async () => {
         try {
+          if (demoMode) {
+            setSaveStatus("saved");
+            return;
+          }
           if (isConflictSuspendedRef.current) return;
 
           const payloadTitle = newTitle !== undefined ? newTitle : pendingSaveRef.current.title;
@@ -656,7 +662,7 @@ export function BlockEditor({
   // Flush on unmount and beforeunload if saving
   React.useEffect(() => {
     const handleBeforeUnload = () => {
-      if (isConflictSuspendedRef.current) return;
+      if (demoMode || isConflictSuspendedRef.current) return;
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
         const { title: t, icon: ic, blocks: b } = pendingSaveRef.current;

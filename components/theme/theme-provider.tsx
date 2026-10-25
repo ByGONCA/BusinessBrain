@@ -44,15 +44,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return () => media.removeEventListener("change", listener);
   }, []);
 
-  // Mandatory dark theme as per redesign specification
-  const resolvedTheme: "dark" | "light" = "dark";
+  // Dynamic resolved theme computation: Automatic follows OS prefers-color-scheme
+  const resolvedTheme: "dark" | "light" =
+    theme === "system" ? (systemIsDark ? "dark" : "light") : theme;
 
-  // Apply classes to documentElement
+  // Apply classes and colorScheme to documentElement
   React.useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove("light");
-    root.classList.add("dark");
-    root.style.colorScheme = "dark";
+    if (resolvedTheme === "dark") {
+      root.classList.remove("light");
+      root.classList.add("dark");
+      root.style.colorScheme = "dark";
+    } else {
+      root.classList.remove("dark");
+      root.classList.add("light");
+      root.style.colorScheme = "light";
+    }
 
     if (contrast === "high") {
       root.setAttribute("data-contrast", "high");
@@ -64,7 +71,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setTheme = React.useCallback((newTheme: ThemeMode) => {
     setThemeState(newTheme);
     try {
-      localStorage.setItem("cb_theme_mode", newTheme);
+      if (newTheme === "system") {
+        localStorage.removeItem("cb_theme_mode");
+      } else {
+        localStorage.setItem("cb_theme_mode", newTheme);
+      }
     } catch {}
   }, []);
 

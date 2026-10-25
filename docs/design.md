@@ -183,3 +183,4 @@ Para proteger a janela de contexto de agentes e evitar que tarefas de backend ca
 - ❌ **NÃO usar cores arbitrárias fora da paleta Zinc**: Não inventar novos tons de cinza ou fundos roxos/azuis sem necessidade.
 - ❌ **NÃO eliminar anéis de foco**: `outline-none` só é permitido se acompanhado obrigatoriamente de `focus-visible:ring-2`.
 - ❌ **NÃO usar tamanhos de fonte inferiores a 12px** (`text-xs`), exceto para monogramas ou micro-ícones específicos.
+- ❌ **NÃO estampar termos ou secções de engenharia/segurança na UI**: Proibido exibir badges, cartões, slogans ou secções de segurança técnica (ex.: "Built with strict security perimeters", "Enterprise Workspace Isolation & Encryption", "Cryptographic Webhooks", "Least-Privilege Scopes", "Proprietary Tenant Scope", "RLS Guard", "Perímetro Ativo") no dashboard, nas páginas de marketing ou no footer. A segurança é uma garantia de infraestrutura/backend, nunca propaganda de jargão técnico na UI para o utilizador.

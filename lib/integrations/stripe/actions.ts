@@ -5,6 +5,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getActiveOrganization } from "@/lib/organizations/queries";
 import { revokeStripeConnectAccess } from "./oauth";
 import { getOrFetchStripeFinancialSnapshot } from "./analytics";
+import { stripeFinancialMemoryCache } from "./cache";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
 import { hasPermission } from "@/lib/permissions/resolver";
@@ -97,11 +98,13 @@ export async function disconnectStripeIntegrationAction(): Promise<ActionResult>
     return { success: false, error: "Falha ao remover o registo de integração da base de dados local." };
   }
 
-  // 4. Delete associated snapshots
+  // 4. Delete associated snapshots and purge L1 cache
   await supabase
     .from("organization_metric_snapshots")
     .delete()
     .eq("organization_id", activeOrg.id);
+
+  stripeFinancialMemoryCache.invalidateOrganization(activeOrg.id);
 
   logger.info("Disconnected Stripe integration for organization", {
     organizationId: activeOrg.id,
@@ -168,6 +171,9 @@ export async function refreshStripeMetricsAction(): Promise<ActionResult> {
   }
 
   const supabase = await createClient();
+
+  // Explicitly purge L1 memory cache before force-refreshing
+  stripeFinancialMemoryCache.invalidateOrganization(activeOrg.id, "financial_snapshot");
 
   const result = await getOrFetchStripeFinancialSnapshot(supabase, activeOrg.id, {
     forceRefresh: true,

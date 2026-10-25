@@ -171,7 +171,7 @@ export async function signUpAction(
 
   // If email confirmation is required by Supabase Auth, user has no active session yet
   if (data?.user && !data.session) {
-    redirect(`/auth/verify-email?email=${encodeURIComponent(email)}`);
+    redirect(`/verify-email?email=${encodeURIComponent(email)}`);
   }
 
   revalidatePath("/", "layout");
@@ -482,6 +482,170 @@ export async function requestPasswordResetAction(
     success: true,
     message: "If an account exists with that email, a password reset link has been sent.",
   };
+}
+
+/**
+ * Sends a 6-digit recovery OTP code to the user's email for password reset.
+ * Uses Supabase signInWithOtp with shouldCreateUser: false to generate and email a 6-digit OTP code.
+ */
+export async function sendRecoveryOtpAction(
+  email: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  const parsed = otpEmailSchema.safeParse(email);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.errors[0]?.message || "Invalid email address." };
+  }
+
+  const clientIp = await getClientIp();
+  const rl = await rateLimit("send-recovery-otp", `${clientIp}:${parsed.data.toLowerCase()}`, RATE_LIMIT_PRESETS.AUTH_STRICT);
+  if (!rl.success) {
+    return { success: false, error: "Too many code requests. Please wait a moment before trying again." };
+  }
+
+  const supabase = await createClient();
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
+  // Use signInWithOtp to instruct Supabase to generate and send a 6-digit OTP code
+  const { error } = await supabase.auth.signInWithOtp({
+    email: parsed.data,
+    options: {
+      shouldCreateUser: false, // Ensures account exists; prevents unauthorized account creation
+      emailRedirectTo: `${appUrl}/api/auth/callback?next=/reset-password`,
+    },
+  });
+
+  if (error) {
+    logger.warn("Send recovery OTP failed", { email: parsed.data, error: error.message });
+    if (
+      error.message.includes("Signups not allowed for otp") ||
+      error.message.includes("otp_disabled") ||
+      error.message.includes("User not found")
+    ) {
+      return {
+        success: false,
+        error: "No account found with this email. Please check your email address or sign up.",
+      };
+    }
+    if (error.message.includes("Error sending confirmation email") || error.message.includes("email provider")) {
+      return {
+        success: false,
+        error: "Email delivery failed. Please ensure custom SMTP (Resend) is configured in Supabase or try again shortly.",
+      };
+    }
+    return { success: false, error: error.message };
+  }
+
+  return {
+    success: true,
+    message: `A 6-digit recovery code has been sent to ${parsed.data}.`,
+  };
+}
+
+/**
+ * Verifies a 6-digit recovery OTP code and establishes an authenticated recovery session,
+ * redirecting the user to /reset-password to set their new password.
+ */
+export async function verifyRecoveryOtpAction(
+  prevState: AuthState | null,
+  formData: FormData
+): Promise<AuthState> {
+  const email = (formData.get("email") as string)?.trim();
+  const code = (formData.get("code") as string)?.trim().replace(/\D/g, "");
+
+  const parsedEmail = otpEmailSchema.safeParse(email);
+  if (!parsedEmail.success) {
+    return { error: "Please provide a valid email address." };
+  }
+
+  if (!code || code.length !== 6) {
+    return { error: "Please enter a valid 6-digit recovery code." };
+  }
+
+  const clientIp = await getClientIp();
+  const rl = await rateLimit("verify-recovery-otp", `${clientIp}:${parsedEmail.data.toLowerCase()}`, RATE_LIMIT_PRESETS.AUTH_STRICT);
+  if (!rl.success) {
+    return { error: "Too many recovery attempts. Please wait a moment." };
+  }
+
+  const supabase = await createClient();
+
+  // Try verifying with type 'email' (from signInWithOtp), fallback to 'recovery' if configured
+  let { error } = await supabase.auth.verifyOtp({
+    email: parsedEmail.data,
+    token: code,
+    type: "email",
+  });
+
+  if (error) {
+    const fallback = await supabase.auth.verifyOtp({
+      email: parsedEmail.data,
+      token: code,
+      type: "recovery",
+    });
+    error = fallback.error;
+  }
+
+  if (error) {
+    logger.warn("Recovery OTP verification failure", { email: parsedEmail.data, error: error.message });
+    return { error: "Invalid or expired recovery code. Please check your email or request a new code." };
+  }
+
+  revalidatePath("/", "layout");
+  redirect("/reset-password");
+}
+
+/**
+ * Verifies a 6-digit signup confirmation code (OTP) and immediately establishes the session.
+ */
+export async function verifySignUpOtpAction(
+  prevState: AuthState | null,
+  formData: FormData
+): Promise<AuthState> {
+  const email = (formData.get("email") as string)?.trim();
+  const code = (formData.get("code") as string)?.trim().replace(/\D/g, "");
+  const rawReturnUrl = formData.get("returnUrl") as string;
+  const returnUrl = sanitizeRedirectUrl(rawReturnUrl, "/onboarding");
+
+  const parsedEmail = otpEmailSchema.safeParse(email);
+  if (!parsedEmail.success) {
+    return { error: "Please provide a valid work email address." };
+  }
+
+  if (!code || code.length !== 6) {
+    return { error: "Please enter the 6-digit verification code." };
+  }
+
+  const clientIp = await getClientIp();
+  const rl = await rateLimit("verify-signup-otp", `${clientIp}:${parsedEmail.data.toLowerCase()}`, RATE_LIMIT_PRESETS.AUTH_STRICT);
+  if (!rl.success) {
+    return { error: "Too many verification attempts. Please wait a moment." };
+  }
+
+  const supabase = await createClient();
+
+  // Try verifying with type 'signup' first, fall back to 'email' if needed
+  let { error } = await supabase.auth.verifyOtp({
+    email: parsedEmail.data,
+    token: code,
+    type: "signup",
+  });
+
+  if (error) {
+    const fallback = await supabase.auth.verifyOtp({
+      email: parsedEmail.data,
+      token: code,
+      type: "email",
+    });
+    error = fallback.error;
+  }
+
+  if (error) {
+    logger.warn("Signup OTP verification failure", { email: parsedEmail.data, error: error.message });
+    return { error: "Invalid or expired verification code. Please request a new code or click the confirmation link in your email." };
+  }
+
+  revalidatePath("/", "layout");
+  redirect(returnUrl);
 }
 
 /**

@@ -40,3 +40,7 @@ next-env.d.ts
 # Local Graphify & Python Environment
 .venv/
 graphify-out/
+
+# Python cache
+__pycache__/
+*.pyc

@@ -11,19 +11,20 @@ interface Particle {
   vy: number;
   size: number;
   color: string;
+  glowColor: string;
   phase: number;
   orbitRadius: number;
   isAmbient: boolean;
 }
 
 const PALETTE = [
-  "rgba(145, 15, 25, 0.75)",   // Deep Wine / Bordeaux
-  "rgba(195, 25, 38, 0.85)",   // Rich Crimson
-  "rgba(235, 35, 50, 0.92)",   // Pure Vivid Red
-  "rgba(255, 55, 75, 0.95)",   // Bright Spark Red
-  "rgba(244, 63, 94, 0.85)",   // Rose Highlight
-  "rgba(165, 20, 32, 0.40)",   // Subtle Wine Haze
-  "rgba(255, 60, 80, 0.50)",   // Mid Red Glow
+  { fill: "rgba(165, 15, 28, 0.78)", glow: "rgba(255, 35, 55, 0.45)" },   // Deep Wine / Bordeaux
+  { fill: "rgba(215, 25, 42, 0.88)", glow: "rgba(255, 55, 75, 0.60)" },   // Rich Crimson
+  { fill: "rgba(245, 40, 58, 0.94)", glow: "rgba(255, 75, 95, 0.75)" },   // Pure Vivid Red
+  { fill: "rgba(255, 70, 90, 0.98)", glow: "rgba(255, 110, 130, 0.85)" }, // Bright Spark Red
+  { fill: "rgba(251, 113, 133, 0.90)", glow: "rgba(253, 164, 175, 0.70)" },// Rose Highlight
+  { fill: "rgba(180, 22, 36, 0.50)", glow: "rgba(244, 63, 94, 0.35)" },   // Subtle Wine Haze
+  { fill: "rgba(255, 80, 100, 0.65)", glow: "rgba(255, 99, 132, 0.55)" }, // Mid Red Glow
 ];
 
 export function Particle404Canvas() {
@@ -52,7 +53,7 @@ export function Particle404Canvas() {
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    // Pointer dynamics tracking: position, previous frame position, and cursor velocity
+    // Pointer dynamics tracking: position, velocity, and fluid wake metrics
     const pointer = {
       x: -9999,
       y: -9999,
@@ -60,7 +61,7 @@ export function Particle404Canvas() {
       prevY: -9999,
       vx: 0,
       vy: 0,
-      radius: 130, // Generous interaction radius so effect is immediately tangible
+      radius: 175, // Generous fluid interaction radius for deep water displacement
       active: false,
       lastMoved: 0,
     };
@@ -75,11 +76,11 @@ export function Particle404Canvas() {
       const dt = Math.max(now - pointer.lastMoved, 16);
 
       if (pointer.active && pointer.prevX > -5000) {
-        // Track smoothed cursor velocity in pixels per frame (normalized to ~16ms)
+        // Track smoothed cursor velocity in pixels per frame
         const instantVx = ((currX - pointer.x) / dt) * 16;
         const instantVy = ((currY - pointer.y) / dt) * 16;
-        pointer.vx = pointer.vx * 0.35 + instantVx * 0.65;
-        pointer.vy = pointer.vy * 0.35 + instantVy * 0.65;
+        pointer.vx = pointer.vx * 0.4 + instantVx * 0.6;
+        pointer.vy = pointer.vy * 0.4 + instantVy * 0.6;
       } else {
         pointer.prevX = currX;
         pointer.prevY = currY;
@@ -136,18 +137,19 @@ export function Particle404Canvas() {
       let shearY: number;
       let shearX: number;
 
+      // Significantly larger 404 numbers with grand architectural scale
       if (isMobile) {
-        fontSize = Math.min(width * 0.72, height * 0.38);
-        centerX = width * 0.52;
-        centerY = height * 0.58;
-        shearY = -0.10;
-        shearX = 0.16;
+        fontSize = Math.min(width * 0.88, height * 0.46);
+        centerX = width * 0.50;
+        centerY = height * 0.54;
+        shearY = -0.09;
+        shearX = 0.14;
       } else {
-        fontSize = Math.min(width * 0.46, height * 0.68);
-        centerX = width * 0.54;
-        centerY = height * 0.44;
-        shearY = -0.13;
-        shearX = 0.20;
+        fontSize = Math.min(width * 0.62, height * 0.82);
+        centerX = width * 0.55;
+        centerY = height * 0.45;
+        shearY = -0.11;
+        shearX = 0.18;
       }
 
       offCtx.save();
@@ -165,21 +167,21 @@ export function Particle404Canvas() {
       const data = imgData.data;
 
       const newParticles: Particle[] = [];
-      const step = isMobile ? 5 : 6;
+      const step = isMobile ? 4.5 : 4.8;
 
       for (let y = 0; y < height; y += step) {
         for (let x = 0; x < width; x += step) {
-          const index = (y * width + x) * 4;
+          const index = (Math.floor(y) * width + Math.floor(x)) * 4;
           const alpha = data[index + 3];
 
-          if (alpha > 70) {
-            const jitterX = (Math.random() - 0.5) * (step * 0.85);
-            const jitterY = (Math.random() - 0.5) * (step * 0.85);
+          if (alpha > 65) {
+            const jitterX = (Math.random() - 0.5) * (step * 0.8);
+            const jitterY = (Math.random() - 0.5) * (step * 0.8);
             const posX = x + jitterX;
             const posY = y + jitterY;
 
-            const color = PALETTE[Math.floor(Math.random() * PALETTE.length)];
-            const size = Math.random() * 1.5 + (isMobile ? 0.75 : 0.9);
+            const swatch = PALETTE[Math.floor(Math.random() * PALETTE.length)];
+            const size = Math.random() * 1.6 + (isMobile ? 0.85 : 1.05);
 
             newParticles.push({
               x: posX,
@@ -189,22 +191,23 @@ export function Particle404Canvas() {
               vx: 0,
               vy: 0,
               size,
-              color,
+              color: swatch.fill,
+              glowColor: swatch.glow,
               phase: Math.random() * Math.PI * 2,
-              orbitRadius: Math.random() * 3.5 + 1.2,
+              orbitRadius: Math.random() * 4.0 + 1.5,
               isAmbient: false,
             });
           }
         }
       }
 
-      // Atmospheric ambient dust particles around numerals
-      const ambientCount = Math.floor(newParticles.length * 0.12);
+      // Atmospheric ambient dust particles swirling around numerals
+      const ambientCount = Math.floor(newParticles.length * 0.14);
       for (let i = 0; i < ambientCount; i++) {
         const randBase = newParticles[Math.floor(Math.random() * newParticles.length)];
         if (!randBase) continue;
 
-        const spread = Math.random() * 85 + 20;
+        const spread = Math.random() * 110 + 25;
         const angle = Math.random() * Math.PI * 2;
         const posX = randBase.baseX + Math.cos(angle) * spread;
         const posY = randBase.baseY + Math.sin(angle) * spread;
@@ -216,10 +219,11 @@ export function Particle404Canvas() {
           baseY: posY,
           vx: 0,
           vy: 0,
-          size: Math.random() * 1.3 + 0.5,
-          color: "rgba(235, 35, 50, 0.32)",
+          size: Math.random() * 1.4 + 0.6,
+          color: "rgba(235, 35, 50, 0.38)",
+          glowColor: "rgba(255, 60, 80, 0.25)",
           phase: Math.random() * Math.PI * 2,
-          orbitRadius: Math.random() * 5.5 + 2.0,
+          orbitRadius: Math.random() * 6.0 + 2.5,
           isAmbient: true,
         });
       }
@@ -268,15 +272,14 @@ export function Particle404Canvas() {
       const now = performance.now();
       const elapsed = Math.min(now - lastTime, 40);
       lastTime = now;
-      time += 0.016 * (elapsed / 16);
+      time += 0.018 * (elapsed / 16);
 
       ctx.clearRect(0, 0, width, height);
 
       const isMobile = width < 768;
       const len = particles.length;
 
-      // Pointer sweep line-segment metrics (interpolates between consecutive pointer events)
-      // This ensures that EVEN AT RAPID SWIPE SPEEDS, every particle crossed by the path reacts!
+      // Pointer sweep trajectory interpolation for continuous interaction coverage
       const hasActivePointer = pointer.active && pointer.x > -5000;
       let segDx = 0;
       let segDy = 0;
@@ -290,29 +293,27 @@ export function Particle404Canvas() {
         sweepSpeed = Math.sqrt(segLenSq);
       }
 
-      const pRadius = pointer.radius;
+      const pRadius = isMobile ? 135 : 185;
       const pRadiusSq = pRadius * pRadius;
-      // Boost blast force based on cursor swipe velocity
-      const speedMultiplier = 1 + Math.min(sweepSpeed * 0.06, 2.8);
+      const speedMultiplier = 1 + Math.min(sweepSpeed * 0.08, 3.2);
 
       for (let i = 0; i < len; i++) {
         const p = particles[i];
 
-        // 1. Continuous autonomous breathing & organic oscillation
-        const breathAmp = isMobile ? 1.4 : 1.1;
-        const wobbleX =
-          (Math.sin(time * 1.15 + p.phase) * p.orbitRadius +
-          Math.cos(time * 0.75 + p.phase * 1.3) * (p.orbitRadius * 0.45)) * breathAmp;
-        const wobbleY =
-          (Math.cos(time * 1.05 + p.phase) * p.orbitRadius +
-          Math.sin(time * 0.85 + p.phase * 1.2) * (p.orbitRadius * 0.45)) * breathAmp;
+        // 1. Organic water undulating oscillation (ambient liquid currents)
+        const waterWaveX =
+          Math.sin(time * 1.5 + p.baseY * 0.012 + p.phase) * (p.orbitRadius * 0.85) +
+          Math.cos(time * 0.9 + p.baseX * 0.008) * (p.orbitRadius * 0.5);
+        const waterWaveY =
+          Math.cos(time * 1.3 + p.baseX * 0.012 + p.phase) * (p.orbitRadius * 0.85) +
+          Math.sin(time * 0.85 + p.baseY * 0.008) * (p.orbitRadius * 0.5);
 
-        const targetBaseX = p.baseX + wobbleX;
-        const targetBaseY = p.baseY + wobbleY;
+        const targetBaseX = p.baseX + waterWaveX;
+        const targetBaseY = p.baseY + waterWaveY;
 
-        // 2. High-performance pointer interaction via segment projection & kinetic impulse
+        // 2. High-performance fluid water ripple & repulsion on hover
         if (hasActivePointer) {
-          // Find closest point on cursor trajectory segment A -> B to particle position
+          // Find closest point on cursor trajectory segment to particle position
           let closestX = pointer.x;
           let closestY = pointer.y;
 
@@ -328,36 +329,47 @@ export function Particle404Canvas() {
 
           if (distSq < pRadiusSq && distSq > 0.01) {
             const dist = Math.sqrt(distSq);
-            // Non-linear falloff (strongest close to cursor, fading out towards perimeter)
             const proximity = 1 - dist / pRadius;
             const normX = dx / dist;
             const normY = dy / dist;
 
-            // Direct kinetic repulsion impulse injected into particle velocity
-            const impulseForce = proximity * proximity * 16.5 * speedMultiplier;
-            p.vx += normX * impulseForce;
-            p.vy += normY * impulseForce;
+            // Direct kinetic repulsion: particles "flee" away from cursor location
+            const fleeImpulse = Math.pow(proximity, 1.3) * 19.5 * speedMultiplier;
+            p.vx += normX * fleeImpulse;
+            p.vy += normY * fleeImpulse;
 
-            // Organic wake / drag effect in the direction of the swipe
-            if (sweepSpeed > 1) {
-              const wakeFactor = proximity * 0.22;
+            // Water ripple wave propagation: sinusoidal radial ripples simulating liquid surface disturbance
+            const ripplePhase = dist * 0.085 - time * 9.0;
+            const waterRipple = Math.sin(ripplePhase) * proximity * 9.0;
+            p.vx += normX * waterRipple;
+            p.vy += normY * waterRipple;
+
+            // Liquid curl / tangential swirl wake (vorticity around moving cursor)
+            const tanX = -normY;
+            const tanY = normX;
+            const swirlStrength = Math.sin(time * 2.8 + p.phase) * proximity * 5.2;
+            p.vx += tanX * swirlStrength;
+            p.vy += tanY * swirlStrength;
+
+            // Cursor drag wake in travel direction
+            if (sweepSpeed > 0.8) {
+              const wakeFactor = proximity * 0.28;
               p.vx += pointer.vx * wakeFactor;
               p.vy += pointer.vy * wakeFactor;
             }
           }
         }
 
-        // 3. Elastic restoring spring with critical damping
-        // Pulls particle back towards (targetBaseX, targetBaseY) with smooth settle
-        const springTension = 0.082;
-        const dampingFactor = 0.855;
+        // 3. Fluid restoring spring with viscous liquid damping (surface tension return)
+        const fluidTension = 0.052; // gentle spring tension for elastic floating return
+        const viscousDamping = 0.875; // liquid resistance damping
 
-        p.vx = (p.vx + (targetBaseX - p.x) * springTension) * dampingFactor;
-        p.vy = (p.vy + (targetBaseY - p.y) * springTension) * dampingFactor;
+        p.vx = (p.vx + (targetBaseX - p.x) * fluidTension) * viscousDamping;
+        p.vy = (p.vy + (targetBaseY - p.y) * fluidTension) * viscousDamping;
 
-        // Clamp maximum instantaneous velocity to prevent visual tearing
+        // Velocity clamp to prevent visual explosion
         const currentSpeed = Math.hypot(p.vx, p.vy);
-        const maxVelocity = 32;
+        const maxVelocity = 36;
         if (currentSpeed > maxVelocity) {
           p.vx = (p.vx / currentSpeed) * maxVelocity;
           p.vy = (p.vy / currentSpeed) * maxVelocity;
@@ -366,14 +378,17 @@ export function Particle404Canvas() {
         p.x += p.vx;
         p.y += p.vy;
 
-        // 4. Render particle
+        // 4. Render particle with dynamic luminescence flare when agitated
+        const excitement = Math.min(currentSpeed * 0.14, 1.4);
+        const dynamicRadius = p.size * (1 + excitement * 0.55);
+
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = p.color;
+        ctx.arc(p.x, p.y, dynamicRadius, 0, Math.PI * 2);
+        ctx.fillStyle = excitement > 0.4 ? p.glowColor : p.color;
         ctx.fill();
       }
 
-      // Shift previous pointer position for next frame's sweep calculation
+      // Propagate previous pointer position
       if (hasActivePointer) {
         pointer.prevX = pointer.x;
         pointer.prevY = pointer.y;
@@ -399,7 +414,7 @@ export function Particle404Canvas() {
     }
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    // Re-generate once web fonts finish loading if Geist wasn't available at first frame
+    // Re-generate once web fonts finish loading if font wasn't ready at first frame
     if (typeof document !== "undefined" && document.fonts) {
       document.fonts.ready.then(() => {
         generateParticles();

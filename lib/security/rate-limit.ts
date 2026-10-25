@@ -26,6 +26,8 @@ export const RATE_LIMIT_PRESETS = {
   INTEGRATIONS: { limit: 15, windowSeconds: 60, failClosed: false },
   // Sensitive write mutations (create org, checkout, upload auth)
   MUTATIONS: { limit: 10, windowSeconds: 60, failClosed: false },
+  // AI trial queries / requests — fail-closed to protect model budgets during trial periods
+  AI_TRIAL: { limit: 5, windowSeconds: 60, failClosed: true },
   // Standard API endpoints
   API_STANDARD: { limit: 60, windowSeconds: 60, failClosed: false },
 } as const;

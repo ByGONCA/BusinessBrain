@@ -4,6 +4,7 @@ import { getStripeClient } from "@/lib/stripe/client";
 import { createServiceClient } from "@/lib/supabase/server";
 import { logger } from "@/lib/security/logger";
 import { getServerAuthToken } from "@/lib/security/authorization";
+import { stripeFinancialMemoryCache } from "@/lib/integrations/stripe/cache";
 import Stripe from "stripe";
 
 export async function POST(req: Request) {
@@ -202,6 +203,8 @@ export async function POST(req: Request) {
             } else {
               logger.info(`[Stripe Webhook] Synced subscription ${subscriptionId} for org ${orgId}`);
             }
+            // Invalidate financial L1 cache for the updated organization
+            stripeFinancialMemoryCache.invalidateOrganization(orgId);
           }
         }
         break;
@@ -393,6 +396,10 @@ export async function POST(req: Request) {
             });
             break;
           }
+        }
+
+        if (orgId) {
+          stripeFinancialMemoryCache.invalidateOrganization(orgId);
         }
 
         logger.info(`[Stripe Webhook] Updated subscription ${subscriptionId} status: ${sub.status}`);

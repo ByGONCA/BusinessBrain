@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Sparkles, ArrowRight, Loader2, KeyRound, Eye, EyeOff } from "lucide-react";
+import { ArrowRight, Loader2, KeyRound, Eye, EyeOff } from "lucide-react";
 import { updatePasswordAction, AuthState } from "@/lib/auth/actions";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordChecklist } from "@/components/auth/password-checklist";
@@ -18,12 +19,27 @@ export default function ResetPasswordPage() {
   const [showPassword, setShowPassword] = React.useState(false);
   const [isPasswordTouched, setIsPasswordTouched] = React.useState(false);
 
+  React.useEffect(() => {
+    try {
+      const supabase = createClient();
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((event) => {
+        // Automatically syncs session into cookies if arriving via Supabase client token or hash
+      });
+      return () => {
+        subscription.unsubscribe();
+      };
+    } catch {
+      // Env variables or browser client may not be initialized in test/preview
+    }
+  }, []);
+
   const validation = React.useMemo(() => {
     return checkPasswordRequirements(password);
   }, [password]);
 
   const passwordsMatch = password.length > 0 && confirmPassword.length > 0 && password === confirmPassword;
-  const canSubmit = validation.allMet && (confirmPassword.length === 0 || passwordsMatch);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     if (!validation.allMet || password !== confirmPassword) {

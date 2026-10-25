@@ -20,6 +20,7 @@ export async function GET(request: Request) {
 
   const code = searchParams.get("code");
   const rawNext = searchParams.get("next");
+  const type = searchParams.get("type");
   const safeNext = sanitizeRedirectUrl(rawNext, "/dashboard");
 
   // Check if provider returned an authorization error (e.g. user canceled Google or GitHub consent)
@@ -38,6 +39,16 @@ export async function GET(request: Request) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
+      // 1. Prioritize password recovery flow: if user arrives via reset link or recovery type,
+      // route immediately to /reset-password before any organization or subscription checks.
+      const isRecovery =
+        safeNext.startsWith("/reset-password") ||
+        type === "recovery";
+
+      if (isRecovery) {
+        return NextResponse.redirect(`${baseUrl}/reset-password`);
+      }
+
       // Check if Multi-Factor Authentication (AAL2) is required for this account
       try {
         const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
@@ -57,11 +68,6 @@ export async function GET(request: Request) {
           return NextResponse.redirect(`${baseUrl}${safeNext}`);
         }
         return NextResponse.redirect(`${baseUrl}/onboarding`);
-      }
-
-      // If safeNext is an explicit auth recovery route (like /reset-password), prioritize it
-      if (safeNext.startsWith("/reset-password")) {
-        return NextResponse.redirect(`${baseUrl}${safeNext}`);
       }
 
       // Check active organization entitlement

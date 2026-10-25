@@ -3,20 +3,32 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Mail, ArrowRight, RefreshCw, CheckCircle2, AlertCircle, ArrowLeft } from "lucide-react";
+import { Mail, ArrowRight, RefreshCw, Loader2, ArrowLeft, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { resendVerificationEmailAction } from "@/lib/auth/actions";
+import {
+  resendVerificationEmailAction,
+  verifySignUpOtpAction,
+  AuthState,
+} from "@/lib/auth/actions";
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
-  const email = searchParams.get("email") || "";
+  const initialEmail = searchParams.get("email") || "";
+  const rawReturnUrl = searchParams.get("returnUrl") || "/onboarding";
 
+  const [email, setEmail] = React.useState(initialEmail);
+  const [code, setCode] = React.useState("");
   const [isResending, setIsResending] = React.useState(false);
   const [cooldown, setCooldown] = React.useState(0);
   const [resendStatus, setResendStatus] = React.useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
+
+  const [verifyState, verifyFormAction, isVerifying] = React.useActionState<AuthState, FormData>(
+    verifySignUpOtpAction,
+    {}
+  );
 
   // Cooldown countdown timer
   React.useEffect(() => {
@@ -28,17 +40,17 @@ function VerifyEmailContent() {
   }, [cooldown]);
 
   const handleResend = async () => {
-    if (!email || cooldown > 0 || isResending) return;
+    if (!email.trim() || cooldown > 0 || isResending) return;
 
     setIsResending(true);
     setResendStatus(null);
 
     try {
-      const result = await resendVerificationEmailAction(email);
+      const result = await resendVerificationEmailAction(email.trim());
       if (result.success) {
         setResendStatus({
           type: "success",
-          message: "Confirmation link resent! Please check your inbox.",
+          message: "A new 6-digit confirmation code and link have been sent!",
         });
         setCooldown(60);
       } else {
@@ -59,85 +71,142 @@ function VerifyEmailContent() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-[#0B0B0C] px-4 py-12 text-[#F5F5F5]">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-sm">
         {/* Header Icon */}
         <div className="flex flex-col items-center text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 shadow-lg">
-            <Mail className="h-7 w-7" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400 shadow-md">
+            <Mail className="h-6 w-6" />
           </div>
-          <h2 className="mt-5 text-2xl font-bold tracking-tight text-[#F5F5F5]">
-            Check your email
+          <h2 className="mt-4 text-xl font-bold tracking-tight text-[#F5F5F5]">
+            Verify your email
           </h2>
-          <p className="mt-2 text-xs text-[#A1A1AA] leading-relaxed max-w-xs">
-            We sent a verification link to your email address to confirm your account.
+          <p className="mt-1 text-xs text-[#A1A1AA] leading-relaxed max-w-xs">
+            We sent a 6-digit verification code to confirm your account
           </p>
         </div>
 
         {/* Card */}
-        <div className="mt-8 rounded-xl border border-[#29292D] bg-[#141416] p-6 shadow-xl space-y-5">
-          {/* Email badge */}
+        <div className="mt-8 rounded-xl border border-[#29292D] bg-[#141416] p-6 shadow-xl space-y-4">
+          {/* Email badge / editable if empty */}
           {email ? (
-            <div className="flex items-center justify-center rounded-lg border border-[#29292D] bg-[#19191C] px-3.5 py-2.5 text-center text-xs">
-              <span className="text-[#A1A1AA] mr-1.5">Sent to:</span>
-              <span className="font-semibold text-[#F5F5F5] truncate max-w-[240px]">
-                {email}
-              </span>
+            <div className="flex items-center justify-between rounded-lg border border-[#29292D] bg-[#19191C] px-3 py-2 text-xs">
+              <span className="text-[#A1A1AA] truncate">{email}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const newEmail = prompt("Enter your email address:", email);
+                  if (newEmail && newEmail.trim()) setEmail(newEmail.trim());
+                }}
+                className="text-xs text-blue-400 hover:text-blue-300 font-medium shrink-0 ml-2"
+              >
+                Change
+              </button>
             </div>
           ) : (
-            <div className="rounded-lg border border-[#29292D] bg-[#19191C] p-3 text-center text-xs text-[#A1A1AA]">
-              A confirmation link was sent to the email specified during registration.
+            <div className="space-y-1">
+              <label className="block text-xs font-medium text-[#A1A1AA]">
+                Work Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="alex@company.com"
+                required
+                className="w-full rounded-lg border border-[#29292D] bg-[#19191C] px-3 py-2 text-xs text-[#F5F5F5] placeholder:text-[#52525B] focus:border-blue-500 focus:outline-none"
+              />
             </div>
           )}
 
-          {/* Status Message */}
-          {resendStatus && (
-            <div
-              className={`flex items-start gap-2.5 rounded-lg border p-3 text-xs ${
-                resendStatus.type === "success"
-                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-                  : "border-red-500/30 bg-red-500/10 text-red-400"
-              }`}
-            >
-              {resendStatus.type === "success" ? (
-                <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
-              ) : (
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-              )}
-              <span className="leading-snug">{resendStatus.message}</span>
+          {/* Verification Code Form */}
+          <form action={verifyFormAction} className="space-y-4">
+            <input type="hidden" name="email" value={email} />
+            <input type="hidden" name="returnUrl" value={rawReturnUrl} />
+
+            {verifyState?.error && (
+              <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
+                {verifyState.error}
+              </div>
+            )}
+
+            {resendStatus && (
+              <div
+                className={`rounded-lg border p-2.5 text-xs text-center ${
+                  resendStatus.type === "success"
+                    ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                    : "border-red-500/20 bg-red-500/10 text-red-400"
+                }`}
+              >
+                {resendStatus.message}
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-medium text-[#A1A1AA] text-center">
+                6-digit verification code
+              </label>
+              <input
+                name="code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                placeholder="000000"
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                autoFocus
+                required
+                className="w-full text-center tracking-[0.5em] font-mono text-xl py-3 rounded-lg border border-[#29292D] bg-[#19191C] text-[#F5F5F5] placeholder:text-[#52525B] focus:border-blue-500 focus:outline-none transition-colors"
+              />
+
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[11px] text-[#71717A]">Didn&apos;t receive it?</span>
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={cooldown > 0 || isResending || !email.trim()}
+                  className="inline-flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 disabled:text-[#52525B] transition-colors"
+                >
+                  <RefreshCw className={`h-3 w-3 ${isResending ? "animate-spin" : ""}`} />
+                  <span>{cooldown > 0 ? `Resend in ${cooldown}s` : "Resend code"}</span>
+                </button>
+              </div>
             </div>
-          )}
 
-          {/* Instructions */}
-          <div className="space-y-2 text-xs text-[#A1A1AA] leading-relaxed border-t border-[#29292D] pt-4">
-            <p className="font-medium text-[#F5F5F5]">Next steps:</p>
-            <ol className="list-decimal pl-4 space-y-1 text-[11px] text-[#8E8E93]">
-              <li>Open your inbox and click the confirmation link.</li>
-              <li>You will be redirected straight to your workspace setup.</li>
-              <li>If you don&apos;t see the email, check your Spam or Junk folder.</li>
-            </ol>
-          </div>
-
-          {/* Resend Action */}
-          <div className="pt-2">
             <Button
-              type="button"
-              variant="outline"
-              onClick={handleResend}
-              disabled={isResending || cooldown > 0 || !email}
-              className="w-full gap-2 border-[#29292D] hover:bg-[#19191C]"
+              type="submit"
+              disabled={isVerifying || code.length !== 6 || !email.trim()}
+              className="w-full gap-2 mt-2"
             >
-              <RefreshCw className={`h-4 w-4 ${isResending ? "animate-spin" : ""}`} />
-              <span>
-                {isResending
-                  ? "Sending email..."
-                  : cooldown > 0
-                  ? `Resend in ${cooldown}s`
-                  : "Resend confirmation email"}
-              </span>
+              {isVerifying ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Verifying code...</span>
+                </>
+              ) : (
+                <>
+                  <span>Verify & Continue</span>
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
             </Button>
+          </form>
+
+          {/* Option to Verify Later */}
+          <div className="rounded-lg border border-[#29292D] bg-[#19191C]/60 p-3 text-center space-y-2">
+            <p className="text-[11px] text-[#71717A]">
+              Want to set up your workspace now and verify later?
+            </p>
+            <Link
+              href="/onboarding"
+              className="inline-flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-md text-xs font-medium text-[#A1A1AA] hover:text-[#F5F5F5] hover:bg-[#27272A] border border-[#29292D] transition-all"
+            >
+              <Clock className="h-3.5 w-3.5 text-blue-400" />
+              <span>Verify email later</span>
+            </Link>
           </div>
 
-          {/* Links */}
+          {/* Footer Navigation */}
           <div className="flex items-center justify-between border-t border-[#29292D] pt-4 text-xs">
             <Link
               href="/signup"

@@ -39,6 +39,8 @@ interface SidebarPageTreeProps {
   favoritePages?: PageRecord[];
   archivedPages?: PageRecord[];
   organizationId: string;
+  demoMode?: boolean;
+  onDemoNavigate?: (href: string) => void;
 }
 
 export function SidebarPageTree({
@@ -46,6 +48,8 @@ export function SidebarPageTree({
   favoritePages = [],
   archivedPages = [],
   organizationId,
+  demoMode,
+  onDemoNavigate,
 }: SidebarPageTreeProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -518,6 +522,21 @@ export function SidebarPageTree({
                 className="flex-1 min-w-0 bg-white dark:bg-zinc-800 border border-blue-500 rounded px-1.5 py-0.5 text-xs text-foreground focus:outline-none shadow-2xs"
               />
             </div>
+          ) : demoMode && onDemoNavigate ? (
+            <button
+              type="button"
+              onClick={() => onDemoNavigate(`/dashboard/pages/${node.id}`)}
+              className="flex-1 flex items-center gap-2 min-w-0 py-0.5 text-left"
+            >
+              <PageIcon
+                icon={node.icon}
+                pageId={node.id}
+                iconFileId={node.icon_file_id}
+                className="h-4 w-4 text-xs shrink-0"
+                imgClassName="h-4 w-4 rounded object-cover"
+              />
+              <span className="truncate">{node.title || "Untitled"}</span>
+            </button>
           ) : (
             <Link
               href={`/dashboard/pages/${node.id}`}

@@ -2,11 +2,11 @@ import { PlanConfig, SubscriptionTier } from "./types";
 
 /**
  * Global configurable free trial duration in days.
- * Defaults to 7 days if TRIAL_DAYS is not set in environment.
+ * Defaults to 3 days if TRIAL_DAYS is not set in environment.
  */
 export function getTrialDays(): number {
   const envVal = process.env.TRIAL_DAYS;
-  const parsed = envVal ? parseInt(envVal, 10) : 7;
+  const parsed = envVal ? parseInt(envVal, 10) : 3;
   return isNaN(parsed) || parsed <= 0 ? 7 : parsed;
 }
 
@@ -23,7 +23,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, PlanConfig> = {
     stripePriceIdMonthly: process.env.STRIPE_STARTER_PRICE_ID,
     trialDays: getTrialDays(),
     features: [
-      "7-day full access free trial",
+      "3-day full access free trial",
       "Up to 10 team members",
       "Unlimited projects & tasks",
       "Centralized Decision Log (ADRs)",
@@ -45,7 +45,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, PlanConfig> = {
     stripePriceIdMonthly: process.env.STRIPE_PRO_PRICE_ID,
     trialDays: getTrialDays(),
     features: [
-      "7-day full access free trial",
+      "3-day full access free trial",
       "Up to 50 team members",
       "Unlimited projects, tasks & decisions",
       "Knowledge Base wikis & SOP docs",
@@ -68,7 +68,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, PlanConfig> = {
     stripePriceIdMonthly: process.env.STRIPE_ENTERPRISE_PRICE_ID,
     trialDays: getTrialDays(),
     features: [
-      "7-day full access free trial",
+      "3-day full access free trial",
       "Unlimited team members",
       "Dedicated infrastructure & custom models",
       "Audit logging & enterprise security",

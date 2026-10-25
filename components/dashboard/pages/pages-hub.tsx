@@ -7,7 +7,7 @@
 // ==============================================================================
 
 import * as React from "react";
-import Link from "next/link";
+import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Search,
@@ -43,6 +43,8 @@ import { formatRelativeTime } from "@/lib/utils/time";
 interface PagesHubProps {
   initialPages: PageRecord[];
   organizationId: string;
+  demoMode?: boolean;
+  onDemoNavigate?: (href: string) => void;
 }
 
 const TEMPLATES = [
@@ -53,7 +55,29 @@ const TEMPLATES = [
   { id: "knowledge", title: "Artigo de Conhecimento", icon: "💡", description: "Guias passo a passo e documentação" },
 ];
 
-export function PagesHub({ initialPages, organizationId }: PagesHubProps) {
+export function PagesHub({ initialPages, organizationId, demoMode, onDemoNavigate }: PagesHubProps) {
+  const Link = React.useCallback(
+    ({ href, className, children, ...rest }: any) => {
+      if (demoMode && onDemoNavigate) {
+        return (
+          <button
+            type="button"
+            onClick={() => onDemoNavigate(href)}
+            className={cn("text-left cursor-pointer", className)}
+            {...rest}
+          >
+            {children}
+          </button>
+        );
+      }
+      return (
+        <NextLink href={href} className={className} {...rest}>
+          {children}
+        </NextLink>
+      );
+    },
+    [demoMode, onDemoNavigate]
+  );
   const router = useRouter();
   const [pages, setPages] = React.useState<PageRecord[]>(initialPages);
   const [searchQuery, setSearchQuery] = React.useState("");

@@ -89,14 +89,37 @@ export async function updateSession(request: NextRequest) {
   // Only authenticate/refresh session when auth cookies are present
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
+
+  // If Supabase reports an invalid/missing refresh token, delete stale sb- cookies to prevent error loops
+  if (
+    authError &&
+    (authError.message?.includes("Refresh Token Not Found") ||
+      (authError as any).code === "refresh_token_not_found" ||
+      authError.status === 400)
+  ) {
+    request.cookies.getAll().forEach((cookie) => {
+      if (cookie.name.startsWith("sb-")) {
+        supabaseResponse.cookies.delete(cookie.name);
+      }
+    });
+  }
 
   // Redirect unauthenticated users from protected routes or MFA route to login
   if (!user && (isProtectedRoute || isMfaRoute)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirectedFrom", request.nextUrl.pathname);
-    return NextResponse.redirect(url);
+    const redirectRes = NextResponse.redirect(url);
+    if (authError) {
+      request.cookies.getAll().forEach((cookie) => {
+        if (cookie.name.startsWith("sb-")) {
+          redirectRes.cookies.delete(cookie.name);
+        }
+      });
+    }
+    return redirectRes;
   }
 
   // Handle authenticated users and Multi-Factor Authentication (AAL2)
