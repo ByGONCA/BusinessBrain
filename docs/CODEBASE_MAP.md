@@ -33,7 +33,7 @@ Run only verified project commands from repository root:
 
 - **Typecheck**: `npm run typecheck` (`tsc --noEmit`)
 - **Lint**: `npm run lint` (`eslint .`)
-- **Deterministic Test Runner**: `npm test` (`npx tsx scripts/test-runner.ts` — runs 21 verified suites)
+- **Deterministic Test Runner**: `npm test` (`npx tsx scripts/test-runner.ts` — runs 25 verified suites)
 - **Dev Server (Turbopack)**: `npm run dev:turbo`
 - **Foundation Gate**: `npm run typecheck && npm run lint`
 
@@ -189,5 +189,5 @@ The test suite runs 22 deterministic test files sequentially without external de
 
 - **Complementary Roles**:
   - `docs/CODEBASE_MAP.md` is the **canonical, zero-dependency index** for declarative file/domain lookups, giving instant navigation with zero API cost.
-  - `graphify` (when its CLI or MCP tool is available in the environment) queries `graphify-out/graph.json` for deep semantic code relationships, graph traversal, and caller/callee trees.
+  - `graphify` (installed in `.venv/Scripts/graphify.exe`, see `docs/tools/graphify.md`) queries `graphify-out/graph.json` for deep semantic code relationships, graph traversal, and caller/callee trees when explicitly needed.
 - **Precedence**: Always consult `docs/CODEBASE_MAP.md` first for locating files. Use Graphify when deep relationship tracing between abstract components is required.
