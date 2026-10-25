@@ -79,6 +79,12 @@ const PROHIBITED_PLUGINS = [
   "google_maps_platform",
 ] as const;
 
+const APPROVED_ACTIVE_PLUGINS = [
+  "chrome-devtools-plugin",
+  "gemini-api",
+  "google-antigravity-sdk",
+] as const;
+
 // -----------------------------------------------------------------------------
 // Helper Functions
 // -----------------------------------------------------------------------------
@@ -219,6 +225,8 @@ export function runEnvironmentPolicy(isApplyMode: boolean): {
   // Check Stripe MCP (requires local developer key)
   if (mcpServers["stripe"]) {
     console.log(`  ✅ COMPLIANT: Approved reference MCP 'stripe' is configured.`);
+    console.log(`     ℹ️  Security Advisory: @stripe/mcp supports the STRIPE_SECRET_KEY environment variable.`);
+    console.log(`        If rotating credentials, configure via local environment variable instead of command arguments.`);
     preservedItems.push("Stripe MCP local configuration and credentials preserved intact");
   } else {
     informationalNotices.push("Approved MCP 'stripe' is not configured. Configure locally with restricted key if required.");
@@ -235,24 +243,54 @@ export function runEnvironmentPolicy(isApplyMode: boolean): {
   // 2. Audit Plugins
   console.log("\n[2/3] AUDITING PLUGINS (config.json)...");
 
+  // Audit Prohibited Plugins (Must be disabled or not installed)
   for (const prohibited of PROHIBITED_PLUGINS) {
     const plugin = plugins[prohibited];
-    if (plugin && plugin.enabled !== false) {
+    if (!plugin) {
+      // State: Not installed
+      console.log(`  ✅ COMPLIANT: Prohibited plugin '${prohibited}' is not installed.`);
+    } else if (typeof plugin !== "object" || plugin === null) {
+      // State: Undetermined
+      console.log(`  ⚠️  INSPECT: Plugin '${prohibited}' has unrecognized structure. Skipping automatic mutation.`);
+      informationalNotices.push(`Plugin '${prohibited}' structure could not be determined safely.`);
+    } else if (plugin.enabled === false) {
+      // State: Installed and disabled
+      console.log(`  ✅ COMPLIANT: Prohibited plugin '${prohibited}' is installed and correctly disabled (enabled: false).`);
+    } else {
+      // State: Installed and active
       violationsCount++;
       changesProposedCount++;
       proposedPluginChanges.push(`Disable prohibited plugin '${prohibited}' (set enabled: false)`);
-      console.log(`  ❌ VIOLATION: Prohibited plugin '${prohibited}' is active (enabled: true).`);
-    } else if (plugin && plugin.enabled === false) {
-      console.log(`  ✅ COMPLIANT: Prohibited plugin '${prohibited}' is correctly disabled.`);
-    } else {
-      console.log(`  ✅ COMPLIANT: Prohibited plugin '${prohibited}' is not installed.`);
+      console.log(`  ❌ VIOLATION: Prohibited plugin '${prohibited}' is installed and active (enabled: true).`);
     }
   }
 
-  // Audit preserved plugins and userSettings
+  // Audit Approved Plugins (Should remain active when installed)
+  for (const approvedPlugin of APPROVED_ACTIVE_PLUGINS) {
+    const plugin = plugins[approvedPlugin];
+    if (!plugin) {
+      // State: Not installed
+      console.log(`  ℹ️  INFO: Approved plugin '${approvedPlugin}' is not installed on this workstation.`);
+    } else if (typeof plugin !== "object" || plugin === null) {
+      // State: Undetermined
+      console.log(`  ⚠️  INSPECT: Approved plugin '${approvedPlugin}' structure could not be determined.`);
+    } else if (plugin.enabled === false) {
+      // State: Installed and disabled
+      console.log(`  ℹ️  NOTICE: Approved plugin '${approvedPlugin}' is installed but disabled.`);
+      informationalNotices.push(`Approved plugin '${approvedPlugin}' is installed but disabled on this workstation.`);
+    } else {
+      // State: Installed and active
+      console.log(`  ✅ COMPLIANT: Approved plugin '${approvedPlugin}' is installed and active.`);
+      preservedItems.push(`Approved plugin '${approvedPlugin}' active`);
+    }
+  }
+
+  // Audit other host plugins (Preserved intact)
   for (const [name, plugin] of Object.entries(plugins)) {
-    if (!PROHIBITED_PLUGINS.includes(name as (typeof PROHIBITED_PLUGINS)[number])) {
-      preservedItems.push(`Preserving active host plugin '${name}' (enabled: ${plugin.enabled !== false})`);
+    const isProhibited = PROHIBITED_PLUGINS.includes(name as (typeof PROHIBITED_PLUGINS)[number]);
+    const isApproved = APPROVED_ACTIVE_PLUGINS.includes(name as (typeof APPROVED_ACTIVE_PLUGINS)[number]);
+    if (!isProhibited && !isApproved) {
+      preservedItems.push(`Preserving host plugin '${name}' (enabled: ${plugin && typeof plugin === "object" ? plugin.enabled !== false : "unknown"})`);
     }
   }
 

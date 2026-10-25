@@ -1,7 +1,8 @@
 /**
  * Test Suite: Multi-PC Environment & Tooling Policy Engine
  * Validates diagnostic behavior, non-destructive backups, idempotence,
- * prohibited removal, and secret preservation in an isolated sandbox.
+ * prohibited removal/disabling (including google_maps_platform),
+ * approved active plugin preservation, and secret safety in an isolated sandbox.
  */
 
 import * as fs from "node:fs";
@@ -37,7 +38,11 @@ const initialConfigJson = {
   plugins: {
     firebase: { enabled: true, version: "1.0.0" }, // Prohibited - must disable
     "android-cli-plugin": { enabled: true }, // Prohibited - must disable
-    "gemini-api": { enabled: true, version: "2.3.0" }, // Custom - must preserve
+    google_maps_platform: { enabled: true, version: "1.0.0" }, // Prohibited - must disable!
+    "chrome-devtools-plugin": { enabled: true, version: "0.21.0" }, // Approved - must keep active
+    "gemini-api": { enabled: true, version: "2.3.0" }, // Approved - must keep active
+    "google-antigravity-sdk": { enabled: true, version: "0.0.9" }, // Approved - must keep active
+    "custom-host-plugin": { enabled: true }, // Custom host plugin - must preserve
   },
   userSettings: {
     remoteControlHostname: "test-pc-99", // Setting to preserve
@@ -71,7 +76,6 @@ process.env.USERPROFILE = sandboxDir;
 process.env.HOME = sandboxDir;
 
 try {
-  // Import the module dynamically after setting env vars
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { runEnvironmentPolicy } = require("./env-policy");
 
@@ -80,13 +84,17 @@ try {
   const diagResult = runEnvironmentPolicy(false);
 
   assert.strictEqual(diagResult.success, true, "Diagnostic run should succeed");
-  assert.strictEqual(diagResult.violationsCount, 4, "Should find 4 violations (2 prohibited MCPs + 2 enabled prohibited plugins)");
+  // 2 prohibited MCPs (21st, you-com) + 3 enabled prohibited plugins (firebase, android-cli-plugin, google_maps_platform) = 5 violations
+  assert.strictEqual(diagResult.violationsCount, 5, "Should find exactly 5 violations including google_maps_platform");
   assert.strictEqual(diagResult.changesAppliedCount, 0, "Diagnostic mode must NEVER apply changes");
 
   // Confirm files were completely untouched
   const mcpAfterDiag = JSON.parse(fs.readFileSync(mcpConfigPath, "utf-8"));
   assert.ok(mcpAfterDiag.mcpServers["21st"], "Prohibited 21st must still exist after diagnostic run");
   assert.ok(mcpAfterDiag.mcpServers["you-com"], "Prohibited you-com must still exist after diagnostic run");
+
+  const configAfterDiag = JSON.parse(fs.readFileSync(configJsonPath, "utf-8"));
+  assert.strictEqual(configAfterDiag.plugins.google_maps_platform.enabled, true, "google_maps_platform must remain untouched in diagnostic");
 
   // Step 2: Run Apply Mode
   console.log("\n--> Testing Step 2: Apply Mode (Explicit Mutation with Backups)");
@@ -99,7 +107,7 @@ try {
   const configBackups = fs.readdirSync(mockConfigDir).filter((f) => f.includes(".bak-"));
   assert.ok(configBackups.length >= 2, "Backups for both config.json and mcp_config.json must be created");
 
-  // Verify mutations
+  // Verify MCP mutations
   const mcpAfterApply = JSON.parse(fs.readFileSync(mcpConfigPath, "utf-8"));
   assert.strictEqual(mcpAfterApply.mcpServers["21st"], undefined, "21st must be removed");
   assert.strictEqual(mcpAfterApply.mcpServers["you-com"], undefined, "you-com must be removed");
@@ -115,10 +123,23 @@ try {
   );
   assert.ok(mcpAfterApply.mcpServers["custom-company-tool"], "Custom company MCP must remain strictly preserved");
 
+  // Verify Plugin mutations
   const configAfterApply = JSON.parse(fs.readFileSync(configJsonPath, "utf-8"));
   assert.strictEqual(configAfterApply.plugins.firebase.enabled, false, "firebase plugin must be disabled");
   assert.strictEqual(configAfterApply.plugins["android-cli-plugin"].enabled, false, "android-cli-plugin must be disabled");
+  assert.strictEqual(
+    configAfterApply.plugins.google_maps_platform.enabled,
+    false,
+    "google_maps_platform plugin MUST be explicitly disabled (Priority Point)"
+  );
+
+  // Verify approved active plugins preservation
+  assert.strictEqual(configAfterApply.plugins["chrome-devtools-plugin"].enabled, true, "chrome-devtools-plugin must remain enabled");
   assert.strictEqual(configAfterApply.plugins["gemini-api"].enabled, true, "gemini-api plugin must remain enabled");
+  assert.strictEqual(configAfterApply.plugins["google-antigravity-sdk"].enabled, true, "google-antigravity-sdk must remain enabled");
+  assert.strictEqual(configAfterApply.plugins["custom-host-plugin"].enabled, true, "custom host plugin must remain enabled");
+
+  // Verify settings preservation
   assert.strictEqual(
     configAfterApply.userSettings.remoteControlHostname,
     "test-pc-99",
@@ -132,14 +153,26 @@ try {
   assert.strictEqual(secondApplyResult.changesProposedCount, 0, "Proposed changes on second run must be 0");
   assert.strictEqual(secondApplyResult.changesAppliedCount, 0, "Applied changes on second run must be 0");
 
-  console.log("\n🎉 ALL SANDBOX VERIFICATIONS PASSED SUCCESSFULLY!");
+  // Step 4: Test Non-Existent Directory Handling
+  console.log("\n--> Testing Step 4: Non-Existent Directory Handling");
+  const emptyDir = path.join(os.tmpdir(), `bb-empty-dir-${Date.now()}`);
+  fs.mkdirSync(emptyDir, { recursive: true });
+  process.env.USERPROFILE = emptyDir;
+  process.env.HOME = emptyDir;
+
+  const emptyDirResult = runEnvironmentPolicy(false);
+  assert.strictEqual(emptyDirResult.success, true, "Should handle missing .gemini dir safely");
+  assert.strictEqual(emptyDirResult.violationsCount, 0, "Should report 0 violations for missing dir");
+  try {
+    fs.rmSync(emptyDir, { recursive: true, force: true });
+  } catch {}
+
+  console.log("\n🎉 ALL SANDBOX VERIFICATIONS PASSED 100% (INCLUDING GOOGLE_MAPS_PLATFORM)!");
 } finally {
   // Restore environment variables and cleanup sandbox
   process.env.USERPROFILE = origUserProfile;
   process.env.HOME = origHome;
   try {
     fs.rmSync(sandboxDir, { recursive: true, force: true });
-  } catch {
-    // Ignore cleanup error in tmpdir
-  }
+  } catch {}
 }

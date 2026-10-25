@@ -149,6 +149,7 @@ To prevent context bloat and astronomical token compounding:
 
 1. **Approved Tooling Baseline**:
    - Approved reference MCPs: `supabase`, `stripe`, `shadcn`, `chrome-devtools`.
+   - Approved plugins (active when installed): `chrome-devtools-plugin`, `gemini-api`, `google-antigravity-sdk`.
    - Never reintroduce unauthorized MCPs (`21st`, `you-com`) without explicit permission.
    - Never reactivate unauthorized plugins (`firebase`, `android-cli-plugin`, `google_maps_platform`) without explicit permission.
 2. **Local Multi-PC Portability**:

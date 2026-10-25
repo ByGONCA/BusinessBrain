@@ -22,8 +22,14 @@
    - ✅ **`stripe`** — Gestão e inspeção de faturação e produtos Stripe.
    - ✅ **`shadcn`** — Componentes de UI e acessibilidade Radix/Tailwind.
    - ✅ **`chrome-devtools`** — Validação, automação de testes e inspeção de browser.
-5. **Respeito pela Configuração Efetiva de Cada PC**:
+5. **Plugins Aprovados Ativos (Quando Instalados e Suportados)**:
+   - ✅ **`chrome-devtools-plugin`** — Automação de browser, consola e acessibilidade.
+   - ✅ **`gemini-api`** — Ferramentas oficiais e pesquisa de documentação da Gemini API.
+   - ✅ **`google-antigravity-sdk`** — Definições de arquitetura de agentes Antigravity.
+6. **Respeito pela Configuração Efetiva de Cada PC**:
    - Utilizar exclusivamente os MCPs aprovados que estejam efetivamente disponíveis e configurados no computador em execução.
+   - **Distinção Git vs. Configuração Global**: O comando `git pull` sincroniza apenas o repositório do projeto. As configurações globais de cada PC só são aplicadas mediante execução local do script (`npm run env:apply`).
+   - **Distinção de Estados de Plugins**: Distinguir rigorosamente entre plugin instalado e ativo, instalado e desativado, não instalado, ou estado indeterminado.
    - **Nunca assumir que uma ferramenta está disponível** só porque existe uma regra ou documentação no repositório. Verificar a disponibilidade operacional antes de invocar.
    - **Não instalar ferramentas ou plugins alternativos** quando as ferramentas já existentes e suportadas no repositório forem suficientes para a tarefa.
 
