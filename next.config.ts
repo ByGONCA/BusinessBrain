@@ -90,6 +90,18 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: "/windows",
+        destination: "/product",
+      },
+      {
+        source: "/download",
+        destination: "/product",
+      },
+    ];
+  },
   async headers() {
     return [
       {

@@ -214,8 +214,8 @@ html.dark .bb-code-regex, .dark .bb-code-regex { color: #d16969 !important; }
 /* Scroll-triggered reveal primitives */
 .reveal-init {
   opacity: 0;
-  transform: translateY(16px);
-  transition: opacity 550ms var(--ease-editorial), transform 550ms var(--ease-editorial);
+  transform: translateY(24px);
+  transition: opacity 650ms var(--ease-editorial), transform 650ms var(--ease-editorial);
   will-change: opacity, transform;
 }
 
@@ -225,14 +225,14 @@ html.dark .bb-code-regex, .dark .bb-code-regex { color: #d16969 !important; }
 }
 
 /* Stagger delay scales */
-.stagger-1 { transition-delay: 60ms; }
-.stagger-2 { transition-delay: 120ms; }
-.stagger-3 { transition-delay: 180ms; }
-.stagger-4 { transition-delay: 240ms; }
-.stagger-5 { transition-delay: 300ms; }
-.stagger-6 { transition-delay: 360ms; }
-.stagger-7 { transition-delay: 420ms; }
-.stagger-8 { transition-delay: 480ms; }
+.stagger-1 { transition-delay: 80ms; }
+.stagger-2 { transition-delay: 160ms; }
+.stagger-3 { transition-delay: 240ms; }
+.stagger-4 { transition-delay: 320ms; }
+.stagger-5 { transition-delay: 400ms; }
+.stagger-6 { transition-delay: 480ms; }
+.stagger-7 { transition-delay: 560ms; }
+.stagger-8 { transition-delay: 640ms; }
 
 /* Micro-interaction lift */
 .hover-lift {
@@ -273,35 +273,12 @@ html.dark .bb-code-regex, .dark .bb-code-regex { color: #d16969 !important; }
 
 /* Strict Accessibility: Reduced Motion Contract */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  .animate-spin,
+  .animate-bounce,
+  .animate-pulse {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
-  }
-
-  .reveal-init,
-  .reveal-init.is-revealed {
-    opacity: 1 !important;
-    transform: none !important;
-    transition: none !important;
-  }
-
-  .hover-lift:hover {
-    transform: none !important;
-  }
-
-  .accordion-grid,
-  .accordion-grid.is-open {
-    grid-template-rows: 1fr !important;
-    opacity: 1 !important;
-    transition: none !important;
-  }
-
-  .animate-graph-edge {
-    stroke-dashoffset: 0 !important;
-    animation: none !important;
   }
 }

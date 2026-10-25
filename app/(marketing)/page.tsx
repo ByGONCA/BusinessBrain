@@ -6,7 +6,7 @@ import { LandingProblem } from "@/components/landing/landing-problem";
 import { LandingGraphSection } from "@/components/landing/landing-graph-section";
 import { LandingIntegrations } from "@/components/landing/landing-integrations";
 import { LandingAISection } from "@/components/landing/landing-ai-section";
-import { LandingPricing } from "@/components/landing/landing-pricing";
+import { LandingConversionBridge } from "@/components/landing/landing-conversion-bridge";
 import { LandingFAQ } from "@/components/landing/landing-faq";
 import { LandingFinalCTA } from "@/components/landing/landing-final-cta";
 import { LandingFooter } from "@/components/landing/landing-footer";
@@ -43,8 +43,8 @@ export default function MarketingLandingPage() {
         {/* Section 6: Contextual Business AI */}
         <LandingAISection />
 
-        {/* Section 7: Transparent Paid Pricing */}
-        <LandingPricing />
+        {/* Section 7: Focused Value & Conversion Opportunity */}
+        <LandingConversionBridge />
 
         {/* Section 8: Buyer FAQ */}
         <LandingFAQ />

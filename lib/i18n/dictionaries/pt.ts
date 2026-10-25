@@ -659,6 +659,9 @@ export const pt: Dictionary = {
       faq: "Perguntas Frequentes",
       signIn: "Entrar",
       startTrial: "Iniciar Avaliação Gratuita",
+      account: "Conta",
+      goToDashboard: "Ir para a dashboard",
+      windowsApp: "App Windows",
     },
     hero: {
       trialBadge: "3 Dias de Acesso Total — Planos pagos a partir de 19€/mês",
@@ -666,6 +669,7 @@ export const pt: Dictionary = {
       subheadline: "O BusinessBrain unifica páginas da empresa, decisões estratégicas, grafos interligados e contexto operacional num único sistema para equipas modernas.",
       primaryCta: "Iniciar Avaliação de 3 Dias",
       secondaryCta: "Explorar Demonstração Interativa",
+      windowsAppSoon: "Download para Windows (Brevemente)",
       windowTitle: "BusinessBrain Workstation — Acme Systems",
       activeWorkspace: "Workspace Acme Systems",
       pagesCount: "142 páginas",

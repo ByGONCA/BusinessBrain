@@ -4,22 +4,15 @@ import * as React from "react";
 import Link from "next/link";
 import { useLanguage } from "@/lib/i18n/context";
 import { useScrollReveal } from "@/lib/hooks/use-scroll-reveal";
-import { DEMO_GRAPH_NODES, GraphNodeDemo } from "@/lib/marketing/config";
-import {
-  Share2,
-  FileText,
-  Scale,
-  FolderGit2,
-  Calendar,
-  GitBranch,
-  ArrowRight,
-  Info,
-} from "lucide-react";
+import { DEMO_GRAPH_NODES } from "@/lib/marketing/config";
+import { Share2, ArrowRight } from "lucide-react";
 
 export function LandingGraphSection() {
   const { t } = useLanguage();
   const [selectedNodeId, setSelectedNodeId] = React.useState<string>("node-1");
-  const { ref: sectionRef, isVisible } = useScrollReveal<HTMLElement>({ threshold: 0.15 });
+  const { ref: headerRef, isVisible: isHeaderVisible } = useScrollReveal<HTMLDivElement>({ threshold: 0.1 });
+  const { ref: contentRef, isVisible: isContentVisible } = useScrollReveal<HTMLDivElement>({ threshold: 0.1 });
+  const { ref: ctaRef, isVisible: isCtaVisible } = useScrollReveal<HTMLDivElement>({ threshold: 0.1 });
 
   const selectedNode =
     DEMO_GRAPH_NODES.find((n) => n.id === selectedNodeId) || DEMO_GRAPH_NODES[0];
@@ -31,33 +24,46 @@ export function LandingGraphSection() {
   return (
     <section
       id="graph"
-      ref={sectionRef}
       className="py-20 md:py-28 bg-[#FAF9F5] dark:bg-[#09090B] border-t border-[#E5E5E0] dark:border-[#1E1E22] transition-colors"
     >
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        {/* Section Header */}
-        <div
-          className={`mx-auto max-w-3xl text-center transition-all duration-550 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-            isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-          }`}
-        >
-          <div className="text-xs font-mono font-medium tracking-widest uppercase text-[#71717A] dark:text-[#A1A1AA]">
+        {/* Section Header — Animates when Header enters viewport */}
+        <div ref={headerRef} className="mx-auto max-w-3xl text-center">
+          <div
+            className={`text-xs font-mono font-medium tracking-widest uppercase text-[#71717A] dark:text-[#A1A1AA] transition-all duration-800 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              isHeaderVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"
+            }`}
+          >
             {t.landing.graph.eyebrow}
           </div>
-          <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-[#18181B] dark:text-[#F4F4F5] sm:text-5xl">
+          <h2
+            style={{ transitionDelay: "120ms" }}
+            className={`mt-3 text-3xl font-semibold tracking-[-0.03em] text-[#18181B] dark:text-[#F4F4F5] sm:text-5xl transition-all duration-900 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              isHeaderVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+            }`}
+          >
             {t.landing.graph.title}
           </h2>
-          <p className="mt-4 text-base sm:text-lg text-[#52525B] dark:text-[#A1A1AA] leading-relaxed">
+          <p
+            style={{ transitionDelay: "240ms" }}
+            className={`mt-4 text-base sm:text-lg text-[#52525B] dark:text-[#A1A1AA] leading-relaxed transition-all duration-900 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              isHeaderVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+            }`}
+          >
             {t.landing.graph.subtitle}
           </p>
         </div>
 
-        {/* Interactive Graph Canvas + Inspector Drawer */}
-        <div className="mt-14 grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+        {/* Interactive Graph Canvas + Inspector Drawer — Animates when scrolled into view */}
+        <div
+          ref={contentRef}
+          className="mt-14 grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch"
+        >
           {/* Interactive SVG Graph Area (Col 8) */}
           <div
-            className={`lg:col-span-8 rounded-2xl border border-[#27272A] bg-[#09090B] p-4 sm:p-6 shadow-xl relative min-h-[460px] flex flex-col justify-between overflow-hidden transition-all duration-600 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-              isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+            style={{ transitionDelay: "120ms" }}
+            className={`lg:col-span-8 rounded-2xl border border-[#27272A] bg-[#09090B] p-4 sm:p-6 shadow-xl relative min-h-[460px] flex flex-col justify-between overflow-hidden transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              isContentVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-7"
             }`}
           >
             {/* Top Toolbar */}
@@ -65,7 +71,7 @@ export function LandingGraphSection() {
               <div className="flex items-center gap-2">
                 <Share2 className="h-4 w-4 text-indigo-400" />
                 <span className="font-mono font-medium text-white">Company Graph Engine</span>
-                <span className="text-[10px] font-mono text-[#71717A]">• BFS O(V + E)</span>
+                <span className="text-[10px] font-mono text-[#71717A]">BFS Traversal</span>
               </div>
               <span className="text-[11px] text-[#71717A] hidden sm:inline">
                 Click any node to inspect relationships
@@ -95,7 +101,7 @@ export function LandingGraphSection() {
                         strokeWidth={isHighlighted ? "1.4" : "0.6"}
                         strokeDasharray={isHighlighted ? "none" : "2,2"}
                         className={`transition-all duration-500 ${
-                          isVisible ? "opacity-100" : "opacity-0"
+                          isContentVisible ? "opacity-100" : "opacity-0"
                         }`}
                       />
                     );
@@ -115,10 +121,10 @@ export function LandingGraphSection() {
                     style={{
                       left: `${node.x}%`,
                       top: `${node.y}%`,
-                      transitionDelay: `${idx * 40}ms`,
+                      transitionDelay: `${150 + idx * 50}ms`,
                     }}
-                    className={`absolute -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 hover:scale-105 active:scale-95 ${
-                      isVisible ? "opacity-100 scale-100" : "opacity-0 scale-90"
+                    className={`absolute -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium transition-all duration-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 hover:scale-105 active:scale-95 ${
+                      isContentVisible ? "opacity-100 scale-100" : "opacity-0 scale-90"
                     } ${
                       isSelected
                         ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/25 scale-105 z-20 border border-indigo-400"
@@ -128,7 +134,7 @@ export function LandingGraphSection() {
                     }`}
                   >
                     <span
-                      className={`h-2 w-2 rounded-full transition-colors duration-200 ${
+                      className={`h-1.5 w-1.5 rounded-full transition-colors duration-200 ${
                         isSelected
                           ? "bg-white"
                           : isConnected
@@ -147,14 +153,15 @@ export function LandingGraphSection() {
             {/* Bottom Status Bar */}
             <div className="border-t border-[#1E1E22] pt-3 flex items-center justify-between text-xs text-[#71717A]">
               <span>Active Graph Nodes: {DEMO_GRAPH_NODES.length}</span>
-              <span className="font-mono text-[11px] text-emerald-400">Deterministic Traversal</span>
+              <span className="font-mono text-[11px] text-[#A1A1AA]">Deterministic Traversal</span>
             </div>
           </div>
 
           {/* Side Entity Inspector Drawer (Col 4) */}
           <div
-            className={`lg:col-span-4 rounded-2xl border border-[#E5E5E0] dark:border-[#1E1E22] bg-white dark:bg-[#121215] p-6 shadow-xs flex flex-col justify-between transition-all duration-600 delay-150 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-              isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+            style={{ transitionDelay: "240ms" }}
+            className={`lg:col-span-4 rounded-2xl border border-[#E5E5E0] dark:border-[#1E1E22] bg-white dark:bg-[#121215] p-6 shadow-xs flex flex-col justify-between transition-all duration-950 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              isContentVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-7"
             }`}
           >
             <div key={selectedNode.id} className="animate-in fade-in-50 duration-300">
@@ -190,12 +197,9 @@ export function LandingGraphSection() {
                       onClick={() => setSelectedNodeId(conn.id)}
                       className="flex items-center justify-between rounded-lg border border-[#E5E5E0] dark:border-[#1E1E22] bg-[#FAF9F5] dark:bg-[#1B1B20] p-2.5 text-xs text-left hover:border-indigo-400 hover:bg-white dark:hover:bg-[#202028] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 group"
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                        <span className="font-medium text-[#18181B] dark:text-[#F4F4F5] group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                          {conn.title}
-                        </span>
-                      </div>
+                      <span className="font-medium text-[#18181B] dark:text-[#F4F4F5] group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        {conn.title}
+                      </span>
                       <span className="text-[10px] font-mono text-[#71717A] dark:text-[#A1A1AA] uppercase">
                         {conn.type}
                       </span>
@@ -212,7 +216,12 @@ export function LandingGraphSection() {
         </div>
 
         {/* Dedicated Company Graph Page Jump Button */}
-        <div className="mt-12 text-center">
+        <div
+          ref={ctaRef}
+          className={`mt-12 text-center transition-all duration-900 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            isCtaVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"
+          }`}
+        >
           <Link
             href="/company-graph"
             className="group inline-flex items-center gap-2 rounded-xl border border-[#D4D4D8] dark:border-[#27272A] bg-white dark:bg-[#121215] px-5 py-2.5 text-xs font-semibold text-[#18181B] dark:text-[#F4F4F5] hover:bg-[#F4F4F5] dark:hover:bg-[#1B1B20] active:scale-[0.98] transition-all duration-200 shadow-xs"

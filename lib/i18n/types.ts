@@ -635,6 +635,9 @@ export interface Dictionary {
       faq: string;
       signIn: string;
       startTrial: string;
+      account: string;
+      goToDashboard: string;
+      windowsApp: string;
     };
     hero: {
       trialBadge: string;
@@ -642,6 +645,7 @@ export interface Dictionary {
       subheadline: string;
       primaryCta: string;
       secondaryCta: string;
+      windowsAppSoon: string;
       windowTitle: string;
       activeWorkspace: string;
       pagesCount: string;

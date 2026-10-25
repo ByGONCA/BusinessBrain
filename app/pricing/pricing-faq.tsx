@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useScrollReveal } from "@/lib/hooks/use-scroll-reveal";
 import { ChevronDown } from "lucide-react";
 
 interface FAQItem {
@@ -38,24 +39,39 @@ const PRICING_FAQS: FAQItem[] = [
 
 export function PricingFAQ() {
   const [openIndex, setOpenIndex] = React.useState<number | null>(0);
+  const { ref: sectionRef, isVisible } = useScrollReveal<HTMLElement>({ threshold: 0.15 });
 
   return (
-    <section className="mt-28 border-t border-[#E5E5E0] dark:border-[#1E1E22] pt-16">
+    <section ref={sectionRef} className="mt-28 border-t border-[#E5E5E0] dark:border-[#1E1E22] pt-16">
       <div className="mx-auto max-w-3xl text-left">
-        {/* Section Header */}
+        {/* Section Header — Staged Entrance */}
         <div className="mb-10 text-center sm:text-left">
-          <span className="text-xs font-mono font-semibold tracking-widest uppercase text-[#71717A] dark:text-[#A1A1AA]">
+          <div
+            className={`text-xs font-mono font-semibold tracking-widest uppercase text-[#71717A] dark:text-[#A1A1AA] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+              isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+            }`}
+          >
             FREQUENTLY ASKED QUESTIONS
-          </span>
-          <h2 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-[#18181B] dark:text-[#F4F4F5]">
+          </div>
+          <h2
+            style={{ transitionDelay: "80ms" }}
+            className={`mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-[#18181B] dark:text-[#F4F4F5] transition-all duration-550 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+              isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+            }`}
+          >
             Clear operational answers for modern teams
           </h2>
-          <p className="mt-2 text-sm text-[#52525B] dark:text-[#A1A1AA]">
+          <p
+            style={{ transitionDelay: "160ms" }}
+            className={`mt-2 text-sm text-[#52525B] dark:text-[#A1A1AA] transition-all duration-550 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+              isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+            }`}
+          >
             Everything you need to know about plans, billing, and private workspace security.
           </p>
         </div>
 
-        {/* Vertical Accordion List */}
+        {/* Vertical Accordion List with Staggered Scroll Reveal */}
         <div className="space-y-3">
           {PRICING_FAQS.map((faq, idx) => {
             const isOpen = openIndex === idx;
@@ -63,7 +79,12 @@ export function PricingFAQ() {
             return (
               <div
                 key={idx}
-                className="rounded-2xl border border-[#E5E5E0] dark:border-[#1E1E22] bg-white/70 dark:bg-[#121215]/80 hover:border-[#D4D4D8] dark:hover:border-[#2E2E35] shadow-xs overflow-hidden backdrop-blur-md transition-colors duration-200"
+                style={{
+                  transitionDelay: `${200 + idx * 50}ms`,
+                }}
+                className={`rounded-2xl border border-[#E5E5E0] dark:border-[#1E1E22] bg-white/70 dark:bg-[#121215]/80 hover:border-[#D4D4D8] dark:hover:border-[#2E2E35] shadow-xs overflow-hidden backdrop-blur-md transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+                }`}
               >
                 <button
                   type="button"

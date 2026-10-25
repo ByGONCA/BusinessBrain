@@ -37,7 +37,7 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
   return (
     <div className="relative flex min-h-screen flex-col bg-[#FAF9F5] dark:bg-[#09090B] text-[#18181B] dark:text-[#F4F4F5] antialiased transition-colors overflow-x-hidden selection:bg-blue-600/20">
       {/* Floating Navigation Header */}
-      <LandingHeader />
+      <LandingHeader initialUser={user} />
 
       {/* Main Pricing Hero & Content with Layered Oversized Background Typography */}
       <main className="relative flex-1 px-6 pt-6 sm:pt-10 pb-24 sm:px-12 lg:px-16 overflow-hidden">

@@ -8,17 +8,17 @@ import { ArrowRight } from "lucide-react";
 
 export function LandingFinalCTA() {
   const { t } = useLanguage();
-  const { ref: sectionRef, isVisible } = useScrollReveal<HTMLElement>({ threshold: 0.2 });
+  const { ref: cardRef, isVisible: isCardVisible } = useScrollReveal<HTMLDivElement>({ threshold: 0.1 });
 
   return (
     <section
-      ref={sectionRef}
       className="py-20 md:py-28 bg-white dark:bg-[#0C0C0E] border-t border-[#E5E5E0] dark:border-[#1E1E22] transition-colors"
     >
       <div className="mx-auto max-w-5xl px-6 lg:px-8">
         <div
-          className={`relative rounded-3xl border border-[#18181B] dark:border-[#27272A] bg-[#18181B] dark:bg-[#121215] px-8 py-16 sm:px-14 sm:py-20 text-center text-[#FAF9F5] shadow-2xl overflow-hidden transition-all duration-650 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-            isVisible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-[0.98] translate-y-6"
+          ref={cardRef}
+          className={`relative rounded-3xl border border-[#18181B] dark:border-[#27272A] bg-[#18181B] dark:bg-[#121215] px-8 py-16 sm:px-14 sm:py-20 text-center text-[#FAF9F5] shadow-2xl overflow-hidden transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            isCardVisible ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-[0.97] translate-y-8"
           }`}
         >
           {/* Subtle Diagonal Pattern Overlay */}
@@ -32,15 +32,33 @@ export function LandingFinalCTA() {
           />
 
           <div className="relative mx-auto max-w-2xl">
-            <h2 className="text-3xl sm:text-5xl font-semibold tracking-[-0.035em] text-white sm:leading-[1.15]">
+            {/* Title */}
+            <h2
+              style={{ transitionDelay: "120ms" }}
+              className={`text-3xl sm:text-5xl font-semibold tracking-[-0.035em] text-white sm:leading-[1.15] transition-all duration-850 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                isCardVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"
+              }`}
+            >
               {t.landing.cta.title}
             </h2>
 
-            <p className="mt-5 text-base sm:text-lg text-[#A1A1AA] leading-relaxed">
+            {/* Subtitle */}
+            <p
+              style={{ transitionDelay: "240ms" }}
+              className={`mt-5 text-base sm:text-lg text-[#A1A1AA] leading-relaxed transition-all duration-850 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                isCardVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"
+              }`}
+            >
               {t.landing.cta.subtitle}
             </p>
 
-            <div className="mt-8 flex flex-col items-center justify-center gap-3.5 sm:flex-row">
+            {/* Action Buttons */}
+            <div
+              style={{ transitionDelay: "360ms" }}
+              className={`mt-8 flex flex-col items-center justify-center gap-3.5 sm:flex-row transition-all duration-850 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                isCardVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+              }`}
+            >
               <Link
                 href="/signup"
                 className="group flex w-full items-center justify-center gap-2 rounded-xl bg-white px-7 py-4 text-base font-semibold text-[#18181B] shadow-lg hover:bg-[#F4F4F5] active:scale-[0.98] transition-all duration-200 sm:w-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"

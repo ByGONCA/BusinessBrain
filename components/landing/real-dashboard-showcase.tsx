@@ -9,6 +9,27 @@ import {
   Lock,
   ExternalLink,
   CheckCircle2,
+  Calendar,
+  Clock,
+  GitBranch,
+  FolderGit2,
+  Users,
+  Mail,
+  FileText,
+  CheckSquare,
+  Target,
+  Layers,
+  Search,
+  Filter,
+  TrendingUp,
+  Brain,
+  MessageSquare,
+  AlertCircle,
+  Plus,
+  Github,
+  ChevronRight,
+  Inbox,
+  UserCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/lib/i18n";
@@ -222,14 +243,169 @@ const PRODUCTION_DECISIONS = DEMO_DECISIONS.map((d) => ({
 }));
 
 const PRODUCTION_PROJECTS = [
-  { id: "proj-stripe", title: "Stripe Connect & Trial Monetization", created_at: "2026-08-01", updated_at: "2026-08-20", metadata: { status: "active" } },
-  { id: "proj-graph", title: "Topological Company Graph Engine v2", created_at: "2026-08-10", updated_at: "2026-08-24", metadata: { status: "active" } },
+  {
+    id: "proj-stripe",
+    title: "Stripe Connect & Monetization Engine",
+    description: "Multi-currency SaaS billing with automated dunning and 3-day upfront trial validation.",
+    progress: 88,
+    status: "Active",
+    repos: ["acme/stripe-billing", "acme/webhooks"],
+    lead: "Sarah Chen",
+    deadline: "Sept 15, 2026",
+  },
+  {
+    id: "proj-graph",
+    title: "Topological Company Graph Engine v2",
+    description: "Deterministic BFS cycle-safe knowledge graph powering organizational context synthesis.",
+    progress: 94,
+    status: "Active",
+    repos: ["acme/graph-core"],
+    lead: "Marcus Vance",
+    deadline: "Aug 30, 2026",
+  },
+  {
+    id: "proj-occ",
+    title: "Monotonic Optimistic Concurrency Control",
+    description: "Sub-millisecond conflict-free document editor revisions with monotonic Lamport clocks.",
+    progress: 100,
+    status: "Completed",
+    repos: ["acme/editor-engine"],
+    lead: "Elena Rostova",
+    deadline: "Shipped",
+  },
+  {
+    id: "proj-compliance",
+    title: "SOC2 Type II Audit Trails & Cryptographic Ledger",
+    description: "Immutable append-only organizational telemetry with verification signatures.",
+    progress: 45,
+    status: "In Progress",
+    repos: ["acme/security-audit"],
+    lead: "Elena Rostova",
+    deadline: "Oct 31, 2026",
+  },
+];
+
+const PRODUCTION_TASKS = [
+  {
+    id: "task-1",
+    title: "Verify idempotency keys on Stripe invoice.payment_succeeded",
+    priority: "High",
+    status: "In Progress",
+    assignee: "Sarah Chen",
+    due: "Tomorrow",
+    tag: "Billing",
+  },
+  {
+    id: "task-2",
+    title: "Implement deterministic BFS cycle-safe traversal for graph canvas",
+    priority: "Urgent",
+    status: "Done",
+    assignee: "Marcus Vance",
+    due: "Yesterday",
+    tag: "Graph",
+  },
+  {
+    id: "task-3",
+    title: "Add optimistic concurrency check in block editor mutations",
+    priority: "High",
+    status: "Done",
+    assignee: "Elena Rostova",
+    due: "Aug 24",
+    tag: "Pages",
+  },
+  {
+    id: "task-4",
+    title: "Review annual discount coupon rules before day-3 charge",
+    priority: "Medium",
+    status: "Review",
+    assignee: "Elena Rostova",
+    due: "Aug 26",
+    tag: "Finance",
+  },
+  {
+    id: "task-5",
+    title: "Configure Resend transactional email fallback webhooks",
+    priority: "Normal",
+    status: "Todo",
+    assignee: "Dev Team",
+    due: "Aug 29",
+    tag: "Integrations",
+  },
+];
+
+const PRODUCTION_GOALS = [
+  {
+    id: "goal-1",
+    title: "Q3 2026: Reach €30,000 MRR with <1% monthly churn",
+    current: "€24,850",
+    target: "€30,000",
+    progress: 83,
+    owner: "Elena Rostova",
+  },
+  {
+    id: "goal-2",
+    title: "Q3 2026: Sub-50ms Graph Query Latency across 10,000 entities",
+    current: "34ms",
+    target: "<50ms",
+    progress: 95,
+    owner: "Marcus Vance",
+  },
+  {
+    id: "goal-3",
+    title: "Q4 2026: Launch Native GitHub PR & Linear Sync Integration",
+    current: "Phase 2",
+    target: "Production",
+    progress: 65,
+    owner: "Sarah Chen",
+  },
+];
+
+const PRODUCTION_MEETINGS = [
+  {
+    id: "meet-1",
+    title: "Weekly Architecture & Monotonic State Sync",
+    date: "Aug 24, 2026 • 45 min",
+    attendees: 5,
+    summary: "Reviewed OCC conflict resolution, deterministic topological BFS ordering, and Stripe webhook deduplication guarantees.",
+    decision: "ADR-014 accepted unanimously. Merged PR #142 into main branch.",
+  },
+  {
+    id: "meet-2",
+    title: "Monetization & Upfront Trial Performance Standup",
+    date: "Aug 22, 2026 • 30 min",
+    attendees: 3,
+    summary: "Confirmed 3-day upfront card verification funnel. Trial-to-paid conversion holding steady at 74.5%.",
+    decision: "Keep 3-day window; maintain zero pre-selected marketing consent.",
+  },
+  {
+    id: "meet-3",
+    title: "Executive Engineering All-Hands",
+    date: "Aug 18, 2026 • 60 min",
+    attendees: 14,
+    summary: "Sprint demonstration of the interactive canvas graph and Notion-grade block editor.",
+    decision: "Release v1.4 to pilot enterprise customers next week.",
+  },
 ];
 
 const PRODUCTION_TIMELINE = [
-  { id: "tl-1", organization_id: MOCK_ORG.id, event_type: "decision_created", title: "ADR-014: 3-Day Trial Accepted", entity_type: "decision", entity_id: "adr-014", created_at: "2026-08-24T09:30:00Z", metadata: { author: "Sarah Chen" } },
-  { id: "tl-2", organization_id: MOCK_ORG.id, event_type: "page_created", title: "Engineering Spec: Monotonic OCC v14", entity_type: "page", entity_id: "page-occ-spec", created_at: "2026-08-23T16:15:00Z", metadata: { author: "Elena Rostova" } },
-  { id: "tl-3", organization_id: MOCK_ORG.id, event_type: "integration_synced", title: "GitHub Webhook: PR #142 Merged", entity_type: "project", entity_id: "proj-stripe", created_at: "2026-08-23T14:00:00Z", metadata: { provider: "github" } },
+  { id: "tl-1", date: "Aug 24, 2026", author: "Sarah Chen", title: "ADR-014: 3-Day Trial Architecture Accepted", category: "Decision" },
+  { id: "tl-2", date: "Aug 23, 2026", author: "Elena Rostova", title: "Engineering Spec: Monotonic OCC v14 Published", category: "Pages" },
+  { id: "tl-3", date: "Aug 23, 2026", author: "GitHub Sync", title: "PR #142 Merged: Monotonic Conflict Resolver", category: "GitHub" },
+  { id: "tl-4", date: "Aug 22, 2026", author: "Stripe Connect", title: "Upfront card trial payment setup completed for Apex Labs", category: "Billing" },
+  { id: "tl-5", date: "Aug 15, 2026", author: "Elena Rostova", title: "Company Brain Architecture Blueprint Finalized", category: "Milestone" },
+];
+
+const PRODUCTION_MEMBERS = [
+  { id: "m-1", name: "Elena Rostova", role: "Owner & CEO", email: "elena@acme-corp.com", department: "Executive" },
+  { id: "m-2", name: "Sarah Chen", role: "VP Engineering", email: "sarah.chen@acme-corp.com", department: "Engineering" },
+  { id: "m-3", name: "Marcus Vance", role: "Principal Engineer", email: "marcus.v@acme-corp.com", department: "Infrastructure" },
+  { id: "m-4", name: "Alex Mercer", role: "Product Lead", email: "alex.m@acme-corp.com", department: "Product" },
+];
+
+const PRODUCTION_GITHUB_PRS = [
+  { id: "pr-1", number: 142, title: "feat(engine): monotonic OCC conflict resolver v14", status: "Merged", time: "2h ago", author: "Sarah Chen" },
+  { id: "pr-2", number: 140, title: "fix(billing): duplicate stripe customer deduplication safeguard", status: "Merged", time: "1d ago", author: "Elena Rostova" },
+  { id: "pr-3", number: 138, title: "perf(graph): topological BFS memoization and cycle guards", status: "Merged", time: "2d ago", author: "Marcus Vance" },
 ];
 
 // ==============================================================================
@@ -249,7 +425,7 @@ export function RealDashboardShowcase({
   const [activePath, setActivePath] = React.useState<string>("/dashboard");
   const [selectedGraphNode, setSelectedGraphNode] = React.useState<GraphNode | null>(null);
 
-  // Synchronous route switcher inside the showcase
+  // Synchronous in-place route switcher inside the showcase
   const handleNavigate = React.useCallback((href: string) => {
     setActivePath(href);
   }, []);
@@ -267,12 +443,12 @@ export function RealDashboardShowcase({
     <div
       className={cn(
         "relative w-full rounded-2xl border border-[#242428] bg-[#09090B] shadow-2xl overflow-hidden transition-all duration-300",
-        standalone ? "min-h-screen rounded-none border-none shadow-none" : "max-w-7xl mx-auto",
+        standalone ? "min-h-screen rounded-none border-none shadow-none" : "max-w-[1360px] w-full mx-auto",
         className
       )}
     >
       {/* Embedded Real Production Dashboard UI */}
-      <div className="relative flex h-[780px] max-h-[88vh] w-full bg-[#0A0A0B] text-zinc-100">
+      <div className="relative flex h-[820px] max-h-[90vh] w-full bg-[#0A0A0B] text-zinc-100">
         <SidebarProvider>
           <InboxProvider>
             <SettingsProvider>
@@ -306,7 +482,7 @@ export function RealDashboardShowcase({
                         graphData={PRODUCTION_GRAPH_DATA}
                         decisions={PRODUCTION_DECISIONS}
                         decisionsCount={PRODUCTION_DECISIONS.length}
-                        projects={PRODUCTION_PROJECTS}
+                        projects={PRODUCTION_PROJECTS as any}
                         projectsCount={PRODUCTION_PROJECTS.length}
                         pages={PRODUCTION_PAGES.map((p) => ({
                           id: p.id,
@@ -333,7 +509,7 @@ export function RealDashboardShowcase({
                         <div>
                           <h1 className="text-xl font-bold text-white tracking-tight">Company Graph</h1>
                           <p className="text-xs text-zinc-400">
-                            Deterministic BFS $O(V + E)$ cycle-safe entity network. Click nodes to focus.
+                            Deterministic BFS cycle-safe topological entity network. Click nodes to focus.
                           </p>
                         </div>
                       </div>
@@ -438,25 +614,381 @@ export function RealDashboardShowcase({
                     </div>
                   )}
 
-                  {/* View G: Default / Other routes fallback to home */}
+                  {/* View G: Projects & Repositories (/dashboard/projects) */}
+                  {activePath.startsWith("/dashboard/projects") && (
+                    <div className="space-y-5 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h1 className="text-xl font-bold text-white tracking-tight">Strategic Projects</h1>
+                          <p className="text-xs text-zinc-400">Active engineering initiatives, repository synchronization, and milestones.</p>
+                        </div>
+                        <div className="text-xs text-zinc-400 font-medium">
+                          {PRODUCTION_PROJECTS.length} Initiatives Active
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3.5 sm:grid-cols-2">
+                        {PRODUCTION_PROJECTS.map((proj) => (
+                          <div
+                            key={proj.id}
+                            className="rounded-xl border border-[#242428] bg-[#121215] p-5 transition-all hover:border-[#383842]"
+                          >
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                              <h3 className="text-sm font-semibold text-white">{proj.title}</h3>
+                              <span className="text-[11px] font-medium text-emerald-400 shrink-0">
+                                {proj.status}
+                              </span>
+                            </div>
+                            <p className="text-xs text-zinc-400 mb-4 leading-relaxed">{proj.description}</p>
+                            <div className="space-y-2 mb-4">
+                              <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
+                                <span>Progress</span>
+                                <span className="text-zinc-200">{proj.progress}%</span>
+                              </div>
+                              <div className="h-1.5 w-full bg-[#202026] rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                                  style={{ width: `${proj.progress}%` }}
+                                />
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between pt-3 border-t border-[#1E1E22] text-xs text-zinc-400">
+                              <span>Lead: {proj.lead}</span>
+                              <span className="font-mono text-[11px]">{proj.deadline}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* View H: Tasks Tracking (/dashboard/tasks) */}
+                  {activePath.startsWith("/dashboard/tasks") && (
+                    <div className="space-y-5 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h1 className="text-xl font-bold text-white tracking-tight">Action Tasks</h1>
+                          <p className="text-xs text-zinc-400">Cross-functional task execution ledger linked to architectural decisions.</p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-[#242428] bg-[#121215] overflow-hidden">
+                        <div className="divide-y divide-[#1E1E22]">
+                          {PRODUCTION_TASKS.map((task) => (
+                            <div key={task.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#18181D] transition-colors">
+                              <div className="flex items-center gap-3">
+                                <div className={cn(
+                                  "h-2 w-2 rounded-full shrink-0",
+                                  task.status === "Done" ? "bg-emerald-400" : task.status === "In Progress" ? "bg-blue-400" : "bg-zinc-500"
+                                )} />
+                                <div>
+                                  <div className="text-sm font-medium text-white">{task.title}</div>
+                                  <div className="text-[11px] text-zinc-400 mt-0.5">Assigned to {task.assignee} • Scope: {task.tag}</div>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                                <span className={cn(
+                                  "text-[11px] font-medium font-mono px-2 py-0.5 rounded-md",
+                                  task.priority === "Urgent" ? "bg-rose-500/10 text-rose-400" : task.priority === "High" ? "bg-amber-500/10 text-amber-400" : "bg-zinc-800 text-zinc-300"
+                                )}>
+                                  {task.priority}
+                                </span>
+                                <span className="text-xs text-zinc-400 font-mono">{task.due}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* View I: Goals & OKRs (/dashboard/goals) */}
+                  {activePath.startsWith("/dashboard/goals") && (
+                    <div className="space-y-5 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h1 className="text-xl font-bold text-white tracking-tight">Company Objectives & Key Results</h1>
+                          <p className="text-xs text-zinc-400">Quantitative targets synchronized with live Stripe and GitHub telemetry.</p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4">
+                        {PRODUCTION_GOALS.map((goal) => (
+                          <div key={goal.id} className="rounded-xl border border-[#242428] bg-[#121215] p-5">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                              <h3 className="text-sm font-semibold text-white">{goal.title}</h3>
+                              <span className="text-xs text-emerald-400 font-mono font-medium">Owner: {goal.owner}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs text-zinc-400 font-mono mb-2">
+                              <span>Current: {goal.current}</span>
+                              <span>Target: {goal.target}</span>
+                            </div>
+                            <div className="h-2 w-full bg-[#202026] rounded-full overflow-hidden">
+                              <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${goal.progress}%` }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* View J: Meetings Log (/dashboard/meetings) */}
+                  {activePath.startsWith("/dashboard/meetings") && (
+                    <div className="space-y-5 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h1 className="text-xl font-bold text-white tracking-tight">Structured Syncs & Standups</h1>
+                          <p className="text-xs text-zinc-400">Synthesized meeting records linking discussions to immutable decisions.</p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3.5">
+                        {PRODUCTION_MEETINGS.map((m) => (
+                          <div key={m.id} className="rounded-xl border border-[#242428] bg-[#121215] p-5 hover:border-[#383842] transition-colors">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                              <h3 className="text-sm font-semibold text-white">{m.title}</h3>
+                              <span className="text-xs text-zinc-400 font-mono">{m.date}</span>
+                            </div>
+                            <p className="text-xs text-zinc-300 leading-relaxed mb-3">{m.summary}</p>
+                            <div className="rounded-lg bg-[#18181C] p-3 text-xs text-zinc-300 border border-[#202026]">
+                              <span className="font-semibold text-emerald-400">Outcome: </span>
+                              {m.decision}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* View K: Activity Timeline (/dashboard/timeline) */}
+                  {activePath.startsWith("/dashboard/timeline") && (
+                    <div className="space-y-5 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h1 className="text-xl font-bold text-white tracking-tight">Company Timeline</h1>
+                          <p className="text-xs text-zinc-400">Append-only audit trail of decisions, documents, and infrastructure events.</p>
+                        </div>
+                      </div>
+
+                      <div className="relative pl-6 border-l border-[#242428] space-y-6">
+                        {PRODUCTION_TIMELINE.map((tl) => (
+                          <div key={tl.id} className="relative group">
+                            <div className="absolute -left-[31px] top-1.5 h-3 w-3 rounded-full bg-[#18181B] border-2 border-blue-500" />
+                            <div className="flex items-center gap-2 text-xs text-zinc-400 mb-1">
+                              <span className="font-mono">{tl.date}</span>
+                              <span>•</span>
+                              <span>{tl.author}</span>
+                              <span>•</span>
+                              <span className="text-blue-400">{tl.category}</span>
+                            </div>
+                            <div className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">
+                              {tl.title}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* View L: Brain & Knowledge Hub (/dashboard/brain or /dashboard/knowledge) */}
+                  {(activePath.startsWith("/dashboard/brain") || activePath.startsWith("/dashboard/knowledge")) && (
+                    <div className="space-y-5 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h1 className="text-xl font-bold text-white tracking-tight">Organizational Memory Engine</h1>
+                          <p className="text-xs text-zinc-400">Synchronized company intelligence across code, ADRs, finance, and documentation.</p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3.5 sm:grid-cols-3">
+                        <div className="rounded-xl border border-[#242428] bg-[#121215] p-4 text-center">
+                          <div className="text-2xl font-bold text-white font-mono">142</div>
+                          <div className="text-xs text-zinc-400 mt-1">Indexed Documents</div>
+                        </div>
+                        <div className="rounded-xl border border-[#242428] bg-[#121215] p-4 text-center">
+                          <div className="text-2xl font-bold text-emerald-400 font-mono">48</div>
+                          <div className="text-xs text-zinc-400 mt-1">Architectural Decisions</div>
+                        </div>
+                        <div className="rounded-xl border border-[#242428] bg-[#121215] p-4 text-center">
+                          <div className="text-2xl font-bold text-blue-400 font-mono">1,420</div>
+                          <div className="text-xs text-zinc-400 mt-1">Topological Edges</div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-[#242428] bg-[#121215] p-5 space-y-4">
+                        <h3 className="text-sm font-semibold text-white">Active Knowledge Ingestion Channels</h3>
+                        <div className="grid gap-3 sm:grid-cols-2 text-xs">
+                          <div className="p-3 rounded-lg bg-[#18181D] border border-[#202026] flex items-center justify-between">
+                            <span className="text-zinc-200">GitHub Repositories (acme-corp/*)</span>
+                            <span className="text-emerald-400">Continuous Sync</span>
+                          </div>
+                          <div className="p-3 rounded-lg bg-[#18181D] border border-[#202026] flex items-center justify-between">
+                            <span className="text-zinc-200">Stripe Live Webhook Stream</span>
+                            <span className="text-emerald-400">Sub-100ms Ingestion</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* View M: People & Teams Directory (/dashboard/people or /dashboard/teams) */}
+                  {(activePath.startsWith("/dashboard/people") || activePath.startsWith("/dashboard/teams")) && (
+                    <div className="space-y-5 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h1 className="text-xl font-bold text-white tracking-tight">Team & Permissions</h1>
+                          <p className="text-xs text-zinc-400">Active organization members, access roles, and domain scopes.</p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-[#242428] bg-[#121215] overflow-hidden divide-y divide-[#1E1E22]">
+                        {PRODUCTION_MEMBERS.map((member) => (
+                          <div key={member.id} className="p-4 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center font-semibold text-xs border border-blue-500/30">
+                                {member.name[0]}
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium text-white">{member.name}</div>
+                                <div className="text-xs text-zinc-400">{member.email}</div>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs font-medium text-white">{member.role}</div>
+                              <div className="text-[11px] text-zinc-400">{member.department}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* View N: GitHub Connected Workspace (/dashboard/github) */}
+                  {activePath.startsWith("/dashboard/github") && (
+                    <div className="space-y-5 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h1 className="text-xl font-bold text-white tracking-tight">GitHub Workspace</h1>
+                          <p className="text-xs text-zinc-400">Connected pull requests, commit streams, and linked architectural decisions.</p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-[#242428] bg-[#121215] overflow-hidden divide-y divide-[#1E1E22]">
+                        {PRODUCTION_GITHUB_PRS.map((pr) => (
+                          <div key={pr.id} className="p-4 flex items-center justify-between hover:bg-[#18181D] transition-colors">
+                            <div className="flex items-center gap-3">
+                              <GitBranch className="h-4 w-4 text-purple-400 shrink-0" />
+                              <div>
+                                <div className="text-sm font-medium text-white">#{pr.number} {pr.title}</div>
+                                <div className="text-xs text-zinc-400 mt-0.5">By {pr.author} • {pr.time}</div>
+                              </div>
+                            </div>
+                            <span className="text-xs font-medium text-emerald-400 font-mono">{pr.status}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* View O: Calendar (/dashboard/calendar) */}
+                  {activePath.startsWith("/dashboard/calendar") && (
+                    <div className="space-y-5 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h1 className="text-xl font-bold text-white tracking-tight">Sprint & Architecture Calendar</h1>
+                          <p className="text-xs text-zinc-400">Upcoming engineering milestones, architectural reviews, and billing cycles.</p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-xl border border-[#242428] bg-[#121215] p-5">
+                          <div className="text-xs font-mono text-blue-400 mb-1">Today • 14:00 UTC</div>
+                          <h3 className="text-sm font-semibold text-white mb-2">Monotonic OCC Engine Review</h3>
+                          <p className="text-xs text-zinc-400">Reviewing PR #142 with Elena Rostova and Sarah Chen.</p>
+                        </div>
+                        <div className="rounded-xl border border-[#242428] bg-[#121215] p-5">
+                          <div className="text-xs font-mono text-emerald-400 mb-1">Tomorrow • 10:00 UTC</div>
+                          <h3 className="text-sm font-semibold text-white mb-2">Stripe Upfront Day-3 Trial Execution</h3>
+                          <p className="text-xs text-zinc-400">Scheduled automated transition from trial to paid starter tier.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* View P: Email & Communications (/dashboard/email) */}
+                  {activePath.startsWith("/dashboard/email") && (
+                    <div className="space-y-5 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h1 className="text-xl font-bold text-white tracking-tight">Executive Communications</h1>
+                          <p className="text-xs text-zinc-400">Automated summaries, trial notifications, and weekly telemetry digests.</p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-[#242428] bg-[#121215] p-5 space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-[#1E1E22]">
+                          <div>
+                            <div className="text-sm font-medium text-white">Daily Company Memory Digest</div>
+                            <div className="text-xs text-zinc-400">Sent to all 14 team members • 3 new ADRs merged today</div>
+                          </div>
+                          <span className="text-xs font-mono text-zinc-400">08:00 AM</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-sm font-medium text-white">Stripe Upfront Trial Started: Apex Labs</div>
+                            <div className="text-xs text-zinc-400">Card pre-authorized • €2,485 MRR snapshot updated</div>
+                          </div>
+                          <span className="text-xs font-mono text-zinc-400">14 min ago</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* View Q: Default / Fallback for other routes */}
                   {activePath !== "/dashboard" &&
                     activePath !== "/dashboard/connections" &&
                     activePath !== "/dashboard/finance" &&
                     activePath !== "/dashboard/pages" &&
                     activePath !== "/dashboard/decisions" &&
+                    !activePath.startsWith("/dashboard/projects") &&
+                    !activePath.startsWith("/dashboard/tasks") &&
+                    !activePath.startsWith("/dashboard/goals") &&
+                    !activePath.startsWith("/dashboard/meetings") &&
+                    !activePath.startsWith("/dashboard/timeline") &&
+                    !activePath.startsWith("/dashboard/brain") &&
+                    !activePath.startsWith("/dashboard/knowledge") &&
+                    !activePath.startsWith("/dashboard/people") &&
+                    !activePath.startsWith("/dashboard/teams") &&
+                    !activePath.startsWith("/dashboard/github") &&
+                    !activePath.startsWith("/dashboard/calendar") &&
+                    !activePath.startsWith("/dashboard/email") &&
                     !activePageRecord && (
-                      <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center space-y-3">
-                        <h2 className="text-base font-semibold text-white">Route Preview: {activePath}</h2>
-                        <p className="text-xs text-zinc-400 max-w-sm">
-                          This section connects to live third-party webhooks in the full product.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => handleNavigate("/dashboard")}
-                          className="rounded-lg bg-[#202024] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#28282E]"
-                        >
-                          Return to Home Dashboard
-                        </button>
+                      <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-center space-y-4 animate-in fade-in duration-200">
+                        <div className="h-10 w-10 rounded-xl bg-[#18181D] border border-[#242428] flex items-center justify-center text-zinc-300">
+                          <Layers className="h-5 w-5 text-blue-400" />
+                        </div>
+                        <div>
+                          <h2 className="text-base font-semibold text-white">Section: {activePath}</h2>
+                          <p className="text-xs text-zinc-400 max-w-sm mt-1">
+                            This workspace module is fully functional in your authenticated BusinessBrain account.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => handleNavigate("/dashboard")}
+                            className="rounded-lg bg-[#202024] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#28282E] transition-colors"
+                          >
+                            Return to Executive Home
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleNavigate("/dashboard/connections")}
+                            className="rounded-lg border border-[#28282E] px-3.5 py-1.5 text-xs font-medium text-zinc-300 hover:text-white hover:bg-[#18181D] transition-colors"
+                          >
+                            View Company Graph
+                          </button>
+                        </div>
                       </div>
                     )}
                 </main>

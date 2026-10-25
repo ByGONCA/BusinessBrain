@@ -19,7 +19,9 @@ type ShowcaseTab = "workspace" | "graph" | "integrations" | "ai";
 export function LandingShowcase() {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = React.useState<ShowcaseTab>("workspace");
-  const { ref: showcaseRef, isVisible } = useScrollReveal<HTMLElement>({ threshold: 0.1 });
+  const { ref: headerRef, isVisible: isHeaderVisible } = useScrollReveal<HTMLDivElement>({ threshold: 0.1 });
+  const { ref: contentRef, isVisible: isContentVisible } = useScrollReveal<HTMLDivElement>({ threshold: 0.1 });
+  const { ref: ctaRef, isVisible: isCtaVisible } = useScrollReveal<HTMLDivElement>({ threshold: 0.1 });
 
   const tabs = [
     {
@@ -27,28 +29,24 @@ export function LandingShowcase() {
       label: t.landing.showcase.tabWorkspace,
       desc: t.landing.showcase.tabWorkspaceDesc,
       icon: FileText,
-      badge: "OCC v14",
     },
     {
       id: "graph" as ShowcaseTab,
       label: t.landing.showcase.tabGraph,
       desc: t.landing.showcase.tabGraphDesc,
       icon: Share2,
-      badge: "O(V + E)",
     },
     {
       id: "integrations" as ShowcaseTab,
       label: t.landing.showcase.tabIntegrations,
       desc: t.landing.showcase.tabIntegrationsDesc,
       icon: GitBranch,
-      badge: "Live Telemetry",
     },
     {
       id: "ai" as ShowcaseTab,
       label: t.landing.showcase.tabAI,
       desc: t.landing.showcase.tabAIDesc,
       icon: Sparkles,
-      badge: "Context Grounded",
     },
   ];
 
@@ -62,27 +60,41 @@ export function LandingShowcase() {
   return (
     <section
       id="showcase"
-      ref={showcaseRef}
-      className={`py-20 md:py-28 bg-[#FAF9F5] dark:bg-[#09090B] border-t border-[#E5E5E0] dark:border-[#1E1E22] transition-all duration-700 ease-out ${
-        isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
-      }`}
+      className="py-20 md:py-28 bg-[#FAF9F5] dark:bg-[#09090B] border-t border-[#E5E5E0] dark:border-[#1E1E22] transition-colors"
     >
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        {/* Section Header */}
-        <div className="mx-auto max-w-3xl text-center">
-          <div className="text-xs font-mono font-medium tracking-widest uppercase text-[#71717A]">
+        {/* Section Header — Animates when Header enters viewport */}
+        <div ref={headerRef} className="mx-auto max-w-3xl text-center">
+          <div
+            className={`text-xs font-mono font-medium tracking-widest uppercase text-[#71717A] transition-all duration-800 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              isHeaderVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"
+            }`}
+          >
             {t.landing.showcase.eyebrow}
           </div>
-          <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-[#18181B] dark:text-[#F4F4F5] sm:text-5xl">
+          <h2
+            style={{ transitionDelay: "120ms" }}
+            className={`mt-3 text-3xl font-semibold tracking-[-0.03em] text-[#18181B] dark:text-[#F4F4F5] sm:text-5xl transition-all duration-900 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              isHeaderVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+            }`}
+          >
             {t.landing.showcase.title}
           </h2>
-          <p className="mt-4 text-base sm:text-lg text-[#52525B] dark:text-[#A1A1AA] leading-relaxed">
+          <p
+            style={{ transitionDelay: "240ms" }}
+            className={`mt-4 text-base sm:text-lg text-[#52525B] dark:text-[#A1A1AA] leading-relaxed transition-all duration-900 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              isHeaderVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+            }`}
+          >
             {t.landing.showcase.subtitle}
           </p>
         </div>
 
-        {/* Interactive Showcase Container (Sidebar on left, Canvas on right) */}
-        <div className="mt-14 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Interactive Showcase Container (Sidebar on left, Canvas on right) — Animates when in viewport */}
+        <div
+          ref={contentRef}
+          className="mt-14 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start"
+        >
           {/* Left Column: Interactive Tab Navigation */}
           <div className="lg:col-span-4 flex flex-col gap-2.5">
             {tabs.map((tab, idx) => {
@@ -94,42 +106,36 @@ export function LandingShowcase() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   style={{
-                    transitionDelay: `${idx * 60}ms`,
+                    transitionDelay: `${idx * 110}ms`,
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "ArrowDown") {
-                      const idx = tabs.findIndex((t) => t.id === tab.id);
-                      if (idx < tabs.length - 1) setActiveTab(tabs[idx + 1].id);
+                      const curIdx = tabs.findIndex((t) => t.id === tab.id);
+                      if (curIdx < tabs.length - 1) setActiveTab(tabs[curIdx + 1].id);
                     } else if (e.key === "ArrowUp") {
-                      const idx = tabs.findIndex((t) => t.id === tab.id);
-                      if (idx > 0) setActiveTab(tabs[idx - 1].id);
+                      const curIdx = tabs.findIndex((t) => t.id === tab.id);
+                      if (curIdx > 0) setActiveTab(tabs[curIdx - 1].id);
                     }
                   }}
-                  className={`group flex flex-col text-left p-4 rounded-xl border transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-                    isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+                  className={`group flex flex-col text-left p-4 rounded-xl border transition-all duration-850 ease-[cubic-bezier(0.16,1,0.3,1)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                    isContentVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
                   } ${
                     isActive
                       ? "border-[#18181B] dark:border-[#3F3F46] bg-white dark:bg-[#121215] shadow-md shadow-black/5"
                       : "border-[#E5E5E0] dark:border-[#1E1E22] bg-[#FAF9F5] dark:bg-[#09090B] hover:bg-white dark:hover:bg-[#121215] hover:border-[#D4D4D8] dark:hover:border-[#2E2E35] hover:-translate-y-0.5"
                   }`}
                 >
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-2.5 font-medium text-sm text-[#18181B] dark:text-[#F4F4F5]">
-                      <div
-                        className={`flex h-7 w-7 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105 ${
-                          isActive
-                            ? "bg-[#18181B] dark:bg-[#F4F4F5] text-white dark:text-[#18181B]"
-                            : "bg-[#F4F4F5] dark:bg-[#1B1B20] text-[#52525B] dark:text-[#A1A1AA] group-hover:text-[#18181B] dark:group-hover:text-[#F4F4F5]"
-                        }`}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <span className="font-semibold">{tab.label}</span>
+                  <div className="flex items-center gap-2.5 font-medium text-sm text-[#18181B] dark:text-[#F4F4F5]">
+                    <div
+                      className={`flex h-7 w-7 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105 ${
+                        isActive
+                          ? "bg-[#18181B] dark:bg-[#F4F4F5] text-white dark:text-[#18181B]"
+                          : "bg-[#F4F4F5] dark:bg-[#1B1B20] text-[#52525B] dark:text-[#A1A1AA] group-hover:text-[#18181B] dark:group-hover:text-[#F4F4F5]"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
                     </div>
-
-                    <span className="text-[11px] font-mono font-medium text-[#71717A] dark:text-[#A1A1AA]">
-                      {tab.badge}
-                    </span>
+                    <span className="font-semibold">{tab.label}</span>
                   </div>
 
                   <p className="mt-2 text-xs leading-relaxed text-[#52525B] dark:text-[#A1A1AA]">
@@ -141,9 +147,12 @@ export function LandingShowcase() {
 
             <button
               onClick={scrollToDemo}
-              className="mt-3 group flex items-center justify-center gap-1.5 rounded-lg border border-[#D4D4D8] dark:border-[#27272A] bg-white dark:bg-[#121215] py-2.5 text-xs font-medium text-[#18181B] dark:text-[#F4F4F5] hover:bg-[#F4F4F5] dark:hover:bg-[#1B1B20] active:scale-[0.98] transition-all duration-200 shadow-2xs"
+              style={{ transitionDelay: "420ms" }}
+              className={`mt-3 group flex items-center justify-center gap-1.5 rounded-lg border border-[#D4D4D8] dark:border-[#27272A] bg-white dark:bg-[#121215] py-2.5 text-xs font-medium text-[#18181B] dark:text-[#F4F4F5] hover:bg-[#F4F4F5] dark:hover:bg-[#1B1B20] active:scale-[0.98] transition-all duration-850 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-2xs ${
+                isContentVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+              }`}
             >
-              <span>Explore Full Navigable Workspace ↑</span>
+              <span>Explore Navigable Workspace ↑</span>
               <ArrowUpRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             </button>
           </div>
@@ -151,7 +160,10 @@ export function LandingShowcase() {
           {/* Right Column: High-Fidelity Interactive Demonstration Canvas */}
           <div
             key={activeTab}
-            className="lg:col-span-8 rounded-2xl border border-[#27272A] bg-[#09090B] p-5 sm:p-7 shadow-xl min-h-[460px] flex flex-col justify-between text-[#F4F4F5] transition-all duration-500 animate-in fade-in-50"
+            style={{ transitionDelay: "160ms" }}
+            className={`lg:col-span-8 rounded-2xl border border-[#27272A] bg-[#09090B] p-5 sm:p-7 shadow-xl min-h-[460px] flex flex-col justify-between text-[#F4F4F5] transition-all duration-1000 ease-[cubic-bezier(0.16,1,0.3,1)] animate-in fade-in-50 ${
+              isContentVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-7"
+            }`}
           >
             {/* Tab 1: Connected Workspace Demonstration */}
             {activeTab === "workspace" && (
@@ -161,8 +173,8 @@ export function LandingShowcase() {
                     <span className="font-mono text-blue-400">
                       Pages / Core Engineering / Specification
                     </span>
-                    <span className="font-mono text-emerald-400 flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Auto-saved OCC v14
+                    <span className="font-mono text-[#71717A]">
+                      Revision OCC v14
                     </span>
                   </div>
 
@@ -174,7 +186,7 @@ export function LandingShowcase() {
                   </p>
 
                   <div className="mt-6 space-y-3">
-                    <div className="rounded-lg border border-[#1E1E22] bg-[#121215] p-3 text-xs">
+                    <div className="rounded-lg border border-[#1E1E22] bg-[#121215] p-3 text-xs hover:border-[#2E2E35] transition-colors">
                       <span className="font-mono text-[10px] text-amber-400 uppercase">
                         ADR-014 Reference
                       </span>
@@ -188,7 +200,7 @@ export function LandingShowcase() {
                       </p>
                     </div>
 
-                    <div className="rounded-lg border border-[#1E1E22] bg-[#121215] p-3 text-xs">
+                    <div className="rounded-lg border border-[#1E1E22] bg-[#121215] p-3 text-xs hover:border-[#2E2E35] transition-colors">
                       <span className="font-mono text-[10px] text-purple-400 uppercase">
                         GitHub Pull Request #42
                       </span>
@@ -217,7 +229,7 @@ export function LandingShowcase() {
                     <span className="font-mono text-indigo-400">
                       Company Graph / Topological Visualizer
                     </span>
-                    <span className="font-mono text-emerald-400">BFS O(V + E) Traversal Active</span>
+                    <span className="font-mono text-[#71717A]">BFS O(V + E) Engine</span>
                   </div>
 
                   <h3 className="mt-4 text-xl sm:text-2xl font-semibold text-white">
@@ -276,8 +288,8 @@ export function LandingShowcase() {
                     <span className="font-mono text-purple-400">
                       Telemetry / Stripe + GitHub Stream
                     </span>
-                    <span className="font-mono text-emerald-400 flex items-center gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Webhooks Verified
+                    <span className="font-mono text-[#71717A]">
+                      Live Synchronized
                     </span>
                   </div>
 
@@ -289,7 +301,7 @@ export function LandingShowcase() {
                   </p>
 
                   <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="rounded-xl border border-[#1E1E22] bg-[#121215] p-3.5">
+                    <div className="rounded-xl border border-[#1E1E22] bg-[#121215] p-3.5 hover:border-[#2E2E35] transition-colors">
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-[#A1A1AA]">Monthly Recurring Revenue</span>
                         <span className="text-[11px] font-mono text-emerald-400 flex items-center gap-1 font-medium">
@@ -302,7 +314,7 @@ export function LandingShowcase() {
                       <span className="text-[10px] text-[#71717A]">Verified through Stripe Connect</span>
                     </div>
 
-                    <div className="rounded-xl border border-[#1E1E22] bg-[#121215] p-3.5">
+                    <div className="rounded-xl border border-[#1E1E22] bg-[#121215] p-3.5 hover:border-[#2E2E35] transition-colors">
                       <div className="flex items-center justify-between">
                         <span className="text-xs text-[#A1A1AA]">GitHub Code Velocity</span>
                         <span className="text-[11px] font-mono text-blue-400 font-medium">
@@ -332,7 +344,7 @@ export function LandingShowcase() {
                     <span className="font-mono text-indigo-400">
                       Context Intelligence / Grounded Q&A
                     </span>
-                    <span className="font-mono text-amber-400">Grounded in 4 Workspace Docs</span>
+                    <span className="font-mono text-[#71717A]">Grounded in 4 Workspace Docs</span>
                   </div>
 
                   <h3 className="mt-4 text-xl sm:text-2xl font-semibold text-white">
@@ -382,14 +394,25 @@ export function LandingShowcase() {
           </div>
         </div>
 
-        {/* Dedicated Product Page Jump Button */}
-        <div className="mt-12 text-center">
+        {/* Dedicated Contextual CTA — Animates when user scrolls down to it */}
+        <div
+          ref={ctaRef}
+          className={`mt-12 flex flex-col sm:flex-row items-center justify-center gap-3 transition-all duration-900 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+            isCtaVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6"
+          }`}
+        >
+          <Link
+            href="/signup"
+            className="group inline-flex items-center justify-center gap-2 rounded-xl bg-[#18181B] dark:bg-[#F4F4F5] px-6 py-3 text-xs font-semibold text-white dark:text-[#18181B] shadow-sm hover:bg-black dark:hover:bg-white active:scale-[0.98] transition-all duration-200"
+          >
+            <span>Start Free Trial</span>
+            <ArrowRight className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1" />
+          </Link>
           <Link
             href="/product"
-            className="inline-flex items-center gap-2 rounded-xl border border-[#D4D4D8] dark:border-[#27272A] bg-white dark:bg-[#121215] px-5 py-2.5 text-xs font-semibold text-[#18181B] dark:text-[#F4F4F5] hover:bg-[#F4F4F5] dark:hover:bg-[#1B1B20] transition-colors shadow-xs"
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-[#D4D4D8] dark:border-[#27272A] bg-white dark:bg-[#121215] px-5 py-3 text-xs font-medium text-[#52525B] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F4F4F5] hover:bg-[#F4F4F5] dark:hover:bg-[#1B1B20] active:scale-[0.98] transition-all duration-200"
           >
-            <span>Explore Dedicated Product Workstation & Architecture</span>
-            <ArrowRight className="h-3.5 w-3.5" />
+            <span>Deep Dive into Architecture</span>
           </Link>
         </div>
       </div>

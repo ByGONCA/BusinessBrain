@@ -2,7 +2,7 @@
 
 > **Project**: Company Brain (BusinessBrain)  
 > **Mission**: The memory and intelligence layer for modern companies.  
-> **Reference Docs**: Roadmap: [`docs/ROADMAP.md`](./docs/ROADMAP.md) | Architecture: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Codebase Map: [`docs/CODEBASE_MAP.md`](./docs/CODEBASE_MAP.md) | Investigation & Token Protocol: [`.agents/rules/investigation-protocol.md`](./.agents/rules/investigation-protocol.md) | Environment & Tooling Policy: [`docs/ENVIRONMENT_POLICY.md`](./docs/ENVIRONMENT_POLICY.md) & [`.agents/rules/tooling-and-environment.md`](./.agents/rules/tooling-and-environment.md)
+> **Reference Docs**: Roadmap: [`docs/ROADMAP.md`](./docs/ROADMAP.md) | Architecture: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Codebase Map: [`docs/CODEBASE_MAP.md`](./docs/CODEBASE_MAP.md) | Investigation & Token Protocol: [`.agents/rules/investigation-protocol.md`](./.agents/rules/investigation-protocol.md) | Environment & Tooling Policy: [`docs/ENVIRONMENT_POLICY.md`](./docs/ENVIRONMENT_POLICY.md) & [`.agents/rules/tooling-and-environment.md`](./.agents/rules/tooling-and-environment.md) | Subagents Protocol: [`.agents/rules/subagents-protocol.md`](./.agents/rules/subagents-protocol.md)
 
 ---
 
@@ -58,6 +58,9 @@ Match testing depth to task risk to avoid wasted compute and console bloat:
    - Environment & Tooling Policy: [`docs/ENVIRONMENT_POLICY.md`](./docs/ENVIRONMENT_POLICY.md)
    - Verification & Quality Gates: [`docs/quality.md`](./docs/quality.md)
    - Design & Accessibility: [`docs/design.md`](./docs/design.md) & [`DESIGN.md`](./DESIGN.md) (consult only for UI/frontend tasks; ignore in backend)
+   - Subagents Protocol & Delegation: [`.agents/rules/subagents-protocol.md`](./.agents/rules/subagents-protocol.md)
+9. **Subagent Governance & Delegation Discipline**:
+   Follow [`.agents/rules/subagents-protocol.md`](./.agents/rules/subagents-protocol.md). The Lead Agent owns all direct implementation, architectural coherence, and final integration. Delegate to native `research` for heavy read-only explorations, `security-auditor` for strictly read-only static security/RLS reviews (all mutation/MCP flags false), and `test-engineer` for large test expansions (mandatory `Workspace: 'share'` with mock data). Never delegate trivial tasks or duplicate context.
 
 ---
 

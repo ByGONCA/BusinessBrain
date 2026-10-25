@@ -659,6 +659,9 @@ export const fr: Dictionary = {
       faq: "FAQ",
       signIn: "Connexion",
       startTrial: "Essai Gratuit",
+      account: "Compte",
+      goToDashboard: "Aller au tableau de bord",
+      windowsApp: "App Windows",
     },
     hero: {
       trialBadge: "Essai de 3 Jours Accès Complet — Forfaits dès 19€/mois",
@@ -666,6 +669,7 @@ export const fr: Dictionary = {
       subheadline: "BusinessBrain unifie les pages de l'entreprise, les décisions stratégiques, les graphes interconnectés et le contexte système dans un système d'exploitation cohérent.",
       primaryCta: "Démarrer l'Essai de 3 Jours",
       secondaryCta: "Explorer la Démo Interactive",
+      windowsAppSoon: "Télécharger pour Windows (Bientôt)",
       windowTitle: "Poste de Travail BusinessBrain — Acme Systems",
       activeWorkspace: "Espace Acme Systems",
       pagesCount: "142 pages",

@@ -7,6 +7,7 @@ import { PlanConfig, SubscriptionTier } from "@/lib/stripe/types";
 import { OrganizationWithRole } from "@/lib/organizations/types";
 import { createCheckoutSessionAction } from "@/lib/stripe/actions";
 import { useLanguage } from "@/lib/i18n/context";
+import { useScrollReveal } from "@/lib/hooks/use-scroll-reveal";
 
 interface PricingCardsProps {
   plans: PlanConfig[];
@@ -28,6 +29,7 @@ export function PricingCards({
   const [billingCycle, setBillingCycle] = React.useState<"monthly" | "annual">("annual");
   const [loadingPlan, setLoadingPlan] = React.useState<string | null>(null);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const { ref: containerRef, isVisible } = useScrollReveal<HTMLDivElement>({ threshold: 0.1 });
 
   const isAnnual = billingCycle === "annual";
 
@@ -68,9 +70,13 @@ export function PricingCards({
   };
 
   return (
-    <div className="relative space-y-10">
+    <div ref={containerRef} className="relative space-y-10">
       {/* Editorial Billing Cycle Switcher */}
-      <div className="flex justify-center">
+      <div
+        className={`flex justify-center transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+          isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+        }`}
+      >
         <div className="inline-flex items-center rounded-xl border border-[#E5E5E0] dark:border-[#222228] bg-white/70 dark:bg-[#121215]/80 p-1.5 backdrop-blur-md shadow-xs">
           <button
             type="button"
@@ -107,9 +113,9 @@ export function PricingCards({
         </div>
       )}
 
-      {/* Layered Pricing Cards Grid with Foreground Elevation and Z-Index Hierarchy */}
+      {/* Layered Pricing Cards Grid with Staggered Scroll Reveal */}
       <div className="grid grid-cols-1 gap-8 text-left lg:grid-cols-3 lg:items-stretch relative z-10 pt-4">
-        {plans.map((plan) => {
+        {plans.map((plan, idx) => {
           const isCurrent = currentPlan === plan.id;
           const isFeatured = plan.id === "pro";
 
@@ -126,10 +132,15 @@ export function PricingCards({
           return (
             <div
               key={plan.id}
-              className={`relative flex flex-col justify-between rounded-3xl p-7 sm:p-9 transition-all duration-300 backdrop-blur-2xl ${
+              style={{
+                transitionDelay: `${120 + idx * 80}ms`,
+              }}
+              className={`relative flex flex-col justify-between rounded-3xl p-7 sm:p-9 transition-all duration-550 ease-[cubic-bezier(0.22,1,0.36,1)] backdrop-blur-2xl ${
+                isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+              } ${
                 isFeatured
-                  ? "bg-white/95 dark:bg-[#131317]/95 border-2 border-[#18181B] dark:border-zinc-700 shadow-2xl shadow-black/10 dark:shadow-black/50 lg:-translate-y-2 z-20"
-                  : "bg-white/80 dark:bg-[#111115]/80 border border-[#E5E5E0] dark:border-[#222228] hover:border-[#D4D4D8] dark:hover:border-[#33333F] shadow-lg shadow-black/[0.03] dark:shadow-black/30 z-10"
+                  ? "bg-white/95 dark:bg-[#131317]/95 border-2 border-[#18181B] dark:border-zinc-700 shadow-2xl shadow-black/10 dark:shadow-black/50 lg:-translate-y-2 z-20 hover:-translate-y-3"
+                  : "bg-white/80 dark:bg-[#111115]/80 border border-[#E5E5E0] dark:border-[#222228] hover:border-[#D4D4D8] dark:hover:border-[#33333F] shadow-lg shadow-black/[0.03] dark:shadow-black/30 z-10 hover:-translate-y-1"
               }`}
             >
               {/* Refined Recommended Tag (No rounded bubble pill) */}

@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { LandingFooter } from "@/components/landing/landing-footer";
+import { ScrollReveal, ScrollRevealGroup, ScrollRevealItem } from "@/components/landing/scroll-reveal";
 import { useLanguage } from "@/lib/i18n/context";
 import { ChevronDown, ArrowRight } from "lucide-react";
 
@@ -54,92 +55,103 @@ export default function FAQPage() {
         {/* Page Hero */}
         <section className="pt-16 pb-10 sm:pt-24 sm:pb-14 text-center px-6 lg:px-8">
           <div className="mx-auto max-w-4xl">
-            <span className="text-xs font-mono font-medium tracking-widest uppercase text-[#71717A] dark:text-[#A1A1AA]">
-              {t.landing.faq.eyebrow}
-            </span>
+            <ScrollReveal delay={0}>
+              <span className="text-xs font-mono font-medium tracking-widest uppercase text-[#71717A] dark:text-[#A1A1AA]">
+                {t.landing.faq.eyebrow}
+              </span>
+            </ScrollReveal>
 
-            <h1 className="mt-3 text-3xl sm:text-5xl lg:text-6xl font-semibold tracking-[-0.03em] text-[#18181B] dark:text-[#F4F4F5]">
-              {t.landing.faq.title}
-            </h1>
+            <ScrollReveal delay={80}>
+              <h1 className="mt-3 text-3xl sm:text-5xl lg:text-6xl font-semibold tracking-[-0.03em] text-[#18181B] dark:text-[#F4F4F5]">
+                {t.landing.faq.title}
+              </h1>
+            </ScrollReveal>
 
-            <p className="mt-4 text-base sm:text-lg text-[#52525B] dark:text-[#A1A1AA] max-w-2xl mx-auto leading-relaxed">
-              {t.landing.faq.subtitle}
-            </p>
+            <ScrollReveal delay={160}>
+              <p className="mt-4 text-base sm:text-lg text-[#52525B] dark:text-[#A1A1AA] max-w-2xl mx-auto leading-relaxed">
+                {t.landing.faq.subtitle}
+              </p>
+            </ScrollReveal>
           </div>
         </section>
 
-        {/* Clean Accordion List Section matching Landing Page */}
+        {/* Clean Accordion List Section matching Landing Page with Staggered Scroll Reveals */}
         <section className="pb-24 px-6 lg:px-8">
-          <div className="mx-auto max-w-3xl space-y-3">
+          <ScrollRevealGroup baseDelay={100} staggerInterval={50} className="mx-auto max-w-3xl space-y-3">
             {faqItems.map((item, idx) => {
               const isOpen = openIndex === idx;
 
               return (
-                <div
-                  key={idx}
-                  className="rounded-2xl border border-[#E5E5E0] dark:border-[#1E1E22] bg-white dark:bg-[#121215] hover:border-[#D4D4D8] dark:hover:border-[#2E2E35] transition-colors overflow-hidden shadow-xs"
-                >
-                  <button
-                    type="button"
-                    id={`faq-page-q-${idx}`}
-                    onClick={() => setOpenIndex(isOpen ? null : idx)}
-                    aria-expanded={isOpen}
-                    aria-controls={`faq-page-a-${idx}`}
-                    className="flex w-full items-center justify-between p-5 sm:p-6 text-left text-sm sm:text-base font-semibold text-[#18181B] dark:text-[#F4F4F5] transition-colors hover:bg-black/[0.01] dark:hover:bg-white/[0.02] cursor-pointer"
-                  >
-                    <span className="pr-4">{item.question}</span>
-                    <ChevronDown
-                      className={`h-4 w-4 shrink-0 text-[#71717A] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                        isOpen ? "rotate-180 text-blue-600 dark:text-blue-400" : ""
-                      }`}
-                    />
-                  </button>
+                <ScrollRevealItem key={idx} index={idx}>
+                  <div className="rounded-2xl border border-[#E5E5E0] dark:border-[#1E1E22] bg-white dark:bg-[#121215] hover:border-[#D4D4D8] dark:hover:border-[#2E2E35] transition-colors overflow-hidden shadow-xs">
+                    <button
+                      type="button"
+                      id={`faq-page-q-${idx}`}
+                      onClick={() => setOpenIndex(isOpen ? null : idx)}
+                      aria-expanded={isOpen}
+                      aria-controls={`faq-page-a-${idx}`}
+                      className="flex w-full items-center justify-between p-5 sm:p-6 text-left text-sm sm:text-base font-semibold text-[#18181B] dark:text-[#F4F4F5] transition-colors hover:bg-black/[0.01] dark:hover:bg-white/[0.02] cursor-pointer"
+                    >
+                      <span className="pr-4">{item.question}</span>
+                      <ChevronDown
+                        className={`h-4 w-4 shrink-0 text-[#71717A] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                          isOpen ? "rotate-180 text-blue-600 dark:text-blue-400" : ""
+                        }`}
+                      />
+                    </button>
 
-                  {/* Smooth CSS Grid Row Expansion */}
-                  <div
-                    id={`faq-page-a-${idx}`}
-                    role="region"
-                    aria-labelledby={`faq-page-q-${idx}`}
-                    className={`grid transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                      isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
-                    }`}
-                  >
-                    <div className="overflow-hidden">
-                      <div className="px-5 pb-6 sm:px-6 pt-1 text-xs sm:text-sm text-[#52525B] dark:text-[#A1A1AA] leading-relaxed border-t border-[#E5E5E0]/60 dark:border-[#1E1E22]/60">
-                        {item.answer}
+                    {/* Smooth CSS Grid Row Expansion */}
+                    <div
+                      id={`faq-page-a-${idx}`}
+                      role="region"
+                      aria-labelledby={`faq-page-q-${idx}`}
+                      className={`grid transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                        isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+                      }`}
+                    >
+                      <div className="overflow-hidden">
+                        <div className="px-5 pb-6 sm:px-6 pt-1 text-xs sm:text-sm text-[#52525B] dark:text-[#A1A1AA] leading-relaxed border-t border-[#E5E5E0]/60 dark:border-[#1E1E22]/60">
+                          {item.answer}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                </ScrollRevealItem>
               );
             })}
-          </div>
+          </ScrollRevealGroup>
         </section>
 
         {/* Still have questions CTA */}
         <section className="py-16 bg-[#FAF9F5] dark:bg-[#09090B] border-t border-[#E5E5E0] dark:border-[#1E1E22] text-center px-6">
           <div className="mx-auto max-w-3xl">
-            <h2 className="text-2xl sm:text-3xl font-semibold text-[#18181B] dark:text-[#F4F4F5]">
-              Still have questions about BusinessBrain?
-            </h2>
-            <p className="mt-2 text-sm text-[#52525B] dark:text-[#A1A1AA]">
-              Experience the platform first-hand. Unify your documents, decisions, and system graphs.
-            </p>
-            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <Link
-                href="/signup"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#18181B] dark:bg-[#F4F4F5] px-6 py-3.5 text-xs sm:text-sm font-semibold text-white dark:text-[#18181B] shadow-sm hover:bg-black dark:hover:bg-white transition-all active:scale-95"
-              >
-                <span>Start 3-Day Free Trial</span>
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/pricing"
-                className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl border border-[#E5E5E0] dark:border-[#1E1E22] bg-white dark:bg-[#121215] px-6 py-3.5 text-xs sm:text-sm font-semibold text-[#18181B] dark:text-[#F4F4F5] hover:bg-[#F4F3EE] dark:hover:bg-[#1B1B20] transition-colors"
-              >
-                Review Plans & Pricing
-              </Link>
-            </div>
+            <ScrollReveal delay={0}>
+              <h2 className="text-2xl sm:text-3xl font-semibold text-[#18181B] dark:text-[#F4F4F5]">
+                Still have questions about BusinessBrain?
+              </h2>
+            </ScrollReveal>
+            <ScrollReveal delay={80}>
+              <p className="mt-2 text-sm text-[#52525B] dark:text-[#A1A1AA]">
+                Experience the platform first-hand. Unify your documents, decisions, and system graphs.
+              </p>
+            </ScrollReveal>
+            <ScrollReveal delay={160}>
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <Link
+                  href="/signup"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#18181B] dark:bg-[#F4F4F5] px-6 py-3.5 text-xs sm:text-sm font-semibold text-white dark:text-[#18181B] shadow-sm hover:bg-black dark:hover:bg-white active:scale-[0.98] transition-all duration-200"
+                >
+                  <span>Start 3-Day Free Trial</span>
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  href="/pricing"
+                  className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl border border-[#E5E5E0] dark:border-[#1E1E22] bg-white dark:bg-[#121215] px-6 py-3.5 text-xs sm:text-sm font-semibold text-[#18181B] dark:text-[#F4F4F5] hover:bg-[#F4F3EE] dark:hover:bg-[#1B1B20] active:scale-[0.98] transition-all duration-200"
+                >
+                  Review Plans & Pricing
+                </Link>
+              </div>
+            </ScrollReveal>
           </div>
         </section>
       </main>

@@ -659,6 +659,9 @@ export const en: Dictionary = {
       faq: "FAQ",
       signIn: "Sign In",
       startTrial: "Start Free Trial",
+      account: "Account",
+      goToDashboard: "Go to dashboard",
+      windowsApp: "Windows App",
     },
     hero: {
       trialBadge: "3-Day Full Access Trial — Paid plans starting at €19/mo",
@@ -666,6 +669,7 @@ export const en: Dictionary = {
       subheadline: "BusinessBrain unifies company pages, strategic decisions, connected graphs, and system context into one coherent operating system for modern teams.",
       primaryCta: "Start 3-Day Free Trial",
       secondaryCta: "Explore Interactive Showcase",
+      windowsAppSoon: "Download for Windows (Soon)",
       windowTitle: "BusinessBrain Desktop Workspace — Acme Systems",
       activeWorkspace: "Acme Systems Workspace",
       pagesCount: "142 pages",

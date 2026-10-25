@@ -355,6 +355,16 @@ export function Sidebar({
     }, 150);
   };
 
+  const handleNavClick = (href: string, e?: React.MouseEvent) => {
+    if (demoMode && onDemoNavigate) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      onDemoNavigate(href);
+    }
+  };
+
   // Reusable render helper for standard nav items (Home, Inbox, Calendar, Email, subitems)
   const renderNavItem = (item: NavItem, isSubitem = false) => {
     const Icon = item.icon;
@@ -404,6 +414,7 @@ export function Sidebar({
         href={item.href}
         data-tour={dataTour}
         prefetch={false}
+        onClick={(e) => handleNavClick(item.href, e)}
         className={itemClass}
       >
         {content}
@@ -470,6 +481,7 @@ export function Sidebar({
         key={item.id}
         href={item.href}
         prefetch={false}
+        onClick={(e) => handleNavClick(item.href, e)}
         className={cn(
           "relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600",
           item.isActive
@@ -528,6 +540,7 @@ export function Sidebar({
                     key={item.id}
                     href={item.href}
                     prefetch={false}
+                    onClick={(e) => handleNavClick(item.href, e)}
                     className={cn(
                       "flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-colors",
                       item.isActive
@@ -601,6 +614,7 @@ export function Sidebar({
             <div className="flex items-center justify-between" data-tour="org-switcher">
               <Link
                 href="/"
+                onClick={(e) => handleNavClick("/dashboard", e)}
                 className="flex items-center justify-center rounded-md p-0.5 hover:bg-[#141416] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600"
                 title="Go to home page"
               >
@@ -704,6 +718,7 @@ export function Sidebar({
                     key={item.id}
                     href={item.href}
                     prefetch={false}
+                    onClick={(e) => handleNavClick(item.href, e)}
                     className={itemClassName}
                     title={item.name}
                   >
@@ -737,6 +752,7 @@ export function Sidebar({
                 <Link
                   href="/dashboard/pages"
                   prefetch={false}
+                  onClick={(e) => handleNavClick("/dashboard/pages", e)}
                   className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600",
                     effectivePath.startsWith("/dashboard/pages")
@@ -792,6 +808,8 @@ export function Sidebar({
                         favoritePages={favoritePages}
                         archivedPages={archivedPages}
                         organizationId={activeOrg.id}
+                        demoMode={demoMode}
+                        onDemoNavigate={onDemoNavigate}
                       />
                     </div>
                   )}
@@ -832,6 +850,7 @@ export function Sidebar({
             organizations={organizations}
             activeOrg={activeOrg}
             entitlement={entitlement}
+            demoMode={demoMode}
           />
         </div>
 

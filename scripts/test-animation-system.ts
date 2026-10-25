@@ -5,10 +5,12 @@
  * 1. globals.css animation tokens, easing curves, and reduced-motion contract
  * 2. useScrollReveal hook and sequential useHeroSequence implementation
  * 3. Hero staged entrance sequence in LandingHero
- * 4. Staggered reveals across grids (Problem silos, Integrations, Showcase tabs, FAQ)
- * 5. Smooth accordion transition (CSS grid rows fr trick) in LandingFAQ
- * 6. Interactive SVG graph line animation in LandingGraphSection
- * 7. Header scroll treatment and button microinteractions in LandingHeader
+ * 4. Header scroll treatment and button microinteractions in LandingHeader
+ * 5. Staggered reveals across grids (Problem silos, Integrations, Showcase tabs, FAQ)
+ * 6. Smooth accordion transition (CSS grid rows fr trick) in LandingFAQ
+ * 7. Interactive SVG graph line animation in LandingGraphSection
+ * 8. Footer staged entrance, sequential link columns, and smooth hover states
+ * 9. Reusable ScrollReveal engine and cross-landing coverage (Product, Graph, Integrations, FAQ, Pricing)
  */
 
 import * as fs from "fs";
@@ -132,7 +134,7 @@ assert(
   "LandingShowcase staggers navigation tabs on scroll"
 );
 
-// --- Audit 6: Smooth Accordion & Graph SVG Drawing ---
+// --- Audit 6: Smooth FAQ Accordion & Graph SVG Drawing ---
 console.log("\n[Audit 6] Smooth FAQ Accordion & Graph Connection Lines");
 const faqSrc = fs.readFileSync(path.join(rootDir, "components/landing/landing-faq.tsx"), "utf-8");
 const graphSrc = fs.readFileSync(path.join(rootDir, "components/landing/landing-graph-section.tsx"), "utf-8");
@@ -154,6 +156,68 @@ assert(
   "LandingGraphSection staggers node overlay entrance"
 );
 
+// --- Audit 7: Footer Staged Scroll Reveal & Microinteractions ---
+console.log("\n[Audit 7] Footer Staged Entrance & Link Sequences");
+const footerSrc = fs.readFileSync(path.join(rootDir, "components/landing/landing-footer.tsx"), "utf-8");
+
+assert(
+  footerSrc.includes("useScrollReveal"),
+  "LandingFooter connects to useScrollReveal"
+);
+assert(
+  footerSrc.includes("transitionDelay: \"80ms\"") || footerSrc.includes("transitionDelay: '80ms'"),
+  "LandingFooter stages brand description after logo"
+);
+assert(
+  footerSrc.includes("transitionDelay: \"120ms\"") && footerSrc.includes("transitionDelay: \"300ms\""),
+  "LandingFooter sequences navigation link columns"
+);
+assert(
+  footerSrc.includes("transitionDelay: \"380ms\""),
+  "LandingFooter stages bottom copyright and locale bar"
+);
+
+// --- Audit 8: Cross-Landing Coverage & Reusable ScrollReveal ---
+console.log("\n[Audit 8] Cross-Landing Coverage & Reusable ScrollReveal Primitives");
+const scrollRevealComponentSrc = fs.readFileSync(path.join(rootDir, "components/landing/scroll-reveal.tsx"), "utf-8");
+const productPageSrc = fs.readFileSync(path.join(rootDir, "app/(marketing)/product/page.tsx"), "utf-8");
+const companyGraphPageSrc = fs.readFileSync(path.join(rootDir, "app/(marketing)/company-graph/page.tsx"), "utf-8");
+const integrationsPageSrc = fs.readFileSync(path.join(rootDir, "app/(marketing)/integrations/page.tsx"), "utf-8");
+const faqPageSrc = fs.readFileSync(path.join(rootDir, "app/(marketing)/faq/page.tsx"), "utf-8");
+const pricingCardsSrc = fs.readFileSync(path.join(rootDir, "app/pricing/pricing-cards.tsx"), "utf-8");
+const pricingFaqSrc = fs.readFileSync(path.join(rootDir, "app/pricing/pricing-faq.tsx"), "utf-8");
+
+assert(
+  scrollRevealComponentSrc.includes("ScrollReveal") &&
+    scrollRevealComponentSrc.includes("ScrollRevealGroup") &&
+    scrollRevealComponentSrc.includes("ScrollRevealItem"),
+  "scroll-reveal.tsx exports ScrollReveal, ScrollRevealGroup and ScrollRevealItem"
+);
+assert(
+  productPageSrc.includes("ScrollReveal") && productPageSrc.includes("ScrollRevealGroup"),
+  "Product overview page implements staged scroll reveal"
+);
+assert(
+  companyGraphPageSrc.includes("ScrollReveal") && companyGraphPageSrc.includes("ScrollRevealGroup"),
+  "Company graph page implements staged scroll reveal"
+);
+assert(
+  integrationsPageSrc.includes("ScrollReveal") && integrationsPageSrc.includes("ScrollRevealGroup"),
+  "Integrations page implements staged scroll reveal across categories"
+);
+assert(
+  faqPageSrc.includes("ScrollReveal") && faqPageSrc.includes("ScrollRevealGroup"),
+  "FAQ page implements staged scroll reveal on questions"
+);
+assert(
+  pricingCardsSrc.includes("useScrollReveal") && pricingCardsSrc.includes("transitionDelay"),
+  "Pricing cards implement staged entrance across subscription tiers"
+);
+assert(
+  pricingFaqSrc.includes("useScrollReveal") && pricingFaqSrc.includes("transitionDelay"),
+  "Pricing FAQ implements staged entrance on questions"
+);
+
 console.log("\n==================================================================");
-console.log("ALL 6 AUDITS PASSED WITH 100% COMPLIANCE");
+console.log("ALL 8 AUDITS PASSED WITH 100% COMPLIANCE");
 console.log("==================================================================\n");
