@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "last_updated": "2026-10-28T18:30:00Z",
+  "service_available_countries": [
+    "PT", "ES", "FR", "DE", "IT", "NL", "BE", "IE", "AT", "SE", "DK", "FI", "PL",
+    "GB",
+    "US",
+    "CA",
+    "BR",
+    "AU",
+    "NZ",
+    "JP",
+    "SG"
+  ],
+  "customer_onboarding_countries": [
+    "PT", "ES", "FR", "DE", "GB", "US", "CA", "BR", "AU"
+  ],
+  "marketing_target_markets": [
+    "PT", "ES", "FR", "GB", "US", "BR"
+  ],
+  "partner_countries": [
+    "PT", "US", "GB", "IE"
+  ],
+  "evaluated_jurisdictions": [
+    {
+      "country_code": "PT",
+      "region_code": null,
+      "evaluation_id": "EVAL-2026-001",
+      "evaluation_date": "2026-10-28",
+      "status": "APPROVED_WITH_CONDITIONS"
+    },
+    {
+      "country_code": "EU",
+      "region_code": null,
+      "evaluation_id": "EVAL-2026-001",
+      "evaluation_date": "2026-10-28",
+      "status": "APPROVED_WITH_CONDITIONS"
+    },
+    {
+      "country_code": "US",
+      "region_code": null,
+      "evaluation_id": "EVAL-2026-001",
+      "evaluation_date": "2026-10-28",
+      "status": "APPROVED_WITH_CONDITIONS"
+    },
+    {
+      "country_code": "US",
+      "region_code": "CA",
+      "evaluation_id": "EVAL-2026-001",
+      "evaluation_date": "2026-10-28",
+      "status": "APPROVED_WITH_CONDITIONS"
+    },
+    {
+      "country_code": "GB",
+      "region_code": null,
+      "evaluation_id": "EVAL-2026-001",
+      "evaluation_date": "2026-10-28",
+      "status": "APPROVED_WITH_CONDITIONS"
+    },
+    {
+      "country_code": "BR",
+      "region_code": null,
+      "evaluation_id": "EVAL-2026-001",
+      "evaluation_date": "2026-10-28",
+      "status": "APPROVED_WITH_CONDITIONS"
+    }
+  ],
+  "pending_jurisdictions": [
+    { "country_code": "CA", "region_code": "QC", "priority": "P2" },
+    { "country_code": "AU", "region_code": null, "priority": "P2" },
+    { "country_code": "JP", "region_code": null, "priority": "P3" },
+    { "country_code": "SG", "region_code": null, "priority": "P3" },
+    { "country_code": "MX", "region_code": null, "priority": "P3" },
+    { "country_code": "IN", "region_code": null, "priority": "P3" }
+  ],
+  "geo_restrictions": [
+    {
+      "country_code": "CU",
+      "reason": "OFAC Comprehensive Sanctions",
+      "scope": "TOTAL_BLOCK"
+    },
+    {
+      "country_code": "IR",
+      "reason": "OFAC & EU Comprehensive Sanctions",
+      "scope": "TOTAL_BLOCK"
+    },
+    {
+      "country_code": "KP",
+      "reason": "UN, EU & OFAC Comprehensive Sanctions",
+      "scope": "TOTAL_BLOCK"
+    },
+    {
+      "country_code": "SY",
+      "reason": "OFAC & EU Comprehensive Sanctions",
+      "scope": "TOTAL_BLOCK"
+    },
+    {
+      "country_code": "RU",
+      "region_code": "CRIMEA_DONETSK_LUHANSK",
+      "reason": "OFAC & EU Targeted Territorial Sanctions",
+      "scope": "REGION_BLOCK"
+    }
+  ],
+  "investigation_priorities": {
+    "P1": ["PT", "EU", "US", "US-CA", "US-NY", "GB"],
+    "P2": ["BR", "CA", "CA-QC", "AU"],
+    "P3": ["JP", "SG", "MX", "IN"]
+  },
+  "subnational_jurisdictions": [
+    {
+      "country_code": "US",
+      "region_code": "CA",
+      "name": "California",
+      "primary_statutes": ["CCPA/CPRA (Cal. Civ. Code § 1798.100)", "CalOPPA (Cal. Bus. & Prof. Code § 22575)", "California Auto-Renewal Law (Cal. Bus. & Prof. Code § 17600)"]
+    },
+    {
+      "country_code": "US",
+      "region_code": "NY",
+      "name": "New York",
+      "primary_statutes": ["SHIELD Act (N.Y. Gen. Bus. Law § 899-aa)", "N.Y. Auto-Renewal Law (Gen. Bus. Law § 527)"]
+    },
+    {
+      "country_code": "US",
+      "region_code": "TX",
+      "name": "Texas",
+      "primary_statutes": ["Texas Data Privacy and Security Act (TDPSA)", "Tex. Bus. & Com. Code § 541"]
+    },
+    {
+      "country_code": "CA",
+      "region_code": "QC",
+      "name": "Quebec",
+      "primary_statutes": ["Loi 25 (Loi modernisant des dispositions législatives en matière de protection des renseignements personnels)"]
+    }
+  ]
+}

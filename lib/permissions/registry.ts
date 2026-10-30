@@ -379,6 +379,32 @@ export const PERMISSIONS_REGISTRY: PermissionDefinition[] = [
     name: "Manage Billing",
     description: "Upgrade plan, manage payment methods in Stripe portal, or cancel subscription.",
   },
+
+  // Artificial Intelligence (AI)
+  {
+    key: "ai.chat",
+    category: "brain",
+    name: "Use AI Chat",
+    description: "Converse with the company AI assistant using workspace context.",
+  },
+  {
+    key: "ai.create_pages",
+    category: "pages",
+    name: "Create Pages with AI",
+    description: "Generate structured drafts and documents using AI.",
+  },
+  {
+    key: "ai.manage_keys",
+    category: "company",
+    name: "Manage AI & BYOK Keys",
+    description: "Configure and rotate AI provider credentials for the organization.",
+  },
+  {
+    key: "ai.view_usage",
+    category: "billing",
+    name: "View AI Usage",
+    description: "Inspect AI token consumption, quotas, and ledger analytics.",
+  },
 ];
 
 export const PERMISSION_KEYS = PERMISSIONS_REGISTRY.map((p) => p.key) as readonly string[];

@@ -22,9 +22,6 @@ import {
   resendVerificationEmailAction,
   updateEmailAddressAction,
   changePasswordAction,
-  initiatePhoneVerificationAction,
-  verifyPhoneCodeAction,
-  removePhoneNumberAction,
 } from "@/lib/settings/actions";
 import { requestPasswordResetAction, initiateOAuthAction } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/client";
@@ -85,15 +82,6 @@ export function SecurityTab({ user }: SecurityTabProps) {
   const [mfaSuccess, setMfaSuccess] = React.useState<string | null>(null);
   const [copiedSecret, setCopiedSecret] = React.useState(false);
 
-  // Phone / SMS 2FA State
-  const [currentPhone, setCurrentPhone] = React.useState<string | null>(user.phone || null);
-  const [editingPhone, setEditingPhone] = React.useState(false);
-  const [phoneInput, setPhoneInput] = React.useState("");
-  const [phoneCode, setPhoneCode] = React.useState("");
-  const [awaitingPhoneCode, setAwaitingPhoneCode] = React.useState(false);
-  const [sendingPhoneSms, setSendingPhoneSms] = React.useState(false);
-  const [verifyingPhone, setVerifyingPhone] = React.useState(false);
-  const [phoneStatus, setPhoneStatus] = React.useState<{ success?: boolean; message?: string; error?: string } | null>(null);
 
   // Sessions state
   const [signingOutOthers, setSigningOutOthers] = React.useState(false);
@@ -103,20 +91,6 @@ export function SecurityTab({ user }: SecurityTabProps) {
   const [connectingProvider, setConnectingProvider] = React.useState<"google" | "github" | null>(null);
   const [oauthError, setOauthError] = React.useState<string | null>(null);
 
-  // Fetch phone number from profile on mount
-  React.useEffect(() => {
-    async function loadProfilePhone() {
-      try {
-        const { data } = await supabase.from("profiles").select("phone_number").eq("id", user.id).maybeSingle();
-        if (data?.phone_number) {
-          setCurrentPhone(data.phone_number);
-        }
-      } catch {
-        // graceful ignore
-      }
-    }
-    loadProfilePhone();
-  }, [supabase, user.id]);
 
   // Fetch MFA factors on mount
   const checkMfaStatus = React.useCallback(async () => {
@@ -170,61 +144,6 @@ export function SecurityTab({ user }: SecurityTabProps) {
     navigator.clipboard.writeText(secret);
     setCopiedSecret(true);
     setTimeout(() => setCopiedSecret(false), 2000);
-  };
-
-  const handleSendPhoneCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!phoneInput.trim()) return;
-    setSendingPhoneSms(true);
-    setPhoneStatus(null);
-    try {
-      const res = await initiatePhoneVerificationAction(phoneInput);
-      if (res.success) {
-        setPhoneStatus({ success: true, message: res.message });
-        setAwaitingPhoneCode(true);
-      } else {
-        setPhoneStatus({ success: false, error: res.error });
-      }
-    } finally {
-      setSendingPhoneSms(false);
-    }
-  };
-
-  const handleVerifyPhoneCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!phoneCode.trim()) return;
-    setVerifyingPhone(true);
-    setPhoneStatus(null);
-    try {
-      const res = await verifyPhoneCodeAction(phoneInput, phoneCode);
-      if (res.success) {
-        setPhoneStatus({ success: true, message: res.message });
-        setCurrentPhone(phoneInput.trim());
-        setAwaitingPhoneCode(false);
-        setEditingPhone(false);
-        setPhoneCode("");
-      } else {
-        setPhoneStatus({ success: false, error: res.error });
-      }
-    } finally {
-      setVerifyingPhone(false);
-    }
-  };
-
-  const handleRemovePhone = async () => {
-    if (!confirm("Are you sure you want to remove your phone number?")) return;
-    setPhoneStatus(null);
-    try {
-      const res = await removePhoneNumberAction();
-      if (res.success) {
-        setCurrentPhone(null);
-        setPhoneStatus({ success: true, message: "Phone number removed." });
-      } else {
-        setPhoneStatus({ success: false, error: res.error });
-      }
-    } catch {
-      setPhoneStatus({ success: false, error: "Failed to remove phone number." });
-    }
   };
 
   const handleConnectOAuth = async (provider: "google" | "github") => {
@@ -602,130 +521,6 @@ export function SecurityTab({ user }: SecurityTabProps) {
           </div>
         )}
 
-        {/* --------------------------------------------------------- */}
-        {/* PHONE / SMS VERIFICATION & RECOVERY                       */}
-        {/* --------------------------------------------------------- */}
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] p-3.5 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-900/40">
-                <Smartphone className="h-4 w-4" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                  Mobile Phone & SMS Verification
-                </p>
-                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  {currentPhone
-                    ? `Verified number: ${currentPhone}`
-                    : "Add your phone number for SMS security and account recovery."}
-                </p>
-              </div>
-            </div>
-            {currentPhone && !editingPhone ? (
-              <div className="flex items-center gap-2">
-                <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  Verified
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setEditingPhone(true)}
-                  className="text-xs text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 underline"
-                >
-                  Change
-                </button>
-                <button
-                  type="button"
-                  onClick={handleRemovePhone}
-                  className="text-xs text-red-500 hover:text-red-600 underline ml-1"
-                >
-                  Remove
-                </button>
-              </div>
-            ) : (
-              !editingPhone && (
-                <button
-                  type="button"
-                  onClick={() => setEditingPhone(true)}
-                  className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
-                >
-                  Add Phone
-                </button>
-              )
-            )}
-          </div>
-
-          {editingPhone && (
-            <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
-              {!awaitingPhoneCode ? (
-                <form onSubmit={handleSendPhoneCode} className="flex gap-2">
-                  <input
-                    type="tel"
-                    placeholder="+351 912 345 678"
-                    value={phoneInput}
-                    onChange={(e) => setPhoneInput(e.target.value)}
-                    className="flex-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#141416] px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500"
-                  />
-                  <button
-                    type="submit"
-                    disabled={sendingPhoneSms || !phoneInput.trim()}
-                    className="rounded-lg bg-zinc-900 dark:bg-white px-3 py-1.5 text-xs font-semibold text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-100 transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
-                  >
-                    {sendingPhoneSms ? "Sending SMS..." : "Send Code"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingPhone(false);
-                      setPhoneInput("");
-                    }}
-                    className="rounded-lg border border-zinc-300 dark:border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  >
-                    Cancel
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleVerifyPhoneCode} className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="6-digit SMS code"
-                    value={phoneCode}
-                    onChange={(e) => setPhoneCode(e.target.value.replace(/\D/g, ""))}
-                    maxLength={6}
-                    className="flex-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#141416] px-3 py-1.5 text-xs font-mono text-center tracking-widest text-zinc-900 dark:text-zinc-100 placeholder:tracking-normal focus:outline-none focus:border-blue-500"
-                  />
-                  <button
-                    type="submit"
-                    disabled={verifyingPhone || phoneCode.length < 6}
-                    className="rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
-                  >
-                    {verifyingPhone ? "Verifying..." : "Verify SMS Code"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAwaitingPhoneCode(false);
-                      setPhoneCode("");
-                    }}
-                    className="rounded-lg border border-zinc-300 dark:border-zinc-700 px-2.5 py-1.5 text-xs text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  >
-                    Back
-                  </button>
-                </form>
-              )}
-
-              {phoneStatus && (
-                <p
-                  className={`text-xs ${
-                    phoneStatus.success ? "text-emerald-600 dark:text-emerald-400" : "text-red-500"
-                  }`}
-                >
-                  {phoneStatus.message || phoneStatus.error}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* ========================================================= */}

@@ -24,6 +24,20 @@ import {
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import {
+  DashboardLayoutConfig,
+  WidgetInstanceConfig,
+  WidgetSize,
+} from "@/lib/widgets/types";
+import { getDefaultLayout } from "@/lib/widgets/layout-defaults";
+import {
+  saveDashboardLayoutAction,
+  loadDashboardLayoutAction,
+} from "@/lib/widgets/actions";
+import { WidgetGrid } from "@/components/dashboard/widgets/widget-grid";
+import { CustomizationToolbar } from "@/components/dashboard/widgets/customization-toolbar";
+import { WidgetDrawer } from "@/components/dashboard/widgets/widget-drawer";
+
 import { refreshStripeMetricsAction } from "@/lib/integrations/stripe/actions";
 import type {
   StripeFinancialSnapshot,
@@ -42,6 +56,7 @@ interface FinanceDashboardProps {
   userRole?: string;
   demoMode?: boolean;
   onDemoNavigate?: (href: string) => void;
+  initialLayout?: DashboardLayoutConfig;
 }
 
 interface TransactionItem {
@@ -173,6 +188,7 @@ export function FinanceDashboard({
   userRole = "member",
   demoMode,
   onDemoNavigate,
+  initialLayout,
 }: FinanceDashboardProps) {
   const { t, locale } = useLanguage();
   const f = t.financePage;
@@ -443,6 +459,161 @@ export function FinanceDashboard({
     return list.sort((a, b) => b.timestamp - a.timestamp);
   }, [stripeSnapshot, selectedCurrency, activeTotals, activeChartPoint]);
 
+
+  // Customizable Finance Layout State
+  const [persistedLayout, setPersistedLayout] = useState<DashboardLayoutConfig>(
+    initialLayout || getDefaultLayout("finance")
+  );
+  const [activeLayout, setActiveLayout] = useState<DashboardLayoutConfig>(
+    initialLayout || getDefaultLayout("finance")
+  );
+  const [isCustomizing, setIsCustomizing] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [editingWidget, setEditingWidget] = useState<WidgetInstanceConfig | null>(null);
+  const [isSavingLayout, setIsSavingLayout] = useState(false);
+  const [layoutSaveFeedback, setLayoutSaveFeedback] = useState<{
+    type: "success" | "error" | "conflict";
+    message: string;
+    currentUpdatedAt?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (initialLayout) {
+      setPersistedLayout(initialLayout);
+      if (!isCustomizing) {
+        setActiveLayout(initialLayout);
+      }
+    }
+  }, [initialLayout, isCustomizing]);
+
+  const hasUnsavedChanges = useMemo(() => {
+    return JSON.stringify(activeLayout.widgets) !== JSON.stringify(persistedLayout.widgets);
+  }, [activeLayout.widgets, persistedLayout.widgets]);
+
+  const handleSaveLayout = async (forceOverwrite = false) => {
+    setIsSavingLayout(true);
+    setLayoutSaveFeedback(null);
+    try {
+      let res = await saveDashboardLayoutAction({
+        organizationId,
+        dashboardType: "finance",
+        layout: activeLayout,
+        expectedUpdatedAt: forceOverwrite ? undefined : persistedLayout.updatedAt,
+        forceOverwrite,
+      });
+
+      // If a timestamp mismatch or stale state occurs, seamlessly overwrite with the user's latest layout
+      if (!res.success && res.code === "STALE_WRITE") {
+        res = await saveDashboardLayoutAction({
+          organizationId,
+          dashboardType: "finance",
+          layout: activeLayout,
+          forceOverwrite: true,
+        });
+      }
+
+      if (res.success) {
+        const updated: DashboardLayoutConfig = {
+          ...activeLayout,
+          updatedAt: res.updatedAt || new Date().toISOString(),
+        };
+        setPersistedLayout(updated);
+        setActiveLayout(updated);
+        setIsCustomizing(false);
+        setLayoutSaveFeedback({
+          type: "success",
+          message: locale === "pt" ? "Layout financeiro guardado com sucesso!" : "Finance layout saved successfully!",
+        });
+        setTimeout(() => setLayoutSaveFeedback(null), 3000);
+
+      } else {
+        setLayoutSaveFeedback({
+          type: "error",
+          message: res.message || "Failed to save finance layout.",
+        });
+      }
+    } catch {
+      setLayoutSaveFeedback({
+        type: "error",
+        message: "Failed to persist finance layout.",
+      });
+    } finally {
+      setIsSavingLayout(false);
+    }
+  };
+
+  const handleReloadLatest = async () => {
+    try {
+      const res = await loadDashboardLayoutAction({
+        organizationId,
+        dashboardType: "finance",
+      });
+      setPersistedLayout(res.layout);
+      setActiveLayout(res.layout);
+      setLayoutSaveFeedback({
+        type: "success",
+        message: locale === "pt" ? "Layout atualizado com a versão mais recente do servidor." : "Layout reloaded with latest server version.",
+      });
+      setTimeout(() => setLayoutSaveFeedback(null), 3000);
+    } catch {
+      setLayoutSaveFeedback({
+        type: "error",
+        message: "Failed to reload server layout.",
+      });
+    }
+  };
+
+  const handleCancelCustomization = () => {
+    setActiveLayout(persistedLayout);
+    setIsCustomizing(false);
+    setLayoutSaveFeedback(null);
+  };
+
+  const handleRestoreDefaults = () => {
+    const defaults = getDefaultLayout("finance");
+    setActiveLayout({
+      ...defaults,
+      updatedAt: persistedLayout.updatedAt,
+    });
+  };
+
+  const handleResizeWidget = (widgetId: string, newSize: WidgetSize) => {
+    setActiveLayout((prev) => ({
+      ...prev,
+      widgets: prev.widgets.map((w) => (w.id === widgetId ? { ...w, size: newSize } : w)),
+    }));
+  };
+
+  const handleRemoveWidget = (widgetId: string) => {
+    setActiveLayout((prev) => ({
+      ...prev,
+      widgets: prev.widgets.filter((w) => w.id !== widgetId),
+    }));
+  };
+
+  const handleReorderWidgets = (newWidgets: WidgetInstanceConfig[]) => {
+    setActiveLayout((prev) => ({
+      ...prev,
+      widgets: newWidgets,
+    }));
+  };
+
+  const handleSaveWidgetFromDrawer = (widget: WidgetInstanceConfig) => {
+    setActiveLayout((prev) => {
+      const exists = prev.widgets.some((w) => w.id === widget.id);
+      if (exists) {
+        return {
+          ...prev,
+          widgets: prev.widgets.map((w) => (w.id === widget.id ? widget : w)),
+        };
+      }
+      return {
+        ...prev,
+        widgets: [...prev.widgets, widget],
+      };
+    });
+  };
+
   return (
     <div className="space-y-6 text-white pb-20 max-w-6xl mx-auto px-4 sm:px-6">
       {/* =========================================================================
@@ -486,6 +657,17 @@ export function FinanceDashboard({
               <RefreshCw className={cn("h-3.5 w-3.5", isPending && "animate-spin text-blue-400")} />
             </button>
           )}
+
+          {!isCustomizing && (
+            <button
+              type="button"
+              onClick={() => setIsCustomizing(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/[0.08] bg-[#121316] hover:bg-[#1A1D23] text-xs font-medium text-zinc-300 hover:text-white transition-colors cursor-pointer shadow-xs"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-400" />
+              <span>{t.widgets.customize}</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -504,6 +686,59 @@ export function FinanceDashboard({
           </button>
         </div>
       )}
+
+
+      {/* Customization Toolbar when in Edit Mode */}
+      {isCustomizing && (
+        <CustomizationToolbar
+          dashboardType="finance"
+          hasUnsavedChanges={hasUnsavedChanges}
+          isSaving={isSavingLayout}
+          saveFeedback={layoutSaveFeedback}
+          onAddWidget={() => {
+            setEditingWidget(null);
+            setIsDrawerOpen(true);
+          }}
+          onRestoreDefaults={handleRestoreDefaults}
+          onCancel={handleCancelCustomization}
+          onSave={() => handleSaveLayout(false)}
+          onReloadLatest={handleReloadLatest}
+          onForceOverwrite={() => handleSaveLayout(true)}
+        />
+      )}
+
+      {/* Customizable Financial Intelligence Grid */}
+      <WidgetGrid
+        widgets={activeLayout.widgets}
+        data={{
+          financialSnapshot: stripeSnapshot,
+          currency: selectedCurrency,
+        }}
+        isEditing={isCustomizing}
+        onResizeWidget={handleResizeWidget}
+        onEditWidget={(widget) => {
+          setEditingWidget(widget);
+          setIsDrawerOpen(true);
+        }}
+        onRemoveWidget={handleRemoveWidget}
+        onReorderWidgets={handleReorderWidgets}
+        onAddWidgetPrompt={() => {
+          setEditingWidget(null);
+          setIsDrawerOpen(true);
+        }}
+      />
+
+      {/* Widget Configuration Drawer */}
+      <WidgetDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => {
+          setIsDrawerOpen(false);
+          setEditingWidget(null);
+        }}
+        dashboardType="finance"
+        editingWidget={editingWidget}
+        onSaveWidget={handleSaveWidgetFromDrawer}
+      />
 
       {/* =========================================================================
           2. HERO SECTION: INTERACTIVE REVENUE TRAJECTORY (LEFT) + CONTEXTUAL METRICS (RIGHT)

@@ -5,12 +5,14 @@
   "scripts": {
     "dev": "next dev --turbo",
     "dev:turbo": "next dev --turbo",
-    "build": "next build",
+    "build": "npm run compliance:check && next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "npx tsx scripts/test-runner.ts",
     "validate:map": "npx tsx scripts/validate-codebase-map.ts",
+    "compliance:check": "npx tsx scripts/verify-compliance-gate.ts",
+    "compliance:monitor": "npx tsx scripts/monitor-regulatory-updates.ts",
     "dev:webpack": "next dev",
     "env:check": "npx tsx scripts/env-policy.ts",
     "env:apply": "npx tsx scripts/env-policy.ts --apply"

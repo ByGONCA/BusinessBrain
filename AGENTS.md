@@ -59,8 +59,16 @@ Match testing depth to task risk to avoid wasted compute and console bloat:
    - Verification & Quality Gates: [`docs/quality.md`](./docs/quality.md)
    - Design & Accessibility: [`docs/design.md`](./docs/design.md) & [`DESIGN.md`](./DESIGN.md) (consult only for UI/frontend tasks; ignore in backend)
    - Subagents Protocol & Delegation: [`.agents/rules/subagents-protocol.md`](./.agents/rules/subagents-protocol.md)
-9. **Subagent Governance & Delegation Discipline**:
-   Follow [`.agents/rules/subagents-protocol.md`](./.agents/rules/subagents-protocol.md). The Lead Agent owns all direct implementation, architectural coherence, and final integration. Delegate to native `research` for heavy read-only explorations, `security-auditor` for strictly read-only static security/RLS reviews (all mutation/MCP flags false), and `test-engineer` for large test expansions (mandatory `Workspace: 'share'` with mock data). Never delegate trivial tasks or duplicate context.
+9. **Mandatory Subagent Evaluation & Autonomous Delegation (Bridge to Specialists)**:
+   Em todos os prompts e em todo o projeto, o Lead Agent avalia **sempre e obrigatoriamente** se a tarefa beneficia da utilização de subagentes.
+   - **Autonomia Total Sem Pedido de Autorização**: Sempre que a tarefa envolver exploração abrangente (> 2-3 ficheiros), auditoria de segurança/RLS, conformidade regulatória, criação massiva de testes ou análise paralela de múltiplos domínios, o agente **deve invocar os subagentes imediatamente sem pedir autorização prévia ao utilizador**.
+   - **Tripla Otimização Contínua**: O acionamento visa rigorosamente:
+     1. A **melhor resposta e precisão técnica possível** (especialistas com foco aprofundado).
+     2. O **melhor desempenho do trabalho** (paralelização eficiente entre agentes).
+     3. O **menor consumo de tokens possível** (mantendo a janela de contexto principal limpa de leituras massivas de ficheiros ou relatórios brutos de exploração).
+   - **Controlo e Integração Central**: O Lead Agent coordena, sintetiza criticamente e detém a responsabilidade exclusiva pela implementação de código de produção e validação final (`npm run typecheck && npm run lint && npm test`).
+   - Detalhes normativos em [`.agents/rules/subagents-protocol.md`](./.agents/rules/subagents-protocol.md).
+
 
 ---
 
@@ -136,6 +144,31 @@ To prevent context bloat and astronomical token compounding:
   - Do NOT place decorative `<Info />` tooltip icons next to headers or titles unless they open an active, purposeful interactive element.
   - Do NOT surface internal provenance / verification banners (e.g. "Fonte Verificada", "Stripe Live (EUR)", account ID banners) in standard user dashboards.
   - Do NOT display internal database / security engineering jargon (e.g., "RLS", "PostgreSQL RLS de Linha de Defesa", "Criptografia AES-256", "RLS Guard", "Perímetro Ativo", "Built with strict security perimeters", "Enterprise Workspace Isolation & Encryption", "Cryptographic Webhooks", "Least-Privilege Scopes", "Proprietary Tenant Scope") anywhere in user dashboard cards, marketing pages, or the footer. Security is enforced strictly in the database/backend; executive UI must display actual business value, organizational memory, and team activity.
+
+- **Visual Identity & Restraint**:
+  - Professional, minimalist, modern, and visually coherent executive workspace.
+  - Prioritize useful business information and organizational memory over decoration.
+  - Use established semantic design tokens (`border-white/[0.08]`, `bg-[#121316]`, `bg-[#16181D]`, `text-white`, `text-zinc-400`).
+  - Support dark and light themes consistently; respect `prefers-reduced-motion`.
+  - Subtle, purposeful micro-animations only when they improve usability; never gratuitous motion.
+- **Explicit Anti-Patterns (Zero Fluff & Zero Dashboard Bloat)**:
+  - ❌ No excessive cards or nested "box-in-a-box" containers.
+  - ❌ No redundant borders, pills, badges, or decorative glow/gradient backgrounds.
+  - ❌ No redundant headings, descriptions, or repetitive helper text.
+  - ❌ No multiple toolbars competing for visual attention.
+  - ❌ No multi-step modal wizards when a single compact contextual drawer/panel suffices.
+  - ❌ No displaying identical metrics across multiple prominent dashboard cards without clear purpose.
+  - ❌ No generic AI-generated aesthetics, empty layout filler, or speculative BI complexity.
+- **Interaction Principles & Progressive Disclosure**:
+  - Keep primary views calm, focused, and executive-ready; edit controls must remain hidden outside customization mode.
+  - Progressive disclosure: reveal advanced configuration options (granularities, dimensions, date offsets) only when requested.
+  - Multi-modal accessibility: reordering must support pointer drag, touch handles, and accessible keyboard/button controls.
+  - Avoid unnecessary confirmation modals for easily reversible actions; provide clear inline feedback for save, error, and reset states.
+- **Engineering Principles & Data Truth**:
+  - Inspect existing architecture before creating new systems; reuse domain services in `lib/`.
+  - Zero fabricated metrics: point-in-time metrics (MRR, Active Subs), period totals (Net Revenue), and annualized run-rates (ARR = MRR * 12) must never be conflated or invented.
+  - Atomic persistence and multi-tenant isolation: layouts are strictly scoped per user and organization with verified RLS.
+  - Preserve all unrelated working-tree modifications and never introduce speculative dependencies.
 
 ---
 

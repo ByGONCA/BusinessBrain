@@ -167,9 +167,9 @@ export const getCompanyTimelineEvents = cache(
       }
     }
 
-    // Sort chronologically ascending
+    // Sort chronologically descending (most recent first)
     return events.sort(
-      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
   }
 );

@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { Download, ShieldCheck, FileText, Database, Loader2, Check, AlertCircle } from "lucide-react";
+import { Download, ShieldCheck, FileText, Database, Loader2, Check, AlertCircle, Trash2 } from "lucide-react";
 import { OrganizationWithRole } from "@/lib/organizations/types";
-import { exportPersonalDataAction, exportWorkspaceDataAction } from "@/lib/settings/actions";
+import { exportPersonalDataAction, exportWorkspaceDataAction, requestAccountDeletionAction } from "@/lib/settings/actions";
 
 interface PrivacyDataTabProps {
   activeOrg: OrganizationWithRole | null;
@@ -17,6 +17,34 @@ export function PrivacyDataTab({ activeOrg }: PrivacyDataTabProps) {
   const [personalSuccess, setPersonalSuccess] = React.useState(false);
   const [workspaceSuccess, setWorkspaceSuccess] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = React.useState("");
+  const [isDeleting, setIsDeleting] = React.useState(false);
+  const [deleteSuccessMsg, setDeleteSuccessMsg] = React.useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = React.useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== "DELETE") {
+      setErrorMsg("Please type DELETE into the confirmation field to proceed.");
+      return;
+    }
+    setIsDeleting(true);
+    setErrorMsg(null);
+    try {
+      const res = await requestAccountDeletionAction(deleteConfirmation);
+      if (res.success) {
+        setDeleteSuccessMsg(res.message || "Account erased successfully.");
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 2000);
+      } else {
+        setErrorMsg(res.error || "Failed to process account erasure.");
+      }
+    } catch {
+      setErrorMsg("An error occurred during account erasure request.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const downloadJson = (data: unknown, filename: string) => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -158,6 +186,82 @@ export function PrivacyDataTab({ activeOrg }: PrivacyDataTabProps) {
               </>
             )}
           </button>
+        </div>
+      </div>
+
+      {/* Account Erasure / GDPR Art. 17 */}
+      <div className="space-y-3 pt-2">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-rose-500">
+          Account Erasure & Right to be Forgotten (GDPR Art. 17)
+        </span>
+        <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/30 dark:bg-rose-950/10 space-y-3">
+          <div className="flex items-start gap-3">
+            <Trash2 className="h-5 w-5 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            <div className="space-y-1 flex-1">
+              <p className="text-xs font-semibold text-rose-900 dark:text-rose-200">Expunge Account & Personal Data</p>
+              <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                Permanently purge your personal profile, notification preferences, and workspace memberships. In accordance with statutory legal obligations (tax and fiscal retention laws such as CIVA / Art. 123.º CIRC and IRS rules), corporate financial transaction and audit records are preserved in anonymized or immutable form.
+              </p>
+            </div>
+          </div>
+
+          {deleteSuccessMsg ? (
+            <div className="p-3 rounded-lg border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+              <Check className="h-4 w-4 shrink-0" />
+              <span>{deleteSuccessMsg} Redirecting to login...</span>
+            </div>
+          ) : !showDeleteModal ? (
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-300 dark:border-rose-800 bg-white dark:bg-rose-950/40 px-3 py-1.5 text-xs font-medium text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/40 transition-colors cursor-pointer"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span>Request Account Erasure</span>
+              </button>
+            </div>
+          ) : (
+            <div className="p-3 rounded-lg border border-rose-300 dark:border-rose-800 bg-white dark:bg-[#1a1a1d] space-y-3">
+              <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
+                Confirm Account Erasure
+              </p>
+              <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                This action is irreversible. If you are the sole Owner of an organization with active members, you must first reassign ownership or dissolve the workspace.
+              </p>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-medium text-zinc-700 dark:text-zinc-300">
+                  Type <span className="font-mono font-bold text-rose-600 dark:text-rose-400">DELETE</span> to confirm:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmation}
+                  onChange={(e) => setDeleteConfirmation(e.target.value)}
+                  placeholder="DELETE"
+                  className="w-full px-3 py-1.5 text-xs rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-rose-500"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => { setShowDeleteModal(false); setDeleteConfirmation(""); }}
+                  disabled={isDeleting}
+                  className="px-3 py-1.5 text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteAccount}
+                  disabled={deleteConfirmation !== "DELETE" || isDeleting}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-rose-700 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                  <span>Confirm Erasure</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

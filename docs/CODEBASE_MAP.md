@@ -23,7 +23,8 @@
 | **Public API v1 & API Keys** | `app/api/v1/` | `lib/api-keys/service.ts` | `components/dashboard/settings/api-keys-tab.tsx` | `00034`, `00036` |
 | **File Storage & Quotas** | `app/api/pages/[id]/icon/route.ts` | `lib/storage/image-service.ts` | `lib/files/` | `00008`, `00009`, `00030` |
 | **Internationalization (i18n)** | `lib/i18n/context.tsx` | `lib/i18n/dictionaries/` | `components/ui/` | N/A (Frontend Quad-Locale) |
-| **Product Marketing & Architecture** | `app/(marketing)/` | `lib/marketing/config.ts` | `components/landing/` | N/A (Frontend Quad-Locale) |
+| **Product Marketing & Architecture** | `app/(marketing)/ ` | `lib/marketing/config.ts` | `components/landing/` | N/A (Frontend Quad-Locale) |
+| **Legal Compliance & Regulatory Governance** | `docs/compliance/` | `lib/compliance/markets.config.ts` | `docs/compliance/evaluations/` | N/A (Global Regulatory System) |
 
 ---
 
@@ -189,5 +190,5 @@ The test suite runs 22 deterministic test files sequentially without external de
 
 - **Complementary Roles**:
   - `docs/CODEBASE_MAP.md` is the **canonical, zero-dependency index** for declarative file/domain lookups, giving instant navigation with zero API cost.
-  - `graphify` (installed in `.venv/Scripts/graphify.exe`, see `docs/tools/graphify.md`) queries `graphify-out/graph.json` for deep semantic code relationships, graph traversal, and caller/callee trees when explicitly needed.
+  - `graphify` (CLI tool, see `docs/tools/graphify.md`) queries `graphify-out/graph.json` for deep semantic code relationships, graph traversal, and caller/callee trees when explicitly needed.
 - **Precedence**: Always consult `docs/CODEBASE_MAP.md` first for locating files. Use Graphify when deep relationship tracing between abstract components is required.

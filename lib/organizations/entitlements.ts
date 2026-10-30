@@ -22,9 +22,10 @@ export interface OrganizationEntitlement {
  * Memoized per request to eliminate duplicate database queries.
  */
 export const getOrganizationEntitlement = cache(async (
-  organizationId: string
+  organizationId: string,
+  clientOverride?: any
 ): Promise<OrganizationEntitlement> => {
-  const supabase = await createClient();
+  const supabase = clientOverride || (await createClient());
 
   const { data, error } = await supabase
     .from("subscriptions")
@@ -114,6 +115,21 @@ export async function verifyAccessOrRedirect(): Promise<{
   const entitlement = await getOrganizationEntitlement(activeOrg.id);
 
   if (!entitlement.isEntitled) {
+    if (activeOrg.workspace_type === "personal") {
+      // Personal workspaces can access the dashboard interface without paid entitlements,
+      // but do NOT receive fictitious Starter entitlements for AI or paid modules.
+      return {
+        user,
+        organizations,
+        activeOrg,
+        entitlement: {
+          ...entitlement,
+          isEntitled: false,
+          status: "no_subscription",
+          plan: null,
+        },
+      };
+    }
     redirect("/pricing?reason=subscription_required");
   }
 

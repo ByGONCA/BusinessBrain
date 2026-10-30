@@ -5,7 +5,7 @@ import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle2, AlertCircle, ArrowRight, RefreshCw, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CompanyBrainLoader } from "@/components/ui/company-brain-loader";
+import { BusinessBrainLoader } from "@/components/ui/company-brain-loader";
 
 function CheckoutSuccessContent() {
   const router = useRouter();
@@ -223,7 +223,7 @@ function CheckoutSuccessContent() {
 export default function CheckoutSuccessPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 py-12 text-slate-100">
-      <Suspense fallback={<CompanyBrainLoader fullScreen={false} />}>
+      <Suspense fallback={<BusinessBrainLoader fullScreen={false} />}>
         <CheckoutSuccessContent />
       </Suspense>
     </div>

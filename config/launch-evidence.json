@@ -1,0 +1,50 @@
+{
+  "$schema": "./schemas/launch-evidence.schema.json",
+  "version": "1.0.0",
+  "last_updated": "2026-10-28",
+  "blockers": {
+    "BLK-01": {
+      "id": "BLK-01",
+      "name": "Corporate Legal Entity Details & Tax Identification",
+      "status": "NOT_STARTED",
+      "config_source": "config/legal-entity.json",
+      "evidence": null,
+      "validation_notes": "Awaiting corporate formation, registry certificate and official NIF/tax credentials."
+    },
+    "BLK-02": {
+      "id": "BLK-02",
+      "name": "Stripe Live Production Settings & Tax Registration",
+      "status": "NOT_STARTED",
+      "env_dependencies": [
+        "STRIPE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "STRIPE_AUTOMATIC_TAX",
+        "STRIPE_STARTER_PRICE_ID",
+        "STRIPE_PRO_PRICE_ID"
+      ],
+      "evidence": null,
+      "validation_notes": "Awaiting deployment of sk_live_..., whsec_... and Stripe Tax registration proof in production environment."
+    },
+    "BLK-03": {
+      "id": "BLK-03",
+      "name": "Supabase Production Physical Hosting Region Verification",
+      "status": "NOT_STARTED",
+      "target_region": "eu-central-1",
+      "evidence": null,
+      "validation_notes": "Awaiting visual audit in Supabase Cloud Console confirming physical region is AWS eu-central-1 (Frankfurt)."
+    },
+    "BLK-04": {
+      "id": "BLK-04",
+      "name": "Subprocessor DPAs Execution & Qualified Legal Counsel Review",
+      "status": "NOT_STARTED",
+      "required_subprocessors": [
+        "Supabase Inc.",
+        "Vercel Inc.",
+        "Resend Inc.",
+        "Stripe Payments Europe Ltd."
+      ],
+      "evidence": null,
+      "validation_notes": "Awaiting electronic DPA submissions and qualified legal counsel written approval of terms, privacy and cookie policies."
+    }
+  }
+}

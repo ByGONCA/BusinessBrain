@@ -16,7 +16,8 @@ export type SettingsTab =
   | "privacy"
   | "audit_log"
   | "storage"
-  | "billing";
+  | "billing"
+  | "ai_providers";
 
 interface SettingsContextValue {
   isOpen: boolean;
@@ -51,6 +52,7 @@ export function normalizeSettingsTab(param: string | null): SettingsTab | null {
     "audit_log",
     "storage",
     "billing",
+    "ai_providers",
   ];
   return validTabs.includes(p as SettingsTab) ? (p as SettingsTab) : null;
 }

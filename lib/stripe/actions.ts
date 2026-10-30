@@ -6,7 +6,14 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getActiveOrganization } from "@/lib/organizations/queries";
 import { getOrganizationEntitlement, OrganizationEntitlement } from "@/lib/organizations/entitlements";
 import { getStripeClient } from "./client";
-import { resolveStripePriceId, getTrialDays, SUBSCRIPTION_PLANS } from "./config";
+import {
+  resolveStripePriceId,
+  getTrialDays,
+  SUBSCRIPTION_PLANS,
+  validateStripeEnvironment,
+} from "./config";
+import { evaluateLaunchReadiness } from "@/lib/compliance/quality-gates";
+import { isCountrySanctioned } from "@/lib/compliance/markets.config";
 import { SubscriptionTier } from "./types";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
@@ -60,6 +67,21 @@ export async function createCheckoutSessionAction(
     };
   }
 
+  // Verify market and trade sanctions restrictions
+  if (activeOrg.country) {
+    const sanction = isCountrySanctioned(activeOrg.country);
+    if (sanction.sanctioned) {
+      logger.warn("Checkout session blocked for sanctioned jurisdiction", {
+        orgId: activeOrg.id,
+        country: activeOrg.country,
+        reason: sanction.reason,
+      });
+      return {
+        error: `Access restricted: Commercial subscriptions are prohibited in your workspace jurisdiction (${activeOrg.country}) under international trade sanctions.`,
+      };
+    }
+  }
+
   // Validate internal plan ID against strict whitelist
   if (!["starter", "pro", "enterprise"].includes(planId)) {
     return { error: `Invalid plan selected: "${planId}".` };
@@ -77,6 +99,48 @@ export async function createCheckoutSessionAction(
       error:
         "Stripe is not yet configured in this environment. Please configure STRIPE_SECRET_KEY in .env.local.",
     };
+  }
+
+  // Enforce Commercial Launch Preconditions:
+  // Paid live checkout sessions are strictly prohibited if commercial launch is not READY_FOR_DEFINED_SCOPE,
+  // or if running in production without full Stripe production verification.
+  let stripeEnv;
+  let launchReadiness;
+  try {
+    stripeEnv = validateStripeEnvironment();
+    launchReadiness = evaluateLaunchReadiness();
+  } catch (evalErr) {
+    logger.error("Failed to evaluate launch readiness during checkout creation (fail-closed)", evalErr);
+    return {
+      error: "Commercial checkout is unavailable: compliance evaluation failed (fail-closed).",
+    };
+  }
+
+  if (stripeEnv.isLiveMode || process.env.NODE_ENV === "production") {
+    if (launchReadiness.decision !== "READY_FOR_DEFINED_SCOPE") {
+      logger.warn("Commercial checkout session blocked: launch pre-conditions unfulfilled", {
+        orgId: activeOrg.id,
+        decision: launchReadiness.decision,
+        openBlockers: launchReadiness.open_blockers.map((b) => b.id),
+      });
+      return {
+        error: `Commercial checkout is unavailable: commercial launch is pending external verification (${launchReadiness.prerequisites_for_launch.join(
+          "; "
+        )}). Live paid onboarding remains blocked until all pre-conditions are satisfied.`,
+      };
+    }
+
+    if (!stripeEnv.isProductionReady) {
+      logger.warn("Commercial checkout session blocked: Stripe production not ready", {
+        orgId: activeOrg.id,
+        pendingChecks: stripeEnv.pendingChecks,
+      });
+      return {
+        error: `Commercial checkout is unavailable: Stripe live production settings pending verification (${stripeEnv.pendingChecks.join(
+          "; "
+        )}).`,
+      };
+    }
   }
 
   // Resolve Stripe Price ID server-side
@@ -169,6 +233,7 @@ export async function createCheckoutSessionAction(
       mode: "subscription",
       customer: customerId,
       line_items: lineItems,
+      ...(process.env.STRIPE_AUTOMATIC_TAX === "true" ? { automatic_tax: { enabled: true } } : {}),
       subscription_data: {
         trial_period_days: trialDays,
         metadata: {
@@ -392,6 +457,37 @@ export async function verifyAndSyncCheckoutSession(sessionId: string): Promise<{
         error: "Forbidden: Checkout session environment mismatch.",
         code: "FORBIDDEN_ENV_MISMATCH",
       };
+    }
+
+    // Gate check on live entitlement redemption:
+    // If session was executed in live mode or under NODE_ENV=production,
+    // ensure commercial launch readiness has been fully satisfied.
+    if (session.livemode || process.env.NODE_ENV === "production") {
+      let launchReadiness;
+      try {
+        launchReadiness = evaluateLaunchReadiness();
+      } catch (evalErr) {
+        logger.error("Failed to evaluate launch readiness during session verification (fail-closed)", evalErr);
+        return {
+          success: false,
+          isEntitled: false,
+          error: "Forbidden: Compliance evaluation failed during session verification (fail-closed).",
+          code: "FORBIDDEN_COMPLIANCE_ERROR",
+        };
+      }
+
+      if (launchReadiness.decision !== "READY_FOR_DEFINED_SCOPE") {
+        logger.warn("Live session verification blocked: launch pre-conditions unfulfilled", {
+          sessionId,
+          decision: launchReadiness.decision,
+        });
+        return {
+          success: false,
+          isEntitled: false,
+          error: "Forbidden: Commercial launch is pending external verification. Live subscription activation is blocked.",
+          code: "FORBIDDEN_LAUNCH_BLOCKED",
+        };
+      }
     }
 
     // Verify session completion

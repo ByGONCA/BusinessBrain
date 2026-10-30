@@ -1,5 +1,5 @@
-import { CompanyBrainLoader } from "@/components/ui/company-brain-loader";
+import { BusinessBrainLoader } from "@/components/ui/company-brain-loader";
 
 export default function RootLoading() {
-  return <CompanyBrainLoader fullScreen={true} />;
+  return <BusinessBrainLoader fullScreen={true} />;
 }

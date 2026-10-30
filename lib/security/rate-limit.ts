@@ -28,6 +28,8 @@ export const RATE_LIMIT_PRESETS = {
   MUTATIONS: { limit: 10, windowSeconds: 60, failClosed: false },
   // AI trial queries / requests — fail-closed to protect model budgets during trial periods
   AI_TRIAL: { limit: 5, windowSeconds: 60, failClosed: true },
+  // AI generation and chat streaming — fail-closed to prevent burst quota exhaustion
+  AI_GENERATION: { limit: 20, windowSeconds: 60, failClosed: true },
   // Standard API endpoints
   API_STANDARD: { limit: 60, windowSeconds: 60, failClosed: false },
 } as const;

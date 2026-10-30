@@ -1,0 +1,35 @@
+name: Regulatory Compliance Monitor
+
+on:
+  schedule:
+    # Runs every Monday at 06:00 UTC
+    - cron: "0 6 * * 1"
+  workflow_dispatch: # Allows manual trigger for diagnostic and audit purposes
+
+concurrency:
+  group: compliance-monitor
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  monitor:
+    name: Scan Global Regulatory Horizon & Milestones
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Regulatory Horizon Monitor
+        run: npm run compliance:monitor

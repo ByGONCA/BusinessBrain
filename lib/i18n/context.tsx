@@ -7,13 +7,15 @@ import { es } from "./dictionaries/es";
 import { fr } from "./dictionaries/fr";
 import { pt } from "./dictionaries/pt";
 
+export { en, es, fr, pt };
+
 export const DEFAULT_LOCALE: Locale = "en";
 
 export const SUPPORTED_LOCALES: LocaleOption[] = [
   { code: "en", label: "English (US)", nativeLabel: "English" },
   { code: "es", label: "Spanish", nativeLabel: "Español" },
   { code: "fr", label: "French", nativeLabel: "Français" },
-  { code: "pt", label: "Portuguese", nativeLabel: "Português" },
+  { code: "pt", label: "Português", nativeLabel: "Português" },
 ];
 
 export const dictionaries: Record<Locale, Dictionary> = {
@@ -24,7 +26,22 @@ export const dictionaries: Record<Locale, Dictionary> = {
 };
 
 export function getDictionary(locale: Locale): Dictionary {
-  return dictionaries[locale] || dictionaries[DEFAULT_LOCALE];
+  return dictionaries[locale] || dictionaries[DEFAULT_LOCALE] || en;
+}
+
+/**
+ * Resolves a dot-notation key (e.g. "widgets.metrics.workspace.priorities.label")
+ * safely against a dictionary object, returning undefined if missing.
+ */
+export function resolveTranslationKey(dict: any, path: string): string | undefined {
+  if (!dict || !path) return undefined;
+  const parts = path.split(".");
+  let curr: any = dict;
+  for (const part of parts) {
+    if (curr == null || typeof curr !== "object") return undefined;
+    curr = curr[part];
+  }
+  return typeof curr === "string" ? curr : undefined;
 }
 
 interface LanguageContextValue {
@@ -36,8 +53,14 @@ interface LanguageContextValue {
 
 const LanguageContext = React.createContext<LanguageContextValue | null>(null);
 
-export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = React.useState<Locale>(DEFAULT_LOCALE);
+export function LanguageProvider({
+  children,
+  initialLocale,
+}: {
+  children?: React.ReactNode;
+  initialLocale?: Locale;
+}) {
+  const [locale, setLocaleState] = React.useState<Locale>(initialLocale || DEFAULT_LOCALE);
 
   // Initialize saved locale from localStorage
   React.useEffect(() => {
@@ -93,7 +116,18 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 export function useLanguage() {
   const context = React.useContext(LanguageContext);
   if (!context) {
-    throw new Error("useLanguage must be used within a LanguageProvider");
+    return {
+      locale: DEFAULT_LOCALE,
+      setLocale: () => {},
+      t: en,
+      interpolate: (text: string, params: Record<string, string | number>): string => {
+        let result = text || "";
+        for (const [key, value] of Object.entries(params)) {
+          result = result.replace(new RegExp(`\\{${key}\\}`, "g"), String(value));
+        }
+        return result;
+      },
+    };
   }
   return context;
 }

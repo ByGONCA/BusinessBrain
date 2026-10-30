@@ -203,5 +203,6 @@ Para garantir rigor técnico e evitar a confusão entre código desenvolvido, te
 | **Google Workspace & Meet** | ✅ 100% | ✅ Aprovado (51 testes) | ⚠️ Pendente credenciais live | `lib/integrations/google/` |
 | **Integração Slack & Eventos** | ✅ 100% | ✅ Aprovado (51 testes) | ⚠️ Pendente app Slack live | `lib/integrations/slack/`, `app/api/webhooks/slack/` |
 | **Importadores Confluence/Notion** | ✅ 100% | ✅ Aprovado (51 testes) | ⚠️ Pendente export de clientes | `lib/integrations/importers/` |
+| **Dashboards Personalizáveis (CAS)** | ✅ 100% | ✅ 145 testes workspace + 34 testes PG 16 | 🟡 VALIDADO COM LIMITAÇÕES (RPC Staging ativa; escrita remota pendente de credenciais de teste) | `lib/widgets/`, `database/migrations/00037_dashboard_layout_cas.sql` |
 | **API Pública Enterprise** | ✅ 100% | ✅ Aprovado (51 testes) | ⚠️ Pendente rota de produção | `lib/api-keys/`, `app/api/v1/` |
 | **IA, RAG & Gemini** | ❌ Apenas contratos | N/A | N/A (Estritamente interdito) | `lib/ai/gemini.ts` |

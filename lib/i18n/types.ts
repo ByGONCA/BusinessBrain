@@ -624,6 +624,23 @@ export interface Dictionary {
     viewAllActivity: string;
     noRecentActivity: string;
     timelineSubtitle: string;
+    prioritySectionTitle: string;
+    priorityActionRequired: string;
+    allSystemsOperational: string;
+    pendingReview: string;
+    urgentPriority: string;
+    recentContext: string;
+    quickJump: string;
+    noActiveProjects: string;
+    createFirstProject: string;
+    createFirstDocument: string;
+    mrrLabel: string;
+    netRevenueLabel: string;
+    statusOperational: string;
+    noRecentContext: string;
+    actionItems: string;
+    proposed: string;
+    inProgress: string;
   };
   landing: {
     nav: {
@@ -793,6 +810,209 @@ export interface Dictionary {
       privacy: string;
       rights: string;
       builtForTeams: string;
+    };
+  };
+  widgets: {
+    customize: string;
+    customizingHome: string;
+    customizingFinance: string;
+    toolbarDescription: string;
+    unsaved: string;
+    addWidget: string;
+    defaults: string;
+    defaultsTooltip: string;
+    cancel: string;
+    save: string;
+    saving: string;
+    savedSuccess: string;
+    saveError: string;
+    conflictTitle: string;
+    conflictDesc: string;
+    reloadReview: string;
+    forceOverwrite: string;
+    drawerTitleAdd: string;
+    drawerTitleEdit: string;
+    drawerDescription: string;
+    livePreview: string;
+    previewSubtitle: string;
+    categoryAll: string;
+    categoryWorkspace: string;
+    categoryFinance: string;
+    categoryPages: string;
+    categoryConnections: string;
+    categoryActivity: string;
+    categoryDecisions: string;
+    searchMetrics: string;
+    noMetricsFound: string;
+    selectMetric: string;
+    visualizationType: string;
+    timeWindow: string;
+    granularity: string;
+    granularityMonthly: string;
+    granularityDaily: string;
+    entityFilters: string;
+    gridDimensions: string;
+    customTitle: string;
+    updateWidget: string;
+    addToDashboard: string;
+    sizeCompact: string;
+    sizeCompactDesc: string;
+    sizeStandard: string;
+    sizeStandardDesc: string;
+    sizeWide: string;
+    sizeWideDesc: string;
+    sizeFull: string;
+    sizeFullDesc: string;
+    visKpi: string;
+    visChart: string;
+    visBar: string;
+    visTable: string;
+    visPriorities: string;
+    visPulseKpis: string;
+    visStrip: string;
+    visTopology: string;
+    visPages: string;
+    visTimeline: string;
+    visProgress: string;
+    visGauge: string;
+    visAgenda: string;
+    visCards: string;
+    freeWidth: string;
+    freeHeight: string;
+    rowPlacement: string;
+    newRowBelow: string;
+    realTime: string;
+    availableFormats: string;
+    alignLeft: string;
+    alignCenter: string;
+    alignRight: string;
+    horizontalPosition: string;
+    horizontalOffset: string;
+    moveLeft: string;
+    moveRight: string;
+    splitInHalf: string;
+    sideBySide: string;
+    forceRowBreak: string;
+    addTab: string;
+    manageTabs: string;
+    heightNormal: string;
+    heightCompact: string;
+    heightTall: string;
+    resizeWidth: string;
+    configureWidget: string;
+    removeWidget: string;
+    errorTitle: string;
+    errorDesc: string;
+    retry: string;
+    emptyTitle: string;
+    emptyDesc: string;
+    stripeNotConnected: string;
+    vsPrevious30Days: string;
+    vsPreviousPeriod: string;
+    activeRecurringSubs: string;
+    annualizedRunRate: string;
+    inTrialPeriod: string;
+    noHistoricalData: string;
+    noPlansRecorded: string;
+    noActiveProjects: string;
+    noDecisionsRecorded: string;
+    allPrioritiesUpToDate: string;
+    noUrgentPriorities: string;
+    monthlyVerified: string;
+    dailyEstimated: string;
+    metrics: {
+      finance: {
+        net_revenue: {
+          label: string;
+          description: string;
+        };
+        gross_revenue: {
+          label: string;
+          description: string;
+        };
+        mrr: {
+          label: string;
+          description: string;
+        };
+        arr: {
+          label: string;
+          description: string;
+        };
+        active_subscriptions: {
+          label: string;
+          description: string;
+        };
+        active_customers: {
+          label: string;
+          description: string;
+        };
+        refunds: {
+          label: string;
+          description: string;
+        };
+        plans_breakdown: {
+          label: string;
+          description: string;
+        };
+        pulse_strip: {
+          label: string;
+          description: string;
+        };
+      };
+      workspace: {
+        priorities: {
+          label: string;
+          description: string;
+        };
+        projects: {
+          label: string;
+          description: string;
+        };
+        decisions: {
+          label: string;
+          description: string;
+        };
+        pulse_kpis: {
+          label: string;
+          description: string;
+        };
+        topology_map: {
+          label: string;
+          description: string;
+        };
+        recent_pages: {
+          label: string;
+          description: string;
+        };
+        timeline_activity: {
+          label: string;
+          description: string;
+        };
+        projects_count: {
+          label: string;
+          description: string;
+        };
+        decisions_count: {
+          label: string;
+          description: string;
+        };
+        pages_count: {
+          label: string;
+          description: string;
+        };
+        connections_count: {
+          label: string;
+          description: string;
+        };
+      };
+    };
+    filters: {
+      status: string;
+      all: string;
+      active: string;
+      completed: string;
+      proposed: string;
+      accepted: string;
     };
   };
 }

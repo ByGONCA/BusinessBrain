@@ -1,25 +1,23 @@
 "use client";
 
 import * as React from "react";
-import { Sparkles, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/lib/i18n";
 
-export interface CompanyBrainLoaderProps {
+export interface BusinessBrainLoaderProps {
   /**
    * If true, expands to cover the available viewport (min-h-screen).
-   * If false, fills the parent container (e.g. inside dashboard main content).
+   * If false, fills the parent container (e.g. inside dashboard main content or card suspense).
    * @default true
    */
   fullScreen?: boolean;
   /**
    * Status label displayed below the brand icon.
-   * Product standard is "Loading...".
-   * Kept configurable for future asynchronous operations (e.g., AI analysis, document indexing).
-   * @default "Loading..."
+   * If omitted, automatically uses the localized string from the active language dictionary.
    */
   text?: string;
   /**
-   * Whether to display the Company Brain logo and wordmark.
+   * Whether to display the BusinessBrain logo and wordmark.
    * @default true
    */
   showBrand?: boolean;
@@ -29,50 +27,64 @@ export interface CompanyBrainLoaderProps {
   className?: string;
 }
 
-export function CompanyBrainLoader({
+export type CompanyBrainLoaderProps = BusinessBrainLoaderProps;
+
+export function BusinessBrainLoader({
   fullScreen = true,
-  text = "Loading...",
+  text,
   showBrand = true,
   className,
-}: CompanyBrainLoaderProps) {
+}: BusinessBrainLoaderProps) {
+  const { t } = useLanguage();
+  const statusText = text ?? t?.common?.loading ?? "Loading...";
+
   return (
     <div
       role="status"
       aria-live="polite"
       aria-busy="true"
       className={cn(
-        "flex flex-col items-center justify-center text-slate-100",
+        "flex flex-col items-center justify-center bg-background text-foreground transition-colors duration-150 select-none",
         fullScreen
-          ? "min-h-screen w-full bg-slate-950 px-4"
-          : "h-full min-h-[360px] w-full flex-1 p-8",
+          ? "min-h-screen w-full px-4"
+          : "h-full min-h-[260px] w-full flex-1 p-6",
         className
       )}
     >
-      <div className="flex flex-col items-center text-center">
-        {showBrand && (
-          <div className="flex flex-col items-center">
-            {/* Branded Logo Mark */}
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-lg shadow-blue-500/20">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            {/* Wordmark */}
-            <span className="mt-3 text-sm font-semibold tracking-tight text-white">
-              Company Brain
-            </span>
-          </div>
-        )}
-
-        {/* Subtle Animated Indicator & Status Label */}
-        <div className={cn("flex items-center gap-2", showBrand ? "mt-4" : "")}>
-          <Loader2 className="h-4 w-4 animate-spin text-blue-500 motion-reduce:animate-none" />
-          <span className="text-xs font-medium text-slate-400">
-            {text}
-          </span>
+      <div className="flex flex-col items-center justify-center text-center">
+        {/* Animated Brand Network Icon Spinning Directly */}
+        <div className="relative flex items-center justify-center">
+          <svg
+            className="h-8 w-8 animate-spin text-foreground motion-reduce:animate-none"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="6" cy="6" r="3" />
+            <circle cx="18" cy="6" r="3" />
+            <circle cx="12" cy="18" r="3" />
+            <line x1="8.5" y1="7.5" x2="10" y2="15.5" />
+            <line x1="15.5" y1="7.5" x2="14" y2="15.5" />
+          </svg>
         </div>
 
+        {/* Optional Contextual Status Label (only rendered if explicit text is provided) */}
+        {text && (
+          <span className="mt-3 text-xs font-medium text-muted-foreground">
+            {text}
+          </span>
+        )}
+
         {/* Accessible Screen Reader Announcer */}
-        <span className="sr-only">{text}</span>
+        <span className="sr-only">{statusText}</span>
       </div>
     </div>
   );
 }
+
+// Backward-compatible alias for existing imports
+export const CompanyBrainLoader = BusinessBrainLoader;

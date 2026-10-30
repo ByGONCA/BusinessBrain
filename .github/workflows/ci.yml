@@ -8,7 +8,7 @@ on:
 
 jobs:
   verify:
-    name: Typecheck, Lint, Build & Security Audit
+    name: Typecheck, Lint, Compliance, Build & Security Audit
     runs-on: ubuntu-latest
 
     steps:
@@ -29,6 +29,9 @@ jobs:
 
       - name: Run ESLint
         run: npm run lint
+
+      - name: Run Global Legal Compliance Quality Gate (Pre-Build Release Gate)
+        run: npm run compliance:check
 
       - name: Run Next.js production build
         run: npm run build

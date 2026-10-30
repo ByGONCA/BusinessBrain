@@ -1,56 +1,55 @@
-import { AIProvider, CompletionOptions, CompletionResponse, EmbeddingOptions, EmbeddingResponse } from "./types";
+import {
+  AIProviderAdapter,
+  AIChatMessage,
+  ChatCompletionOptions,
+  ChatCompletionResponse,
+  StreamChunk,
+  EmbeddingOptions,
+  EmbeddingResponse,
+} from "./types";
+import { GeminiAdapter } from "./adapters/gemini";
+import { DEFAULT_GEMINI_MODEL } from "./config";
 
 /**
- * Google Gemini AI Provider implementation placeholder.
- *
- * ARCHITECTURAL RULE:
- * - Direct AI calls are NOT implemented in Phase 0 Foundation.
- * - This class encapsulates configuration and prepares the provider contract for Phase 3.
+ * Google Gemini AI Provider implementation.
+ * Wraps GeminiAdapter for backward compatibility with earlier Phase 0 placeholder references.
  */
-export class GeminiProvider implements AIProvider {
+export class GeminiProvider implements AIProviderAdapter {
+  readonly id = "gemini";
+  readonly displayName = "Google Gemini";
+  readonly defaultModel = DEFAULT_GEMINI_MODEL;
   readonly name = "gemini";
-  private apiKey: string | null = null;
-  private defaultModel = "gemini-1.5-flash";
+  private adapter: GeminiAdapter;
 
-  constructor() {
-    this.apiKey = process.env.GEMINI_API_KEY || null;
-  }
-
-  private ensureConfigured() {
-    if (!this.apiKey) {
-      throw new Error(
-        "GeminiProvider is not configured. Missing GEMINI_API_KEY environment variable."
-      );
-    }
+  constructor(apiKey?: string) {
+    this.adapter = new GeminiAdapter(apiKey);
   }
 
   async generateText(
-    prompt: string,
-    options?: CompletionOptions
-  ): Promise<CompletionResponse> {
-    this.ensureConfigured();
-    throw new Error(
-      "Gemini AI generation is deferred to Phase 3. Foundation scope active."
-    );
+    messages: AIChatMessage[],
+    options?: ChatCompletionOptions
+  ): Promise<ChatCompletionResponse> {
+    return this.adapter.generateText(messages, options);
   }
 
   async *generateStream(
-    prompt: string,
-    options?: CompletionOptions
-  ): AsyncIterable<string> {
-    this.ensureConfigured();
-    throw new Error(
-      "Gemini streaming is deferred to Phase 3. Foundation scope active."
-    );
+    messages: AIChatMessage[],
+    options?: ChatCompletionOptions
+  ): AsyncIterable<StreamChunk> {
+    yield* this.adapter.generateStream(messages, options);
+  }
+
+  async validateCredential(
+    apiKey: string,
+    customBaseUrl?: string
+  ): Promise<{ valid: boolean; error?: string }> {
+    return this.adapter.validateCredential(apiKey, customBaseUrl);
   }
 
   async createEmbeddings(
-    text: string,
-    options?: EmbeddingOptions
+    _text: string,
+    _options?: EmbeddingOptions
   ): Promise<EmbeddingResponse> {
-    this.ensureConfigured();
-    throw new Error(
-      "Gemini embeddings generation is deferred to Phase 3. Foundation scope active."
-    );
+    throw new Error("Gemini embeddings generation is deferred to Phase 3 vector search.");
   }
 }

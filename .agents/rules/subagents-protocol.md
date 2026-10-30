@@ -10,7 +10,14 @@
 O BusinessBrain adota uma **arquitetura de agente principal com subagentes especializados sob demanda (Lead-Agent with On-Demand Specialists)**.
 
 1. **Agente Principal como Autoridade Única**: O agente principal (Lead Agent) detém o contexto integral da conversa com o utilizador, a responsabilidade técnica e o controlo das alterações. Subagentes são ferramentas auxiliares de apoio pontual, nunca substitutos da autoridade do agente principal.
-2. **Zero Delegação por Rotina**: Nunca delegar por hábito ou conveniência superficial. A delegação a subagentes introduz sobrecarga de tokens, latência de coordenação e potenciais divergências de contexto. Se uma tarefa pode ser resolvida pelo agente principal em 1 a 3 passos diretos, a delegação é expressamente proibida.
+2. **Avaliação Obrigatória Pré-Tarefa & Autonomia Total de Execução (Regra Universal)**: Em **todo o projeto e em todos os prompts**, o Lead Agent deve realizar uma triagem prévia:
+   - Avaliar obrigatoriamente se a tarefa beneficia da intervenção de subagentes.
+   - **Zero Pedidos de Autorização ao Utilizador**: O agente tem autorização permanente para invocar subagentes sempre que necessário. Nunca deve interromper o fluxo para perguntar "posso usar subagentes?".
+   - **Tripla Otimização Contínua**: O acionamento visa rigorosamente:
+     1. **Melhor resposta e precisão possível**: delegar para especialistas com foco aprofundado no domínio.
+     2. **Melhor desempenho do trabalho**: execução paralela de vertentes independentes (segurança, governança, UI, finanças, testes).
+     3. **Menor consumo de tokens possível**: preservar a janela de contexto principal limpa, evitando carregar ficheiros pesados ou saídas brutas de investigação na sessão principal.
+   - Tarefas estritamente cirúrgicas (1-2 edições pontuais num ficheiro único e conhecido) continuam a ser executadas diretamente pelo Lead Agent para evitar latência desnecessária.
 3. **Privilégio Mínimo e Imutabilidade por Padrão**: Subagentes de análise e auditoria operam sob o princípio do menor privilégio com todas as permissões de mutação e MCP desligadas (`EnableWriteTools: false`, `EnableSubagentTools: false`, `EnableMCPTools: false`). Subagentes de escrita são estritamente opcionais para criação extensiva de testes e exigem isolamento de working tree (`Workspace: 'share'`).
 4. **Distinção entre Documentação e Runtime**: A existência de ficheiros Markdown descrevendo perfis de agentes **não cria automaticamente processos persistentes em background** no Antigravity CLI. No Antigravity, subagentes personalizados são registados em runtime de sessão através da ferramenta canónica `define_subagent` e existem apenas durante a sessão de conversa ativa.
 5. **Transparência de Limitações Técnicas**: Regras instrucionais em prompts não devem ser apresentadas como garantias técnicas de segurança de sistema operativo ou sandbox de caminhos.
@@ -96,16 +103,40 @@ O BusinessBrain adota uma **arquitetura de agente principal com subagentes espec
 
 ---
 
+---
+
+### E. Subagente Especializado: `global-legal-compliance-agent` (Global Legal & Regulatory Reviewer)
+- **Tipo**: Subagente personalizado registado sob demanda via `define_subagent`.
+- **Documento Canónico**: [`docs/compliance/GLOBAL_LEGAL_COMPLIANCE_AGENT.md`](../../docs/compliance/GLOBAL_LEGAL_COMPLIANCE_AGENT.md).
+- **Permissões (Menor Privilégio)**:
+  - `EnableWriteTools: false` (Estritamente de leitura; sem mutações de código).
+  - `EnableSubagentTools: false` (Sem invocação de outros agentes).
+  - `EnableMCPTools: false` (Sem exposição a MCPs de mutação de terceiros).
+- **Workspace**: `Workspace: 'inherit'` (Seguro pois é estritamente analítico e read-only).
+- **Modelo Recomendado**: `flash` (triagens e marketing) ou `inherit`/`pro` (auditorias regulatórias multi-jurisdicionais profundas).
+- **Âmbito de Investigação**:
+  - 10 domínios obrigatórios: IA, profissões regulamentadas, proteção de dados, marketing internacional, e-commerce/consumidor, pagamentos/subscrições, contratos, propriedade intelectual, cibersegurança e normas setoriais.
+  - Granularidade estrita: diferenciação federal/estadual (EUA, Canadá, Austrália), transposição na UE, enquadramento pós-Brexit no Reino Unido e articulação LGPD/CDC no Brasil.
+  - Quality Gates vinculativos: riscos `CRITICAL` ou `HIGH` bloqueiam aprovação para produção.
+- **Contrato de Retorno**:
+  - Relatório estruturado em 17 pontos com citações de fontes oficiais e condições de aceitação verificáveis.
+  - Rejeição de disclaimers como substitutos de conformidade substantiva.
+
+---
+
 ## 3. Matriz de Decisão: Quando Delegar vs. Quando Trabalhar Sozinho
 
 | Cenário de Desenvolvimento | Ação Recomendada | Justificação Técnica |
 | :--- | :--- | :--- |
-| **Correção de bug de UI, tipografia, animações ou CSS** | **Agente Principal sozinho** | Tarefa localizada. Delegar gastaria mais tokens no prompt de transferência do que na própria correção. |
+| **Correção cirúrgica de bug de UI, tipografia, animações ou CSS (1 ficheiro conhecido)** | **Agente Principal sozinho** | Tarefa estritamente localizada. O contexto atual é suficiente. |
 | **Ajuste num endpoint ou Server Action existente** | **Agente Principal sozinho** | O contexto local é suficiente. Testar diretamente com `npm run typecheck`. |
 | **Dúvida sobre a localização de um símbolo ou ficheiro conhecido** | **Agente Principal sozinho** | Consultar diretamente [`docs/CODEBASE_MAP.md`](../../docs/CODEBASE_MAP.md) sem invocar subagente. |
-| **Exploração de arquitetura não familiar (>10 ficheiros)** | **Delegar a `research`** | Preserva a janela de contexto principal limpa e consome zero risco de escrita. |
+| **Exploração de múltiplos ficheiros (> 2-3 ficheiros) ou documentação externa** | **Delegar a `research` (Autónomo)** | Preserva a janela de contexto principal limpa e poupa dezenas de milhares de tokens. |
+| **Auditoria integrada de segurança, RLS ou Multi-Tenancy** | **Delegar a `security-auditor` (Autónomo)** | Análise independente e aprofundada sem sobrecarregar a sessão principal com outputs volumosos. |
+| **Auditoria multi-domínio em simultâneo (Segurança, Governança, UI, Finanças, Testes)** | **Delegar em paralelo a subagentes especializados (Autónomo)** | Máxima qualidade, paralelização de trabalho e mínima pegada de tokens no Lead Agent. |
 | **Alteração em RLS, Auth Middleware ou Webhook Stripe** | **Delegar auditoria a `security-auditor`** | Modelo "four-eyes": análise estática de segurança independente por modelo especializado. |
-| **Criação de 3+ novas suites de teste para novo módulo** | **Delegar a `test-engineer` (`Workspace: 'share'`)** | Permite desenvolver testes em paralelo em worktree isolado sem sujar a working tree principal. |
+| **Alteração em IA, Pagamentos, Consentimento, Marketing ou Novos Mercados** | **Delegar a `global-legal-compliance-agent` (Autónomo)** | Avaliação preventiva obrigatória multi-jurisdicional com fontes primárias oficiais e quality gates de produção. |
+| **Criação de 3+ novas suites de teste para novo módulo** | **Delegar a `test-engineer` (`Workspace: 'share'`) (Autónomo)** | Permite desenvolver testes em paralelo em worktree isolado sem sujar a working tree principal. |
 
 ---
 
@@ -189,3 +220,33 @@ No Google Antigravity, para ativar os subagentes especializados quando uma taref
 }
 ```
 *(Atenção: O parâmetro `Workspace: "share"` é obrigatório. Nunca omitir nem usar `"inherit"`).*
+
+
+### 5.5 Registo do `global-legal-compliance-agent`
+```json
+{
+  "tool": "define_subagent",
+  "parameters": {
+    "Name": "global-legal-compliance-agent",
+    "Description": "Especialista analítico em conformidade legal, regulatória e proteção de dados a nível mundial para o BusinessBrain. Operação estritamente de leitura, menor privilégio e foco em fontes primárias oficiais.",
+    "EnableWriteTools": false,
+    "EnableSubagentTools": false,
+    "EnableMCPTools": false,
+    "SystemPrompt": "És o BusinessBrain Global Legal Compliance Agent. A tua missão é investigar, avaliar e documentar riscos legais e regulatórios a nível mundial com rigor implacável. Privilegia sempre fontes primárias e oficiais (EUR-Lex, FTC, SEC, ICO, ANPD, Diários Oficiais). Distingue estritamente legislação em vigor, normas com entrada futura e propostas legislativas. Diferencia níveis federais e estaduais (EUA, Canadá, Austrália). Rejeita o viés de universalização portuguesa/europeia. Trata disclaimers contratuais como ineficazes para afastar normas imperativas. Opera em modo estritamente só de leitura, fornecendo recomendações técnicas e condições de aceitação verificáveis."
+  }
+}
+```
+
+### 5.6 Invocação do `global-legal-compliance-agent`
+```json
+{
+  "tool": "invoke_subagent",
+  "parameters": {
+    "TypeName": "global-legal-compliance-agent",
+    "Role": "Global Regulatory Compliance Specialist",
+    "Model": "flash",
+    "Workspace": "inherit",
+    "Prompt": "Avalia o impacto legal e regulatório da funcionalidade [X] nos mercados [US, EU, GB, BR]. Analisa fontes oficiais vigentes, identifica riscos (CRITICAL a LOW) e estabelece condições de aceitação mensuráveis para aprovação de produção."
+  }
+}
+```

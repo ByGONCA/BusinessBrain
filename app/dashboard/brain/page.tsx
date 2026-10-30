@@ -25,6 +25,13 @@ export default function BrainPage() {
 
         <div className="flex items-center gap-2">
           <Link
+            href="/dashboard/brain/chat"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-3 py-1.5 text-xs font-semibold hover:opacity-90 transition-opacity shadow-xs"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-blue-400" />
+            <span>Abrir AI Chat</span>
+          </Link>
+          <Link
             href="/dashboard/connections"
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-hover hover:text-foreground transition-colors shadow-2xs"
           >

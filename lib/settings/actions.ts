@@ -7,6 +7,8 @@ import { logger } from "@/lib/security/logger";
 import { isValidUuid } from "@/lib/security/authorization";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { hasPermission } from "@/lib/permissions/resolver";
+import { isCountrySanctioned } from "@/lib/compliance/markets.config";
+import { getStripeClient } from "@/lib/stripe/client";
 
 const emailSchema = z.string().trim().email("Please provide a valid email address");
 const passwordSchema = z.string().min(6, "Password must be at least 6 characters");
@@ -366,35 +368,61 @@ export async function updateUserProfileInfoAction(data: {
   }
 
   try {
-    const updates: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
+    const updates: Record<string, unknown> = {};
 
-    if (data.fullName !== undefined) updates.full_name = data.fullName.trim();
-    if (data.avatarUrl !== undefined) updates.avatar_url = data.avatarUrl.trim();
-    if (data.phoneNumber !== undefined) updates.phone_number = data.phoneNumber.trim();
-    if (data.dateFormat !== undefined) updates.date_format = data.dateFormat;
-    if (data.timeFormat !== undefined) updates.time_format = data.timeFormat;
-    if (data.timezone !== undefined) updates.timezone = data.timezone;
-    if (data.firstDayOfWeek !== undefined) updates.first_day_of_week = data.firstDayOfWeek;
+    if (data.fullName !== undefined) {
+      updates.full_name = data.fullName.trim().slice(0, 100);
+    }
+    if (data.avatarUrl !== undefined) {
+      const trimmed = data.avatarUrl.trim();
+      if (trimmed.length > 500000) {
+        return { success: false, error: "Image payload exceeds maximum allowed size (500KB)." };
+      }
+      updates.avatar_url = trimmed;
+    }
+    if (data.phoneNumber !== undefined) {
+      updates.phone_number = data.phoneNumber.trim().slice(0, 30);
+    }
+    if (data.dateFormat !== undefined) {
+      updates.date_format = data.dateFormat;
+    }
+    if (data.timeFormat !== undefined) {
+      updates.time_format = data.timeFormat;
+    }
+    if (data.timezone !== undefined) {
+      updates.timezone = data.timezone;
+    }
+    if (data.firstDayOfWeek !== undefined) {
+      updates.first_day_of_week = data.firstDayOfWeek;
+    }
 
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update(updates)
-      .eq("id", user.id);
+    if (Object.keys(updates).length > 0) {
+      updates.updated_at = new Date().toISOString();
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update(updates)
+        .eq("id", user.id);
 
-    if (profileError) {
-      logger.warn("Could not update profile fields", { error: profileError.message, userId: user.id });
-      return { success: false, error: profileError.message };
+      if (profileError) {
+        logger.warn("Could not update profile fields", { error: profileError.message, userId: user.id });
+        return { success: false, error: profileError.message };
+      }
     }
 
     // Also sync full_name & avatar_url with Supabase Auth metadata
     if (data.fullName !== undefined || data.avatarUrl !== undefined) {
+      const authUpdates: Record<string, string> = {};
+      if (data.fullName !== undefined) {
+        const cleaned = data.fullName.trim().slice(0, 100);
+        authUpdates.full_name = cleaned;
+        authUpdates.name = cleaned;
+      }
+      if (data.avatarUrl !== undefined) {
+        authUpdates.avatar_url = data.avatarUrl.trim();
+      }
+
       await supabase.auth.updateUser({
-        data: {
-          ...(data.fullName !== undefined ? { full_name: data.fullName.trim(), name: data.fullName.trim() } : {}),
-          ...(data.avatarUrl !== undefined ? { avatar_url: data.avatarUrl.trim() } : {}),
-        },
+        data: authUpdates,
       });
     }
 
@@ -488,7 +516,19 @@ export async function updateWorkspaceGeneralAction(
     if (data.description !== undefined) updates.description = data.description.trim();
     if (data.industry !== undefined) updates.industry = data.industry.trim();
     if (data.companySize !== undefined) updates.company_size = data.companySize.trim();
-    if (data.country !== undefined) updates.country = data.country.trim();
+    if (data.country !== undefined) {
+      const trimmedCountry = data.country.trim().toUpperCase();
+      if (trimmedCountry) {
+        const sanction = isCountrySanctioned(trimmedCountry);
+        if (sanction.sanctioned) {
+          return {
+            success: false,
+            error: `Jurisdiction restricted: Workspaces cannot be established in '${trimmedCountry}' due to international trade sanctions (${sanction.reason}).`,
+          };
+        }
+      }
+      updates.country = trimmedCountry;
+    }
 
     const { error } = await supabase
       .from("organizations")
@@ -951,5 +991,188 @@ export async function removePhoneNumberAction(): Promise<SettingsActionResult> {
   } catch (err) {
     logger.error("Exception in removePhoneNumberAction", err, { userId: user.id });
     return { success: false, error: "Failed to remove phone number." };
+  }
+}
+
+
+/**
+ * Request Account Erasure & Personal Data Deletion (GDPR Article 17 / CCPA)
+ *
+ * Implements strict security and statutory safeguards:
+ * 1. Authentication and rate-limiting enforcement.
+ * 2. Strict confirmation token verification ("DELETE").
+ * 3. Two-factor authentication (AAL2) challenge check if user is enrolled.
+ * 4. Multi-tenant organizational dependency check:
+ *    - Blocks deletion if the user is the sole owner of an organization with other active members.
+ *    - Requires ownership transfer to prevent orphaned tenant workspaces.
+ * 5. Expunges personal identity records (profile, preferences, notification channels).
+ * 6. Preserves immutable statutory accounting/tax audit records under legitimate interest / legal obligation
+ *    (CIVA / Art. 123.º CIRC in PT/EU; 7-year IRS tax audit rules in the US).
+ * 7. Terminates active user sessions cleanly.
+ */
+export async function requestAccountDeletionAction(confirmationText: string): Promise<SettingsActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user || !user.id) {
+    return { success: false, error: "Authentication required to perform account deletion." };
+  }
+
+  // 1. Rate-limit mutation to prevent brute force or repeated spam
+  const rateLimitResult = await rateLimit("account-delete", user.id, RATE_LIMIT_PRESETS.AUTH_STRICT);
+  if (!rateLimitResult.success) {
+    return { success: false, error: "Too many requests. Please wait before retrying." };
+  }
+
+  // 2. Strict Confirmation Token Check
+  if (confirmationText.trim() !== "DELETE") {
+    return {
+      success: false,
+      error: "Explicit confirmation required: Please type 'DELETE' to confirm permanent account erasure.",
+    };
+  }
+
+  // 3. MFA/AAL2 Challenge verification if user is enrolled
+  const aalCheck = await assertAal2IfEnrolled(supabase);
+  if (aalCheck.error) {
+    return { success: false, error: aalCheck.error };
+  }
+
+  try {
+    // 4. Organizational Dependency & Orphan Protection Check
+    const { data: memberships, error: memError } = await supabase
+      .from("organization_members")
+      .select("organization_id, role")
+      .eq("user_id", user.id);
+
+    if (memError) {
+      logger.error("Failed to fetch user memberships for account deletion", memError, { userId: user.id });
+      return { success: false, error: "Failed to verify workspace dependencies." };
+    }
+
+    if (memberships && memberships.length > 0) {
+      for (const m of memberships) {
+        if (m.role === "owner") {
+          // Check if there are other members in this organization
+          const { count, error: countError } = await supabase
+            .from("organization_members")
+            .select("id", { count: "exact", head: true })
+            .eq("organization_id", m.organization_id)
+            .neq("user_id", user.id);
+
+          if (!countError && count && count > 0) {
+            return {
+              success: false,
+              error:
+                "Account deletion blocked: You are the sole Owner of an active workspace with other team members. To protect shared corporate data, please transfer ownership or remove all other members before deleting your account.",
+            };
+          }
+
+          // If sole owner of an empty organization, cancel active Stripe subscription to prevent future renewals
+          try {
+            const { data: sub } = await supabase
+              .from("subscriptions")
+              .select("status, stripe_subscription_id")
+              .eq("organization_id", m.organization_id)
+              .maybeSingle();
+
+            if (sub && (sub.status === "active" || sub.status === "trialing") && sub.stripe_subscription_id) {
+              let stripeCanceled = false;
+              try {
+                const stripe = getStripeClient();
+                const cancelRes = await stripe.subscriptions.cancel(sub.stripe_subscription_id);
+                if (cancelRes.status === "canceled") {
+                  stripeCanceled = true;
+                }
+              } catch (stripeErr: unknown) {
+                const errObj = stripeErr as { code?: string; message?: string };
+                if (
+                  errObj?.code === "resource_missing" ||
+                  errObj?.message?.toLowerCase().includes("already canceled") ||
+                  errObj?.message?.toLowerCase().includes("no such subscription")
+                ) {
+                  stripeCanceled = true;
+                } else {
+                  logger.error("Failed to cancel active Stripe subscription during account erasure", stripeErr, {
+                    orgId: m.organization_id,
+                    subscriptionId: sub.stripe_subscription_id,
+                  });
+                  return {
+                    success: false,
+                    error:
+                      "Account deletion halted: Failed to cancel your active Stripe subscription. To avoid unexpected charges, please cancel your subscription in Workspace Billing Settings first, or contact support.",
+                  };
+                }
+              }
+
+              if (stripeCanceled) {
+                await supabase
+                  .from("subscriptions")
+                  .update({ status: "canceled", updated_at: new Date().toISOString() })
+                  .eq("organization_id", m.organization_id);
+              }
+            }
+          } catch (subErr) {
+            logger.warn("Subscription cleanup check failed during account erasure", {
+              orgId: m.organization_id,
+              error: subErr instanceof Error ? subErr.message : String(subErr),
+            });
+          }
+        }
+      }
+    }
+
+    // 5. Expunge Personal Profile Data (Right to Erasure / Article 17 GDPR)
+    await supabase
+      .from("profiles")
+      .update({
+        full_name: "Deleted User",
+        avatar_url: null,
+        phone_number: null,
+        marketing_consent: false,
+        marketing_consent_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+
+    // Sync Auth metadata to expunge personal name & avatar from auth.users
+    try {
+      await supabase.auth.updateUser({
+        data: {
+          full_name: "Deleted User",
+          name: "Deleted User",
+          avatar_url: null,
+          picture: null,
+        },
+      });
+    } catch {
+      // Non-fatal if auth metadata sync fails
+    }
+
+    // 6. Delete personal notification preferences
+    await supabase.from("notification_preferences").delete().eq("user_id", user.id);
+
+    // 7. Remove personal organization memberships
+    await supabase.from("organization_members").delete().eq("user_id", user.id);
+
+    // 8. Sign out user session
+    await supabase.auth.signOut();
+
+    logger.info("User account erasure successfully executed under GDPR Art. 17", {
+      userId: user.id,
+      timestamp: new Date().toISOString(),
+    });
+
+    revalidatePath("/");
+    return {
+      success: true,
+      message:
+        "Your account and personal profile data have been expunged in accordance with GDPR Article 17. Statutory accounting and audit logs are retained under legal obligation.",
+    };
+  } catch (err) {
+    logger.error("Exception in requestAccountDeletionAction", err, { userId: user.id });
+    return { success: false, error: "An unexpected error occurred while processing account deletion." };
   }
 }

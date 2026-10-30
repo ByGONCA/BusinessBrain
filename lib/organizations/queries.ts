@@ -35,6 +35,7 @@ export const getUserOrganizations = cache(async (): Promise<OrganizationWithRole
         name,
         slug,
         created_by,
+        workspace_type,
         status,
         created_at,
         updated_at

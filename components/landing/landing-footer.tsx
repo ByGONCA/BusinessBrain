@@ -224,19 +224,19 @@ export function LandingFooter() {
               </h4>
               <ul className="mt-3 space-y-2.5">
                 <li>
-                  <span className="text-[#71717A] dark:text-[#A1A1AA] cursor-default transition-colors duration-150">
+                  <Link href="/terms" className="text-[#71717A] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F4F4F5] transition-colors duration-150">
                     {t.landing.footer.terms}
-                  </span>
+                  </Link>
                 </li>
                 <li>
-                  <span className="text-[#71717A] dark:text-[#A1A1AA] cursor-default transition-colors duration-150">
+                  <Link href="/privacy" className="text-[#71717A] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F4F4F5] transition-colors duration-150">
                     {t.landing.footer.privacy}
-                  </span>
+                  </Link>
                 </li>
                 <li>
-                  <span className="text-[10px] text-[#A1A1AA] dark:text-[#71717A] block mt-2 leading-normal">
-                    Policies presented during account registration.
-                  </span>
+                  <Link href="/cookies" className="text-[#71717A] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F4F4F5] transition-colors duration-150">
+                    Cookie Policy
+                  </Link>
                 </li>
               </ul>
             </div>

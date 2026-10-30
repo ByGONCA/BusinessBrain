@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.0.0",
+  "last_updated": "2026-10-28T18:30:00Z",
+  "evaluations": [
+    {
+      "id": "EVAL-2026-001",
+      "date": "2026-10-28",
+      "feature_or_campaign": "BusinessBrain Foundation & Core Modules Baseline (Auth, Subscriptions, Multi-Tenancy, Marketing Consent)",
+      "jurisdictions": ["PT", "EU", "US", "US-CA", "GB", "BR"],
+      "risk_level": "MEDIUM",
+      "verdict": "APPROVED_WITH_CONDITIONS",
+      "conditions_pending": 0,
+      "implementation_status": "IMPLEMENTED",
+      "re_evaluation_trigger": "Review upon EU AI Act Phase 2 enforcement (August 2026) or expansion to new markets",
+      "report_path": "docs/compliance/evaluations/2026-10-28_baseline-assessment.md"
+    }
+  ]
+}

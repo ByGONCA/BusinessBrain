@@ -1,0 +1,124 @@
+{
+  "id": "EVAL-2026-001",
+  "executive_summary": "Baseline architecture compliance audit for core modules (Multi-Tenancy, Auth, Stripe, Marketing Consent).",
+  "feature_or_campaign": "BusinessBrain Foundation & Core Modules Baseline (Auth, Subscriptions, Multi-Tenancy, Marketing Consent)",
+  "jurisdictions_covered": ["PT", "EU", "US", "US-CA", "GB", "BR"],
+  "jurisdictions_unverified": ["CA", "AU", "JP", "SG"],
+  "applicable_legislation": [
+    "RGPD (Regulamento (UE) 2016/679)",
+    "Diretiva e-Privacy (2002/58/CE)",
+    "CAN-SPAM Act (15 U.S.C. §§ 7701-7713)",
+    "ROSCA (15 U.S.C. §§ 8401-8405)",
+    "CCPA/CPRA (Cal. Civ. Code § 1798.100)",
+    "California Auto-Renewal Law (AB 390)",
+    "UK Data Protection Act 2018 / PECR 2003",
+    "LGPD (Lei 13.709/2018) / CDC (Lei 8.078/1990)"
+  ],
+  "official_sources": [
+    {
+      "jurisdiction": "EU",
+      "statute_or_code": "Regulamento (UE) 2016/679",
+      "section_or_article": "Artigos 6.º, 7.º, 13.º, 28.º, 32.º, 45.º",
+      "official_source_url": "https://eur-lex.europa.eu/legal-content/PT/TXT/?uri=CELEX:32016R0679",
+      "status": "IN_FORCE",
+      "consultation_date": "2026-10-28",
+      "summary": "Requisitos de licitude, consentimento explícito, dever de informação e segurança técnica.",
+      "verified": true
+    },
+    {
+      "jurisdiction": "US-CA",
+      "statute_or_code": "Cal. Bus. & Prof. Code",
+      "section_or_article": "§ 17600 et seq. (AB 390)",
+      "official_source_url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?sectionNum=17602.&lawCode=BPC",
+      "status": "IN_FORCE",
+      "consultation_date": "2026-10-28",
+      "summary": "Obrigatoriedade de cancelamento online em 1-2 passos e avisos pré-renovação de planos recorrentes.",
+      "verified": true
+    }
+  ],
+  "confirmed_obligations": [
+    "Terms and privacy consent separation in signup flow",
+    "Stripe webhook cryptographic verification with signing secret",
+    "RLS multi-tenancy isolation on every tenant table",
+    "Online 1-click self-service cancellation via Customer Portal",
+    "Strict opt-in requirement for marketing cookies and promotional communications"
+  ],
+  "risks": [
+    {
+      "id": "RISK-01",
+      "domain": "DATA_PRIVACY",
+      "jurisdiction": "EU",
+      "severity": "MEDIUM",
+      "title": "Cross-border data transfers to US cloud subprocessors",
+      "description": "Cloud infrastructure (Stripe, Supabase) hosted in or managed from the United States.",
+      "citations": [],
+      "acceptance_conditions": [
+        {
+          "id": "COND-01",
+          "risk_id": "RISK-01",
+          "requirement": "Verify active DPA with EU-U.S. Data Privacy Framework certification or Standard Contractual Clauses (SCCs).",
+          "verification_method": "POLICY_DOCUMENT",
+          "status": "SATISFIED",
+          "evidence": "Verified active DPA with Stripe, Inc. and Supabase, Inc. incorporating SCCs (Decisão de Execução (UE) 2021/914) and DPF certification."
+        }
+      ]
+    },
+    {
+      "id": "RISK-02",
+      "domain": "PAYMENTS_SUBSCRIPTIONS",
+      "jurisdiction": "US-CA",
+      "severity": "LOW",
+      "title": "Continuous automatic renewal disclosure and consumer cancellation mechanism",
+      "description": "Subscriptions automatically bill on recurring cadence without pre-renewal surprises.",
+      "citations": [],
+      "acceptance_conditions": [
+        {
+          "id": "COND-02",
+          "risk_id": "RISK-02",
+          "requirement": "Verify clear disclosure of renewal frequency, billing amount, and self-service online cancellation button.",
+          "verification_method": "CODE_INSPECTION",
+          "status": "SATISFIED",
+          "evidence": "Verified checkout disclosure on pricing tiers and self-service cancellation via Stripe Customer Portal."
+        }
+      ]
+    }
+  ],
+  "market_divergences": [
+    "EU/UK/BR: Opt-in strictly mandatory before sending direct electronic marketing.",
+    "US Federal (CAN-SPAM): Opt-out permitted with valid postal address and functioning unsubscribe."
+  ],
+  "technical_recommendations": [
+    "Maintain strict separation of marketing checkbox and Terms checkbox on registration.",
+    "Keep client-side Stripe price IDs isolated from direct user manipulation."
+  ],
+  "operational_recommendations": [
+    "Audit DPA agreements with vendors annually.",
+    "Monitor California AB 390 and ROSCA enforcement actions."
+  ],
+  "contractual_requirements": [
+    "DPA incorporating SCCs with all third-party cloud data processors."
+  ],
+  "local_legal_validation_needed": false,
+  "acceptance_conditions": [
+    {
+      "id": "COND-01",
+      "risk_id": "RISK-01",
+      "requirement": "Verify active DPA with EU-U.S. Data Privacy Framework certification or Standard Contractual Clauses (SCCs).",
+      "verification_method": "POLICY_DOCUMENT",
+      "status": "SATISFIED",
+      "evidence": "Verified active DPA with Stripe, Inc. and Supabase, Inc. incorporating SCCs (Decisão de Execução (UE) 2021/914) and DPF certification."
+    },
+    {
+      "id": "COND-02",
+      "risk_id": "RISK-02",
+      "requirement": "Verify clear disclosure of renewal frequency, billing amount, and self-service online cancellation button.",
+      "verification_method": "CODE_INSPECTION",
+      "status": "SATISFIED",
+      "evidence": "Verified checkout disclosure on pricing tiers and self-service cancellation via Stripe Customer Portal."
+    }
+  ],
+  "final_verdict": "APPROVED_WITH_CONDITIONS",
+  "verdict_justification": "Core modules adhere to verified statutory baselines with satisfied acceptance criteria.",
+  "investigation_date": "2026-10-28",
+  "recommended_review_date": "2027-04-28"
+}

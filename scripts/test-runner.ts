@@ -143,9 +143,70 @@ const SUITES: TestSuite[] = [
     description: "82 tests: Quad-locale parity, zero leakage, dynamic granularity, decoupled MRR/ARR, modal pagination",
   },
   {
+    name: "Global Legal Compliance Agent Engine",
+    file: "scripts/test-global-legal-compliance-agent.ts",
+    description: "33 tests: Least privilege, dynamic markets schema, sanctions, 3-stage quality gates, marketing matrix",
+  },
+  {
+    name: "Legal Quality Benchmarks and Ground Truth",
+    file: "scripts/test-legal-quality-benchmarks.ts",
+    description: "10 benchmarks: Official statutory verification, EU AI Act Article 113, DPF 2023, CAN-SPAM, CASL, PECR, Lei 10/2024",
+  },
+  {
+    name: "Compliance Quality Gate Lifecycle & CI/CD Release Enforcement",
+    file: "scripts/test-compliance-gate-lifecycle.ts",
+    description: "35 tests: 5 release scenarios, process exit codes, regulatory monitor scan, subagent governance & CI integration",
+  },
+
+  {
+    name: "Compliance Perimeter Deep & Security Invariants",
+    file: "scripts/test-compliance-perimeter-deep.ts",
+    description: "44 tests: Negative boundary checks, fail-closed entity verification, adversarial gate bypass tests, Stripe live/tax isolation, safe erasure cancellation, and 7-dimensional launch gate invariants",
+  },
+  {
     name: "Theme System & Demo Data Isolation",
     file: "scripts/test-theme-and-demo-isolation.ts",
     description: "4 audits: Automatic/Light/Dark mode transitions, strict demo data isolation, route integrity, 3-day trial terms",
+
+  },
+
+  {
+    name: "AI Foundation & BYOK Security Verification",
+    file: "scripts/test-migration-00038-ai-foundation.ts",
+    description: "23 tests: Migration 00038, multi-tenant RLS, AES-256-GCM JIT decryption, key fingerprinting, conversation privacy",
+  },
+  {
+    name: "AI Chat Engine & Gemini Adapter",
+    file: "scripts/test-ai-chat-engine.ts",
+    description: "25 tests: AIProviderAdapter, Gemini SSE streaming, AbortSignal cancellation, prompt injection boundary, RLS privacy & quota ledger",
+  },
+  {
+    name: "AI Data Governance & Phase 3 Audit",
+    file: "scripts/test-integrated-governance-and-phase3.ts",
+    description: "24 tests: Source tree scoping, interactive authorization challenge, least-privilege, native block creation, and read-only Stripe metrics",
+  },
+  {
+    name: "Adversarial AI Security & Penetration Audit",
+    file: "scripts/test-adversarial-ai-security.ts",
+    description: "23 tests: 20 adversarial attack vectors, cross-tenant RLS breaches, authorization bypass, privilege escalation, XSS neutralization & prompt quarantine",
+
+  },
+  {
+    name: "AI Multi-Model Orchestration, BYOK & Resilient Fallback Engine",
+    file: "scripts/test-multimodel-ai-orchestration.ts",
+    description: "42 tests: 5 providers (Gemini, OpenAI, Anthropic, DeepSeek, Mistral), multi-factor routing, budget ceilings, $0 BYOK billing, personal workspaces & RLS isolation",
+
+
+  },
+  {
+    name: "Enterprise AI Security, Two-Phase Reservations & Commercial Guard",
+    file: "scripts/test-enterprise-ai-security-and-reservations.ts",
+    description: "20 tests: Paid-plan only invariant (HTTP 402), 2-phase atomic reservations, race condition overage prevention, BYOK concurrency, mid-stream abort release, header-based Gemini auth",
+  },
+  {
+    name: "Adversarial Hardening, Stream Cancellation & Atomic Accounting",
+    file: "scripts/test-adversarial-hardening-and-accounting.ts",
+    description: "19 tests: Partial stream abort settlement, BYOK silent fallback elimination, PostgreSQL row-locking, state machine conflict prevention & test action security",
   },
 ];
 

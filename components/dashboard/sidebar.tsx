@@ -195,14 +195,14 @@ export function Sidebar({
   const topNavItems: NavItem[] = [
     {
       id: "home",
-      name: t.sidebar.home || "Home",
+      name: t?.sidebar?.home || "Home",
       href: "/dashboard",
       icon: PhosphorHouse,
       isActive: effectivePath === "/dashboard",
     },
     {
       id: "inbox",
-      name: t.sidebar.inbox || "Inbox",
+      name: t?.sidebar?.inbox || "Inbox",
       href: "#inbox",
       icon: Inbox,
       isActive: isInboxOpen,
@@ -211,14 +211,14 @@ export function Sidebar({
     },
     {
       id: "calendar",
-      name: t.sidebar.calendar || "Calendar",
+      name: t?.sidebar?.calendar || "Calendar",
       href: "/dashboard/calendar",
       icon: PhosphorCalendar,
       isActive: effectivePath === "/dashboard/calendar" || effectivePath.startsWith("/dashboard/calendar/"),
     },
     {
       id: "email",
-      name: t.sidebar.email || "Email",
+      name: t?.sidebar?.email || "Email",
       href: "/dashboard/email",
       icon: Mail,
       isActive: effectivePath === "/dashboard/email" || effectivePath.startsWith("/dashboard/email/"),
@@ -229,35 +229,35 @@ export function Sidebar({
   const workItems: NavItem[] = [
     {
       id: "projects",
-      name: t.sidebar.projects || "Projects",
+      name: t?.sidebar?.projects || "Projects",
       href: "/dashboard/projects",
       icon: PhosphorFolder,
       isActive: effectivePath.startsWith("/dashboard/projects"),
     },
     {
       id: "tasks",
-      name: t.sidebar.tasks || "Tasks",
+      name: t?.sidebar?.tasks || "Tasks",
       href: "/dashboard/tasks",
       icon: PhosphorCheckSquare,
       isActive: effectivePath.startsWith("/dashboard/tasks"),
     },
     {
       id: "goals",
-      name: t.sidebar.goals || "Goals",
+      name: t?.sidebar?.goals || "Goals",
       href: "/dashboard/goals",
       icon: PhosphorTarget,
       isActive: effectivePath.startsWith("/dashboard/goals"),
     },
     {
       id: "meetings",
-      name: t.sidebar.meetings || "Meetings",
+      name: t?.sidebar?.meetings || "Meetings",
       href: "/dashboard/meetings",
       icon: PhosphorCalendarDots,
       isActive: effectivePath.startsWith("/dashboard/meetings"),
     },
     {
       id: "finance",
-      name: t.sidebar.finance || "Finance",
+      name: t?.sidebar?.finance || "Finance",
       href: "/dashboard/finance",
       icon: TrendingUp,
       isActive: effectivePath.startsWith("/dashboard/finance"),
@@ -266,36 +266,43 @@ export function Sidebar({
 
   const brainItems: NavItem[] = [
     {
+      id: "ai-chat",
+      name: "AI Chat",
+      href: "/dashboard/brain/chat",
+      icon: Sparkles,
+      isActive: effectivePath.startsWith("/dashboard/brain/chat"),
+    },
+    {
       id: "brain",
       name: "Brain",
       href: "/dashboard/brain",
       icon: PhosphorBrain,
-      isActive: effectivePath.startsWith("/dashboard/brain"),
+      isActive: effectivePath === "/dashboard/brain",
     },
     {
       id: "decisions",
-      name: t.sidebar.decisions || "Decisions",
+      name: t?.sidebar?.decisions || "Decisions",
       href: "/dashboard/decisions",
       icon: PhosphorGitBranch,
       isActive: effectivePath.startsWith("/dashboard/decisions"),
     },
     {
       id: "knowledge",
-      name: t.sidebar.knowledge || "Knowledge",
+      name: t?.sidebar?.knowledge || "Knowledge",
       href: "/dashboard/knowledge",
       icon: PhosphorBookOpen,
       isActive: effectivePath.startsWith("/dashboard/knowledge"),
     },
     {
       id: "connections",
-      name: t.sidebar.companyMap || "Company Map",
+      name: t?.sidebar?.companyMap || "Company Map",
       href: "/dashboard/connections",
       icon: PhosphorNetwork,
       isActive: effectivePath.startsWith("/dashboard/connections"),
     },
     {
       id: "timeline",
-      name: t.sidebar.timeline || "Timeline",
+      name: t?.sidebar?.timeline || "Timeline",
       href: "/dashboard/timeline",
       icon: PhosphorClock,
       isActive: effectivePath.startsWith("/dashboard/timeline"),
@@ -305,7 +312,7 @@ export function Sidebar({
   const organizationItems: NavItem[] = [
     {
       id: "people",
-      name: t.sidebar.people || "People & Teams",
+      name: t?.sidebar?.people || "People & Teams",
       href: "/dashboard/people",
       icon: PhosphorUserList,
       isActive: effectivePath.startsWith("/dashboard/people") || effectivePath.startsWith("/dashboard/teams"),
@@ -645,7 +652,7 @@ export function Sidebar({
               className="flex w-full items-center gap-2 rounded-lg border border-[#242428] bg-[#141416] px-2.5 h-9 text-xs text-[#71717A] hover:border-[#323238] hover:text-[#D4D4D8] transition-colors shadow-2xs mt-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600"
             >
               <Search className="h-3.5 w-3.5 text-[#71717A]" />
-              <span className="truncate">{t.sidebar.searchPlaceholder || "Search or ask..."}</span>
+              <span className="truncate">{t?.sidebar?.searchPlaceholder || "Search or ask..."}</span>
               <kbd className="ml-auto rounded border border-[#27272A] bg-[#1C1C1F] px-1.5 py-0.5 text-[10px] text-[#A1A1AA] font-mono">
                 {formatShortcut("K")}
               </kbd>
@@ -790,7 +797,7 @@ export function Sidebar({
                 {renderGroupToggle("work", "Work", PhosphorFolder, isGroupExpanded("work"), workItems.some((i) => i.isActive))}
 
                 {isGroupExpanded("work") && (
-                  <div className="ml-3 pl-2.5 border-l border-[#242428] space-y-0.5 pt-0.5 my-0.5 animate-in fade-in duration-150">
+                  <div className="ml-2 space-y-0.5 pt-0.5 my-0.5 animate-in fade-in duration-150">
                     {workItems.map((item) => renderNavItem(item, true))}
                   </div>
                 )}
@@ -802,7 +809,7 @@ export function Sidebar({
                   {renderGroupToggle("pages", "Pages", PhosphorBookOpen, isGroupExpanded("pages"), effectivePath.startsWith("/dashboard/pages"))}
 
                   {isGroupExpanded("pages") && (
-                    <div className="ml-3 pl-2.5 border-l border-[#242428] pt-0.5 my-0.5 animate-in fade-in duration-150">
+                    <div className="ml-2 pt-0.5 my-0.5 animate-in fade-in duration-150">
                       <SidebarPageTree
                         initialPages={pageTree}
                         favoritePages={favoritePages}
@@ -821,7 +828,7 @@ export function Sidebar({
                 {renderGroupToggle("brain", "Brain", PhosphorBrain, isGroupExpanded("brain"), brainItems.some((i) => i.isActive))}
 
                 {isGroupExpanded("brain") && (
-                  <div className="ml-3 pl-2.5 border-l border-[#242428] space-y-0.5 pt-0.5 my-0.5 animate-in fade-in duration-150">
+                  <div className="ml-2 space-y-0.5 pt-0.5 my-0.5 animate-in fade-in duration-150">
                     {brainItems.map((item) => renderNavItem(item, true))}
                   </div>
                 )}
@@ -832,7 +839,7 @@ export function Sidebar({
                 {renderGroupToggle("company", "Organization", PhosphorUserList, isGroupExpanded("company"), organizationItems.some((i) => i.isActive))}
 
                 {isGroupExpanded("company") && (
-                  <div className="ml-3 pl-2.5 border-l border-[#242428] space-y-0.5 pt-0.5 my-0.5 animate-in fade-in duration-150">
+                  <div className="ml-2 space-y-0.5 pt-0.5 my-0.5 animate-in fade-in duration-150">
                     {organizationItems.map((item) => renderNavItem(item, true))}
                   </div>
                 )}

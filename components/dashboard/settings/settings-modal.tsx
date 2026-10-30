@@ -78,6 +78,7 @@ import { PrivacyDataTab } from "./privacy-data-tab";
 import { AuditLogTab } from "./audit-log-tab";
 import { StorageTab } from "./storage-tab";
 import { UsageBillingTab } from "./usage-billing-tab";
+import { AIProvidersTab } from "./ai-providers-tab";
 import { updateUserLocalizationAction } from "@/lib/settings/actions";
 
 interface SettingsModalProps {
@@ -303,12 +304,17 @@ export function SettingsModal({
     }
   }, [isOpen, activeTab, hasCompanyView, hasIntegrationsView, isAuditAllowed, hasFilesView, hasBillingView, setActiveTab]);
 
-  // User details
+  // User details & live sync with profile tab mutations
+  const [liveName, setLiveName] = React.useState<string | null>(null);
+  const [liveAvatar, setLiveAvatar] = React.useState<string | null>(null);
+
   const userName =
-    user.user_metadata?.full_name ||
-    user.user_metadata?.name ||
-    user.email?.split("@")[0] ||
-    "User";
+    liveName ??
+    (user.user_metadata?.full_name ||
+      user.user_metadata?.name ||
+      user.email?.split("@")[0] ||
+      "User");
+  const userAvatar = liveAvatar !== null ? liveAvatar : user.user_metadata?.avatar_url;
   const userInitial = userName.charAt(0).toUpperCase();
 
   if (!isOpen) return null;
@@ -356,8 +362,12 @@ export function SettingsModal({
                     : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
                 )}
               >
-                <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-blue-600/20 text-[10px] font-bold text-blue-400">
-                  {userInitial}
+                <div className="relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full overflow-hidden bg-blue-600/20 text-[10px] font-bold text-blue-400">
+                  {userAvatar ? (
+                    <img src={userAvatar} alt={userName} className="h-full w-full object-cover" />
+                  ) : (
+                    userInitial
+                  )}
                 </div>
                 <span className="truncate">{userName}</span>
               </button>
@@ -549,6 +559,19 @@ export function SettingsModal({
                   <PhosphorCreditCard className="h-3.5 w-3.5 text-[#71717A]" />
                   <span>Usage & Billing</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("ai_providers")}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
+                    activeTab === "ai_providers"
+                      ? "bg-[#242427] text-[#F5F5F5] font-semibold"
+                      : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
+                  )}
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-[#71717A]" />
+                  <span>Modelos & IA</span>
+                </button>
               </div>
             )}
           </div>
@@ -577,7 +600,15 @@ export function SettingsModal({
           {activeTab === "preferences" && <PreferencesTab />}
 
           {/* TAB: PROFILE */}
-          {activeTab === "profile" && <ProfileTab user={user} />}
+          {activeTab === "profile" && (
+            <ProfileTab
+              user={user}
+              onProfileUpdated={(updated) => {
+                if (updated.fullName !== undefined) setLiveName(updated.fullName);
+                if (updated.avatarUrl !== undefined) setLiveAvatar(updated.avatarUrl);
+              }}
+            />
+          )}
 
           {/* TAB: SECURITY */}
           {activeTab === "security" && <SecurityTab user={user} />}
@@ -1046,6 +1077,8 @@ export function SettingsModal({
           {activeTab === "billing" && (
             <UsageBillingTab entitlement={entitlement} closeSettings={closeSettings} />
           )}
+          {/* TAB: AI PROVIDERS & BYOK */}
+          {activeTab === "ai_providers" && <AIProvidersTab />}
         </main>
       </div>
 

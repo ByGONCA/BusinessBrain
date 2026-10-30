@@ -47,6 +47,7 @@ export interface Organization {
   allow_user_email_dispatch?: boolean;
   branding_settings?: Record<string, unknown>;
   created_by: string | null;
+  workspace_type?: "team" | "personal";
   status: "active" | "suspended" | "archived";
   created_at: string;
   updated_at: string;

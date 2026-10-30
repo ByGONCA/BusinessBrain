@@ -109,8 +109,13 @@ function SignUpForm({ returnUrl }: { returnUrl: string }) {
           />
           <span className="leading-snug text-[#52525B] dark:text-[#A1A1AA]">
             I agree to the{" "}
-            <span className="text-[#18181B] dark:text-[#F5F5F5] underline">Terms of Service</span> and{" "}
-            <span className="text-[#18181B] dark:text-[#F5F5F5] underline">Privacy Policy</span>.{" "}
+            <Link href="/terms" className="text-[#18181B] dark:text-[#F5F5F5] underline hover:text-blue-600 transition-colors">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="text-[#18181B] dark:text-[#F5F5F5] underline hover:text-blue-600 transition-colors">
+              Privacy Policy
+            </Link>.{" "}
             <span className="text-red-500">*</span>
           </span>
         </label>

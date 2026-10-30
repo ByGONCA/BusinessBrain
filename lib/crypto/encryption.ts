@@ -6,11 +6,11 @@ const AUTH_TAG_LENGTH = 16; // 128 bits
 
 /**
  * Returns a 32-byte Buffer key for AES-256-GCM.
- * Uses process.env.INTEGRATION_TOKEN_ENCRYPTION_KEY (must be 64-char hex or 32-char string).
+ * Uses process.env.AI_CREDENTIALS_ENCRYPTION_KEY or process.env.INTEGRATION_TOKEN_ENCRYPTION_KEY.
  * In development without an explicit key, falls back to a deterministic development key.
  */
-function getEncryptionKey(): Buffer {
-  const envKey = process.env.INTEGRATION_TOKEN_ENCRYPTION_KEY;
+function getEncryptionKey(keyEnvVar: string = "INTEGRATION_TOKEN_ENCRYPTION_KEY"): Buffer {
+  const envKey = process.env[keyEnvVar] || process.env.INTEGRATION_TOKEN_ENCRYPTION_KEY;
 
   if (envKey) {
     if (envKey.length === 64) {
@@ -26,7 +26,7 @@ function getEncryptionKey(): Buffer {
   // Development fallback key (warn in production)
   if (process.env.NODE_ENV === "production") {
     throw new Error(
-      "INTEGRATION_TOKEN_ENCRYPTION_KEY is required in production for OAuth token encryption."
+      `${keyEnvVar} (or INTEGRATION_TOKEN_ENCRYPTION_KEY) is required in production for credential encryption.`
     );
   }
 
@@ -88,3 +88,65 @@ export function decryptToken(encryptedPayload: string): string {
 
   return decrypted.toString("utf8");
 }
+
+/**
+ * Encrypts an AI provider API key (BYOK) using AES-256-GCM.
+ * Prioritizes process.env.AI_CREDENTIALS_ENCRYPTION_KEY.
+ */
+export function encryptAICredential(plaintextKey: string): string {
+  if (!plaintextKey) return "";
+  const key = getEncryptionKey("AI_CREDENTIALS_ENCRYPTION_KEY");
+  const iv = crypto.randomBytes(IV_LENGTH);
+
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv, {
+    authTagLength: AUTH_TAG_LENGTH,
+  });
+
+  const encrypted = Buffer.concat([
+    cipher.update(plaintextKey, "utf8"),
+    cipher.final(),
+  ]);
+
+  const authTag = cipher.getAuthTag();
+  return `${iv.toString("hex")}:${authTag.toString("hex")}:${encrypted.toString("hex")}`;
+}
+
+/**
+ * Decrypts an AI provider API key ciphertext JIT (Just-In-Time).
+ */
+export function decryptAICredential(encryptedPayload: string): string {
+  if (!encryptedPayload) return "";
+  const parts = encryptedPayload.split(":");
+  if (parts.length !== 3) {
+    throw new Error("Invalid encrypted AI credential format.");
+  }
+
+  const [ivHex, authTagHex, ciphertextHex] = parts;
+  const key = getEncryptionKey("AI_CREDENTIALS_ENCRYPTION_KEY");
+  const iv = Buffer.from(ivHex, "hex");
+  const authTag = Buffer.from(authTagHex, "hex");
+  const ciphertext = Buffer.from(ciphertextHex, "hex");
+
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, {
+    authTagLength: AUTH_TAG_LENGTH,
+  });
+  decipher.setAuthTag(authTag);
+
+  const decrypted = Buffer.concat([
+    decipher.update(ciphertext),
+    decipher.final(),
+  ]);
+
+  return decrypted.toString("utf8");
+}
+
+/**
+ * Computes a deterministic HMAC-SHA256 fingerprint of an API key.
+ * Used for duplicate detection within the same organization without persisting raw secrets.
+ */
+export function computeKeyFingerprint(rawKey: string): string {
+  if (!rawKey) return "";
+  const key = getEncryptionKey("AI_CREDENTIALS_ENCRYPTION_KEY");
+  return crypto.createHmac("sha256", key).update(rawKey).digest("hex");
+}
+
