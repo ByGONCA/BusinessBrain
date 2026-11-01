@@ -13,6 +13,9 @@ import {
   Lock,
   ShieldCheck,
   AlertCircle,
+  Target,
+  FolderGit2,
+  CheckSquare,
 } from "lucide-react";
 import { ContextSourceItem } from "@/lib/ai/auth/types";
 import { getAvailableContextSourcesAction } from "@/lib/ai/auth/actions";
@@ -91,7 +94,10 @@ export function ContextSourcesModal({
   const getSourceIcon = (type: string, id: string) => {
     if (id.includes("finance")) return <CreditCard className="h-4 w-4 text-emerald-400" />;
     if (id.includes("github")) return <Github className="h-4 w-4 text-purple-400" />;
-    if (id.includes("brain")) return <Brain className="h-4 w-4 text-blue-400" />;
+    if (id.includes("brain") || type === "decision") return <Brain className="h-4 w-4 text-blue-400" />;
+    if (id.includes("goal") || type === "goal") return <Target className="h-4 w-4 text-emerald-400" />;
+    if (id.includes("project") || type === "project") return <FolderGit2 className="h-4 w-4 text-indigo-400" />;
+    if (id.includes("task") || type === "task") return <CheckSquare className="h-4 w-4 text-blue-400" />;
     return <FileText className="h-4 w-4 text-zinc-400" />;
   };
 

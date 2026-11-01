@@ -18,6 +18,7 @@ import {
   FileText,
   Download,
   AlertTriangle,
+  Info,
 } from "lucide-react";
 import {
   OrganizationIntegration,
@@ -941,6 +942,25 @@ export function EmailView({
 
   return (
     <div className="space-y-3 max-w-5xl">
+      {/* Sample Evaluation Banner when live integration is not active */}
+      {!isLiveConnected && (
+        <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 text-xs text-zinc-600 dark:text-zinc-400">
+          <div className="flex items-center gap-2">
+            <Info className="h-4 w-4 shrink-0 text-zinc-400" />
+            <span>
+              Sample email messages are currently displayed for workspace evaluation. Connect your live corporate email in Settings to sync real inbox items.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => openSettings("integrations")}
+            className="shrink-0 font-medium text-zinc-900 dark:text-zinc-200 underline hover:opacity-80 transition-opacity"
+          >
+            {t.emailPage.goToIntegrations}
+          </button>
+        </div>
+      )}
+
       {/* Top Toolbar: Search Bar on LEFT, Account Selector on RIGHT */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
         {/* LEFT: Search bar */}

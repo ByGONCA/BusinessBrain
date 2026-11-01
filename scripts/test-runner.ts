@@ -208,6 +208,16 @@ const SUITES: TestSuite[] = [
     file: "scripts/test-adversarial-hardening-and-accounting.ts",
     description: "19 tests: Partial stream abort settlement, BYOK silent fallback elimination, PostgreSQL row-locking, state machine conflict prevention & test action security",
   },
+  {
+    name: "BYOK Crypto Resilience & Org Credential Suite",
+    file: "scripts/test-byok-crypto-resilience.ts",
+    description: "21 tests: GCM tamper detection, dual-key rotation recovery, fail-closed production config, org credential RLS, and pre-reservation safety",
+  },
+  {
+    name: "Dual-Key Encryption Rotation & Scope Isolation",
+    file: "scripts/test-encryption-key-rotation.ts",
+    description: "13 tests: Zero-downtime dual-key decryption, scope isolation (AI vs OAuth), malformed format fast-reject, fingerprint rotation",
+  },
 ];
 
 async function runSuite(suite: TestSuite): Promise<{ success: boolean; durationMs: number; output: string }> {

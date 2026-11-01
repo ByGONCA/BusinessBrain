@@ -38,7 +38,7 @@ export async function GET(req: Request) {
       .eq("status", "connected"),
     supabase
       .from("subscriptions")
-      .select("plan_tier, status, current_period_end")
+      .select("plan, status, current_period_end")
       .eq("organization_id", auth.context.organizationId)
       .maybeSingle(),
   ]);
@@ -53,7 +53,11 @@ export async function GET(req: Request) {
         projectsCount: totalProjects || 0,
         documentsCount: totalPages || 0,
         activeIntegrationsCount: totalIntegrations || 0,
-        subscription: activeSubscription || { plan_tier: "enterprise", status: "active" },
+        subscription: activeSubscription || {
+          plan: "starter",
+          status: "inactive",
+          current_period_end: null,
+        },
         syncedAt: new Date().toISOString(),
       },
     },

@@ -10,8 +10,6 @@ import {
   AlertCircle,
   FileText,
   Clock,
-  Eye,
-  EyeOff,
   Search,
   TrendingUp,
 } from "lucide-react";
@@ -61,7 +59,6 @@ export function WidgetDrawer({
   // Search & Category Filter State
   const [searchQuery, setSearchQuery] = React.useState<string>("");
   const [selectedCategoryTab, setSelectedCategoryTab] = React.useState<string>("all");
-  const [showPreview, setShowPreview] = React.useState<boolean>(false);
 
   // Form State
   const [selectedMetricId, setSelectedMetricId] = React.useState<string>(
@@ -91,6 +88,8 @@ export function WidgetDrawer({
   const [customHeightPx, setCustomHeightPx] = React.useState<number>(
     editingWidget?.options?.customHeightPx || 300
   );
+
+  const selectedMetricRef = React.useRef<HTMLDivElement>(null);
 
   // Categories list
   const categoryFilters = React.useMemo(
@@ -156,7 +155,12 @@ export function WidgetDrawer({
           (editingWidget.size === "sm" ? 25 : editingWidget.size === "md" ? 50 : editingWidget.size === "lg" ? 75 : 100)
       );
       setCustomHeightPx(editingWidget.options?.customHeightPx || 300);
-      setShowPreview(false);
+
+      // Auto-sync category tab to the metric's category
+      const cap = getMetricCapability(editingWidget.metricId);
+      if (cap?.category) {
+        setSelectedCategoryTab(cap.category);
+      }
     } else {
       const defaultMetric = availableMetrics[0];
       if (defaultMetric) {
@@ -170,7 +174,6 @@ export function WidgetDrawer({
         setRowBreak(false);
         setCustomWidthPercent(50);
         setCustomHeightPx(300);
-        setShowPreview(false);
       }
     }
   }, [isOpen, editingWidget, availableMetrics]);
@@ -188,6 +191,17 @@ export function WidgetDrawer({
       document.body.style.overflow = "unset";
     };
   }, [isOpen, onClose]);
+
+  // Auto-scroll selected metric card into view when drawer opens
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const timer = setTimeout(() => {
+      if (selectedMetricRef.current) {
+        selectedMetricRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [isOpen, selectedMetricId, selectedCategoryTab]);
 
   // Current metric capability
   const currentCapability = getMetricCapability(selectedMetricId);
@@ -248,20 +262,20 @@ export function WidgetDrawer({
 
   const getVisualizationLabel = (vis: VisualizationType): string => {
     switch (vis) {
-      case "kpi":
-        return t.widgets.visKpi;
       case "chart":
-        return t.widgets.visChart;
+        return locale === "pt" ? "Gráfico de Linhas" : t.widgets.visChart;
       case "bar":
-        return t.widgets.visBar;
+        return locale === "pt" ? "Gráfico de Barras" : t.widgets.visBar;
+      case "strip":
+        return locale === "pt" ? "Faixa de Resumo" : (t.widgets.visStrip || "Faixa de Resumo");
+      case "kpi":
+        return locale === "pt" ? "Resumo KPI" : t.widgets.visKpi;
       case "table":
-        return t.widgets.visTable;
+        return locale === "pt" ? "Tabela de Dados" : t.widgets.visTable;
       case "priorities":
         return t.widgets.visPriorities;
       case "pulse_kpis":
         return t.widgets.visPulseKpis || "Cartões de Pulso";
-      case "strip":
-        return t.widgets.visStrip || "Faixa de Resumo";
       case "topology":
         return t.widgets.visTopology || "Mapa de Topologia";
       case "pages":
@@ -276,6 +290,27 @@ export function WidgetDrawer({
         return t.widgets.visAgenda;
       case "cards":
         return t.widgets.visCards;
+    }
+  };
+
+  const getVisualizationDescription = (vis: VisualizationType): string => {
+    switch (vis) {
+      case "chart":
+        return locale === "pt" ? "Curva temporal e histórico" : "Historical trend over time";
+      case "bar":
+        return locale === "pt" ? "Distribuição por planos" : "Proportional breakdown";
+      case "strip":
+        return locale === "pt" ? "Faixa horizontal de 2 métricas" : "Dual-metric summary bar";
+      case "kpi":
+        return locale === "pt" ? "Valor numérico em destaque" : "Single prominent metric";
+      case "table":
+        return locale === "pt" ? "Lista detalhada com colunas" : "Tabular list of records";
+      case "pulse_kpis":
+        return locale === "pt" ? "Quatro cartões integrados" : "Four integrated metrics";
+      case "topology":
+        return locale === "pt" ? "Rede de nós e conexões" : "Knowledge network nodes";
+      default:
+        return "";
     }
   };
 
@@ -376,312 +411,173 @@ export function WidgetDrawer({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-xs transition-opacity duration-300"
+        className="fixed inset-0 bg-black/75 backdrop-blur-xs transition-opacity duration-300"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Centered Spacious Dialog */}
+      {/* Centered Spacious Dialog Container */}
       <div className="flex min-h-full items-center justify-center p-3 sm:p-6 text-center">
         <div
           role="dialog"
           aria-modal="true"
-          className="w-full max-w-2xl bg-white dark:bg-[#15171C] border border-zinc-200 dark:border-white/[0.08] rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden text-left relative z-10 animate-in fade-in-0 zoom-in-95 duration-200"
+          className="w-full max-w-5xl bg-white dark:bg-[#15171C] border border-zinc-200 dark:border-white/[0.08] rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden text-left relative z-10 animate-in fade-in-0 zoom-in-95 duration-200"
         >
-          {/* 1. Header (Clean, zero bubbles, zero clutter) */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-white/[0.08] bg-zinc-50/60 dark:bg-[#121316]">
-            <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">
-              {editingWidget ? t.widgets.drawerTitleEdit : t.widgets.drawerTitleAdd}
-            </h2>
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-white/[0.08] bg-zinc-50/70 dark:bg-[#121316]">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">
+                  {editingWidget ? t.widgets.drawerTitleEdit : t.widgets.drawerTitleAdd}
+                </h2>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  Selecione a métrica desejada e configure a apresentação visual em tempo real.
+                </p>
+              </div>
+            </div>
 
             <button
               type="button"
               onClick={onClose}
               className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              aria-label="Fechar"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          {/* 2. Modal Body */}
-          <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5">
-            <form id="widget-modal-form" onSubmit={handleSubmit} className="space-y-5">
-              {/* Optional Custom Title */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
-                  <span>{t.widgets.customTitle}</span>
-                  <span className="text-[10px] text-zinc-400 font-normal">
-                    {customTitle ? `${customTitle.length}/60` : ""}
-                  </span>
-                </label>
-                <input
-                  type="text"
-                  value={customTitle}
-                  onChange={(e) => setCustomTitle(e.target.value)}
-                  maxLength={60}
-                  placeholder={
-                    currentCapability?.labelKey
-                      ? resolveTranslationKey(t, currentCapability.labelKey)
-                      : "Ex: My Block"
-                  }
-                  className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 px-3.5 py-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors shadow-2xs"
-                />
-              </div>
-
-              {/* Search Bar & Unified Categories */}
-              <div className="space-y-2.5">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={t.widgets.searchMetrics}
-                    className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 pl-9 pr-3.5 py-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors shadow-2xs"
-                  />
-                  {searchQuery && (
-                    <button
-                      type="button"
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 text-xs"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Category Chips */}
-                <div className="flex flex-wrap gap-1 text-xs">
-                  {categoryFilters.map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setSelectedCategoryTab(cat.id)}
-                      className={cn(
-                        "px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer",
-                        selectedCategoryTab === cat.id
-                          ? "bg-blue-600 text-white font-semibold shadow-2xs"
-                          : "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                      )}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Metric Card Explorer */}
-              <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-                {filteredMetrics.length === 0 ? (
-                  <div className="p-4 text-center text-xs text-zinc-500 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl">
-                    {t.widgets.noMetricsFound}
-                  </div>
-                ) : (
-                  filteredMetrics.map((metric) => {
-                    const isSelected = metric.id === selectedMetricId;
-
-                    return (
-                      <div
-                        key={metric.id}
-                        onClick={() => handleSelectMetric(metric.id)}
-                        className={cn(
-                          "flex items-start gap-3 p-2.5 rounded-xl border text-xs cursor-pointer transition-all",
-                          isSelected
-                            ? "border-blue-500 bg-blue-50/40 dark:bg-blue-950/20 text-zinc-900 dark:text-zinc-100 shadow-2xs"
-                            : "border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-600 dark:text-zinc-300"
-                        )}
-                      >
-                        <div className="mt-0.5">{getMetricIcon(metric.id)}</div>
-
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-zinc-900 dark:text-zinc-100 truncate">
-                            {resolveTranslationKey(t, metric.labelKey) || metric.id}
-                          </p>
-                          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 line-clamp-1">
-                            {resolveTranslationKey(t, metric.descriptionKey) ||
-                              `${metric.unit.toUpperCase()} • ${metric.timeSemantics}`}
-                          </p>
-                        </div>
-
-                        {isSelected && (
-                          <div className="h-4 w-4 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0 mt-0.5">
-                            <Check className="h-2.5 w-2.5 stroke-[3]" />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Visualization Formats */}
-              {currentCapability && (
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
-                    <span>{t.widgets.visualizationType}</span>
-                    <span className="text-[11px] text-zinc-400 font-normal">
-                      {currentCapability.supportedVisualizers.length} {t.widgets.availableFormats}
-                    </span>
-                  </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {currentCapability.supportedVisualizers.map((vis) => {
-                      const isSelected = vis === selectedVisualization;
-
-                      return (
-                        <button
-                          key={vis}
-                          type="button"
-                          onClick={() => setSelectedVisualization(vis)}
-                          className={cn(
-                            "p-2.5 rounded-xl border text-xs text-left transition-all cursor-pointer flex flex-col justify-between gap-2",
-                            isSelected
-                              ? "border-blue-500 bg-blue-50/60 dark:bg-blue-950/30 text-blue-600 dark:text-blue-300 shadow-2xs ring-1 ring-blue-500"
-                              : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700 bg-white dark:bg-[#121316]"
-                          )}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className={isSelected ? "text-blue-500" : "text-zinc-500"}>
-                              {getVisualizerThumbnail(vis)}
-                            </span>
-                            {isSelected && <Check className="h-3.5 w-3.5 text-blue-500" />}
-                          </div>
-
-                          <span className="font-semibold tracking-tight text-[11px] truncate">
-                            {getVisualizationLabel(vis)}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Time Range Selector (if multiple supported) */}
-              {currentCapability && currentCapability.supportedTimeRanges.length > 1 && (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5 text-zinc-400" />
-                    <span>{t.widgets.timeWindow}</span>
-                  </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {currentCapability.supportedTimeRanges.map((range) => {
-                      const isSelected = range === selectedTimeRange;
-
-                      return (
-                        <button
-                          key={range}
-                          type="button"
-                          onClick={() => setSelectedTimeRange(range)}
-                          className={cn(
-                            "px-3 py-1.5 rounded-lg border text-xs font-mono font-medium transition-colors cursor-pointer",
-                            isSelected
-                              ? "border-blue-500 bg-blue-600 text-white font-semibold"
-                              : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300"
-                          )}
-                        >
-                          {range}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Granularity (Daily vs Monthly) */}
-              {selectedVisualization === "chart" &&
-                currentCapability?.hasHistoricalPoints &&
-                selectedTimeRange === "30D" && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                      {t.widgets.granularity}
-                    </label>
-                    <div className="grid grid-cols-2 gap-1.5">
+          {/* Form with Split Studio Layout */}
+          <form id="widget-modal-form" onSubmit={handleSubmit} className="flex-1 overflow-hidden flex flex-col">
+            <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[460px]">
+              {/* Left Panel: Metrics Library (5 cols) */}
+              <div className="lg:col-span-5 border-b lg:border-b-0 lg:border-r border-zinc-200 dark:border-white/[0.08] flex flex-col h-full bg-zinc-50/40 dark:bg-[#121316]/50">
+                {/* Search & Categories */}
+                <div className="p-4 border-b border-zinc-200 dark:border-white/[0.08] space-y-3 shrink-0">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder={t.widgets.searchMetrics}
+                      className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 pl-9 pr-3.5 py-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors shadow-2xs"
+                    />
+                    {searchQuery && (
                       <button
                         type="button"
-                        onClick={() => setSelectedGranularity("monthly")}
-                        className={cn(
-                          "p-2 rounded-lg border text-xs font-medium text-center transition-colors cursor-pointer",
-                          selectedGranularity === "monthly"
-                            ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 font-semibold"
-                            : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400"
-                        )}
+                        onClick={() => setSearchQuery("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200 text-xs"
                       >
-                        {t.widgets.granularityMonthly}
+                        <X className="h-3 w-3" />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedGranularity("daily")}
-                        className={cn(
-                          "p-2 rounded-lg border text-xs font-medium text-center transition-colors cursor-pointer",
-                          selectedGranularity === "daily"
-                            ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 font-semibold"
-                            : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400"
-                        )}
-                      >
-                        {t.widgets.granularityDaily}
-                      </button>
-                    </div>
+                    )}
                   </div>
-                )}
 
-              {/* Entity Filters */}
-              {currentCapability?.supportedFilters &&
-                currentCapability.supportedFilters.length > 0 && (
-                  <div className="space-y-2 pt-2 border-t border-zinc-100 dark:border-white/[0.04]">
-                    <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
-                      <Filter className="h-3.5 w-3.5 text-zinc-400" />
-                      <span>{t.widgets.entityFilters}</span>
-                    </label>
-                    {currentCapability.supportedFilters.map((flt) => (
-                      <div key={flt.key} className="space-y-1">
-                        <span className="text-[11px] text-zinc-400 uppercase tracking-wider font-mono">
-                          {resolveTranslationKey(t, flt.labelKey) || flt.key}
-                        </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {flt.options.map((opt) => {
-                            const activeVal = selectedFilters[flt.key] || "all";
-                            const isSelected = activeVal === opt.value;
-
-                            return (
-                              <button
-                                key={opt.value}
-                                type="button"
-                                onClick={() =>
-                                  setSelectedFilters({
-                                    ...selectedFilters,
-                                    [flt.key]: opt.value,
-                                  })
-                                }
-                                className={cn(
-                                  "px-2.5 py-1 rounded-lg border text-xs font-medium transition-colors cursor-pointer",
-                                  isSelected
-                                    ? "border-blue-500 bg-blue-600 text-white font-semibold"
-                                    : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300"
-                                )}
-                              >
-                                {resolveTranslationKey(t, opt.labelKey) || opt.value}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
+                  {/* Category Chips */}
+                  <div className="flex flex-wrap gap-1 text-xs">
+                    {categoryFilters.map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setSelectedCategoryTab(cat.id)}
+                        className={cn(
+                          "px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer",
+                          selectedCategoryTab === cat.id
+                            ? "bg-blue-600 text-white font-semibold shadow-2xs"
+                            : "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                        )}
+                      >
+                        {cat.label}
+                      </button>
                     ))}
                   </div>
-                )}
+                </div>
 
-              {/* Live Preview Toggle / Expander */}
-              <div className="pt-2 border-t border-zinc-100 dark:border-white/[0.04] space-y-3">
-                <button
-                  type="button"
-                  onClick={() => setShowPreview(!showPreview)}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
-                >
-                  {showPreview ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                  <span>{showPreview ? "Ocultar" : t.widgets.livePreview}</span>
-                </button>
+                {/* Metric Cards List */}
+                <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[300px] lg:max-h-[500px]">
+                  {filteredMetrics.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-zinc-500 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl my-4">
+                      {t.widgets.noMetricsFound}
+                    </div>
+                  ) : (
+                    filteredMetrics.map((metric) => {
+                      const isSelected = metric.id === selectedMetricId;
 
-                {showPreview && (
-                  <div className="animate-in fade-in-0 duration-200">
+                      return (
+                        <div
+                          key={metric.id}
+                          ref={isSelected ? selectedMetricRef : undefined}
+                          onClick={() => handleSelectMetric(metric.id)}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleSelectMetric(metric.id);
+                            }
+                          }}
+                          className={cn(
+                            "flex items-start gap-3 p-3 rounded-xl border text-xs cursor-pointer transition-all select-none",
+                            isSelected
+                              ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 text-zinc-900 dark:text-zinc-100 shadow-2xs ring-1 ring-blue-500/50"
+                              : "border-zinc-200/80 dark:border-white/[0.06] bg-white dark:bg-[#16181D] hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-600 dark:text-zinc-300"
+                          )}
+                        >
+                          <div className="mt-0.5 p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 shrink-0">
+                            {getMetricIcon(metric.id)}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-1">
+                              <p className="font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                                {resolveTranslationKey(t, metric.labelKey) || metric.id}
+                              </p>
+                              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/[0.06] text-zinc-500 dark:text-zinc-400 shrink-0">
+                                {metric.unit}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
+                              {resolveTranslationKey(t, metric.descriptionKey) ||
+                                `${metric.unit.toUpperCase()} • ${metric.timeSemantics}`}
+                            </p>
+                          </div>
+
+                          {isSelected && (
+                            <div className="h-5 w-5 rounded-full bg-blue-500 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                              <Check className="h-3 w-3 stroke-[3]" />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Right Panel: Live Preview & Widget Customization (7 cols) */}
+              <div className="lg:col-span-7 flex flex-col h-full overflow-y-auto p-5 sm:p-6 space-y-6 bg-white dark:bg-[#15171C]">
+                {/* 1. Live Interactive Preview Canvas */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider font-mono flex items-center gap-1.5 shrink-0">
+                        <Sparkles className="h-3.5 w-3.5 text-blue-500" />
+                        {t.widgets.livePreview}
+                      </span>
+                      <span className="text-[11px] px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-300 font-semibold border border-blue-500/20 truncate max-w-[200px]">
+                        {currentCapability?.labelKey
+                          ? resolveTranslationKey(t, currentCapability.labelKey)
+                          : selectedMetricId}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-zinc-400 shrink-0">
+                      Atualiza em tempo real
+                    </span>
+                  </div>
+                  <div className="rounded-2xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/60 dark:bg-[#121316] p-1.5 shadow-inner">
                     <WidgetPreview
                       metricId={selectedMetricId}
                       visualization={selectedVisualization}
@@ -689,15 +585,201 @@ export function WidgetDrawer({
                       title={customTitle}
                       timeRange={selectedTimeRange}
                       granularity={selectedGranularity}
+                      className="min-h-[170px]"
                     />
                   </div>
-                )}
-              </div>
-            </form>
-          </div>
+                </div>
 
-          {/* 3. Modal Footer Actions */}
-          <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-zinc-200 dark:border-white/[0.08] bg-zinc-50/60 dark:bg-[#121316]">
+                {/* 2. Custom Title Input */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
+                    <span>{t.widgets.customTitle}</span>
+                    <span className="text-[10px] text-zinc-400 font-normal">
+                      {customTitle ? `${customTitle.length}/60` : "Nome personalizado (opcional)"}
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    value={customTitle}
+                    onChange={(e) => setCustomTitle(e.target.value)}
+                    maxLength={60}
+                    placeholder={
+                      currentCapability?.labelKey
+                        ? resolveTranslationKey(t, currentCapability.labelKey)
+                        : "Ex: Meu Bloco"
+                    }
+                    className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 px-3.5 py-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors shadow-2xs"
+                  />
+                </div>
+
+                {/* 3. Visualization Formats */}
+                {currentCapability && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
+                      <span>{t.widgets.visualizationType}</span>
+                      <span className="text-[11px] text-zinc-400 font-normal">
+                        {currentCapability.supportedVisualizers.length} {t.widgets.availableFormats}
+                      </span>
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      {currentCapability.supportedVisualizers.map((vis) => {
+                        const isSelected = vis === selectedVisualization;
+
+                        return (
+                          <button
+                            key={vis}
+                            type="button"
+                            onClick={() => setSelectedVisualization(vis)}
+                            className={cn(
+                              "p-3 rounded-xl border text-xs text-left transition-all cursor-pointer flex flex-col justify-between gap-3 min-h-[84px]",
+                              isSelected
+                                ? "border-blue-500 bg-blue-50/60 dark:bg-blue-950/30 text-blue-600 dark:text-blue-300 shadow-2xs ring-1 ring-blue-500"
+                                : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700 bg-white dark:bg-[#121316]"
+                            )}
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <span className={isSelected ? "text-blue-500" : "text-zinc-500"}>
+                                {getVisualizerThumbnail(vis)}
+                              </span>
+                              {isSelected && <Check className="h-3.5 w-3.5 text-blue-500 stroke-[3]" />}
+                            </div>
+
+                            <div className="w-full">
+                              <span className="font-semibold tracking-tight text-[11px] block truncate">
+                                {getVisualizationLabel(vis)}
+                              </span>
+                              <span className="text-[10px] text-zinc-400 block truncate mt-0.5 font-normal">
+                                {getVisualizationDescription(vis)}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. Time Range & Granularity Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Time Range */}
+                  {currentCapability && currentCapability.supportedTimeRanges.length > 1 && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                        <Calendar className="h-3.5 w-3.5 text-zinc-400" />
+                        <span>{t.widgets.timeWindow}</span>
+                      </label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {currentCapability.supportedTimeRanges.map((range) => {
+                          const isSelected = range === selectedTimeRange;
+
+                          return (
+                            <button
+                              key={range}
+                              type="button"
+                              onClick={() => setSelectedTimeRange(range)}
+                              className={cn(
+                                "px-3 py-1.5 rounded-lg border text-xs font-mono font-medium transition-colors cursor-pointer",
+                                isSelected
+                                  ? "border-blue-500 bg-blue-600 text-white font-semibold"
+                                  : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300"
+                              )}
+                            >
+                              {range}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Granularity (Daily vs Monthly) */}
+                  {selectedVisualization === "chart" &&
+                    currentCapability?.hasHistoricalPoints &&
+                    selectedTimeRange === "30D" && (
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                          {t.widgets.granularity}
+                        </label>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedGranularity("monthly")}
+                            className={cn(
+                              "p-2 rounded-lg border text-xs font-medium text-center transition-colors cursor-pointer",
+                              selectedGranularity === "monthly"
+                                ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 font-semibold"
+                                : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400"
+                            )}
+                          >
+                            {t.widgets.granularityMonthly}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedGranularity("daily")}
+                            className={cn(
+                              "p-2 rounded-lg border text-xs font-medium text-center transition-colors cursor-pointer",
+                              selectedGranularity === "daily"
+                                ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 font-semibold"
+                                : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400"
+                            )}
+                          >
+                            {t.widgets.granularityDaily}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                </div>
+
+                {/* 5. Entity Filters */}
+                {currentCapability?.supportedFilters &&
+                  currentCapability.supportedFilters.length > 0 && (
+                    <div className="space-y-2 pt-2 border-t border-zinc-100 dark:border-white/[0.04]">
+                      <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                        <Filter className="h-3.5 w-3.5 text-zinc-400" />
+                        <span>{t.widgets.entityFilters}</span>
+                      </label>
+                      {currentCapability.supportedFilters.map((flt) => (
+                        <div key={flt.key} className="space-y-1">
+                          <span className="text-[11px] text-zinc-400 uppercase tracking-wider font-mono">
+                            {resolveTranslationKey(t, flt.labelKey) || flt.key}
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {flt.options.map((opt) => {
+                              const activeVal = selectedFilters[flt.key] || "all";
+                              const isSelected = activeVal === opt.value;
+
+                              return (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() =>
+                                    setSelectedFilters({
+                                      ...selectedFilters,
+                                      [flt.key]: opt.value,
+                                    })
+                                  }
+                                  className={cn(
+                                    "px-2.5 py-1 rounded-lg border text-xs font-medium transition-colors cursor-pointer",
+                                    isSelected
+                                      ? "border-blue-500 bg-blue-600 text-white font-semibold"
+                                      : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300"
+                                  )}
+                                >
+                                  {resolveTranslationKey(t, opt.labelKey) || opt.value}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+              </div>
+            </div>
+          </form>
+
+          {/* Footer Actions */}
+          <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-zinc-200 dark:border-white/[0.08] bg-zinc-50/70 dark:bg-[#121316]">
             <button
               type="button"
               onClick={onClose}
@@ -711,7 +793,7 @@ export function WidgetDrawer({
               form="widget-modal-form"
               className="inline-flex items-center gap-2 px-5 py-2 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-sm transition-all cursor-pointer"
             >
-              <Check className="h-3.5 w-3.5" />
+              <Check className="h-3.5 w-3.5 stroke-[2.5]" />
               <span>{editingWidget ? t.widgets.updateWidget : t.widgets.addToDashboard}</span>
             </button>
           </div>

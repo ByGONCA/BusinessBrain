@@ -8,6 +8,7 @@ import {
 import { encryptToken } from "@/lib/crypto/encryption";
 import { rateLimit, getClientIp, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
+import { hasPermission } from "@/lib/permissions/resolver";
 
 export async function GET(request: Request) {
   const clientIp = await getClientIp();
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
   const state = searchParams.get("state");
   const errorParam = searchParams.get("error");
 
-  // Handle Google OAuth error or user cancellation safely
+  // Handle Google OAuth error or user cancellation
   if (errorParam) {
     logger.warn("Google OAuth provider returned error", { error: errorParam });
     return NextResponse.redirect(`${redirectTarget}&error=oauth_cancelled`);
@@ -39,14 +40,14 @@ export async function GET(request: Request) {
   // 1. Verify CSRF HMAC State
   const statePayload = verifyOAuthState(state);
   if (!statePayload) {
-    logger.warn("Invalid or expired OAuth state token received");
+    logger.warn("Invalid or expired Google OAuth state token received");
     return NextResponse.redirect(`${redirectTarget}&error=invalid_state`);
   }
 
   // 2. Verify Authenticated User matches state
   const currentUser = await getCurrentUser();
   if (!currentUser || currentUser.id !== statePayload.userId) {
-    logger.warn("OAuth state user mismatch", {
+    logger.warn("Google OAuth state user mismatch", {
       stateUserId: statePayload.userId,
       currentUserId: currentUser?.id,
     });
@@ -55,7 +56,7 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
 
-  // 3. Verify user has owner/admin membership in the target organization
+  // 3. Verify user has owner/admin membership or integrations.connect permission in the target organization
   const { data: member } = await supabase
     .from("organization_members")
     .select("role")
@@ -63,7 +64,18 @@ export async function GET(request: Request) {
     .eq("user_id", currentUser.id)
     .single();
 
-  if (!member || (member.role !== "owner" && member.role !== "admin")) {
+  const isAuthorized =
+    member &&
+    (member.role === "owner" ||
+      member.role === "admin" ||
+      (await hasPermission(currentUser.id, statePayload.organizationId, "integrations.connect")));
+
+  if (!isAuthorized) {
+    logger.warn("User lacks permission to complete Google connection for organization", {
+      userId: currentUser.id,
+      organizationId: statePayload.organizationId,
+      role: member?.role,
+    });
     return NextResponse.redirect(`${redirectTarget}&error=insufficient_permissions`);
   }
 

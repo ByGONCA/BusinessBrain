@@ -3,9 +3,9 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { verifyAccessOrRedirect } from "@/lib/organizations/entitlements";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import Link from "next/link";
-import { ArrowUpRight, CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { CheckCircle2, Clock, AlertCircle } from "lucide-react";
+import { EntityPageHeader } from "@/components/dashboard/entities/entity-page-header";
+import { InteractiveTaskList } from "@/components/dashboard/tasks/interactive-task-list";
 
 export default async function TasksPage() {
   const { activeOrg } = await verifyAccessOrRedirect();
@@ -13,6 +13,7 @@ export default async function TasksPage() {
   let tasks: Array<{
     id: string;
     title: string;
+    content?: string;
     metadata: Record<string, unknown> | null;
     created_at: string;
     updated_at: string;
@@ -22,7 +23,7 @@ export default async function TasksPage() {
     const supabase = await createClient();
     const { data } = await supabase
       .from("company_entities")
-      .select("id, title, metadata, created_at, updated_at")
+      .select("id, title, content, metadata, created_at, updated_at")
       .eq("organization_id", activeOrg.id)
       .eq("type", "task")
       .order("created_at", { ascending: false })
@@ -40,27 +41,13 @@ export default async function TasksPage() {
 
   return (
     <div className="space-y-6 max-w-6xl">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-foreground">
-            Tasks & Action Items
-          </h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Actionable work items originating from projects, meetings, and architectural decisions.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard/connections"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-hover hover:text-foreground transition-colors shadow-2xs"
-          >
-            <span>View in Graph</span>
-            <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground" />
-          </Link>
-        </div>
-      </div>
+      {/* Interactive Page Header */}
+      <EntityPageHeader
+        title="Tasks & Action Items"
+        description="Actionable work items originating from projects, meetings, and architectural decisions."
+        entityType="task"
+        createButtonText="New Task"
+      />
 
       {/* Summary Metrics Row */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -125,31 +112,7 @@ export default async function TasksPage() {
               Assigned Tasks ({tasks.length})
             </h2>
           </div>
-          <div className="divide-y divide-border">
-            {tasks.map((task) => {
-              const status = (task.metadata?.status as string) || "pending";
-              const priority = (task.metadata?.priority as string) || "medium";
-              return (
-                <div
-                  key={task.id}
-                  className="p-3.5 flex items-center justify-between gap-3 hover:bg-hover transition-colors text-xs"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <PhosphorCheckSquare className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="font-medium text-foreground truncate">{task.title}</span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant="outline" className="text-[10px] capitalize">
-                      {priority}
-                    </Badge>
-                    <Badge variant="secondary" className="text-[10px] capitalize">
-                      {status}
-                    </Badge>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <InteractiveTaskList initialTasks={tasks} />
         </Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -157,8 +120,8 @@ export default async function TasksPage() {
             <EmptyState
               icon={PhosphorCheckSquare}
               title="No Tasks Assigned"
-              description="Task tracking, priorities, due dates, and assignments will launch in Phase 1. Action items link directly to projects, meetings, and decisions."
-              phaseBadge="Phase 1 Planned"
+              description="Action items link directly to projects, meetings, and decisions. Create your first task to start organizing execution."
+              phaseBadge="Live Workspace"
               actionText="Explore in Company Map"
               actionHref="/dashboard/connections"
               className="py-12"

@@ -12,6 +12,9 @@ import {
   listPersonalAICredentialsAction,
   savePersonalAICredentialAction,
   deletePersonalAICredentialAction,
+  listOrganizationAICredentialsAction,
+  saveOrganizationAICredentialAction,
+  deleteOrganizationAICredentialAction,
   testProviderConnectionAction,
   AICredentialDTO,
 } from "@/lib/ai/credentials/actions";
@@ -77,23 +80,40 @@ export function AIProvidersTab() {
   const [inputLabel, setInputLabel] = useState("");
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testStatus, setTestStatus] = useState<Record<string, { valid: boolean; latencyMs?: number; error?: string }>>({});
+  const [activeScope, setActiveScope] = useState<"personal" | "org">("personal");
+  const [hasOrgPermission, setHasOrgPermission] = useState<boolean>(true);
   const [saving, setSaving] = useState(false);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
 
   useEffect(() => {
-    loadCredentials();
-  }, []);
+    loadCredentials(activeScope);
+  }, [activeScope]);
 
-  async function loadCredentials() {
+  async function loadCredentials(scope: "personal" | "org" = activeScope) {
     setLoading(true);
     setErrorBanner(null);
     try {
-      const res = await listPersonalAICredentialsAction();
-      if (res.success && res.credentials) {
-        setCredentials(res.credentials);
+      if (scope === "personal") {
+        const res = await listPersonalAICredentialsAction();
+        if (res.success && res.credentials) {
+          setCredentials(res.credentials);
+        } else {
+          setErrorBanner(res.error || "Falha ao carregar credenciais pessoais.");
+        }
+      } else {
+        const res = await listOrganizationAICredentialsAction();
+        if (res.success && res.credentials) {
+          setCredentials(res.credentials);
+          setHasOrgPermission(true);
+        } else if (res.error?.includes("Sem permissão")) {
+          setHasOrgPermission(false);
+          setCredentials([]);
+        } else {
+          setErrorBanner(res.error || "Falha ao carregar credenciais do workspace.");
+        }
       }
     } catch {
-      setErrorBanner("Falha ao carregar credenciais pessoais de IA.");
+      setErrorBanner(`Falha ao carregar credenciais de IA (${scope === "personal" ? "pessoais" : "do workspace"}).`);
     } finally {
       setLoading(false);
     }
@@ -105,11 +125,18 @@ export function AIProvidersTab() {
     setErrorBanner(null);
 
     try {
-      const res = await savePersonalAICredentialAction({
-        provider,
-        label: inputLabel.trim() || `${provider.toUpperCase()} Key`,
-        apiKey: inputKey.trim(),
-      });
+      const res =
+        activeScope === "personal"
+          ? await savePersonalAICredentialAction({
+              provider,
+              label: inputLabel.trim() || `${provider.toUpperCase()} Key`,
+              apiKey: inputKey.trim(),
+            })
+          : await saveOrganizationAICredentialAction({
+              provider,
+              label: inputLabel.trim() || `${provider.toUpperCase()} Workspace Key`,
+              apiKey: inputKey.trim(),
+            });
 
       if (!res.success) {
         setErrorBanner(res.error || "Erro ao guardar chave.");
@@ -117,7 +144,7 @@ export function AIProvidersTab() {
         setEditingProvider(null);
         setInputKey("");
         setInputLabel("");
-        await loadCredentials();
+        await loadCredentials(activeScope);
       }
     } catch {
       setErrorBanner("Erro ao comunicar com o servidor.");
@@ -127,10 +154,15 @@ export function AIProvidersTab() {
   }
 
   async function handleDeleteKey(id: string) {
-    if (!confirm("Tem a certeza que deseja remover esta chave pessoal de IA?")) return;
+    const scopeLabel = activeScope === "personal" ? "esta chave pessoal" : "esta chave partilhada do workspace";
+    if (!confirm(`Tem a certeza que deseja remover ${scopeLabel} de IA?`)) return;
     try {
-      await deletePersonalAICredentialAction(id);
-      await loadCredentials();
+      if (activeScope === "personal") {
+        await deletePersonalAICredentialAction(id);
+      } else {
+        await deleteOrganizationAICredentialAction(id);
+      }
+      await loadCredentials(activeScope);
     } catch {
       setErrorBanner("Erro ao remover credencial.");
     }
@@ -154,12 +186,47 @@ export function AIProvidersTab() {
 
   return (
     <div className="space-y-6">
+      {/* Scope Selector: Personal vs Workspace */}
+      <div className="flex items-center gap-2 border-b border-white/[0.08] pb-3">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveScope("personal");
+            setEditingProvider(null);
+          }}
+          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+            activeScope === "personal"
+              ? "bg-white/[0.1] text-white"
+              : "text-zinc-400 hover:bg-white/[0.04] hover:text-white"
+          }`}
+        >
+          Chaves Pessoais (Individual)
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveScope("org");
+            setEditingProvider(null);
+          }}
+          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+            activeScope === "org"
+              ? "bg-white/[0.1] text-white"
+              : "text-zinc-400 hover:bg-white/[0.04] hover:text-white"
+          }`}
+        >
+          Chaves do Workspace (Equipa)
+        </button>
+      </div>
+
       {/* Header and Scope Info */}
       <div className="flex flex-col gap-1">
-        <h3 className="text-base font-semibold text-white">Fornecedores de IA & Chaves Pessoais (BYOK)</h3>
+        <h3 className="text-base font-semibold text-white">
+          {activeScope === "personal" ? "Fornecedores de IA & Chaves Pessoais (BYOK)" : "Credenciais de IA Partilhadas do Workspace"}
+        </h3>
         <p className="text-xs text-zinc-400">
-          Configure as suas próprias chaves de API para utilizar modelos da OpenAI, Anthropic, DeepSeek ou Mistral.
-          As chaves são encriptadas no servidor com AES-256-GCM e nunca são expostas ao browser nem a terceiros.
+          {activeScope === "personal"
+            ? "Configure as suas próprias chaves de API para utilizar modelos da OpenAI, Anthropic, DeepSeek ou Mistral. As chaves são encriptadas no servidor com AES-256-GCM e sobrepõem-se às chaves partilhadas da organização."
+            : "Chaves configuradas pelos administradores para utilização coletiva por todos os membros do workspace. As chaves são encriptadas com AES-256-GCM e apenas administradores podem geri-las."}
         </p>
       </div>
 
@@ -183,7 +250,15 @@ export function AIProvidersTab() {
         </div>
       )}
 
-      {/* Providers List */}
+      {activeScope === "org" && !hasOrgPermission ? (
+        <div className="rounded-xl border border-white/[0.08] bg-[#121316] p-6 text-center">
+          <p className="text-sm font-medium text-white">Acesso Restrito a Administradores</p>
+          <p className="mt-1 text-xs text-zinc-400">
+            Apenas proprietários e administradores do workspace com a permissão "ai.manage_keys" podem configurar ou consultar as credenciais de IA partilhadas da organização.
+          </p>
+        </div>
+      ) : (
+      /* Providers List */
       <div className="space-y-3">
         {SUPPORTED_PROVIDERS.map((provider) => {
           const cred = credentials.find((c) => c.provider === provider.id);
@@ -336,6 +411,7 @@ export function AIProvidersTab() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

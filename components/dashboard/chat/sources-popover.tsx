@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { VerifiedSource } from "@/lib/ai/types";
-import { ExternalLink, FileText, GitPullRequest, MessageSquare, Brain } from "lucide-react";
+import { ExternalLink, FileText, GitPullRequest, MessageSquare, Brain, Target, FolderGit2, CheckSquare } from "lucide-react";
 
 interface SourcesPopoverProps {
   sources: VerifiedSource[];
@@ -34,7 +34,7 @@ export function SourcesPopover({ sources }: SourcesPopoverProps) {
               <span className="text-xs font-semibold tracking-tight text-foreground">
                 Documentos & Fontes Citadas
               </span>
-              <span className="text-[10px] font-mono text-muted-foreground">Isolamento RLS</span>
+              <span className="text-[10px] font-mono text-muted-foreground">Isolamento Seguro</span>
             </div>
 
             <div className="space-y-2">
@@ -43,6 +43,12 @@ export function SourcesPopover({ sources }: SourcesPopoverProps) {
                 if (src.type === "pr") Icon = GitPullRequest;
                 if (src.type === "discussion") Icon = MessageSquare;
                 if (src.type === "decision") Icon = Brain;
+                if (src.type === "goal") Icon = Target;
+                if (src.type === "project") Icon = FolderGit2;
+                if (src.type === "task") Icon = CheckSquare;
+                if (src.type === "goal") Icon = Target;
+                if (src.type === "project") Icon = FolderGit2;
+                if (src.type === "task") Icon = CheckSquare;
 
                 return (
                   <div

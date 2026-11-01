@@ -35,7 +35,7 @@ const TOUR_STEPS: TourStep[] = [
     selector: '[data-tour="org-switcher"]',
     title: "Your Company Workspace",
     description:
-      "All your company's knowledge, decisions, and teams live here, secured with PostgreSQL Row Level Security.",
+      "All your company's knowledge, decisions, and teams live here, secured with enterprise-grade workspace isolation.",
     icon: Building2,
     preferredPlacement: "right",
   },

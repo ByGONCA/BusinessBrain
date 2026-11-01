@@ -11,6 +11,7 @@ export interface AIConversationRecord {
   provider: string;
   model: string;
   isByok: boolean;
+  selectedSourceIds: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -39,7 +40,8 @@ export class AIChatService {
     userId: string,
     title = "Nova Discussão",
     provider = "gemini",
-    model = "gemini-2.5-flash"
+    model = "gemini-2.5-flash",
+    selectedSourceIds: string[] = []
   ): Promise<AIConversationRecord> {
     const supabase = await createClient();
 
@@ -51,6 +53,7 @@ export class AIChatService {
         title: title.slice(0, 200),
         provider,
         model,
+        selected_source_ids: selectedSourceIds,
       })
       .select()
       .single();
@@ -68,9 +71,36 @@ export class AIChatService {
       provider: data.provider,
       model: data.model,
       isByok: data.is_byok,
+      selectedSourceIds: data.selected_source_ids || [],
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     };
+  }
+
+  /**
+   * Updates the selected sources of an ongoing conversation.
+   */
+  static async updateConversationSelectedSources(
+    conversationId: string,
+    organizationId: string,
+    selectedSourceIds: string[]
+  ): Promise<void> {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("ai_conversations")
+      .update({
+        selected_source_ids: selectedSourceIds,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", conversationId)
+      .eq("organization_id", organizationId);
+
+    if (error) {
+      logger.warn("Failed to update selected_source_ids on conversation", {
+        conversationId,
+        error: error.message,
+      });
+    }
   }
 
   /**
@@ -84,7 +114,7 @@ export class AIChatService {
 
     const { data, error } = await supabase
       .from("ai_conversations")
-      .select("id, organization_id, user_id, title, provider, model, is_byok, created_at, updated_at")
+      .select("id, organization_id, user_id, title, provider, model, is_byok, selected_source_ids, created_at, updated_at")
       .eq("organization_id", organizationId)
       .eq("user_id", userId)
       .order("updated_at", { ascending: false });
@@ -101,6 +131,7 @@ export class AIChatService {
       provider: c.provider,
       model: c.model,
       isByok: c.is_byok,
+      selectedSourceIds: c.selected_source_ids || [],
       createdAt: c.created_at,
       updatedAt: c.updated_at,
     }));
@@ -159,6 +190,7 @@ export class AIChatService {
         provider: conv.provider,
         model: conv.model,
         isByok: conv.is_byok,
+        selectedSourceIds: conv.selected_source_ids || [],
         createdAt: conv.created_at,
         updatedAt: conv.updated_at,
       },
@@ -323,5 +355,14 @@ export class AIChatService {
       .eq("user_id", userId);
 
     return !error;
+  }
+
+  /**
+   * Generates a concise title from the user prompt using simple heuristics.
+   */
+  static generateFallbackTitle(prompt: string): string {
+    const clean = prompt.trim().replace(/\s+/g, " ");
+    if (clean.length <= 40) return clean;
+    return clean.slice(0, 37) + "...";
   }
 }

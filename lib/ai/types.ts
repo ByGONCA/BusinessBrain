@@ -13,7 +13,7 @@ export interface AIChatMessage {
 
 export interface VerifiedSource {
   id: string;
-  type: "page" | "decision" | "meeting" | "pr" | "discussion" | "file";
+  type: "page" | "decision" | "meeting" | "pr" | "discussion" | "file" | "goal" | "project" | "task";
   title: string;
   snippet: string;
   url?: string;

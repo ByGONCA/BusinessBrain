@@ -45,9 +45,8 @@ export class AIContextOrchestrator {
     userQuery: string,
     options: ContextRetrievalOptions = {}
   ): Promise<OrchestratedContext> {
-    const maxSources = options.maxSources ?? 5;
+    const maxSources = options.maxSources ?? 6;
     const maxSnippetLength = options.maxSnippetLength ?? 600;
-    const selectedSourceIds = options.selectedSourceIds;
     const conversationId = options.conversationId;
 
     // 1. Validate UUIDs
@@ -88,12 +87,42 @@ export class AIContextOrchestrator {
       throw new AIError("Forbidden: You do not have the 'ai.chat' permission.", "FORBIDDEN", 403);
     }
 
+    // Resolve effective selected sources: fallback to conversation stored selections if absent in request
+    let effectiveSourceIds = options.selectedSourceIds;
+    if ((!effectiveSourceIds || effectiveSourceIds.length === 0) && conversationId && isValidUuid(conversationId)) {
+      try {
+        const { data: conv } = await supabase
+          .from("ai_conversations")
+          .select("selected_source_ids")
+          .eq("id", conversationId)
+          .eq("organization_id", organizationId)
+          .maybeSingle();
+
+        if (conv?.selected_source_ids && Array.isArray(conv.selected_source_ids) && conv.selected_source_ids.length > 0) {
+          effectiveSourceIds = conv.selected_source_ids;
+        }
+      } catch (convErr) {
+        logger.warn("Failed to read conversation selected_source_ids", { error: String(convErr) });
+      }
+    }
+
     // 5. Check granular domain permissions
-    const [canViewPages, canViewBrain, canViewGithub, canViewBilling] = await Promise.all([
+    const [
+      canViewPages,
+      canViewBrain,
+      canViewGithub,
+      canViewBilling,
+      canViewGoals,
+      canViewProjects,
+      canViewTasks,
+    ] = await Promise.all([
       isOwnerOrAdmin || hasPermission(userId, organizationId, "pages.view"),
       isOwnerOrAdmin || hasPermission(userId, organizationId, "brain.view"),
       isOwnerOrAdmin || hasPermission(userId, organizationId, "github.view"),
       isOwnerOrAdmin || hasPermission(userId, organizationId, "billing.view"),
+      isOwnerOrAdmin || hasPermission(userId, organizationId, "goals.view"),
+      isOwnerOrAdmin || hasPermission(userId, organizationId, "projects.view"),
+      isOwnerOrAdmin || hasPermission(userId, organizationId, "tasks.view"),
     ]);
 
     const collectedSources: VerifiedSource[] = [];
@@ -107,16 +136,29 @@ export class AIContextOrchestrator {
       .slice(0, 5);
 
     // Hard-Scoping Filter Definitions
-    const hasExplicitSelection = selectedSourceIds != null && selectedSourceIds.length > 0;
-    const isAreaPagesSelected = !hasExplicitSelection || selectedSourceIds.includes("area:pages");
-    const isAreaFinanceSelected = hasExplicitSelection && selectedSourceIds.includes("area:finance");
-    const isAreaGithubSelected = hasExplicitSelection && selectedSourceIds.includes("area:github");
+    const activeSelectedIds = effectiveSourceIds || [];
+    const hasExplicitSelection = activeSelectedIds.length > 0;
+    const isAreaPagesSelected = !hasExplicitSelection || activeSelectedIds.includes("area:pages");
+    const isAreaFinanceSelected = hasExplicitSelection && activeSelectedIds.includes("area:finance");
+    const isAreaGithubSelected = hasExplicitSelection && activeSelectedIds.includes("area:github");
+    const isAreaBrainSelected = !hasExplicitSelection || activeSelectedIds.includes("area:brain") || activeSelectedIds.includes("area:decisions");
+    const isAreaGoalsSelected = !hasExplicitSelection || activeSelectedIds.includes("area:goals");
+    const isAreaProjectsSelected = !hasExplicitSelection || activeSelectedIds.includes("area:projects");
+    const isAreaTasksSelected = !hasExplicitSelection || activeSelectedIds.includes("area:tasks");
 
     // Explicit specific page IDs filter
     const specificPageIds = hasExplicitSelection
-      ? selectedSourceIds
+      ? activeSelectedIds
           .filter((id) => id.startsWith("page:"))
           .map((id) => id.slice(5))
+          .filter(isValidUuid)
+      : [];
+
+    // Explicit specific entity IDs filter
+    const specificEntityIds = hasExplicitSelection
+      ? activeSelectedIds
+          .filter((id) => id.startsWith("entity:"))
+          .map((id) => id.slice(7))
           .filter(isValidUuid)
       : [];
 
@@ -133,7 +175,6 @@ export class AIContextOrchestrator {
       normalizedQuery.includes("subscriç");
 
     if (asksAboutFinance) {
-      // Sensitive domain check: A verified grant MUST be active. Selecting in UI alone cannot bypass server authorization!
       const hasFinanceGrant = await AIAuthorizationService.hasActiveAuthorization(
         userId,
         organizationId,
@@ -144,7 +185,6 @@ export class AIContextOrchestrator {
       );
 
       if (!hasFinanceGrant) {
-        // Emit Authorization Challenge: Prompt user before querying Stripe
         return {
           formattedSystemContext: this.buildPromptContext([]),
           sources: [],
@@ -161,7 +201,6 @@ export class AIContextOrchestrator {
         };
       }
 
-      // If authorized, ensure user has not explicitly deselected finance when explicit selections exist
       const isFinanceAllowed = !hasExplicitSelection || isAreaFinanceSelected;
       if (isFinanceAllowed && canViewBilling) {
         const financeResult = await AIFinancialAnalyst.getFinancialContext(supabase, organizationId);
@@ -183,7 +222,6 @@ export class AIContextOrchestrator {
           .eq("is_archived", false)
           .limit(maxSources - collectedSources.length);
 
-        // HARD SCOPING: If user selected specific pages, filter by EXACT ids!
         if (specificPageIds.length > 0) {
           queryBuilder = queryBuilder.in("id", specificPageIds);
         } else if (searchTerms.length > 0) {
@@ -213,7 +251,71 @@ export class AIContextOrchestrator {
     }
 
     // -------------------------------------------------------------------------
-    // 5.3 GitHub & External Discussions (Sensitive Domain)
+    // 5.3 Company Entities (Decisions, Goals, Projects, Tasks)
+    // -------------------------------------------------------------------------
+    const allowedEntityTypes: string[] = [];
+    if (canViewBrain && isAreaBrainSelected) allowedEntityTypes.push("decision");
+    if (canViewGoals && isAreaGoalsSelected) allowedEntityTypes.push("goal");
+    if (canViewProjects && isAreaProjectsSelected) allowedEntityTypes.push("project");
+    if (canViewTasks && isAreaTasksSelected) allowedEntityTypes.push("task");
+
+    if (
+      (allowedEntityTypes.length > 0 || specificEntityIds.length > 0) &&
+      collectedSources.length < maxSources
+    ) {
+      try {
+        let entQuery = supabase
+          .from("company_entities")
+          .select("id, type, title, content, metadata, updated_at")
+          .eq("organization_id", organizationId)
+          .limit(maxSources - collectedSources.length);
+
+        if (specificEntityIds.length > 0) {
+          entQuery = entQuery.in("id", specificEntityIds);
+        } else {
+          entQuery = entQuery.in("type", allowedEntityTypes);
+          if (searchTerms.length > 0) {
+            entQuery = entQuery.ilike("title", `%${searchTerms[0]}%`);
+          }
+        }
+
+        const { data: entities } = await entQuery;
+
+        if (entities) {
+          for (const ent of entities) {
+            const meta = (ent.metadata as Record<string, unknown>) || {};
+            const statusStr = meta.status ? ` [Status: ${meta.status}]` : "";
+            const rawSnippet = `${ent.title}${statusStr}\n${ent.content || ""}`.trim();
+            const snippet = this.sanitizeSnippet(rawSnippet, maxSnippetLength);
+
+            const entityTypeMapped =
+              ent.type === "decision"
+                ? "decision"
+                : ent.type === "goal"
+                ? "goal"
+                : ent.type === "project"
+                ? "project"
+                : "task";
+
+            collectedSources.push({
+              id: ent.id,
+              type: entityTypeMapped,
+              title: ent.title,
+              snippet,
+              url: `/dashboard/${ent.type}s`,
+              updatedAt: ent.updated_at,
+            });
+
+            if (collectedSources.length >= maxSources) break;
+          }
+        }
+      } catch (entErr) {
+        logger.error("Failed to query company_entities context for AI", entErr);
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 5.4 GitHub & External Discussions (Sensitive Domain)
     // -------------------------------------------------------------------------
     if (canViewGithub && isAreaGithubSelected && collectedSources.length < maxSources) {
       try {
@@ -243,7 +345,7 @@ export class AIContextOrchestrator {
     }
 
     // -------------------------------------------------------------------------
-    // 5.4 Assemble Formatted Prompt Context with Anti-Injection Boundary
+    // 5.5 Assemble Formatted Prompt Context with Anti-Injection Boundary
     // -------------------------------------------------------------------------
     const formattedSystemContext = this.buildPromptContext(collectedSources);
 

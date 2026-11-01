@@ -8,6 +8,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getActiveOrganization } from "@/lib/organizations/queries";
+import { hasPermission } from "@/lib/permissions/resolver";
 import { encryptAICredential, computeKeyFingerprint } from "@/lib/crypto/encryption";
 import { getAIProvider, resolveProviderForModel } from "../index";
 import { SupportedProviderId } from "../types";
@@ -168,6 +170,202 @@ export async function deletePersonalAICredentialAction(
 
   if (error) {
     return { success: false, error: "Erro ao remover a credencial pessoal." };
+  }
+
+  revalidatePath("/dashboard/settings");
+  return { success: true };
+}
+
+/**
+ * Lists organization-level credentials of the active workspace.
+ * Requires Owner, Admin role, or explicit 'ai.manage_keys' permission.
+ */
+export async function listOrganizationAICredentialsAction(): Promise<{
+  success: boolean;
+  credentials?: AICredentialDTO[];
+  error?: string;
+}> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Autenticação necessária." };
+  }
+
+  const activeOrg = await getActiveOrganization();
+  if (!activeOrg) {
+    return { success: false, error: "Nenhum workspace ativo selecionado." };
+  }
+
+  const isOwnerOrAdmin = activeOrg.role === "owner" || activeOrg.role === "admin";
+  const canManage = isOwnerOrAdmin || (await hasPermission(user.id, activeOrg.id, "ai.manage_keys"));
+
+  if (!canManage) {
+    return {
+      success: false,
+      error: "Sem permissão: Apenas administradores do workspace podem consultar credenciais de IA partilhadas.",
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("organization_ai_credentials")
+    .select("id, provider, label, key_prefix, status, is_default, custom_base_url, last_tested_at, last_error_message, created_at")
+    .eq("organization_id", activeOrg.id)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return { success: false, error: "Erro ao consultar credenciais do workspace." };
+  }
+
+  const credentials: AICredentialDTO[] = (data || []).map((row: any) => ({
+    id: row.id,
+    provider: row.provider as SupportedProviderId,
+    label: row.label,
+    keyPrefix: row.key_prefix,
+    status: row.status,
+    isDefault: row.is_default,
+    customBaseUrl: row.custom_base_url,
+    lastTestedAt: row.last_tested_at,
+    lastErrorMessage: row.last_error_message,
+    createdAt: row.created_at,
+    scope: "org",
+  }));
+
+  return { success: true, credentials };
+}
+
+/**
+ * Saves or rotates an organization-level AI credential.
+ * Requires Owner, Admin role, or explicit 'ai.manage_keys' permission.
+ */
+export async function saveOrganizationAICredentialAction(params: {
+  provider: SupportedProviderId;
+  label: string;
+  apiKey: string;
+  customBaseUrl?: string;
+  isDefault?: boolean;
+}): Promise<{ success: boolean; credentialId?: string; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Autenticação necessária." };
+  }
+
+  const activeOrg = await getActiveOrganization();
+  if (!activeOrg) {
+    return { success: false, error: "Nenhum workspace ativo selecionado." };
+  }
+
+  const isOwnerOrAdmin = activeOrg.role === "owner" || activeOrg.role === "admin";
+  const canManage = isOwnerOrAdmin || (await hasPermission(user.id, activeOrg.id, "ai.manage_keys"));
+
+  if (!canManage) {
+    return {
+      success: false,
+      error: "Sem permissão: Apenas administradores do workspace podem configurar credenciais de IA da organização.",
+    };
+  }
+
+  const rl = await rateLimit("save-org-ai-key", `${user.id}:${activeOrg.id}`, RATE_LIMIT_PRESETS.MUTATIONS);
+  if (!rl.success) {
+    return { success: false, error: "Demasiadas tentativas de alteração de chaves. Aguarde um momento." };
+  }
+
+  const cleanKey = params.apiKey.trim();
+  if (cleanKey.length < 15) {
+    return { success: false, error: "Chave de API inválida ou demasiado curta." };
+  }
+
+  // 1. Safe connection test
+  const adapter = getAIProvider(params.provider);
+  const testResult = await adapter.validateCredential(cleanKey, params.customBaseUrl);
+  if (!testResult.valid) {
+    return {
+      success: false,
+      error: `A validação da chave falhou com o fornecedor ${adapter.displayName}: ${testResult.error || "Chave rejeitada."}`,
+    };
+  }
+
+  // 2. Encrypt with AES-256-GCM JIT
+  const encryptedKey = encryptAICredential(cleanKey);
+  const keyFingerprint = computeKeyFingerprint(cleanKey);
+  const keyPrefix = cleanKey.slice(0, 7) + "••••";
+
+  // 3. Insert or update in organization_ai_credentials
+  const { data, error } = await supabase
+    .from("organization_ai_credentials")
+    .upsert(
+      {
+        organization_id: activeOrg.id,
+        provider: params.provider,
+        label: params.label.trim(),
+        key_prefix: keyPrefix,
+        encrypted_api_key: encryptedKey,
+        key_fingerprint: keyFingerprint,
+        status: "active",
+        is_default: Boolean(params.isDefault),
+        custom_base_url: params.customBaseUrl?.trim() || null,
+        created_by_user_id: user.id,
+        last_tested_at: new Date().toISOString(),
+        last_error_message: null,
+      },
+      { onConflict: "organization_id,provider,key_fingerprint" }
+    )
+    .select("id")
+    .single();
+
+  if (error) {
+    return { success: false, error: "Erro ao gravar credencial do workspace na base de dados." };
+  }
+
+  revalidatePath("/dashboard/settings");
+  return { success: true, credentialId: data.id };
+}
+
+/**
+ * Removes an organization-level AI credential.
+ * Requires Owner, Admin role, or explicit 'ai.manage_keys' permission.
+ */
+export async function deleteOrganizationAICredentialAction(
+  credentialId: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "Autenticação necessária." };
+  }
+
+  const activeOrg = await getActiveOrganization();
+  if (!activeOrg) {
+    return { success: false, error: "Nenhum workspace ativo selecionado." };
+  }
+
+  const isOwnerOrAdmin = activeOrg.role === "owner" || activeOrg.role === "admin";
+  const canManage = isOwnerOrAdmin || (await hasPermission(user.id, activeOrg.id, "ai.manage_keys"));
+
+  if (!canManage) {
+    return {
+      success: false,
+      error: "Sem permissão: Apenas administradores do workspace podem remover credenciais de IA da organização.",
+    };
+  }
+
+  const { error } = await supabase
+    .from("organization_ai_credentials")
+    .delete()
+    .eq("id", credentialId)
+    .eq("organization_id", activeOrg.id);
+
+  if (error) {
+    return { success: false, error: "Erro ao remover a credencial do workspace." };
   }
 
   revalidatePath("/dashboard/settings");

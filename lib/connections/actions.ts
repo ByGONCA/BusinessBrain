@@ -352,3 +352,140 @@ export async function updateConnectionAction(params: {
     return { success: false, error: "Failed to update connection" };
   }
 }
+
+
+/**
+ * Retrieves all direct connections for a specific entity (both incoming and outgoing).
+ */
+export async function getEntityConnectionsAction(params: {
+  entityId: string;
+}): Promise<{
+  success: boolean;
+  incoming: CompanyConnectionRecord[];
+  outgoing: CompanyConnectionRecord[];
+  error?: string;
+}> {
+  try {
+    if (!isValidUuid(params.entityId)) {
+      return { success: false, incoming: [], outgoing: [], error: "Invalid entity ID" };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, incoming: [], outgoing: [], error: "Unauthorized" };
+    }
+
+    const activeOrg = await getActiveOrganization();
+    if (!activeOrg) {
+      return { success: false, incoming: [], outgoing: [], error: "No active workspace found" };
+    }
+
+    const [outgoingRes, incomingRes] = await Promise.all([
+      supabase
+        .from("company_connections")
+        .select("*")
+        .eq("organization_id", activeOrg.id)
+        .eq("source_id", params.entityId),
+      supabase
+        .from("company_connections")
+        .select("*")
+        .eq("organization_id", activeOrg.id)
+        .eq("target_id", params.entityId),
+    ]);
+
+    if (outgoingRes.error || incomingRes.error) {
+      return {
+        success: false,
+        incoming: [],
+        outgoing: [],
+        error: outgoingRes.error?.message || incomingRes.error?.message || "Failed to fetch connections",
+      };
+    }
+
+    return {
+      success: true,
+      outgoing: (outgoingRes.data || []) as CompanyConnectionRecord[],
+      incoming: (incomingRes.data || []) as CompanyConnectionRecord[],
+    };
+  } catch (err: unknown) {
+    logger.error("Unexpected error in getEntityConnectionsAction", err);
+    return { success: false, incoming: [], outgoing: [], error: "Failed to fetch connections" };
+  }
+}
+
+/**
+ * Searches connectable items (pages and company_entities) in the active organization.
+ */
+export async function searchConnectableEntitiesAction(params: {
+  query: string;
+  excludeId?: string;
+}): Promise<{
+  success: boolean;
+  items: Array<{ id: string; title: string; type: EntityType }>;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, items: [], error: "Unauthorized" };
+    }
+
+    const activeOrg = await getActiveOrganization();
+    if (!activeOrg) {
+      return { success: false, items: [], error: "No active workspace" };
+    }
+
+    const cleanQuery = (params.query || "").trim();
+
+    // Query pages and entities in parallel
+    const [pagesRes, entitiesRes] = await Promise.all([
+      supabase
+        .from("pages")
+        .select("id, title")
+        .eq("organization_id", activeOrg.id)
+        .eq("is_archived", false)
+        .ilike("title", `%${cleanQuery}%`)
+        .limit(15),
+      supabase
+        .from("company_entities")
+        .select("id, title, type")
+        .eq("organization_id", activeOrg.id)
+        .ilike("title", `%${cleanQuery}%`)
+        .limit(20),
+    ]);
+
+    const results: Array<{ id: string; title: string; type: EntityType }> = [];
+
+    if (pagesRes.data) {
+      for (const p of pagesRes.data) {
+        if (p.id !== params.excludeId) {
+          results.push({ id: p.id, title: p.title || "Página Sem Título", type: "page" });
+        }
+      }
+    }
+
+    if (entitiesRes.data) {
+      for (const e of entitiesRes.data) {
+        if (e.id !== params.excludeId) {
+          results.push({ id: e.id, title: e.title || "Entidade Sem Título", type: e.type as EntityType });
+        }
+      }
+    }
+
+    return {
+      success: true,
+      items: results.slice(0, 25),
+    };
+  } catch (err: unknown) {
+    logger.error("Unexpected error in searchConnectableEntitiesAction", err);
+    return { success: false, items: [], error: "Failed to search entities" };
+  }
+}

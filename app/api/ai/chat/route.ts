@@ -159,7 +159,18 @@ export async function POST(req: NextRequest) {
           { status: 400, headers: { "Content-Type": "application/json" } }
         );
       }
-      apiKey = decryptAICredential(userCred.encrypted_api_key);
+      try {
+        apiKey = decryptAICredential(userCred.encrypted_api_key);
+      } catch (decErr) {
+        logger.error("Failed to decrypt personal BYOK credential", decErr, { userId: user.id, provider: targetProvider });
+        return new Response(
+          JSON.stringify({
+            error: `Não foi possível desencriptar a sua credencial pessoal para '${targetProvider}'. A chave de encriptação do sistema pode ter sido alterada. Atualize a chave em Definições > Chaves de IA.`,
+            code: "BYOK_DECRYPTION_FAILED",
+          }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
       customBaseUrl = userCred.custom_base_url || undefined;
       isByok = true;
       userCredentialId = userCred.id;
@@ -182,7 +193,18 @@ export async function POST(req: NextRequest) {
             { status: 400, headers: { "Content-Type": "application/json" } }
           );
         }
-        apiKey = decryptAICredential(orgCred.encrypted_api_key);
+        try {
+          apiKey = decryptAICredential(orgCred.encrypted_api_key);
+        } catch (decErr) {
+          logger.error("Failed to decrypt organization BYOK credential", decErr, { orgId: activeOrg.id, provider: targetProvider });
+          return new Response(
+            JSON.stringify({
+              error: `Não foi possível desencriptar a credencial do workspace para '${targetProvider}'. Atualize a chave nas definições do workspace.`,
+              code: "ORG_DECRYPTION_FAILED",
+            }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+          );
+        }
         customBaseUrl = orgCred.custom_base_url || undefined;
         isByok = true;
       }
@@ -236,9 +258,16 @@ export async function POST(req: NextRequest) {
         user.id,
         title,
         targetProvider,
-        targetModel
+        targetModel,
+        body.selectedSourceIds || []
       );
       conversationId = newConv.id;
+    } else if (body.selectedSourceIds) {
+      await AIChatService.updateConversationSelectedSources(
+        conversationId,
+        activeOrg.id,
+        body.selectedSourceIds
+      );
     }
 
     // 10. Retrieve grounded authorized context with hard scoping

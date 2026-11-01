@@ -234,14 +234,14 @@ export function WidgetContainer({
           )}
         </div>
 
-        {/* Edit Mode Toolbar Controls (Drag-immune controls, NO ARROWS) */}
+        {/* Edit Mode Toolbar Controls (Clean & minimal: Pencil to configure + Trash to remove) */}
         {isEditing && (
           <div
             draggable={false}
             onMouseDown={(e) => e.stopPropagation()}
             className="flex items-center gap-1 shrink-0 bg-zinc-100 dark:bg-zinc-800/80 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700/60 text-xs"
           >
-            {/* Screen Reader Accessible Navigation (Visually hidden - no visible arrow clutter) */}
+            {/* Screen Reader Accessible Navigation */}
             <button
               type="button"
               disabled={!canMoveLeft}
@@ -261,247 +261,14 @@ export function WidgetContainer({
               {t.widgets.moveRight}
             </button>
 
-            {/* Split in Half (50/50 Dual Column) */}
-            {onSplitInHalf && (widget.size === "full" || widget.size === "lg" || currentWidth >= 60) && (
-              <button
-                type="button"
-                onClick={onSplitInHalf}
-                title={t.widgets.splitInHalf}
-                aria-label={t.widgets.splitInHalf}
-                className="p-1 rounded text-zinc-500 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
-              >
-                <Columns2 className="h-3.5 w-3.5" />
-              </button>
-            )}
-
-            {/* Force Row Break (Below vs Side-by-Side) */}
-            {onToggleRowBreak && (
-              <button
-                type="button"
-                onClick={onToggleRowBreak}
-                title={widget.options?.rowBreak ? t.widgets.sideBySide : t.widgets.forceRowBreak}
-                aria-label={widget.options?.rowBreak ? t.widgets.sideBySide : t.widgets.forceRowBreak}
-                className={cn(
-                  "p-1 rounded transition-colors cursor-pointer",
-                  widget.options?.rowBreak
-                    ? "bg-blue-500/20 text-blue-600 dark:text-blue-400 font-semibold"
-                    : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                )}
-              >
-                <ArrowDownToLine className="h-3.5 w-3.5" />
-              </button>
-            )}
-
-            {/* 100% Custom Dimension & Position Pill with Popover */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowDimensionPicker((prev) => !prev)}
-                title="Dimensões e posição livre no ecrã"
-                className="px-2 py-0.5 text-[10px] font-mono font-medium rounded text-zinc-700 dark:text-zinc-200 bg-white dark:bg-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-600 border border-zinc-200 dark:border-zinc-600 transition-colors cursor-pointer flex items-center gap-1"
-              >
-                <SlidersHorizontal className="h-2.5 w-2.5 text-blue-500" />
-                <span>
-                  {align === "center" ? "Centro" : align === "right" ? "Dir" : `${currentOffset > 0 ? `+${currentOffset}%` : "Esq"}`} • {currentWidth}% × {currentHeight}px
-                </span>
-              </button>
-
-              {showDimensionPicker && (
-                <div
-                  draggable={false}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  className="absolute right-0 top-full mt-2 z-50 w-72 p-3 bg-white dark:bg-[#16181D] border border-zinc-200 dark:border-white/[0.1] rounded-xl shadow-2xl space-y-3 text-xs animate-in fade-in"
-                >
-                  <div className="flex items-center justify-between border-b border-zinc-100 dark:border-white/[0.06] pb-2 font-semibold text-zinc-900 dark:text-white">
-                    <span>Dimensões e Posição Livres</span>
-                    <button
-                      type="button"
-                      onClick={() => setShowDimensionPicker(false)}
-                      className="text-zinc-400 hover:text-zinc-600 dark:hover:text-white cursor-pointer"
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  {/* Posição no Ecrã (Esquerda, Centro, Direita) */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between text-[11px] text-zinc-600 dark:text-zinc-400">
-                      <span>{t.widgets.horizontalPosition}</span>
-                      <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
-                        {align === "center"
-                          ? t.widgets.alignCenter
-                          : align === "right"
-                          ? t.widgets.alignRight
-                          : currentOffset > 0
-                          ? `Offset ${currentOffset}%`
-                          : t.widgets.alignLeft}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1">
-                      <button
-                        type="button"
-                        onClick={() => onResizeCustom?.(currentWidth, currentHeight, "left", 0)}
-                        className={cn(
-                          "py-1 px-1.5 rounded text-[10px] font-medium transition-colors cursor-pointer text-center truncate",
-                          align === "left" && currentOffset === 0
-                            ? "bg-blue-600 text-white font-bold"
-                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                        )}
-                      >
-                        {t.widgets.alignLeft}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onResizeCustom?.(currentWidth, currentHeight, "center", 0)}
-                        className={cn(
-                          "py-1 px-1.5 rounded text-[10px] font-medium transition-colors cursor-pointer text-center truncate",
-                          align === "center"
-                            ? "bg-blue-600 text-white font-bold"
-                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                        )}
-                      >
-                        {t.widgets.alignCenter}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onResizeCustom?.(currentWidth, currentHeight, "right", 0)}
-                        className={cn(
-                          "py-1 px-1.5 rounded text-[10px] font-medium transition-colors cursor-pointer text-center truncate",
-                          align === "right"
-                            ? "bg-blue-600 text-white font-bold"
-                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                        )}
-                      >
-                        {t.widgets.alignRight}
-                      </button>
-                    </div>
-
-                    {/* Deslocamento Livre Horizontal (Offset %) */}
-                    <div className="space-y-1 pt-1">
-                      <div className="flex items-center justify-between text-[10px] text-zinc-500 dark:text-zinc-400">
-                        <span>{t.widgets.horizontalOffset}</span>
-                        <span className="font-mono">{currentOffset}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0}
-                        max={Math.max(10, 100 - currentWidth)}
-                        step={1}
-                        value={currentOffset}
-                        onChange={(e) =>
-                          onResizeCustom?.(currentWidth, currentHeight, "left", Number(e.target.value))
-                        }
-                        className="w-full accent-blue-600 cursor-pointer h-1.5"
-                      />
-                      <div className="flex justify-between gap-1 pt-0.5">
-                        {[0, 10, 20, 33, 50]
-                          .filter((off) => off <= 100 - currentWidth)
-                          .map((off) => (
-                            <button
-                              key={off}
-                              type="button"
-                              onClick={() => onResizeCustom?.(currentWidth, currentHeight, "left", off)}
-                              className={cn(
-                                "px-1.5 py-0.5 rounded text-[10px] font-mono transition-colors cursor-pointer",
-                                currentOffset === off && align === "left"
-                                  ? "bg-blue-600 text-white font-bold"
-                                  : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                              )}
-                            >
-                              {off}%
-                            </button>
-                          ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Largura Slider & Presets */}
-                  <div className="space-y-1.5 pt-2 border-t border-zinc-100 dark:border-white/[0.06]">
-                    <div className="flex items-center justify-between text-[11px] text-zinc-600 dark:text-zinc-400">
-                      <span>Largura</span>
-                      <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
-                        {currentWidth}%
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={20}
-                      max={100}
-                      step={1}
-                      value={currentWidth}
-                      onChange={(e) =>
-                        onResizeCustom?.(Number(e.target.value), currentHeight, align, currentOffset)
-                      }
-                      className="w-full accent-blue-600 cursor-pointer h-1.5"
-                    />
-                    <div className="flex justify-between gap-1 pt-0.5">
-                      {[25, 33, 50, 66, 75, 100].map((w) => (
-                        <button
-                          key={w}
-                          type="button"
-                          onClick={() => onResizeCustom?.(w, currentHeight, align, currentOffset)}
-                          className={cn(
-                            "px-1.5 py-0.5 rounded text-[10px] font-mono transition-colors cursor-pointer",
-                            currentWidth === w
-                              ? "bg-blue-600 text-white font-bold"
-                              : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                          )}
-                        >
-                          {w}%
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Altura Slider & Presets */}
-                  <div className="space-y-1.5 pt-2 border-t border-zinc-100 dark:border-white/[0.06]">
-                    <div className="flex items-center justify-between text-[11px] text-zinc-600 dark:text-zinc-400">
-                      <span>Altura</span>
-                      <span className="font-mono font-bold text-blue-600 dark:text-blue-400">
-                        {currentHeight}px
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={160}
-                      max={900}
-                      step={10}
-                      value={currentHeight}
-                      onChange={(e) =>
-                        onResizeCustom?.(currentWidth, Number(e.target.value), align, currentOffset)
-                      }
-                      className="w-full accent-blue-600 cursor-pointer h-1.5"
-                    />
-                    <div className="flex justify-between gap-1 pt-0.5">
-                      {[220, 300, 420, 560, 720].map((h) => (
-                        <button
-                          key={h}
-                          type="button"
-                          onClick={() => onResizeCustom?.(currentWidth, h, align, currentOffset)}
-                          className={cn(
-                            "px-1.5 py-0.5 rounded text-[10px] font-mono transition-colors cursor-pointer",
-                            Math.abs(currentHeight - h) < 20
-                              ? "bg-blue-600 text-white font-bold"
-                              : "bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                          )}
-                        >
-                          {h}px
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Configure / Edit */}
+            {/* Configure / Edit (Lápis) */}
             {onEdit && (
               <button
                 type="button"
                 onClick={onEdit}
                 aria-label={t.widgets.configureWidget}
                 title={t.widgets.configureWidget}
-                className="p-1 rounded text-zinc-500 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                className="p-1.5 rounded-md text-zinc-600 dark:text-zinc-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white dark:hover:bg-zinc-700/60 transition-colors cursor-pointer"
               >
                 <Pencil className="h-3.5 w-3.5" />
               </button>
@@ -514,7 +281,7 @@ export function WidgetContainer({
                 onClick={onRemove}
                 aria-label={t.widgets.removeWidget}
                 title={t.widgets.removeWidget}
-                className="p-1 rounded text-zinc-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                className="p-1.5 rounded-md text-zinc-500 dark:text-zinc-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-white dark:hover:bg-zinc-700/60 transition-colors cursor-pointer"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </button>

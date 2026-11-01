@@ -44,10 +44,11 @@ export function EmptyState({
       {actionText && (
         <div className="mt-4">
           {actionHref ? (
-            <Link href={actionHref}>
-              <Button size="sm" variant="secondary" className="text-xs h-8">
-                {actionText}
-              </Button>
+            <Link
+              href={actionHref}
+              className="inline-flex items-center justify-center rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-hover hover:text-foreground transition-colors shadow-2xs"
+            >
+              {actionText}
             </Link>
           ) : (
             <Button size="sm" variant="secondary" onClick={onAction} className="text-xs h-8">

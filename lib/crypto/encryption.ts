@@ -38,6 +38,55 @@ function getEncryptionKey(keyEnvVar: string = "INTEGRATION_TOKEN_ENCRYPTION_KEY"
 }
 
 /**
+ * Resolves an optional previous 32-byte Buffer key for seamless zero-downtime key rotation.
+ * Returns null if no previous key is configured.
+ */
+function getPreviousEncryptionKey(keyEnvVar: string): Buffer | null {
+  const envKey = process.env[keyEnvVar];
+  if (!envKey) return null;
+
+  if (envKey.length === 64) {
+    return Buffer.from(envKey, "hex");
+  }
+  if (Buffer.byteLength(envKey, "utf8") === 32) {
+    return Buffer.from(envKey, "utf8");
+  }
+  return crypto.createHash("sha256").update(envKey).digest();
+}
+
+/**
+ * Internal AES-256-GCM decryption helper.
+ * Distinguishes malformed structural format errors from cryptographic authentication failures.
+ */
+function performGcmDecryption(encryptedPayload: string, key: Buffer, formatName: string): string {
+  const parts = encryptedPayload.split(":");
+  if (parts.length !== 3) {
+    throw new Error(`Invalid encrypted ${formatName} format.`);
+  }
+
+  const [ivHex, authTagHex, ciphertextHex] = parts;
+  if (!ivHex || !authTagHex || !ciphertextHex || ivHex.length !== 24 || authTagHex.length !== 32) {
+    throw new Error(`Invalid encrypted ${formatName} format.`);
+  }
+
+  const iv = Buffer.from(ivHex, "hex");
+  const authTag = Buffer.from(authTagHex, "hex");
+  const ciphertext = Buffer.from(ciphertextHex, "hex");
+
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, {
+    authTagLength: AUTH_TAG_LENGTH,
+  });
+  decipher.setAuthTag(authTag);
+
+  const decrypted = Buffer.concat([
+    decipher.update(ciphertext),
+    decipher.final(),
+  ]);
+
+  return decrypted.toString("utf8");
+}
+
+/**
  * Encrypts a sensitive string (such as an OAuth access or refresh token) using AES-256-GCM.
  * Output format: `ivHex:authTagHex:ciphertextHex`
  */
@@ -62,31 +111,28 @@ export function encryptToken(plaintext: string): string {
 
 /**
  * Decrypts a ciphertext string created by `encryptToken`.
+ * Supports dual-key transition via INTEGRATION_TOKEN_ENCRYPTION_KEY_PREVIOUS.
  */
 export function decryptToken(encryptedPayload: string): string {
   if (!encryptedPayload) return "";
-  const parts = encryptedPayload.split(":");
-  if (parts.length !== 3) {
-    throw new Error("Invalid encrypted token format.");
-  }
-
-  const [ivHex, authTagHex, ciphertextHex] = parts;
   const key = getEncryptionKey();
-  const iv = Buffer.from(ivHex, "hex");
-  const authTag = Buffer.from(authTagHex, "hex");
-  const ciphertext = Buffer.from(ciphertextHex, "hex");
 
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, {
-    authTagLength: AUTH_TAG_LENGTH,
-  });
-  decipher.setAuthTag(authTag);
-
-  const decrypted = Buffer.concat([
-    decipher.update(ciphertext),
-    decipher.final(),
-  ]);
-
-  return decrypted.toString("utf8");
+  try {
+    return performGcmDecryption(encryptedPayload, key, "token");
+  } catch (primaryErr: any) {
+    if (primaryErr?.message?.includes("format")) {
+      throw primaryErr;
+    }
+    const previousKey = getPreviousEncryptionKey("INTEGRATION_TOKEN_ENCRYPTION_KEY_PREVIOUS");
+    if (previousKey) {
+      try {
+        return performGcmDecryption(encryptedPayload, previousKey, "token");
+      } catch {
+        // Fall through to throw original primary error
+      }
+    }
+    throw primaryErr;
+  }
 }
 
 /**
@@ -113,31 +159,33 @@ export function encryptAICredential(plaintextKey: string): string {
 
 /**
  * Decrypts an AI provider API key ciphertext JIT (Just-In-Time).
+ * Supports dual-key transition via AI_CREDENTIALS_ENCRYPTION_KEY_PREVIOUS or
+ * INTEGRATION_TOKEN_ENCRYPTION_KEY_PREVIOUS for seamless zero-downtime rotation.
  */
 export function decryptAICredential(encryptedPayload: string): string {
   if (!encryptedPayload) return "";
-  const parts = encryptedPayload.split(":");
-  if (parts.length !== 3) {
-    throw new Error("Invalid encrypted AI credential format.");
-  }
-
-  const [ivHex, authTagHex, ciphertextHex] = parts;
   const key = getEncryptionKey("AI_CREDENTIALS_ENCRYPTION_KEY");
-  const iv = Buffer.from(ivHex, "hex");
-  const authTag = Buffer.from(authTagHex, "hex");
-  const ciphertext = Buffer.from(ciphertextHex, "hex");
 
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, {
-    authTagLength: AUTH_TAG_LENGTH,
-  });
-  decipher.setAuthTag(authTag);
+  try {
+    return performGcmDecryption(encryptedPayload, key, "AI credential");
+  } catch (primaryErr: any) {
+    if (primaryErr?.message?.includes("format")) {
+      throw primaryErr;
+    }
+    const previousKey = process.env.AI_CREDENTIALS_ENCRYPTION_KEY
+      ? getPreviousEncryptionKey("AI_CREDENTIALS_ENCRYPTION_KEY_PREVIOUS")
+      : (getPreviousEncryptionKey("AI_CREDENTIALS_ENCRYPTION_KEY_PREVIOUS") ||
+         getPreviousEncryptionKey("INTEGRATION_TOKEN_ENCRYPTION_KEY_PREVIOUS"));
 
-  const decrypted = Buffer.concat([
-    decipher.update(ciphertext),
-    decipher.final(),
-  ]);
-
-  return decrypted.toString("utf8");
+    if (previousKey) {
+      try {
+        return performGcmDecryption(encryptedPayload, previousKey, "AI credential");
+      } catch {
+        // Fall through to throw original primary error
+      }
+    }
+    throw primaryErr;
+  }
 }
 
 /**
@@ -149,4 +197,3 @@ export function computeKeyFingerprint(rawKey: string): string {
   const key = getEncryptionKey("AI_CREDENTIALS_ENCRYPTION_KEY");
   return crypto.createHmac("sha256", key).update(rawKey).digest("hex");
 }
-

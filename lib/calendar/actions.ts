@@ -82,10 +82,10 @@ export async function getOrganizationCalendarEventsAction(
     if (!member) return [];
   }
 
-  const canViewMeetings = user ? await hasPermission(user.id, orgId, "meetings.view") : true;
-  const canViewTasks = user ? await hasPermission(user.id, orgId, "tasks.view") : true;
-  const canViewProjects = user ? await hasPermission(user.id, orgId, "projects.view") : true;
-  const canViewGoals = user ? await hasPermission(user.id, orgId, "goals.view") : true;
+  const canViewMeetings = user ? await hasPermission(user.id, orgId, "meetings.view") : false;
+  const canViewTasks = user ? await hasPermission(user.id, orgId, "tasks.view") : false;
+  const canViewProjects = user ? await hasPermission(user.id, orgId, "projects.view") : false;
+  const canViewGoals = user ? await hasPermission(user.id, orgId, "goals.view") : false;
 
   const aggregatedEvents: CalendarEventItem[] = [];
 
@@ -1127,8 +1127,8 @@ export async function getWorkspaceProjectsAndPagesAction(): Promise<{
   if (!activeOrg) return { projects: [], pages: [] };
 
   const user = await getCurrentUser();
-  const canViewProjects = user ? await hasPermission(user.id, activeOrg.id, "projects.view") : true;
-  const canViewPages = user ? await hasPermission(user.id, activeOrg.id, "pages.view") : true;
+  const canViewProjects = user ? await hasPermission(user.id, activeOrg.id, "projects.view") : false;
+  const canViewPages = user ? await hasPermission(user.id, activeOrg.id, "pages.view") : false;
 
   if (!canViewProjects && !canViewPages) {
     return { projects: [], pages: [] };

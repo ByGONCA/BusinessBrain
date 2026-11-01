@@ -416,11 +416,14 @@ export class AIAuthorizationService {
       .maybeSingle();
 
     const isOwnerOrAdmin = member?.role === "owner" || member?.role === "admin";
-    const [canViewPages, canViewBilling, canViewGithub, canViewBrain] = await Promise.all([
+    const [canViewPages, canViewBilling, canViewGithub, canViewBrain, canViewGoals, canViewProjects, canViewTasks] = await Promise.all([
       isOwnerOrAdmin || hasPermission(userId, organizationId, "pages.view"),
       isOwnerOrAdmin || hasPermission(userId, organizationId, "billing.view"),
       isOwnerOrAdmin || hasPermission(userId, organizationId, "github.view"),
       isOwnerOrAdmin || hasPermission(userId, organizationId, "brain.view"),
+      isOwnerOrAdmin || hasPermission(userId, organizationId, "goals.view"),
+      isOwnerOrAdmin || hasPermission(userId, organizationId, "projects.view"),
+      isOwnerOrAdmin || hasPermission(userId, organizationId, "tasks.view"),
     ]);
 
     const sources: ContextSourceItem[] = [
@@ -440,6 +443,33 @@ export class AIAuthorizationService {
         category: "workspace_areas",
         description: "Registo de decisões técnicas, atas e acordos estratégicos.",
         hasAccess: canViewBrain,
+        requiresExplicitGrant: false,
+      },
+      {
+        id: "area:goals",
+        label: "Objetivos & Metas Estratégicas",
+        type: "area",
+        category: "workspace_areas",
+        description: "OKRs, metas e alinhamento de resultados estratégicos.",
+        hasAccess: canViewGoals,
+        requiresExplicitGrant: false,
+      },
+      {
+        id: "area:projects",
+        label: "Projetos & Iniciativas",
+        type: "area",
+        category: "workspace_areas",
+        description: "Iniciativas corporativas, equipas e acompanhamento de marcos.",
+        hasAccess: canViewProjects,
+        requiresExplicitGrant: false,
+      },
+      {
+        id: "area:tasks",
+        label: "Tarefas & Entregáveis",
+        type: "area",
+        category: "workspace_areas",
+        description: "Tarefas operacionais, entregáveis e planos de ação.",
+        hasAccess: canViewTasks,
         requiresExplicitGrant: false,
       },
       {

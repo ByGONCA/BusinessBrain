@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { isValidUuid } from "@/lib/security/authorization";
 import {
@@ -107,6 +108,15 @@ export async function saveDashboardLayoutAction(params: {
       message: data?.message || "Layout was modified in another session.",
       currentUpdatedAt: data?.current_updated_at,
     };
+  }
+
+  try {
+    revalidatePath("/dashboard");
+    if (params.dashboardType === "finance") {
+      revalidatePath("/dashboard/finance");
+    }
+  } catch {
+    // Ignore revalidation outside request context
   }
 
   return {

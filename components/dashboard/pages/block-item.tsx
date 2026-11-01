@@ -120,6 +120,7 @@ interface BlockItemProps {
   onDragBlockLeave?: (index: number) => void;
   onDragBlockEnd?: () => void;
   onDropBlock?: (index: number, position: "before" | "after" | "left" | "right") => void;
+  onOpenComments?: () => void;
 }
 
 interface TableBlockContentProps {
@@ -839,6 +840,7 @@ export function BlockItem({
   onDragBlockLeave,
   onDragBlockEnd,
   onDropBlock,
+  onOpenComments,
   fallbackAuthorProfile,
   fallbackAuthorDate,
   isAuthorHighlighted = false,
@@ -1458,8 +1460,7 @@ export function BlockItem({
                   type="button"
                   onClick={() => {
                     setMenuOpen(false);
-                    const cleanText = block.content.slice(0, 30);
-                    window.alert(`Comment discussion thread for "${cleanText || "Block"}" will be available in future team releases.`);
+                    onOpenComments?.();
                   }}
                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
                 >

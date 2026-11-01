@@ -113,11 +113,12 @@ export async function GET(
 
       if (matchedFile) {
         fileRecord = matchedFile;
-        // Self-heal: link icon_file_id to page
+        // Self-heal: link icon_file_id to page scoped to tenant
         await supabase
           .from("pages")
           .update({ icon_file_id: matchedFile.id })
-          .eq("id", pageId);
+          .eq("id", pageId)
+          .eq("organization_id", activeOrg.id);
       }
     }
 

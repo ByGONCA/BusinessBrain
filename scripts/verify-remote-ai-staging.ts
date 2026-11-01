@@ -41,7 +41,6 @@ async function verifyStaging() {
     "ai_usage_ledger",
     "ai_credit_reservations",
     "ai_access_authorizations",
-    "ai_access_audit_ledger",
   ];
 
   console.log("--- PART 1: Table Availability & RLS Verification (REST API) ---");

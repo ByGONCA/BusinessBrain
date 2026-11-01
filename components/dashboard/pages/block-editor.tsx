@@ -320,6 +320,11 @@ export function BlockEditor({
 
   const [saveStatus, setSaveStatus] = React.useState<"saved" | "saving" | "error" | "conflict" | "offline">("saved");
   const [focusedBlockId, setFocusedBlockId] = React.useState<string | null>(null);
+  const [editorToast, setEditorToast] = React.useState<string | null>(null);
+  const showEditorToast = React.useCallback((msg: string) => {
+    setEditorToast(msg);
+    setTimeout(() => setEditorToast((prev) => (prev === msg ? null : prev)), 3500);
+  }, []);
 
   // Condition 4.4: Concurrency control & conflict resolution states
   const currentRevisionRef = React.useRef<number>(page.revision_id ?? 1);
@@ -1244,9 +1249,7 @@ export function BlockEditor({
       }
 
       if (item.actionId === "save_memory") {
-        window.alert(
-          `Content saved as Memory in Company Brain knowledge base.`
-        );
+        showEditorToast("Content saved as Memory in Company Brain knowledge base.");
         return;
       }
 
@@ -1727,7 +1730,7 @@ export function BlockEditor({
     selectedText: string
   ) => {
     if (action === "save-memory") {
-      window.alert(
+      showEditorToast(
         `Draft memory for "${selectedText.slice(0, 40)}${selectedText.length > 40 ? "..." : ""}" saved to Company Brain Memory draft.`
       );
       return;
@@ -2521,6 +2524,7 @@ export function BlockEditor({
                     onDragBlockLeave={handleDragBlockLeave}
                     onDragBlockEnd={handleDragBlockEnd}
                     onDropBlock={handleDropBlock}
+                    onOpenComments={() => setCommentsDrawerOpen(true)}
                   />
                 );
               });
@@ -2946,6 +2950,16 @@ export function BlockEditor({
         </div>
       )}
 
+      {editorToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-[#16181D] px-4 py-2 text-xs font-medium text-emerald-400 shadow-xl shadow-black/50"
+        >
+          <Check className="h-4 w-4 text-emerald-400 shrink-0" />
+          <span>{editorToast}</span>
+        </div>
+      )}
     </div>
   );
 }
