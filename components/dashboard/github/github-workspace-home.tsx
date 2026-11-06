@@ -723,26 +723,10 @@ export function GitHubWorkspaceHome({
                     sourceTitle: selectedRepo.name,
                   })
                 }
-                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border bg-muted/50 hover:bg-muted px-3 py-1.5 text-xs font-semibold text-foreground transition-colors"
+                className="w-full flex items-center justify-center gap-1.5 rounded-lg border border-border bg-muted/50 hover:bg-muted px-3 py-1.5 text-xs font-semibold text-foreground transition-colors"
               >
                 <LinkIcon className="h-3.5 w-3.5 text-blue-500" />
                 <span>Connect Object</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setCommentsDrawer({
-                    isOpen: true,
-                    entityType: "github_repo",
-                    entityId: selectedRepo.full_name,
-                    entityTitle: selectedRepo.name,
-                  })
-                }
-                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-border bg-muted/50 hover:bg-muted px-3 py-1.5 text-xs font-semibold text-foreground transition-colors"
-              >
-                <MessageSquare className="h-3.5 w-3.5 text-purple-500" />
-                <span>Discussion</span>
               </button>
             </div>
 

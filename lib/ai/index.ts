@@ -31,7 +31,14 @@ export function resolveProviderForModel(modelName?: string): SupportedProviderId
 
   // Model-to-provider routing
   if (normalized.startsWith("gemini-")) return "gemini";
-  if (normalized.startsWith("gpt-") || normalized.startsWith("o1-") || normalized.startsWith("o3-")) return "openai";
+  if (
+    normalized.startsWith("gpt-") ||
+    normalized === "o1" ||
+    normalized.startsWith("o1-") ||
+    normalized === "o3" ||
+    normalized.startsWith("o3-")
+  )
+    return "openai";
   if (normalized.startsWith("claude-")) return "anthropic";
   if (normalized.startsWith("deepseek-")) return "deepseek";
   if (normalized.startsWith("mistral-") || normalized.startsWith("codestral-")) return "mistral";
@@ -54,7 +61,7 @@ export function getAIProvider(
   if (customCredentials?.apiKey || customCredentials?.customBaseUrl) {
     switch (normalized) {
       case "gemini":
-        return new GeminiAdapter(customCredentials.apiKey);
+        return new GeminiAdapter(customCredentials.apiKey, customCredentials.customBaseUrl);
       case "openai":
         return new OpenAIAdapter(customCredentials.apiKey, customCredentials.customBaseUrl);
       case "anthropic":
@@ -106,6 +113,26 @@ export function getAIProvider(
         400,
         providerId
       );
+  }
+}
+
+/**
+ * Checks if a provider has a configured platform API key in environment variables.
+ */
+export function isPlatformProviderConfigured(providerId: SupportedProviderId): boolean {
+  switch (providerId) {
+    case "gemini":
+      return Boolean(process.env.GEMINI_API_KEY);
+    case "openai":
+      return Boolean(process.env.OPENAI_API_KEY);
+    case "anthropic":
+      return Boolean(process.env.ANTHROPIC_API_KEY);
+    case "deepseek":
+      return Boolean(process.env.DEEPSEEK_API_KEY);
+    case "mistral":
+      return Boolean(process.env.MISTRAL_API_KEY);
+    default:
+      return false;
   }
 }
 

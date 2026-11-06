@@ -7,6 +7,8 @@ import {
   StripeFinancialSnapshot,
   MetricFreshnessStatus,
 } from "@/lib/integrations/stripe/analytics";
+import { getGitHubOverviewAction } from "@/lib/integrations/github/actions";
+import { listGoogleCalendarEvents } from "@/lib/integrations/google/calendar";
 import { getUserOnboardingState } from "@/lib/onboarding/queries";
 import { CompanyGraphData } from "@/lib/connections/types";
 import {
@@ -44,6 +46,12 @@ export default async function DashboardOverviewPage() {
   let stripeStatus: MetricFreshnessStatus = "fresh";
   let isStripeConnected = false;
   let stripeAccountId: string | undefined;
+  let tasksCount = 0;
+  let recentTasks: Array<{ id: string; title: string; status?: string; priority?: string; updated_at?: string; created_at?: string }> = [];
+  let goalsCount = 0;
+  let recentGoals: Array<{ id: string; title: string; status?: string; current?: number; target?: number; progress?: number; updated_at?: string }> = [];
+  let calendarEvents: Array<{ id: string; title: string; startTime: string; endTime?: string; meetUrl?: string; attendeesCount?: number }> = [];
+  let githubData: { prs: any[]; repos: any[] } | undefined = undefined;
 
   if (activeOrg) {
     const supabase = await createClient();
@@ -57,10 +65,14 @@ export default async function DashboardOverviewPage() {
       pageCountRes,
       memberRes,
       recentPagesRes,
-      stripeIntRes,
+      integrationsRes,
       connCountRes,
       pageConnCountRes,
       priorityEntitiesRes,
+      tasksCountRes,
+      tasksListRes,
+      goalsCountRes,
+      goalsListRes,
     ] = await Promise.all([
       // 1. Decisions count
       supabase
@@ -109,15 +121,12 @@ export default async function DashboardOverviewPage() {
         .eq("is_archived", false)
         .order("updated_at", { ascending: false })
         .limit(5),
-      // 8. Stripe integration check
+      // 8. Organization integrations (Stripe, GitHub, Google, Slack, etc.)
       supabase
         .from("organization_integrations")
-        .select("provider_account_id, status")
+        .select("provider, provider_account_id, status")
         .eq("organization_id", activeOrg.id)
-        .eq("provider", "stripe")
-        .eq("status", "connected")
-        .order("updated_at", { ascending: false })
-        .limit(1),
+        .eq("status", "connected"),
       // 9. Canonical company connections count (<2ms)
       supabase
         .from("company_connections")
@@ -136,6 +145,34 @@ export default async function DashboardOverviewPage() {
         .in("type", ["decision", "task"])
         .order("updated_at", { ascending: false })
         .limit(15),
+      // 12. Workspace tasks count
+      supabase
+        .from("company_entities")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", activeOrg.id)
+        .eq("type", "task"),
+      // 13. Recent tasks
+      supabase
+        .from("company_entities")
+        .select("id, title, metadata, created_at, updated_at")
+        .eq("organization_id", activeOrg.id)
+        .eq("type", "task")
+        .order("updated_at", { ascending: false })
+        .limit(10),
+      // 14. Workspace goals count
+      supabase
+        .from("company_entities")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", activeOrg.id)
+        .eq("type", "goal"),
+      // 15. Goals list
+      supabase
+        .from("company_entities")
+        .select("id, title, metadata, created_at, updated_at")
+        .eq("organization_id", activeOrg.id)
+        .eq("type", "goal")
+        .order("updated_at", { ascending: false })
+        .limit(10),
     ]);
 
     decisionsCount = decCountRes.count || 0;
@@ -145,6 +182,30 @@ export default async function DashboardOverviewPage() {
     pagesCount = pageCountRes.count || 0;
     membersCount = memberRes.count || 1;
     recentPages = (recentPagesRes.data as PageItem[]) || [];
+    tasksCount = tasksCountRes.count || 0;
+    recentTasks = ((tasksListRes.data as Array<{ id: string; title: string; metadata?: Record<string, unknown>; created_at: string; updated_at: string }>) || []).map(t => ({
+      id: t.id,
+      title: t.title,
+      status: (t.metadata?.status as string) || "pending",
+      priority: (t.metadata?.priority as string) || "normal",
+      created_at: t.created_at,
+      updated_at: t.updated_at,
+    }));
+    goalsCount = goalsCountRes.count || 0;
+    recentGoals = ((goalsListRes.data as Array<{ id: string; title: string; metadata?: Record<string, unknown>; updated_at: string }>) || []).map(g => {
+      const current = typeof g.metadata?.current === "number" ? g.metadata.current : 0;
+      const target = typeof g.metadata?.target === "number" ? g.metadata.target : 100;
+      const progress = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+      return {
+        id: g.id,
+        title: g.title,
+        status: (g.metadata?.status as string) || "in_progress",
+        current,
+        target,
+        progress,
+        updated_at: g.updated_at,
+      };
+    });
 
     // Resolve connection count (canonical with fallback to page_connections)
     const canonicalConnCount = connCountRes.count || 0;
@@ -209,8 +270,11 @@ export default async function DashboardOverviewPage() {
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
 
-    // Isolate Stripe snapshot resolution with graceful error boundary
-    const stripeRecord = (stripeIntRes.data as Array<{ provider_account_id: string; status: string }> | null)?.[0];
+    // Resolve connected integrations (Stripe, GitHub, Google Calendar)
+    const connectedIntegrations = (integrationsRes.data as Array<{ provider: string; provider_account_id: string; status: string }> | null) || [];
+
+    // 1. Stripe Provider Integration
+    const stripeRecord = connectedIntegrations.find((i) => i.provider === "stripe");
     if (stripeRecord && stripeRecord.status === "connected") {
       isStripeConnected = true;
       stripeAccountId = stripeRecord.provider_account_id;
@@ -221,6 +285,53 @@ export default async function DashboardOverviewPage() {
       } catch {
         // Stripe integration failure must never blank the entire dashboard
         stripeStatus = "error";
+      }
+    }
+
+    // 2. GitHub Provider Integration
+    const githubRecord = connectedIntegrations.find((i) => i.provider === "github");
+    if (githubRecord && githubRecord.status === "connected") {
+      try {
+        const ghRes = await getGitHubOverviewAction(activeOrg.id);
+        if (ghRes.success && ghRes.data) {
+          githubData = {
+            prs: (ghRes.data.recentActivity || [])
+              .filter((a) => a.type === "pr_opened" || a.type === "pr_merged")
+              .slice(0, 10)
+              .map((a) => ({
+                id: a.id,
+                title: a.title || "Pull Request",
+                author: a.actor?.login,
+                status: a.type === "pr_merged" ? "merged" : "open",
+                url: a.url,
+              })),
+            repos: [],
+          };
+        }
+      } catch {
+        // Safe boundary: provider failure must never blank the dashboard
+      }
+    }
+
+    // 3. Google Calendar Provider Integration
+    const googleRecord = connectedIntegrations.find((i) => i.provider === "google");
+    if (googleRecord && googleRecord.status === "connected") {
+      try {
+        const gEvents = await listGoogleCalendarEvents(activeOrg.id, {
+          timeMin: new Date().toISOString(),
+          maxResults: 10,
+        });
+        if (Array.isArray(gEvents)) {
+          calendarEvents = gEvents.map((e) => ({
+            id: e.id,
+            title: e.summary || "Meeting",
+            startTime: e.start?.dateTime || e.start?.date || new Date().toISOString(),
+            endTime: e.end?.dateTime || e.end?.date,
+            meetUrl: e.hangoutLink,
+          }));
+        }
+      } catch {
+        // Safe boundary
       }
     }
   }
@@ -260,6 +371,12 @@ export default async function DashboardOverviewPage() {
       projectsCount={projectsCount}
       pages={recentPages}
       pagesCount={pagesCount}
+      tasks={recentTasks}
+      tasksCount={tasksCount}
+      goals={recentGoals}
+      goalsCount={goalsCount}
+      calendarEvents={calendarEvents}
+      githubData={githubData}
       membersCount={membersCount}
       timelineEvents={timelineEvents}
       priorityItems={priorityItems}

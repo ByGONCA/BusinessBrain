@@ -351,7 +351,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
               type="button"
               onClick={handleResendVerification}
               disabled={resendingEmail}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
             >
               {resendingEmail ? (
                 <>
@@ -407,7 +407,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
         {mfaSuccess && <p className="text-xs text-emerald-600 dark:text-emerald-400">{mfaSuccess}</p>}
 
         {!hasActiveMfa && !enrollingMfa && (
-          <div className="flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d]">
+          <div className="flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200/50 dark:border-blue-900/40">
                 <QrCode className="h-4 w-4" />
@@ -469,7 +469,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
                 value={verifyCode}
                 onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ""))}
                 maxLength={6}
-                className="flex-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs font-mono text-center tracking-widest text-zinc-900 dark:text-zinc-100 placeholder:tracking-normal focus:outline-none focus:border-blue-500"
+                className="flex-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-3 py-1.5 text-xs font-mono text-center tracking-widest text-zinc-900 dark:text-zinc-100 placeholder:tracking-normal focus:outline-none focus:border-blue-500"
               />
               <button
                 type="submit"
@@ -493,7 +493,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
         )}
 
         {hasActiveMfa && (
-          <div className="flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d]">
+          <div className="flex items-center justify-between p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground">
             <div className="flex items-center gap-2">
               <Check className="h-4 w-4 text-emerald-500" />
               <div>
@@ -539,7 +539,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
 
         <div className="space-y-2">
           {/* Email / Password */}
-          <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d]">
+          <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground">
             <div className="flex items-center gap-2.5">
               <Mail className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
               <div>
@@ -553,7 +553,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
           </div>
 
           {/* Google OAuth */}
-          <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d]">
+          <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground">
             <div className="flex items-center gap-2.5">
               <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24">
                 <path
@@ -597,7 +597,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
           </div>
 
           {/* GitHub OAuth */}
-          <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d]">
+          <div className="flex items-center justify-between p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground">
             <div className="flex items-center gap-2.5">
               <Github className="h-4 w-4 text-zinc-900 dark:text-zinc-100" />
               <div>
@@ -640,7 +640,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
             type="button"
             onClick={handleSignOutOthers}
             disabled={signingOutOthers}
-            className="flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 cursor-pointer"
+            className="flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 cursor-pointer"
           >
             {signingOutOthers ? (
               <>
@@ -663,7 +663,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
           <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">{sessionMessage}</p>
         )}
 
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] p-3.5 flex items-center justify-between">
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground p-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
               <Laptop className="h-4 w-4" />
@@ -701,7 +701,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
               placeholder="Minimum 6 characters"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors"
+              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
@@ -712,7 +712,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
               placeholder="Re-enter new password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors"
+              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
@@ -775,7 +775,7 @@ export function SecurityTab({ user }: SecurityTabProps) {
             placeholder="New email address"
             value={newEmail}
             onChange={(e) => setNewEmail(e.target.value)}
-            className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors"
+            className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors"
           />
           <button
             type="submit"

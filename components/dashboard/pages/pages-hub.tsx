@@ -182,10 +182,10 @@ export function PagesHub({ initialPages, organizationId, demoMode, onDemoNavigat
               <PhosphorFiles className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+              <h1 className="text-xl font-bold tracking-tight text-foreground">
                 Pages & Documentos
               </h1>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="text-xs text-muted-foreground">
                 Memória e inteligência partilhada da empresa. Documenta decisões, guias e projetos.
               </p>
             </div>
@@ -217,13 +217,13 @@ export function PagesHub({ initialPages, organizationId, demoMode, onDemoNavigat
             type="button"
             disabled={isCreating}
             onClick={() => handleCreatePage(tmpl.id)}
-            className="flex flex-col items-start p-3 rounded-xl border border-zinc-200/90 dark:border-zinc-800/80 bg-white dark:bg-[#18181b] hover:border-blue-500/50 hover:shadow-xs transition-all text-left group cursor-pointer"
+            className="flex flex-col items-start p-3 rounded-xl border border-border bg-card hover:border-blue-500/50 hover:shadow-xs transition-all text-left group cursor-pointer"
           >
             <div className="text-xl mb-1.5">{tmpl.icon}</div>
-            <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+            <span className="text-xs font-semibold text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               {tmpl.title}
             </span>
-            <span className="text-[10px] text-zinc-500 dark:text-zinc-400 line-clamp-1 mt-0.5">
+            <span className="text-[10px] text-muted-foreground line-clamp-1 mt-0.5">
               {tmpl.description}
             </span>
           </button>
@@ -233,15 +233,15 @@ export function PagesHub({ initialPages, organizationId, demoMode, onDemoNavigat
       {/* ================= Search & View Controls ================= */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         {/* Tabs */}
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-zinc-100/80 dark:bg-zinc-800/60 border border-zinc-200/80 dark:border-zinc-700/60 text-xs">
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-surface-secondary border border-border text-xs">
           <button
             type="button"
             onClick={() => setActiveTab("all")}
             className={cn(
               "px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer",
               activeTab === "all"
-                ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-2xs font-semibold"
-                : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                ? "bg-selected text-foreground shadow-2xs font-semibold"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
             Todas ({pages.length})
@@ -252,8 +252,8 @@ export function PagesHub({ initialPages, organizationId, demoMode, onDemoNavigat
             className={cn(
               "px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1 cursor-pointer",
               activeTab === "favorites"
-                ? "bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 shadow-2xs font-semibold"
-                : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200"
+                ? "bg-selected text-foreground shadow-2xs font-semibold"
+                : "text-muted-foreground hover:text-foreground"
             )}
           >
             <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
@@ -269,7 +269,7 @@ export function PagesHub({ initialPages, organizationId, demoMode, onDemoNavigat
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Pesquisar páginas por título ou texto..."
-            className="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] pl-8 pr-7 py-2 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none shadow-2xs"
+            className="w-full rounded-xl border border-border bg-surface-secondary text-foreground pl-8 pr-7 py-2 text-xs text-foreground placeholder:text-zinc-400 focus:border-blue-500 focus:outline-none shadow-2xs"
           />
           {searchQuery && (
             <button
@@ -290,10 +290,10 @@ export function PagesHub({ initialPages, organizationId, demoMode, onDemoNavigat
             <BookOpen className="h-6 w-6" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            <h3 className="text-sm font-semibold text-foreground">
               {searchQuery ? "Nenhuma página corresponde à pesquisa" : "Sem páginas neste separador"}
             </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm mx-auto">
+            <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
               {searchQuery
                 ? `Não foram encontrados documentos com o termo "${searchQuery}".`
                 : "Cria uma nova página para começar a registar conhecimento na empresa."}
@@ -314,7 +314,7 @@ export function PagesHub({ initialPages, organizationId, demoMode, onDemoNavigat
           {filteredPages.map((page) => (
             <div
               key={page.id}
-              className="group relative rounded-xl border border-zinc-200/90 dark:border-zinc-800/80 bg-white dark:bg-[#18181b] hover:border-zinc-300 dark:hover:border-zinc-700 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between p-4"
+              className="group relative rounded-xl border border-border bg-card hover:border-border shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between p-4"
             >
               {/* Card Top: Icon, Title, Favorite & Actions */}
               <div>
@@ -329,7 +329,7 @@ export function PagesHub({ initialPages, organizationId, demoMode, onDemoNavigat
                       iconFileId={page.icon_file_id}
                       className="h-5 w-5 text-base select-none shrink-0"
                     />
-                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 group-hover/title:text-blue-600 dark:group-hover/title:text-blue-400 transition-colors truncate">
+                    <h3 className="text-sm font-semibold text-foreground group-hover/title:text-blue-600 dark:group-hover/title:text-blue-400 transition-colors truncate">
                       {page.title || "Untitled"}
                     </h3>
                   </Link>
@@ -365,7 +365,7 @@ export function PagesHub({ initialPages, organizationId, demoMode, onDemoNavigat
 
                       {actionMenuPageId === page.id && (
                         <div
-                          className="absolute right-0 top-full mt-1 w-44 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-xl py-1 z-30 text-xs animate-in fade-in duration-100"
+                          className="absolute right-0 top-full mt-1 w-44 rounded-xl border border-border bg-surface-secondary text-foreground shadow-xl py-1 z-30 text-xs animate-in fade-in duration-100"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <Link
@@ -415,7 +415,7 @@ export function PagesHub({ initialPages, organizationId, demoMode, onDemoNavigat
                 </div>
 
                 {/* Excerpt / Summary */}
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
+                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
                   {page.content_text ? page.content_text : "Página sem conteúdo de texto ainda."}
                 </p>
               </div>

@@ -218,6 +218,16 @@ const SUITES: TestSuite[] = [
     file: "scripts/test-encryption-key-rotation.ts",
     description: "13 tests: Zero-downtime dual-key decryption, scope isolation (AI vs OAuth), malformed format fast-reject, fingerprint rotation",
   },
+  {
+    name: "Universal Dashboard Builder & Widget Ecosystem",
+    file: "scripts/test-universal-dashboard-builder.ts",
+    description: "32 tests: Multi-dashboard descriptors, task/goal/calendar/github metrics, radial gauge, donut, area spline, and Zod CAS validation",
+  },
+  {
+    name: "Universal Dashboard E2E & Fault Isolation",
+    file: "scripts/test-e2e-universal-dashboard.ts",
+    description: "21 tests: Home single canvas, Finance metric accuracy, 14 visualizers, provider fault isolation, CAS OCC, responsive tokens, anti-jargon invariants",
+  },
 ];
 
 async function runSuite(suite: TestSuite): Promise<{ success: boolean; durationMs: number; output: string }> {

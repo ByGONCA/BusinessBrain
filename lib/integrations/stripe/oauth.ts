@@ -101,7 +101,7 @@ export async function generateStripeConnectAuthUrl(params: {
   const url = new URL(STRIPE_CONNECT_AUTHORIZE_URL);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("client_id", clientId);
-  url.searchParams.set("scope", "read_write");
+  url.searchParams.set("scope", "read_only");
   url.searchParams.set("state", stateToken);
 
   if (params.redirectUri) {

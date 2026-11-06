@@ -486,6 +486,36 @@ export async function POST(req: Request) {
         break;
       }
 
+      case "account.application.deauthorized": {
+        // Stripe Connect: Merchant deauthorized BusinessBrain directly from their Stripe dashboard
+        const connectedAccountId = event.account || (event.data?.object as any)?.id;
+        if (connectedAccountId) {
+          logger.info(`[Stripe Webhook] Connect account deauthorized remotely: ${connectedAccountId}`);
+          const { data: orgIntegration } = await supabase
+            .from("organization_integrations")
+            .select("id, organization_id")
+            .eq("provider", "stripe")
+            .eq("provider_account_id", connectedAccountId)
+            .maybeSingle();
+
+          if (orgIntegration) {
+            await supabase
+              .from("organization_integrations")
+              .update({
+                status: "disconnected",
+                encrypted_access_token: null,
+                encrypted_refresh_token: null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", orgIntegration.id);
+
+            stripeFinancialMemoryCache.invalidateOrganization(orgIntegration.organization_id);
+            logger.info(`[Stripe Webhook] Marked Stripe integration as disconnected for org: ${orgIntegration.organization_id}`);
+          }
+        }
+        break;
+      }
+
       default:
         break;
     }

@@ -27,6 +27,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, PlanConfig> = {
       "Unlimited projects & tasks",
       "Centralized Decision Log (ADRs)",
       "Meeting records & action items",
+      "1,000 monthly AI credits included (Platform models)",
       "Standard workspace support",
     ],
     limits: {
@@ -47,8 +48,9 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, PlanConfig> = {
       "Up to 50 team members",
       "Unlimited projects, tasks & decisions",
       "Knowledge Base wikis & SOP docs",
-      "AI Company Brain Assistant (future)",
-      "Automated meeting transcription (future)",
+      "5,000 monthly AI credits included (Platform models)",
+      "Bring Your Own Key (BYOK) for OpenAI, Claude, Gemini & DeepSeek",
+      "AI Company Brain Assistant",
       "Priority customer support",
     ],
     limits: {
@@ -89,6 +91,16 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, PlanConfig> = {
 export function resolveStripePriceId(planId: string): string | undefined {
   const plan = SUBSCRIPTION_PLANS[planId as SubscriptionTier];
   return plan?.stripePriceIdMonthly;
+}
+
+/**
+ * Evaluates whether a subscription tier is entitled to Bring Your Own Key (BYOK).
+ * Client-safe pure function with zero database or server dependencies.
+ */
+export function canPlanUseBYOK(tier?: string | null): boolean {
+  if (!tier) return false;
+  const normalized = tier.toLowerCase().trim();
+  return normalized === "pro" || normalized === "enterprise";
 }
 
 export interface StripeEnvironmentAssessment {

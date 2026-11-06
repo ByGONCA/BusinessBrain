@@ -2954,7 +2954,7 @@ export function BlockEditor({
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-[#16181D] px-4 py-2 text-xs font-medium text-emerald-400 shadow-xl shadow-black/50"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-card px-4 py-2 text-xs font-medium text-emerald-400 shadow-xl shadow-black/50"
         >
           <Check className="h-4 w-4 text-emerald-400 shrink-0" />
           <span>{editorToast}</span>

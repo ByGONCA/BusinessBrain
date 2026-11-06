@@ -69,8 +69,11 @@ export const MODEL_PRICING_RATES: Record<string, { inputPerMillion: number; outp
   "gpt-4o": { inputPerMillion: 2.50, outputPerMillion: 10.00, cachedInputPerMillion: 1.25 },
   "o1-mini": { inputPerMillion: 1.10, outputPerMillion: 4.40, cachedInputPerMillion: 0.55 },
   "o3-mini": { inputPerMillion: 1.10, outputPerMillion: 4.40, cachedInputPerMillion: 0.55 },
+  "o1": { inputPerMillion: 15.00, outputPerMillion: 60.00, cachedInputPerMillion: 7.50 },
 
   // Anthropic Claude
+  "claude-3-7-sonnet": { inputPerMillion: 3.00, outputPerMillion: 15.00, cachedInputPerMillion: 0.30 },
+  "claude-3-7-sonnet-20250219": { inputPerMillion: 3.00, outputPerMillion: 15.00, cachedInputPerMillion: 0.30 },
   "claude-3-5-sonnet": { inputPerMillion: 3.00, outputPerMillion: 15.00, cachedInputPerMillion: 0.30 },
   "claude-3-5-sonnet-20241022": { inputPerMillion: 3.00, outputPerMillion: 15.00, cachedInputPerMillion: 0.30 },
   "claude-3-5-haiku": { inputPerMillion: 0.80, outputPerMillion: 4.00, cachedInputPerMillion: 0.08 },
@@ -123,6 +126,59 @@ export function getAIModelForTier(tier: string): string {
 export function getAICreditQuota(tier: string): number {
   const normalized = (tier.toLowerCase() as SubscriptionTier);
   return AI_TIER_CONFIGS[normalized]?.monthlyQuota ?? AI_TIER_CONFIGS.trial.monthlyQuota;
+}
+
+/**
+ * Model Credit Consumption Multipliers based on real token costs.
+ * Flash/Mini models consume 1x to 2x base credits.
+ * Advanced reasoning & frontier models consume proportionally more credits.
+ */
+export const MODEL_CREDIT_MULTIPLIERS: Record<string, number> = {
+  // Google Gemini
+  "gemini-2.5-flash": 1,
+  "gemini-2.0-flash": 1,
+  "gemini-1.5-flash": 1,
+  "gemini-2.5-pro": 10,
+  "gemini-1.5-pro": 10,
+
+  // OpenAI
+  "gpt-4o-mini": 2,
+  "gpt-4o": 25,
+  "o1-mini": 12,
+  "o3-mini": 12,
+  "o1": 150,
+
+  // Anthropic Claude
+  "claude-3-5-haiku": 8,
+  "claude-3-5-haiku-20241022": 8,
+  "claude-3-7-sonnet": 30,
+  "claude-3-7-sonnet-20250219": 30,
+  "claude-3-5-sonnet": 30,
+  "claude-3-5-sonnet-20241022": 30,
+
+  // DeepSeek
+  "deepseek-chat": 1.5,
+  "deepseek-reasoner": 5,
+
+  // Mistral AI
+  "mistral-small": 2,
+  "mistral-small-latest": 2,
+  "mistral-large": 20,
+  "mistral-large-latest": 20,
+};
+
+export function getModelCreditMultiplier(model: string): number {
+  const normalized = model.toLowerCase().trim();
+  return MODEL_CREDIT_MULTIPLIERS[normalized] ?? 1;
+}
+
+export function calculateRequiredCredits(
+  model: string,
+  totalTokens: number
+): number {
+  const multiplier = getModelCreditMultiplier(model);
+  const baseCredits = Math.ceil(totalTokens / 1000);
+  return Math.max(1, Math.ceil(baseCredits * multiplier));
 }
 
 /**

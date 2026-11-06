@@ -89,7 +89,7 @@ export class GoogleCalendarAdapter implements CalendarAdapter {
           allDay: isAllDay,
           meetingLink: evt.hangoutLink || evt.htmlLink,
           htmlLink: evt.htmlLink,
-          attendees: [],
+          attendees: evt.attendees || [],
         };
       });
     } catch (err: unknown) {
@@ -190,7 +190,7 @@ export class OutlookCalendarAdapter implements CalendarAdapter {
           allDay: !!evt.isAllDay,
           meetingLink: evt.teamsLink || evt.htmlLink,
           htmlLink: evt.htmlLink,
-          attendees: [],
+          attendees: evt.attendees || [],
         };
       });
     } catch (err: unknown) {

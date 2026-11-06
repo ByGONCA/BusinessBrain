@@ -72,7 +72,7 @@ export function StorageTab({ activeOrg }: StorageTabProps) {
       </div>
 
       {/* Storage Meter Card */}
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] p-4 space-y-3.5 shadow-xs">
+      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground p-4 space-y-3.5 shadow-xs">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">

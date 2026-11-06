@@ -587,8 +587,8 @@ function RenderMiniBlock({ block }: { block: EditorBlock }) {
         : undefined;
 
       return (
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] overflow-hidden my-1 shadow-2xs font-mono text-xs">
-          <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-100/80 dark:bg-[#121214] border-b border-zinc-200 dark:border-zinc-800 text-[11px] text-zinc-600 dark:text-zinc-300 select-none">
+        <div className="rounded-xl border border-zinc-200 border-border bg-white dark:bg-card overflow-hidden my-1 shadow-2xs font-mono text-xs">
+          <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-100/80 dark:bg-surface-secondary border-b border-zinc-200 border-border text-[11px] text-zinc-600 dark:text-zinc-300 select-none">
             <div className="flex items-center gap-1.5 min-w-0">
               {isGitHub ? (
                 <>
@@ -631,14 +631,14 @@ function RenderMiniBlock({ block }: { block: EditorBlock }) {
               </span>
             </div>
           </div>
-          <div className="overflow-x-auto max-h-48 bg-zinc-50/50 dark:bg-[#1a1a1d] text-[11px] leading-relaxed">
+          <div className="overflow-x-auto max-h-48 bg-zinc-50/50 dark:bg-background text-[11px] leading-relaxed">
             <table className="w-full border-collapse">
               <tbody>
                 {lines.map((line, idx) => {
                   const lineNum = isGitHub ? startLine + idx : idx + 1;
                   return (
                     <tr key={idx} className="hover:bg-zinc-200/40 dark:hover:bg-zinc-800/40">
-                      <td className="w-9 min-w-9 select-none pr-2.5 pl-2 text-right text-zinc-400 dark:text-zinc-600 text-[10px] align-top border-r border-zinc-200/80 dark:border-zinc-800/80">
+                      <td className="w-9 min-w-9 select-none pr-2.5 pl-2 text-right text-zinc-400 dark:text-zinc-600 text-[10px] align-top border-r border-zinc-200/80 border-border/80">
                         {lineNum}
                       </td>
                       <td className="pl-3 pr-4 py-0.25 whitespace-pre font-mono text-[11px]">
@@ -660,7 +660,7 @@ function RenderMiniBlock({ block }: { block: EditorBlock }) {
     case "calendar": {
       const events = block.properties?.calendarData?.events || [];
       return (
-        <div className="my-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/60 p-2.5 shadow-2xs">
+        <div className="my-1.5 rounded-xl border border-zinc-200 border-border bg-zinc-50/70 dark:bg-zinc-900/60 p-2.5 shadow-2xs">
           <div className="flex items-center justify-between text-xs font-semibold text-foreground mb-1.5 pb-1.5 border-b border-border/80">
             <div className="flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5 text-blue-500" />

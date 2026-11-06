@@ -79,10 +79,10 @@ export function SearchModal({ isOpen, onClose, organizationId }: SearchModalProp
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-100">
-      <div className="w-full max-w-xl rounded-2xl border border-[#242427] bg-[#141415] shadow-2xl overflow-hidden flex flex-col">
+      <div className="w-full max-w-xl rounded-2xl border border-border bg-card shadow-2xl overflow-hidden flex flex-col">
         {/* Search Input Bar */}
-        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-[#1C1C1F]">
-          <Search className="h-4 w-4 text-[#71717A] shrink-0" />
+        <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border">
+          <Search className="h-4 w-4 text-muted-foreground shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -90,13 +90,13 @@ export function SearchModal({ isOpen, onClose, organizationId }: SearchModalProp
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search pages by title or content..."
-            className="flex-1 bg-transparent text-sm text-[#F5F5F5] placeholder:text-[#71717A] outline-none"
+            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
           />
           {loading && <Loader2 className="h-4 w-4 animate-spin text-blue-400 shrink-0" />}
           <button
             type="button"
             onClick={onClose}
-            className="text-[#71717A] hover:text-[#F5F5F5] transition-colors"
+            className="text-muted-foreground hover:text-foreground transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -105,13 +105,13 @@ export function SearchModal({ isOpen, onClose, organizationId }: SearchModalProp
         {/* Results Stream */}
         <div className="max-h-80 overflow-y-auto p-2 space-y-1 no-scrollbar">
           {query.trim() && !loading && results.length === 0 && (
-            <div className="py-8 text-center text-xs text-[#71717A]">
+            <div className="py-8 text-center text-xs text-muted-foreground">
               No pages match &ldquo;{query}&rdquo;
             </div>
           )}
 
           {!query.trim() && (
-            <div className="py-8 text-center text-xs text-[#71717A]">
+            <div className="py-8 text-center text-xs text-muted-foreground">
               Type to search page titles and notes...
             </div>
           )}
@@ -127,8 +127,8 @@ export function SearchModal({ isOpen, onClose, organizationId }: SearchModalProp
                 className={cn(
                   "flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition-colors",
                   isSelected
-                    ? "bg-[#242427] text-[#F5F5F5]"
-                    : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
+                    ? "bg-[#242427] text-foreground"
+                    : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-foreground"
                 )}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -142,13 +142,13 @@ export function SearchModal({ isOpen, onClose, organizationId }: SearchModalProp
                   <div className="min-w-0">
                     <div className="text-xs font-medium truncate">{page.title || "Untitled"}</div>
                     {page.content_text && (
-                      <div className="text-[10px] text-[#71717A] truncate max-w-sm mt-0.5">
+                      <div className="text-[10px] text-muted-foreground truncate max-w-sm mt-0.5">
                         {page.content_text}
                       </div>
                     )}
                   </div>
                 </div>
-                <ArrowRight className="h-3.5 w-3.5 text-[#71717A] opacity-60 shrink-0 ml-2" />
+                <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-60 shrink-0 ml-2" />
               </button>
             );
           })}

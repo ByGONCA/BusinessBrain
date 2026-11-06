@@ -163,7 +163,7 @@ function MarkdownCodeBlock({ code, lang }: { code: string; lang: string }) {
   };
 
   return (
-    <div className="relative my-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-950 text-zinc-100 shadow-xs overflow-hidden group">
+    <div className="relative my-4 rounded-xl border border-zinc-200 border-border bg-zinc-950 text-zinc-100 shadow-xs overflow-hidden group">
       {/* Code Header */}
       <div className="flex items-center justify-between px-3.5 py-1.5 bg-zinc-900/90 border-b border-zinc-800 text-xs">
         <span className="font-mono text-[11px] font-medium text-zinc-400 uppercase">
@@ -232,9 +232,9 @@ function MarkdownTable({ rows }: { rows: string[] }) {
   const bodyRows = rows.slice(2).map(parseRow);
 
   return (
-    <div className="my-4 overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-2xs">
+    <div className="my-4 overflow-x-auto rounded-xl border border-zinc-200 border-border shadow-2xs">
       <table className="w-full border-collapse text-xs text-left">
-        <thead className="bg-zinc-100/80 dark:bg-zinc-800/60 border-b border-zinc-200 dark:border-zinc-800 font-semibold text-foreground">
+        <thead className="bg-zinc-100/80 dark:bg-zinc-800/60 border-b border-zinc-200 border-border font-semibold text-foreground">
           <tr>
             {headerCells.map((cell, idx) => (
               <th key={idx} className="px-3.5 py-2.5">
@@ -672,33 +672,12 @@ export function MarkdownViewer({ content, filePath, onDiscussSelection }: Markdo
     <div
       ref={containerRef}
       onMouseUp={handleMouseUp}
-      className="relative p-6 sm:p-8 bg-white dark:bg-[#18181b] text-foreground select-text overflow-y-auto flex-1 min-h-0 transition-colors"
+      className="relative p-6 sm:p-8 bg-card border-border text-foreground select-text overflow-y-auto flex-1 min-h-0 transition-colors"
     >
       {/* Rendered Document Container */}
       <div className="max-w-4xl mx-auto space-y-1">
         {renderedBlocks}
       </div>
-
-      {/* Floating Action Pill for Discussions */}
-      {floatingAction && onDiscussSelection && (
-        <div
-          ref={floatingRef}
-          style={{ top: floatingAction.y, left: floatingAction.x }}
-          className="absolute z-40 -translate-x-1/2 -translate-y-full mb-1 flex items-center gap-1.5 rounded-full border border-blue-500/40 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-3 py-1 shadow-xl text-xs font-medium cursor-pointer hover:scale-105 active:scale-95 transition-all select-none animate-in fade-in zoom-in-95 duration-100"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onDiscussSelection({
-              filePath,
-              selectedCode: floatingAction.text,
-            });
-            setFloatingAction(null);
-          }}
-        >
-          <MessageSquare className="h-3.5 w-3.5 text-blue-400 dark:text-blue-600" />
-          <span>{isPt ? "Adicionar ao Chat" : "Add to Chat"}</span>
-        </div>
-      )}
     </div>
   );
 }

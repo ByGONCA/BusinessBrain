@@ -342,7 +342,7 @@ export function CodeViewer({
   return (
     <div
       ref={containerRef}
-      className="relative rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] shadow-xs overflow-hidden h-full flex flex-col"
+      className="relative rounded-xl border border-zinc-200 dark:border-zinc-800 bg-card border-border shadow-xs overflow-hidden h-full flex flex-col"
     >
       {/* Scoped CSS guarantees exact VS Code Dark+ & Light+ token palette */}
       <style>{`
@@ -371,7 +371,7 @@ export function CodeViewer({
       `}</style>
 
       {/* ================= Top Action Bar ================= */}
-      <div className="shrink-0 bg-zinc-100/70 dark:bg-[#121214] border-b border-zinc-200 dark:border-zinc-800/90 px-4 py-2.5 flex items-center justify-between gap-3 text-xs">
+      <div className="shrink-0 bg-surface-secondary/70 border-border border-b border-zinc-200 dark:border-zinc-800/90 px-4 py-2.5 flex items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-2 min-w-0">
           {onBack && (
             <button
@@ -470,33 +470,6 @@ export function CodeViewer({
               )}
             </button>
           )}
-
-          {onDiscussSelection && (
-            <button
-              type="button"
-              onClick={() => {
-                const sel = window.getSelection();
-                let data: CodeSelectionData | null = null;
-                if (sel && !sel.isCollapsed && sel.toString().trim()) {
-                  data = extractSelectionData(sel);
-                }
-                if (!data) {
-                  data = {
-                    filePath,
-                    selectedCode: content || "",
-                    startLine: 1,
-                    endLine: lines.length > 0 ? lines.length : 1,
-                  };
-                }
-                onDiscussSelection(data);
-              }}
-              className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium border border-blue-500/30 bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors shadow-2xs cursor-pointer"
-              title={isPt ? "Abrir chat do workspace e adicionar à discussão" : "Open workspace chat and add to discussion"}
-            >
-              <MessageSquare className="h-3 w-3 shrink-0" />
-              <span>Chat</span>
-            </button>
-          )}
         </div>
       </div>
 
@@ -565,7 +538,7 @@ export function CodeViewer({
         <div
           onContextMenu={handleContextMenu}
           onMouseUp={handleCodeMouseUp}
-          className="flex-1 min-h-0 overflow-x-auto overflow-y-auto bg-zinc-50/50 dark:bg-[#1a1a1d] text-zinc-900 dark:text-zinc-100 font-mono text-[12px] leading-relaxed select-text"
+          className="flex-1 min-h-0 overflow-x-auto overflow-y-auto bg-background text-foreground text-zinc-900 dark:text-zinc-100 font-mono text-[12px] leading-relaxed select-text"
         >
           <table className="w-full border-collapse">
             <tbody>
@@ -623,51 +596,13 @@ export function CodeViewer({
         </div>
       )}
 
-      {/* ================= Floating "Adicionar ao Chat" Action Pill ================= */}
-      {floatingAction && onDiscussSelection && (
-        <div
-          ref={floatingRef}
-          style={{ top: floatingAction.y, left: floatingAction.x }}
-          className="absolute z-40 -translate-x-1/2 -translate-y-full mb-1 flex items-center gap-1.5 rounded-full border border-blue-500/40 bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 px-3 py-1 shadow-xl text-xs font-medium cursor-pointer hover:scale-105 active:scale-95 transition-all select-none animate-in fade-in zoom-in-95 duration-100"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onDiscussSelection(floatingAction.selectionData);
-            setFloatingAction(null);
-          }}
-        >
-          <MessageSquare className="h-3.5 w-3.5 text-blue-400 dark:text-blue-600" />
-          <span>{isPt ? "Adicionar ao Chat" : "Add to Chat"}</span>
-          {floatingAction.selectionData.startLine && (
-            <span className="text-[10px] opacity-75 font-mono">
-              (L{floatingAction.selectionData.startLine}{floatingAction.selectionData.endLine && floatingAction.selectionData.endLine !== floatingAction.selectionData.startLine ? `–L${floatingAction.selectionData.endLine}` : ""})
-            </span>
-          )}
-        </div>
-      )}
-
       {/* ================= Right-Click Context Menu ================= */}
-      {contextMenu && onDiscussSelection && (
+      {contextMenu && (
         <div
           ref={contextMenuRef}
           style={{ left: contextMenu.x, top: contextMenu.y }}
           className="fixed z-50 min-w-[220px] rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-1 shadow-xl text-xs text-zinc-900 dark:text-zinc-100 animate-in fade-in zoom-in-95 duration-100"
         >
-          <button
-            type="button"
-            onClick={handleContextMenuDiscuss}
-            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium transition-colors text-left cursor-pointer"
-          >
-            <MessageSquare className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">
-              {contextMenu.selectionData.startLine !== undefined &&
-              contextMenu.selectionData.endLine !== undefined
-                ? contextMenu.selectionData.startLine === contextMenu.selectionData.endLine
-                  ? (isPt ? `Comentar linha ${contextMenu.selectionData.startLine}` : `Comment on line ${contextMenu.selectionData.startLine}`)
-                  : (isPt ? `Comentar linhas ${contextMenu.selectionData.startLine}–${contextMenu.selectionData.endLine}` : `Comment on lines ${contextMenu.selectionData.startLine}–${contextMenu.selectionData.endLine}`)
-                : (isPt ? "Comentar seleção" : "Comment on selection")}
-            </span>
-          </button>
 
           <div
             className="relative"

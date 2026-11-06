@@ -83,7 +83,7 @@ export function WorkspaceDefaultsTab({ activeOrg }: WorkspaceDefaultsTabProps) {
               disabled={!isOwnerOrAdmin}
               value={defaults.defaultTaskStatus}
               onChange={(e) => handleChange("defaultTaskStatus", e.target.value)}
-              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer shadow-xs"
+              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer shadow-xs"
             >
               <option value="todo">To Do</option>
               <option value="in_progress">In Progress</option>
@@ -101,7 +101,7 @@ export function WorkspaceDefaultsTab({ activeOrg }: WorkspaceDefaultsTabProps) {
               disabled={!isOwnerOrAdmin}
               value={defaults.defaultTaskPriority}
               onChange={(e) => handleChange("defaultTaskPriority", e.target.value)}
-              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer shadow-xs"
+              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer shadow-xs"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -120,7 +120,7 @@ export function WorkspaceDefaultsTab({ activeOrg }: WorkspaceDefaultsTabProps) {
               disabled={!isOwnerOrAdmin}
               value={defaults.defaultProjectStatus}
               onChange={(e) => handleChange("defaultProjectStatus", e.target.value)}
-              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer shadow-xs"
+              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer shadow-xs"
             >
               <option value="planning">Planning</option>
               <option value="active">Active</option>
@@ -145,7 +145,7 @@ export function WorkspaceDefaultsTab({ activeOrg }: WorkspaceDefaultsTabProps) {
               disabled={!isOwnerOrAdmin}
               value={defaults.defaultMeetingDuration}
               onChange={(e) => handleChange("defaultMeetingDuration", Number(e.target.value))}
-              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer shadow-xs"
+              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer shadow-xs"
             >
               <option value={15}>15 minutes</option>
               <option value={30}>30 minutes</option>
@@ -164,7 +164,7 @@ export function WorkspaceDefaultsTab({ activeOrg }: WorkspaceDefaultsTabProps) {
               disabled={!isOwnerOrAdmin}
               value={defaults.defaultCalendarBehavior}
               onChange={(e) => handleChange("defaultCalendarBehavior", e.target.value)}
-              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer shadow-xs"
+              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer shadow-xs"
             >
               <option value="prompt">Prompt for Google Calendar sync</option>
               <option value="always_create">Always sync to primary calendar</option>
@@ -188,7 +188,7 @@ export function WorkspaceDefaultsTab({ activeOrg }: WorkspaceDefaultsTabProps) {
               disabled={!isOwnerOrAdmin}
               value={defaults.defaultCurrency}
               onChange={(e) => handleChange("defaultCurrency", e.target.value)}
-              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer shadow-xs"
+              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer shadow-xs"
             >
               <option value="EUR">EUR (€)</option>
               <option value="USD">USD ($)</option>

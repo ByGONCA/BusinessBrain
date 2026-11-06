@@ -4,48 +4,56 @@
 
 :root,
 html.light {
-  /* Editorial Light Theme for BusinessBrain */
-  --background: #FAF9F5;
-  --foreground: #18181B;
+  /* Shopeers-inspired Light Theme for BusinessBrain */
+  --background: #F3F4F6;
+  --foreground: #111827;
   --card: #FFFFFF;
-  --card-foreground: #18181B;
-  --surface-secondary: #F4F3EE;
+  --card-foreground: #111827;
+  --surface-secondary: #F8F9FA;
   --surface-elevated: #FFFFFF;
-  --muted: #F4F3EE;
-  --muted-foreground: #71717A;
-  --secondary-foreground: #52525B;
-  --border: #E5E5E0;
-  --border-subtle: #EFEFEA;
-  --sidebar: #F4F3EE;
-  --sidebar-border: #E5E5E0;
-  --hover: #EFEFEA;
-  --selected: #E5E5DF;
+  --muted: #F8F9FA;
+  --muted-foreground: #6B7280;
+  --secondary-foreground: #4B5563;
+  --border: #E5E7EB;
+  --border-subtle: #F0F2F5;
+  --sidebar: #FFFFFF;
+  --sidebar-border: #E5E7EB;
+  --hover: #F0F2F5;
+  --selected: #E5E9F2;
+  --primary: #2563EB;
+  --primary-hover: #1D4ED8;
+  --primary-foreground: #FFFFFF;
   --accent: #2563EB;
   --accent-foreground: #FFFFFF;
+  --disabled: #B0B4BD;
   --metric-green: #10B981;
   --metric-red: #EF4444;
   --metric-amber: #F59E0B;
 }
 
 html.dark {
-  /* Minimalist Premium Dark Theme (Linear/Stripe Reference Aesthetic) */
-  --background: #09090B;
-  --foreground: #F4F4F5;
-  --card: #121215;
-  --card-foreground: #F4F4F5;
-  --surface-secondary: #16161A;
-  --surface-elevated: #1B1B20;
-  --muted: #16161A;
-  --muted-foreground: #71717A;
-  --secondary-foreground: #A1A1AA;
-  --border: #1E1E22;
-  --border-subtle: #161619;
-  --sidebar: #0C0C0E;
-  --sidebar-border: #18181B;
-  --hover: #1A1A1F;
-  --selected: #202026;
+  /* Refined Premium Dark Theme: Soft Charcoal Elevated Surfaces, Zero Stark White Borders */
+  --background: #101114;
+  --foreground: #F2F2F4;
+  --card: #17181D;
+  --card-foreground: #F2F2F4;
+  --surface-secondary: #1B1C22;
+  --surface-elevated: #22242B;
+  --muted: #1B1C22;
+  --muted-foreground: #8A8D96;
+  --secondary-foreground: #B5B8C0;
+  --border: #23252B;
+  --border-subtle: #1A1B20;
+  --sidebar: #101114;
+  --sidebar-border: #262830;
+  --hover: #202228;
+  --selected: #282A32;
+  --primary: #3B82F6;
+  --primary-hover: #2563EB;
+  --primary-foreground: #FFFFFF;
   --accent: #3B82F6;
   --accent-foreground: #FFFFFF;
+  --disabled: #555555;
   --metric-green: #10B981;
   --metric-red: #EF4444;
   --metric-amber: #F59E0B;

@@ -59,4 +59,5 @@ export interface ModelMetadata {
   latencyProfile: "ultra_low" | "balanced" | "thorough";
   isSystemProvided: boolean;
   supportsByok: boolean;
+  creditMultiplier?: number; // Multiplier relative to base cost (e.g., 1 for flash, 25 for gpt-4o, etc.)
 }

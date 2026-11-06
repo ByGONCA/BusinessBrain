@@ -17,7 +17,7 @@ import {
   X,
   Sparkles,
 } from "lucide-react";
-import { OrganizationEntitlement } from "@/lib/organizations/entitlements";
+import type { OrganizationEntitlement } from "@/lib/organizations/entitlements";
 import { SUBSCRIPTION_PLANS } from "@/lib/stripe/config";
 import { SubscriptionTier } from "@/lib/stripe/types";
 import { cn } from "@/lib/utils";
@@ -185,7 +185,7 @@ export function UsageBillingTab({ entitlement, closeSettings }: UsageBillingTabP
           </div>
 
           {/* AI Credits & Token Balance Card */}
-          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] p-4 space-y-3">
+          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600/10 text-blue-600 dark:text-blue-400">
@@ -307,7 +307,7 @@ export function UsageBillingTab({ entitlement, closeSettings }: UsageBillingTabP
           </div>
 
           {/* Historical burn rate summary */}
-          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] p-4 space-y-2">
+          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground p-4 space-y-2">
             <div className="flex items-center gap-2">
               <Cpu className="h-4 w-4 text-zinc-400" />
               <h4 className="text-xs font-semibold text-zinc-900 dark:text-white">Consumption Telemetry</h4>
@@ -326,7 +326,7 @@ export function UsageBillingTab({ entitlement, closeSettings }: UsageBillingTabP
           onClick={() => setShowAddCreditsModal(false)}
         >
           <div
-            className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] p-5 shadow-2xl text-zinc-900 dark:text-zinc-100"
+            className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-card p-5 shadow-2xl text-zinc-900 dark:text-zinc-100"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">

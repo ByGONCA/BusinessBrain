@@ -466,8 +466,8 @@ export function SidebarPageTree({
           className={cn(
             "group relative flex items-center gap-2 rounded-md pr-2 h-[32px] text-[13px] font-medium transition-colors cursor-pointer select-none",
             isActive
-              ? "bg-[#242427] text-[#FAFAFA] font-semibold shadow-2xs"
-              : "text-[#A1A1AA] hover:bg-[#18181B] hover:text-[#FAFAFA]",
+              ? "bg-selected text-foreground font-semibold shadow-2xs opacity-100"
+              : "text-muted-foreground opacity-70 hover:opacity-100 hover:bg-hover hover:text-foreground",
             isDragging && "opacity-40",
             isTarget && dropTarget.position === "before" && "border-t-2 border-blue-500 rounded-t-none",
             isTarget && dropTarget.position === "after" && "border-b-2 border-blue-500 rounded-b-none",
@@ -565,7 +565,7 @@ export function SidebarPageTree({
               <button
                 type="button"
                 onClick={(e) => handleCreateChildPage(node.id, e)}
-                className="flex h-5 w-5 items-center justify-center rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                className="flex h-5 w-5 items-center justify-center rounded hover:bg-hover text-muted-foreground hover:text-foreground"
                 title="Add subpage"
               >
                 <Plus className="h-3 w-3" />
@@ -580,8 +580,8 @@ export function SidebarPageTree({
                     setContextMenuId((prev) => (prev === node.id ? null : node.id));
                   }}
                   className={cn(
-                    "flex h-5 w-5 items-center justify-center rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200",
-                    isMenuOpen && "bg-zinc-800 text-zinc-200"
+                    "flex h-5 w-5 items-center justify-center rounded hover:bg-hover text-muted-foreground hover:text-foreground",
+                    isMenuOpen && "bg-hover text-foreground"
                   )}
                   title="Page options"
                 >
@@ -591,10 +591,10 @@ export function SidebarPageTree({
                 {isMenuOpen && (
                   <div
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute right-0 top-6 z-50 w-52 rounded-xl border border-[#242427] bg-[#141415] p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-100 select-none text-xs"
+                    className="absolute right-0 top-6 z-50 w-52 rounded-xl border border-border bg-surface-elevated p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-100 select-none text-xs"
                   >
                     {/* Header: Page label */}
-                    <div className="px-2 py-1 text-[10px] font-semibold text-[#71717A] uppercase tracking-wider">
+                    <div className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                       Page
                     </div>
 
@@ -602,13 +602,13 @@ export function SidebarPageTree({
                     <button
                       type="button"
                       onClick={(e) => handleToggleFavorite(node.id, e)}
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5] transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-muted-foreground hover:bg-hover hover:text-foreground transition-colors"
                     >
                       <span className="flex items-center gap-2">
                         <Star
                           className={cn(
                             "h-3.5 w-3.5 transition-transform active:scale-125",
-                            isFav ? "fill-amber-400 text-amber-400" : "text-[#71717A]"
+                            isFav ? "fill-amber-400 text-amber-400" : "text-muted-foreground"
                           )}
                         />
                         <span>{isFav ? "Remove from Favorites" : "Add to Favorites"}</span>
@@ -631,13 +631,13 @@ export function SidebarPageTree({
                           }, 1200);
                         }
                       }}
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5] transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-muted-foreground hover:bg-hover hover:text-foreground transition-colors"
                     >
                       <span className="flex items-center gap-2">
                         {copiedPageId === node.id ? (
                           <Check className="h-3.5 w-3.5 text-emerald-400" />
                         ) : (
-                          <Link2 className="h-3.5 w-3.5 text-[#71717A]" />
+                          <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
                         )}
                         <span>{copiedPageId === node.id ? "Link copied!" : "Copy link"}</span>
                       </span>
@@ -647,13 +647,13 @@ export function SidebarPageTree({
                     <button
                       type="button"
                       onClick={(e) => handleDuplicatePage(node.id, e)}
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5] transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-muted-foreground hover:bg-hover hover:text-foreground transition-colors"
                     >
                       <span className="flex items-center gap-2">
-                        <Copy className="h-3.5 w-3.5 text-[#71717A]" />
+                        <Copy className="h-3.5 w-3.5 text-muted-foreground" />
                         <span>Duplicate</span>
                       </span>
-                      <span className="text-[10px] text-[#71717A] font-mono">Ctrl+D</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">Ctrl+D</span>
                     </button>
 
                     {/* Rename */}
@@ -666,13 +666,13 @@ export function SidebarPageTree({
                         setRenamingId(node.id);
                         setRenameTitle(node.title || "");
                       }}
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5] transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-muted-foreground hover:bg-hover hover:text-foreground transition-colors"
                     >
                       <span className="flex items-center gap-2">
-                        <Edit3 className="h-3.5 w-3.5 text-[#71717A]" />
+                        <Edit3 className="h-3.5 w-3.5 text-muted-foreground" />
                         <span>Rename</span>
                       </span>
-                      <span className="text-[10px] text-[#71717A] font-mono">Ctrl+Shift+R</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">Ctrl+Shift+R</span>
                     </button>
 
                     {/* Move to */}
@@ -684,13 +684,13 @@ export function SidebarPageTree({
                         setContextMenuId(null);
                         setMoveModalPage(node);
                       }}
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5] transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-muted-foreground hover:bg-hover hover:text-foreground transition-colors"
                     >
                       <span className="flex items-center gap-2">
-                        <CornerDownRight className="h-3.5 w-3.5 text-[#71717A]" />
+                        <CornerDownRight className="h-3.5 w-3.5 text-muted-foreground" />
                         <span>Move to</span>
                       </span>
-                      <span className="text-[10px] text-[#71717A] font-mono">Ctrl+Shift+P</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">Ctrl+Shift+P</span>
                     </button>
 
                     {/* Move to Trash */}
@@ -704,7 +704,7 @@ export function SidebarPageTree({
                     </button>
 
                     {/* Separator */}
-                    <div className="my-1 h-px bg-[#1C1C1F]" />
+                    <div className="my-1 h-px bg-border-subtle" />
 
                     {/* Open in new tab */}
                     <button
@@ -715,13 +715,13 @@ export function SidebarPageTree({
                         setContextMenuId(null);
                         window.open(`/dashboard/pages/${node.id}`, "_blank");
                       }}
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5] transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-muted-foreground hover:bg-hover hover:text-foreground transition-colors"
                     >
                       <span className="flex items-center gap-2">
-                        <ExternalLink className="h-3.5 w-3.5 text-[#71717A]" />
+                        <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
                         <span>Open in new tab</span>
                       </span>
-                      <span className="text-[10px] text-[#71717A] font-mono">Ctrl+Shift+↵</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">Ctrl+Shift+↵</span>
                     </button>
 
                     {/* Open in side peek */}
@@ -733,13 +733,13 @@ export function SidebarPageTree({
                         setContextMenuId(null);
                         openSidePeek(node.id);
                       }}
-                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5] transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-muted-foreground hover:bg-hover hover:text-foreground transition-colors"
                     >
                       <span className="flex items-center gap-2">
-                        <PanelRight className="h-3.5 w-3.5 text-[#71717A]" />
+                        <PanelRight className="h-3.5 w-3.5 text-muted-foreground" />
                         <span>Open in side peek</span>
                       </span>
-                      <span className="text-[10px] text-[#71717A] font-mono">Alt+Click</span>
+                      <span className="text-[10px] text-muted-foreground font-mono">Alt+Click</span>
                     </button>
                   </div>
                 )}
@@ -750,7 +750,7 @@ export function SidebarPageTree({
 
         {/* Nested Children */}
         {hasChildren && isExpanded && (
-          <div className="space-y-0.5">
+          <div className="space-y-0.5 ml-2 border-l border-border/40 pl-0.5">
             {node.children.map((child) => renderNode(child, depth + 1))}
           </div>
         )}
@@ -766,9 +766,9 @@ export function SidebarPageTree({
           type="button"
           data-tour="new-page-btn"
           onClick={handleCreateRootPage}
-          className="group flex w-full items-center gap-2 rounded-md px-2.5 h-[32px] text-[13px] font-medium text-[#71717A] hover:bg-[#18181B] hover:text-[#FAFAFA] transition-colors"
+          className="group flex w-full items-center gap-2 rounded-md px-2.5 h-[32px] text-[13px] font-medium text-muted-foreground opacity-50 hover:opacity-100 hover:bg-hover hover:text-foreground transition-all"
         >
-          <Plus className="h-4 w-4 shrink-0 text-[#71717A] group-hover:text-[#FAFAFA] transition-colors" />
+          <Plus className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
           <span className="truncate">Create your first page</span>
         </button>
       ) : (
@@ -778,9 +778,9 @@ export function SidebarPageTree({
             type="button"
             data-tour="new-page-btn"
             onClick={handleCreateRootPage}
-            className="group flex w-full items-center gap-2 rounded-md px-2 h-[30px] text-[12.5px] font-medium text-[#71717A] hover:bg-[#18181B] hover:text-[#FAFAFA] transition-colors"
+            className="group flex w-full items-center gap-2 rounded-md px-2 h-[30px] text-[12.5px] font-medium text-muted-foreground opacity-50 hover:opacity-100 hover:bg-hover hover:text-foreground transition-all"
           >
-            <Plus className="h-3.5 w-3.5 shrink-0 text-[#71717A] group-hover:text-[#FAFAFA] transition-colors" />
+            <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
             <span className="truncate">Add a page</span>
           </button>
         </>

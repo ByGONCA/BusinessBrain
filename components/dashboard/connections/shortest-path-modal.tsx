@@ -119,10 +119,10 @@ export function ShortestPathModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-lg rounded-2xl bg-[#141415] border border-[#242427] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="relative w-full max-w-lg rounded-2xl bg-card border border-border shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-[#242427] shrink-0">
+        <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <Route className="h-5 w-5" />
@@ -131,7 +131,7 @@ export function ShortestPathModal({
               <h3 className="text-base font-bold text-foreground">
                 Path Finder — Caminho Mais Curto
               </h3>
-              <p className="text-xs text-[#71717A]">
+              <p className="text-xs text-muted-foreground">
                 Travessia determinística (BFS) em relações ativas do grafo
               </p>
             </div>
@@ -140,21 +140,21 @@ export function ShortestPathModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[#71717A] hover:text-foreground hover:bg-[#1C1C1F] transition-colors"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-hover transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Selection Area */}
-        <div className="p-4 space-y-3 bg-[#19191B] border-b border-[#242427] shrink-0">
+        <div className="p-4 space-y-3 bg-surface-secondary border-b border-border shrink-0">
           {/* Start Node */}
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-[#71717A] mb-1">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
               Ponto de Partida (Origem)
             </label>
             {startNode && !isStartOpen ? (
-              <div className="flex items-center justify-between p-2 rounded-xl border border-[#242427] bg-[#141415]">
+              <div className="flex items-center justify-between p-2 rounded-xl border border-border bg-card">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-950/60 text-emerald-300 border border-emerald-800/40">
                     {startNode.type}
@@ -177,17 +177,17 @@ export function ShortestPathModal({
             ) : (
               <div className="space-y-1">
                 <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#71717A]" />
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                   <input
                     type="text"
                     value={startSearch}
                     onChange={(e) => setStartSearch(e.target.value)}
                     placeholder="Pesquisar ponto de partida..."
-                    className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs bg-[#141415] border border-[#242427] text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
+                    className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs bg-card border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500/50"
                     autoFocus={isStartOpen}
                   />
                 </div>
-                <div className="max-h-32 overflow-y-auto rounded-xl border border-[#242427] bg-[#141415] divide-y divide-[#242427]">
+                <div className="max-h-32 overflow-y-auto rounded-xl border border-border bg-card divide-y divide-[#242427]">
                   {filteredStartNodes.map((n) => (
                     <div
                       key={n.id}
@@ -196,12 +196,12 @@ export function ShortestPathModal({
                         setIsStartOpen(false);
                         setHasCalculated(false);
                       }}
-                      className="flex items-center justify-between p-2 hover:bg-[#1C1C1F] cursor-pointer text-xs"
+                      className="flex items-center justify-between p-2 hover:bg-hover cursor-pointer text-xs"
                     >
                       <span className="truncate font-medium text-foreground">
                         {n.title}
                       </span>
-                      <span className="text-[10px] uppercase font-bold text-[#71717A] ml-2 shrink-0">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground ml-2 shrink-0">
                         {n.type}
                       </span>
                     </div>
@@ -213,11 +213,11 @@ export function ShortestPathModal({
 
           {/* Target Node */}
           <div>
-            <label className="block text-[11px] font-bold uppercase tracking-wider text-[#71717A] mb-1">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
               Ponto de Destino
             </label>
             {targetNode && !isTargetOpen ? (
-              <div className="flex items-center justify-between p-2 rounded-xl border border-[#242427] bg-[#141415]">
+              <div className="flex items-center justify-between p-2 rounded-xl border border-border bg-card">
                 <div className="flex items-center gap-2 min-w-0">
                   <span className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-950/60 text-blue-300 border border-blue-800/40">
                     {targetNode.type}
@@ -240,16 +240,16 @@ export function ShortestPathModal({
             ) : (
               <div className="space-y-1">
                 <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#71717A]" />
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                   <input
                     type="text"
                     value={targetSearch}
                     onChange={(e) => setTargetSearch(e.target.value)}
                     placeholder="Pesquisar ponto de destino..."
-                    className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs bg-[#141415] border border-[#242427] text-foreground focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                    className="w-full pl-8 pr-3 py-1.5 rounded-xl text-xs bg-card border border-border text-foreground focus:outline-none focus:ring-1 focus:ring-blue-500/50"
                   />
                 </div>
-                <div className="max-h-32 overflow-y-auto rounded-xl border border-[#242427] bg-[#141415] divide-y divide-[#242427]">
+                <div className="max-h-32 overflow-y-auto rounded-xl border border-border bg-card divide-y divide-[#242427]">
                   {filteredTargetNodes.map((n) => (
                     <div
                       key={n.id}
@@ -258,12 +258,12 @@ export function ShortestPathModal({
                         setIsTargetOpen(false);
                         setHasCalculated(false);
                       }}
-                      className="flex items-center justify-between p-2 hover:bg-[#1C1C1F] cursor-pointer text-xs"
+                      className="flex items-center justify-between p-2 hover:bg-hover cursor-pointer text-xs"
                     >
                       <span className="truncate font-medium text-foreground">
                         {n.title}
                       </span>
-                      <span className="text-[10px] uppercase font-bold text-[#71717A] ml-2 shrink-0">
+                      <span className="text-[10px] uppercase font-bold text-muted-foreground ml-2 shrink-0">
                         {n.type}
                       </span>
                     </div>
@@ -286,7 +286,7 @@ export function ShortestPathModal({
         {/* Results Body */}
         <div className="flex-1 overflow-y-auto p-4">
           {!hasCalculated ? (
-            <div className="text-center py-10 text-xs text-[#71717A]">
+            <div className="text-center py-10 text-xs text-muted-foreground">
               Seleciona o ponto de partida e o destino para descobrir como estão conectados.
             </div>
           ) : !result?.found ? (
@@ -295,7 +295,7 @@ export function ShortestPathModal({
               <p className="text-sm font-semibold text-foreground">
                 Nenhum caminho encontrado
               </p>
-              <p className="text-xs text-[#71717A] max-w-sm mx-auto leading-relaxed">
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
                 Estes dois elementos pertencem a componentes desconexos no grafo da empresa. Não existem relações diretas ou intermediárias entre eles.
               </p>
               {startNode && (
@@ -343,7 +343,7 @@ export function ShortestPathModal({
                     <div key={`${step.node.id}-${idx}`} className="space-y-2">
                       <div
                         onClick={() => handleStepNodeClick(step.node)}
-                        className="group flex items-center justify-between p-2 rounded-xl bg-[#19191B] border border-[#242427] hover:border-emerald-500/50 cursor-pointer transition-colors"
+                        className="group flex items-center justify-between p-2 rounded-xl bg-surface-secondary border border-border hover:border-emerald-500/50 cursor-pointer transition-colors"
                         title="Clica para inspecionar os detalhes deste nó"
                       >
                         <div className="flex items-center gap-2 min-w-0">
@@ -354,7 +354,7 @@ export function ShortestPathModal({
                             {step.node.title}
                           </span>
                         </div>
-                        <span className="text-[10px] text-[#71717A] opacity-0 group-hover:opacity-100 transition-opacity">
+                        <span className="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
                           Inspecionar →
                         </span>
                       </div>

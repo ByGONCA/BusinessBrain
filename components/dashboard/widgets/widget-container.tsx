@@ -83,12 +83,12 @@ export class WidgetErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center p-6 text-center min-h-[160px] rounded-xl border border-rose-200 dark:border-rose-950/60 bg-rose-50/50 dark:bg-rose-950/20 text-zinc-900 dark:text-zinc-100">
+        <div className="flex flex-col items-center justify-center p-6 text-center min-h-[160px] rounded-xl border border-rose-200 dark:border-rose-950/60 bg-rose-50/50 dark:bg-rose-950/20 text-foreground">
           <AlertTriangle className="h-5 w-5 text-rose-500 mb-2" />
           <p className="text-xs font-semibold text-rose-700 dark:text-rose-400">
             {this.props.fallbackTitle || this.props.errorTitle || "Unable to display this widget"}
           </p>
-          <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1 max-w-xs">
+          <p className="text-[11px] text-muted-foreground mt-1 max-w-xs">
             {this.props.errorDesc || "An unexpected error occurred while rendering this metric."}
           </p>
           <button
@@ -176,6 +176,22 @@ export function WidgetContainer({
     return {};
   }, [align, currentOffset]);
 
+  if (widget.visualization === "pulse_kpis" && !isEditing) {
+    return (
+      <div
+        ref={containerRef}
+        style={{
+          width: widget.options?.customWidthPercent || liveWidthPercent ? `${currentWidth}%` : undefined,
+          maxWidth: "100%",
+          ...marginStyle,
+        }}
+        className={cn("w-full col-span-full", className)}
+      >
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div
       ref={containerRef}
@@ -191,10 +207,10 @@ export function WidgetContainer({
         ...marginStyle,
       }}
       className={cn(
-        "group relative flex flex-col rounded-2xl border",
+        "group relative flex flex-col rounded-2xl",
         isResizing
           ? "transition-none select-none shadow-xl ring-2 ring-blue-500/80 border-blue-500"
-          : "transition-all duration-150 border-zinc-200/90 dark:border-white/[0.08] bg-white dark:bg-[#121316] shadow-xs",
+          : "transition-all duration-150 bg-card text-card-foreground shadow-xs",
         isEditing && !isResizing && "ring-1 ring-blue-500/40 border-blue-500/30 hover:shadow-md cursor-grab active:cursor-grabbing",
         isDragging && "opacity-40 scale-[0.99] border-dashed border-blue-400 dark:border-blue-500",
         isDragOver && "ring-2 ring-blue-500/80 border-blue-500 bg-blue-50/20 dark:bg-blue-950/20 shadow-lg scale-[1.01]",
@@ -216,7 +232,7 @@ export function WidgetContainer({
       )}
 
       {/* Widget Header */}
-      <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-2 border-b border-zinc-100 dark:border-white/[0.04]">
+      <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-2 border-b border-border-subtle">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 tracking-tight truncate">

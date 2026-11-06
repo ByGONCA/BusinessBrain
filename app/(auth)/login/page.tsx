@@ -118,7 +118,7 @@ function LoginContent() {
       <div className="w-full max-w-sm">
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center">
-          <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#19191C] dark:bg-[#19191C] border border-[#E5E5E0] dark:border-[#29292D] text-[#F5F5F5] shadow-xs hover:scale-105 transition-transform">
+          <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-secondary border border-border text-[#F5F5F5] shadow-xs hover:scale-105 transition-transform">
             <Sparkles className="h-5 w-5 text-blue-400" />
           </Link>
           <h2 className="mt-4 text-xl font-bold tracking-tight text-[#18181B] dark:text-[#F5F5F5]">
@@ -130,7 +130,7 @@ function LoginContent() {
         </div>
 
         {/* Auth Card */}
-        <div className="mt-8 rounded-2xl border border-[#E5E5E0] dark:border-[#29292D] bg-white dark:bg-[#141416] p-6 shadow-xl">
+        <div className="mt-8 rounded-2xl border border-border bg-card text-card-foreground shadow-xl p-6 shadow-xl">
           <AuthQueryError />
 
           {/* OAuth Providers */}

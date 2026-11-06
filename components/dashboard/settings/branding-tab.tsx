@@ -94,7 +94,7 @@ export function BrandingTab({ activeOrg }: BrandingTabProps) {
             value={senderName}
             onChange={(e) => setSenderName(e.target.value)}
             placeholder="e.g. Acme Corp via Company Brain"
-            className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
+            className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
           />
           <p className="text-[11px] text-zinc-500">The &apos;From&apos; name visible in recipients&apos; email clients.</p>
         </div>
@@ -110,7 +110,7 @@ export function BrandingTab({ activeOrg }: BrandingTabProps) {
             value={footerText}
             onChange={(e) => setFooterText(e.target.value)}
             placeholder="e.g. Sent from Acme Corp Operations"
-            className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
+            className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
           />
         </div>
 

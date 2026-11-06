@@ -1,4 +1,4 @@
-import { getAuthenticatedGoogleClient } from "./client";
+import { getAuthenticatedGoogleClient, AuthenticatedGoogleClientOptions } from "./client";
 import { GmailMessageSummary } from "../types";
 
 export interface GmailProfile {
@@ -376,4 +376,293 @@ export async function getGmailAttachment(
 
   const buffer = Buffer.from(data.data, "base64url");
   return { buffer, size: buffer.length };
+}
+
+export interface GmailDraftInput {
+  to: string | string[];
+  cc?: string | string[];
+  bcc?: string | string[];
+  subject: string;
+  body: string;
+  threadId?: string;
+  inReplyTo?: string;
+}
+
+export interface GmailDraftItem {
+  id: string;
+  messageId: string;
+  threadId?: string;
+  subject?: string;
+  to?: string;
+  snippet?: string;
+  body?: string;
+  updatedAt?: string;
+}
+
+/**
+ * Builds a compliant RFC 2822 MIME message encoded in URL-safe base64 (base64url),
+ * as required by the Gmail API for creating drafts and sending messages.
+ */
+export function buildRfc2822RawMessage(input: {
+  to: string | string[];
+  from?: string;
+  cc?: string | string[];
+  bcc?: string | string[];
+  subject: string;
+  body: string;
+  threadId?: string;
+  inReplyTo?: string;
+}): string {
+  const toHeader = Array.isArray(input.to) ? input.to.join(", ") : input.to;
+  const ccHeader = input.cc ? (Array.isArray(input.cc) ? input.cc.join(", ") : input.cc) : undefined;
+  const bccHeader = input.bcc ? (Array.isArray(input.bcc) ? input.bcc.join(", ") : input.bcc) : undefined;
+
+  const encodedSubject = /[^\x20-\x7E]/.test(input.subject)
+    ? `=?UTF-8?B?${Buffer.from(input.subject, "utf-8").toString("base64")}?=`
+    : input.subject;
+
+  const headers: string[] = [`To: ${toHeader}`];
+
+  if (input.from) headers.push(`From: ${input.from}`);
+  if (ccHeader) headers.push(`Cc: ${ccHeader}`);
+  if (bccHeader) headers.push(`Bcc: ${bccHeader}`);
+  headers.push(`Subject: ${encodedSubject}`);
+  if (input.inReplyTo) {
+    headers.push(`In-Reply-To: ${input.inReplyTo}`);
+    headers.push(`References: ${input.inReplyTo}`);
+  }
+
+  headers.push(`MIME-Version: 1.0`);
+  headers.push(`Content-Type: text/plain; charset=UTF-8`);
+  headers.push(`Content-Transfer-Encoding: base64`);
+
+  const base64Body = Buffer.from(input.body, "utf-8").toString("base64");
+  const rawRfc2822 = `${headers.join("\r\n")}\r\n\r\n${base64Body}`;
+
+  return Buffer.from(rawRfc2822, "utf-8").toString("base64url");
+}
+
+/**
+ * Creates a new email draft in the connected Gmail account using the official Gmail API.
+ * The email is NEVER sent automatically.
+ */
+export async function createGmailDraft(
+  organizationId: string,
+  input: GmailDraftInput,
+  options?: AuthenticatedGoogleClientOptions
+): Promise<GmailDraftItem> {
+  if (!input.to || (Array.isArray(input.to) && input.to.length === 0)) {
+    throw new Error("Recipient ('to') is required for email draft.");
+  }
+
+  const { googleFetch } = await getAuthenticatedGoogleClient(organizationId, {
+    accountEmail: options?.accountEmail,
+    userId: options?.userId,
+    service: "gmail",
+  });
+
+  const rawBase64Url = buildRfc2822RawMessage(input);
+
+  const payload: { message: { raw: string; threadId?: string } } = {
+    message: {
+      raw: rawBase64Url,
+      ...(input.threadId ? { threadId: input.threadId } : {}),
+    },
+  };
+
+  const response = await googleFetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gmail API create draft failed (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  return {
+    id: data.id,
+    messageId: data.message?.id || "",
+    threadId: data.message?.threadId || input.threadId,
+    subject: input.subject,
+    to: Array.isArray(input.to) ? input.to.join(", ") : input.to,
+    body: input.body,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Updates an existing email draft in the connected Gmail account.
+ */
+export async function updateGmailDraft(
+  organizationId: string,
+  draftId: string,
+  input: GmailDraftInput,
+  options?: AuthenticatedGoogleClientOptions
+): Promise<GmailDraftItem> {
+  if (!isValidGmailId(draftId)) {
+    throw new Error("Invalid draft identifier.");
+  }
+
+  const { googleFetch } = await getAuthenticatedGoogleClient(organizationId, {
+    accountEmail: options?.accountEmail,
+    userId: options?.userId,
+    service: "gmail",
+  });
+
+  const rawBase64Url = buildRfc2822RawMessage(input);
+
+  const payload = {
+    message: {
+      raw: rawBase64Url,
+      ...(input.threadId ? { threadId: input.threadId } : {}),
+    },
+  };
+
+  const response = await googleFetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/drafts/${encodeURIComponent(draftId)}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gmail API update draft failed (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  return {
+    id: data.id,
+    messageId: data.message?.id || "",
+    threadId: data.message?.threadId || input.threadId,
+    subject: input.subject,
+    to: Array.isArray(input.to) ? input.to.join(", ") : input.to,
+    body: input.body,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Lists drafts from the connected Gmail inbox.
+ */
+export async function listGmailDrafts(
+  organizationId: string,
+  options?: AuthenticatedGoogleClientOptions & { maxResults?: number; pageToken?: string }
+): Promise<{ drafts: GmailDraftItem[]; nextPageToken?: string }> {
+  const { googleFetch } = await getAuthenticatedGoogleClient(organizationId, {
+    accountEmail: options?.accountEmail,
+    userId: options?.userId,
+    service: "gmail",
+  });
+
+  const params = new URLSearchParams();
+  params.set("maxResults", String(options?.maxResults || 10));
+  if (options?.pageToken) params.set("pageToken", options.pageToken);
+
+  const response = await googleFetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/drafts?${params.toString()}`
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gmail API list drafts failed (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  const rawDrafts: Array<{ id: string; message?: { id: string; threadId: string } }> = data.drafts || [];
+
+  const drafts: GmailDraftItem[] = rawDrafts.map((d) => ({
+    id: d.id,
+    messageId: d.message?.id || "",
+    threadId: d.message?.threadId,
+  }));
+
+  return { drafts, nextPageToken: data.nextPageToken };
+}
+
+/**
+ * Retrieves a single draft with its decoded content.
+ */
+export async function getGmailDraft(
+  organizationId: string,
+  draftId: string,
+  options?: AuthenticatedGoogleClientOptions
+): Promise<GmailDraftItem> {
+  if (!isValidGmailId(draftId)) {
+    throw new Error("Invalid draft identifier.");
+  }
+
+  const { googleFetch } = await getAuthenticatedGoogleClient(organizationId, {
+    accountEmail: options?.accountEmail,
+    userId: options?.userId,
+    service: "gmail",
+  });
+
+  const response = await googleFetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/drafts/${encodeURIComponent(draftId)}?format=full`
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gmail API get draft failed (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  const msg = data.message || {};
+  const headers: Array<{ name: string; value: string }> = msg.payload?.headers || [];
+  const getHeader = (name: string) => headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value;
+
+  const { text, html } = await extractMimeContent(msg.payload, msg.id, googleFetch);
+
+  return {
+    id: data.id,
+    messageId: msg.id || "",
+    threadId: msg.threadId,
+    subject: getHeader("Subject") || "(No Subject)",
+    to: getHeader("To") || "",
+    snippet: msg.snippet || "",
+    body: text || (html ? htmlToPlainText(html) : msg.snippet || ""),
+  };
+}
+
+/**
+ * Sends a previously created and verified Gmail draft.
+ * CRITICAL GUARDRAIL: Must ONLY be called by verified Server Action after explicit user confirmation!
+ */
+export async function sendGmailDraft(
+  organizationId: string,
+  draftId: string,
+  options?: AuthenticatedGoogleClientOptions
+): Promise<{ id: string; threadId: string }> {
+  if (!isValidGmailId(draftId)) {
+    throw new Error("Invalid draft identifier.");
+  }
+
+  const { googleFetch } = await getAuthenticatedGoogleClient(organizationId, {
+    accountEmail: options?.accountEmail,
+    userId: options?.userId,
+    service: "gmail",
+  });
+
+  const response = await googleFetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts/send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: draftId }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gmail API send draft failed (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json();
+  return {
+    id: data.id,
+    threadId: data.threadId || "",
+  };
 }

@@ -8,6 +8,7 @@ import {
   TokenUsage,
 } from "../types";
 import { DEFAULT_GEMINI_MODEL, calculateTokenCostUsd } from "../config";
+import { BaseAIAdapter } from "./base";
 
 interface GeminiPart {
   text: string;
@@ -40,15 +41,21 @@ interface GeminiGenerateContentResponse {
   };
 }
 
-export class GeminiAdapter implements AIProviderAdapter {
+export class GeminiAdapter extends BaseAIAdapter implements AIProviderAdapter {
   readonly id = "gemini";
   readonly displayName = "Google Gemini";
   readonly defaultModel = DEFAULT_GEMINI_MODEL;
   private apiKey: string | null = null;
+  private customBaseUrl: string | null = null;
   private baseUrl = "https://generativelanguage.googleapis.com/v1beta";
 
-  constructor(apiKey?: string) {
+  constructor(apiKey?: string, customBaseUrl?: string) {
+    super();
     this.apiKey = apiKey || process.env.GEMINI_API_KEY || null;
+    this.customBaseUrl = customBaseUrl || process.env.GEMINI_BASE_URL || null;
+    if (this.customBaseUrl) {
+      this.baseUrl = this.customBaseUrl.replace(/\/+$/, "");
+    }
   }
 
   private resolveApiKey(): string {
@@ -126,51 +133,47 @@ export class GeminiAdapter implements AIProviderAdapter {
     const model = options?.model || this.defaultModel;
 
     // Offline / Test mock bypass when testing without live internet
-    if (apiKey.startsWith("mock_") || process.env.NODE_ENV === "test") {
+    if (this.isOfflineTestMode(apiKey)) {
       return this.generateMockResponse(messages, model, options);
     }
 
     const url = `${this.baseUrl}/models/${model}:generateContent`;
     const payload = this.formatPayload(messages, options);
 
-    try {
-      const response = await fetch(url, {
+    const response = await this.fetchWithRetry(
+      url,
+      {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-goog-api-key": apiKey,
         },
         body: JSON.stringify(payload),
-        signal: options?.signal,
-      });
+      },
+      options?.signal,
+      apiKey
+    );
 
-      if (!response.ok) {
-        await this.handleHttpError(response);
-      }
+    const data = (await response.json()) as GeminiGenerateContentResponse;
+    const candidate = data.candidates?.[0];
+    const text = candidate?.content?.parts?.map((p) => p.text).join("") || "";
+    const promptTokens = data.usageMetadata?.promptTokenCount || 0;
+    const completionTokens = data.usageMetadata?.candidatesTokenCount || 0;
+    const totalTokens = data.usageMetadata?.totalTokenCount || promptTokens + completionTokens;
 
-      const data = (await response.json()) as GeminiGenerateContentResponse;
-      const candidate = data.candidates?.[0];
-      const text = candidate?.content?.parts?.map((p) => p.text).join("") || "";
-      const promptTokens = data.usageMetadata?.promptTokenCount || 0;
-      const completionTokens = data.usageMetadata?.candidatesTokenCount || 0;
-      const totalTokens = data.usageMetadata?.totalTokenCount || promptTokens + completionTokens;
-
-      return {
-        text,
-        provider: this.id,
-        model,
-        usage: {
-          promptTokens,
-          completionTokens,
-          totalTokens,
-          estimatedCostUsd: calculateTokenCostUsd(model, promptTokens, completionTokens),
-        },
-        sources: options?.sources,
-        finishReason: candidate?.finishReason === "STOP" ? "stop" : "length",
-      };
-    } catch (err: unknown) {
-      this.handleThrownError(err);
-    }
+    return {
+      text,
+      provider: this.id,
+      model,
+      usage: {
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        estimatedCostUsd: calculateTokenCostUsd(model, promptTokens, completionTokens),
+      },
+      sources: options?.sources,
+      finishReason: candidate?.finishReason === "STOP" ? "stop" : "length",
+    };
   }
 
   /**
@@ -184,7 +187,7 @@ export class GeminiAdapter implements AIProviderAdapter {
     const model = options?.model || this.defaultModel;
 
     // Offline / Test mock bypass when testing without live internet
-    if (apiKey.startsWith("mock_") || process.env.NODE_ENV === "test") {
+    if (this.isOfflineTestMode(apiKey)) {
       yield* this.generateMockStream(messages, model, options);
       return;
     }
@@ -192,99 +195,63 @@ export class GeminiAdapter implements AIProviderAdapter {
     const url = `${this.baseUrl}/models/${model}:streamGenerateContent?alt=sse`;
     const payload = this.formatPayload(messages, options);
 
-    let response: Response;
-    try {
-      response = await fetch(url, {
+    const response = await this.fetchWithRetry(
+      url,
+      {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-goog-api-key": apiKey,
         },
         body: JSON.stringify(payload),
-        signal: options?.signal,
-      });
-
-      if (!response.ok) {
-        await this.handleHttpError(response);
-      }
-    } catch (err: unknown) {
-      this.handleThrownError(err);
-      return;
-    }
+      },
+      options?.signal,
+      apiKey
+    );
 
     if (!response.body) {
       throw new AIError("Gemini streaming response body is null", "PROVIDER_ERROR", 502, this.id);
     }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
     let lastUsage: TokenUsage | undefined;
 
-    try {
-      while (true) {
-        if (options?.signal?.aborted) {
-          throw new AIError("Stream generation was aborted by client", "ABORTED", 499, this.id);
+    for await (const jsonStr of this.parseSSEStream(response.body, options?.signal)) {
+      try {
+        const parsed = JSON.parse(jsonStr) as GeminiGenerateContentResponse;
+        if (parsed.usageMetadata) {
+          const pt = parsed.usageMetadata.promptTokenCount || 0;
+          const ct = parsed.usageMetadata.candidatesTokenCount || 0;
+          lastUsage = {
+            promptTokens: pt,
+            completionTokens: ct,
+            totalTokens: parsed.usageMetadata.totalTokenCount || pt + ct,
+            estimatedCostUsd: calculateTokenCostUsd(model, pt, ct),
+          };
         }
 
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed.startsWith("data: ")) continue;
-          const jsonStr = trimmed.slice(6).trim();
-          if (!jsonStr || jsonStr === "[DONE]") continue;
-
-          try {
-            const parsed = JSON.parse(jsonStr) as GeminiGenerateContentResponse;
-            if (parsed.usageMetadata) {
-              const pt = parsed.usageMetadata.promptTokenCount || 0;
-              const ct = parsed.usageMetadata.candidatesTokenCount || 0;
-              lastUsage = {
-                promptTokens: pt,
-                completionTokens: ct,
-                totalTokens: parsed.usageMetadata.totalTokenCount || (pt + ct),
-                estimatedCostUsd: calculateTokenCostUsd(model, pt, ct),
-              };
-            }
-
-            const textChunk = parsed.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "";
-            if (textChunk) {
-              yield {
-                text: textChunk,
-                done: false,
-                usage: lastUsage,
-                provider: this.id,
-                model,
-              };
-            }
-          } catch {
-            // Ignore malformed partial chunks in SSE stream
-          }
+        const textChunk = parsed.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "";
+        if (textChunk) {
+          yield {
+            text: textChunk,
+            done: false,
+            usage: lastUsage,
+            provider: this.id,
+            model,
+          };
         }
+      } catch {
+        // Ignore malformed partial chunks in SSE stream
       }
-
-      yield {
-        text: "",
-        done: true,
-        finishReason: "stop",
-        usage: lastUsage,
-        provider: this.id,
-        model,
-      };
-    } catch (streamErr: unknown) {
-      if (options?.signal?.aborted) {
-        throw new AIError("Stream generation was aborted by client", "ABORTED", 499, this.id);
-      }
-      this.handleThrownError(streamErr);
-    } finally {
-      reader.releaseLock();
     }
+
+    yield {
+      text: "",
+      done: true,
+      finishReason: "stop",
+      usage: lastUsage,
+      provider: this.id,
+      model,
+    };
   }
 
   /**
@@ -295,22 +262,19 @@ export class GeminiAdapter implements AIProviderAdapter {
       return { valid: false, error: "API key format is invalid or too short." };
     }
 
-    if (
-      process.env.NODE_ENV === "test" ||
-      apiKey.startsWith("mock_") ||
-      apiKey.startsWith("AIzaSy-mock")
-    ) {
+    if (this.isOfflineTestMode(apiKey)) {
       return { valid: true };
     }
 
     try {
-      const url = `${customBaseUrl || this.baseUrl}/models`;
+      const base = customBaseUrl || this.customBaseUrl || this.baseUrl;
+      const url = `${base.replace(/\/+$/, "")}/models`;
       const res = await fetch(url, {
         method: "GET",
         headers: {
-          "x-goog-api-key": apiKey,
+          "x-goog-api-key": apiKey.trim(),
         },
-        signal: AbortSignal.timeout(6000),
+        signal: AbortSignal.timeout(10_000),
       });
 
       if (res.ok) {
@@ -321,70 +285,12 @@ export class GeminiAdapter implements AIProviderAdapter {
         return { valid: false, error: "Google rejected the API key (Invalid or unauthorized)." };
       }
 
-      return { valid: false, error: `Google API responded with HTTP ${res.status}.` };
+      const body = await res.text();
+      return { valid: false, error: `Google API responded with HTTP ${res.status}: ${this.sanitizeSecret(body, apiKey)}` };
     } catch (err: unknown) {
-      let msg = err instanceof Error ? err.message : "Network error verifying API key.";
-      msg = msg.replace(/AIza[0-9A-Za-z-_]{35}/g, "[REDACTED_API_KEY]");
-      return { valid: false, error: msg };
+      const msg = err instanceof Error ? err.message : "Network error verifying API key.";
+      return { valid: false, error: this.sanitizeSecret(msg, apiKey) };
     }
-  }
-
-  private async handleHttpError(response: Response): Promise<never> {
-    let errorDetail = "";
-    try {
-      const errJson = await response.json();
-      errorDetail = errJson.error?.message || response.statusText;
-    } catch {
-      errorDetail = response.statusText;
-    }
-
-    // Sanitize any API key patterns from upstream responses
-    errorDetail = errorDetail.replace(/AIza[0-9A-Za-z-_]{35}/g, "[REDACTED_API_KEY]");
-
-    if (response.status === 400 || response.status === 401 || response.status === 403) {
-      throw new AIError(
-        `Gemini authentication error: ${errorDetail}`,
-        "INVALID_KEY",
-        401,
-        this.id
-      );
-    }
-
-    if (response.status === 429) {
-      throw new AIError(
-        `Gemini rate limit exceeded: ${errorDetail}`,
-        "RATE_LIMITED",
-        429,
-        this.id,
-        true
-      );
-    }
-
-    throw new AIError(
-      `Gemini upstream service error (${response.status}): ${errorDetail}`,
-      "PROVIDER_ERROR",
-      response.status,
-      this.id,
-      response.status >= 500
-    );
-  }
-
-  private handleThrownError(err: unknown): never {
-    if (err instanceof AIError) {
-      throw err;
-    }
-
-    if (err instanceof Error) {
-      if (err.name === "AbortError") {
-        throw new AIError("Request was aborted by client signal.", "ABORTED", 499, this.id);
-      }
-      if (err.name === "TimeoutError") {
-        throw new AIError("Request timed out waiting for Gemini response.", "TIMEOUT", 504, this.id, true);
-      }
-      throw new AIError(`Gemini request failed: ${err.message}`, "PROVIDER_ERROR", 500, this.id, false);
-    }
-
-    throw new AIError("Unknown error occurred during Gemini execution.", "PROVIDER_ERROR", 500, this.id, false);
   }
 
   /**

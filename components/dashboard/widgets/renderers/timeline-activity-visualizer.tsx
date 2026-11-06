@@ -77,13 +77,13 @@ export function TimelineActivityVisualizer({
         </LinkWrapper>
       </div>
 
-      <div className="divide-y divide-zinc-100 dark:divide-white/[0.04]">
+      <div className="divide-y divide-border-subtle">
         {sortedEvents.length > 0 ? (
           sortedEvents.slice(0, 5).map((event) => (
             <LinkWrapper
               key={event.id}
               href={event.link?.href || "/dashboard/timeline"}
-              className="flex items-center justify-between py-2 px-1 hover:bg-zinc-50 dark:hover:bg-white/[0.03] rounded-lg transition-colors group"
+              className="flex items-center justify-between py-2 px-1 hover:bg-hover rounded-lg transition-colors group"
             >
               <div className="flex items-center gap-2.5 min-w-0 pr-2">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 dark:bg-emerald-400 shrink-0" />
@@ -91,14 +91,14 @@ export function TimelineActivityVisualizer({
                   {event.title}
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 dark:text-zinc-500 shrink-0 ml-2 font-mono">
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground shrink-0 ml-2 font-mono">
                 <Clock className="h-3 w-3" />
                 <span>{new Date(event.timestamp).toLocaleDateString(intlLocale)}</span>
               </div>
             </LinkWrapper>
           ))
         ) : (
-          <div className="py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">
+          <div className="py-6 text-center text-xs text-muted-foreground">
             {h.noRecentActivity}
           </div>
         )}

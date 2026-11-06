@@ -52,7 +52,14 @@ export default async function DashboardLayout({
               />
 
               {/* Main Content & Side Peek (Side-by-Side Split View) */}
-              <DashboardSplitLayout>{children}</DashboardSplitLayout>
+              <DashboardSplitLayout
+                userEmail={user.email || ''}
+                userName={user.user_metadata?.full_name || user.user_metadata?.name}
+                userAvatar={user.user_metadata?.avatar_url}
+                activeOrg={activeOrg}
+              >
+                {children}
+              </DashboardSplitLayout>
 
               {/* Notion-style Settings Modal Window (Loaded on-demand) */}
               <LazySettingsModal

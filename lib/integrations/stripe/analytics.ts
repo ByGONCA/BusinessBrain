@@ -294,6 +294,7 @@ export async function computeStripeMetricsFromApi(params: {
 
   const currencyMap: Record<string, CurrencyFinancialTotals> = {};
   const monthlyHistoryMap: Record<string, Record<string, MonthlyMetricPoint>> = {};
+  const dailyHistoryMap: Record<string, Record<string, number>> = {};
   const activeCustomerIds = new Set<string>();
   const atRiskCustomerIds = new Set<string>();
 
@@ -323,6 +324,7 @@ export async function computeStripeMetricsFromApi(params: {
         revenueByPlan: {},
       };
       monthlyHistoryMap[c] = {};
+      dailyHistoryMap[c] = {};
     }
     return currencyMap[c];
   }
@@ -452,6 +454,7 @@ export async function computeStripeMetricsFromApi(params: {
 
         const bucket = getCurrencyBucket(bt.currency);
         const monthKey = new Date(bt.created * 1000).toISOString().slice(0, 7);
+        const dayKey = new Date(bt.created * 1000).toISOString().slice(0, 10);
 
         if (!monthlyHistoryMap[bucket.currency][monthKey]) {
           monthlyHistoryMap[bucket.currency][monthKey] = {
@@ -463,6 +466,10 @@ export async function computeStripeMetricsFromApi(params: {
         }
         const mPoint = monthlyHistoryMap[bucket.currency][monthKey];
 
+        if (!dailyHistoryMap[bucket.currency]) {
+          dailyHistoryMap[bucket.currency] = {};
+        }
+
         if (bt.type === "charge" || bt.type === "payment") {
           sampledChargesCount++;
           bucket.grossRevenueCents += bt.amount;
@@ -470,14 +477,17 @@ export async function computeStripeMetricsFromApi(params: {
           bucket.stripeFeesCents += bt.fee;
           mPoint.grossRevenueCents += bt.amount;
           mPoint.netRevenueCents += bt.net;
+          dailyHistoryMap[bucket.currency][dayKey] = (dailyHistoryMap[bucket.currency][dayKey] || 0) + bt.net;
         } else if (bt.type === "refund") {
           bucket.totalRefundsCents += Math.abs(bt.amount);
           bucket.netRevenueCents += bt.net; // bt.net is negative
           mPoint.netRevenueCents += bt.net;
+          dailyHistoryMap[bucket.currency][dayKey] = (dailyHistoryMap[bucket.currency][dayKey] || 0) + bt.net;
         } else if (bt.type === "adjustment") {
           bucket.openDisputesCents += Math.abs(bt.amount);
           bucket.netRevenueCents += bt.net;
           mPoint.netRevenueCents += bt.net;
+          dailyHistoryMap[bucket.currency][dayKey] = (dailyHistoryMap[bucket.currency][dayKey] || 0) + bt.net;
         }
       }
 
@@ -592,6 +602,7 @@ export async function computeStripeMetricsFromApi(params: {
     primaryCurrency,
     currencies: currencyMap,
     monthlyHistory: formattedMonthlyHistory,
+    dailyHistory: dailyHistoryMap,
     totalActiveCustomersCount: activeCustomerIds.size,
     totalAtRiskCustomersCount: atRiskCustomerIds.size,
     dunningGracePeriodDays: DEFAULT_DUNNING_GRACE_PERIOD_DAYS,

@@ -393,7 +393,7 @@ export function EntityExplorer({
           <button
             type="button"
             onClick={() => setMutationFeedback(null)}
-            className="p-1 rounded-md hover:bg-white/[0.06] text-muted-foreground hover:text-foreground transition-colors"
+            className="p-1 rounded-md hover:bg-hover text-muted-foreground hover:text-foreground transition-colors"
             aria-label="Fechar notificação"
           >
             <X className="h-3.5 w-3.5" />

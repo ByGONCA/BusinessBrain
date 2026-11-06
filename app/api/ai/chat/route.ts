@@ -5,7 +5,7 @@ import { getOrganizationEntitlement } from "@/lib/organizations/entitlements";
 import { hasPermission } from "@/lib/permissions/resolver";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
-import { getAIProvider, AIChatMessage, AIError, AITaskType, SupportedProviderId, TokenUsage } from "@/lib/ai";
+import { getAIProvider, isPlatformProviderConfigured, AIChatMessage, AIError, AITaskType, SupportedProviderId, TokenUsage } from "@/lib/ai";
 import { AIContextOrchestrator } from "@/lib/ai/context/orchestrator";
 import { AIChatService } from "@/lib/ai/chat/service";
 import { calculateTokenCostUsd } from "@/lib/ai/config";
@@ -15,7 +15,7 @@ import { AIPageGenerator } from "@/lib/ai/pages/generator";
 import { ModelRoutingEngine } from "@/lib/ai/routing/service";
 import { AICostLedgerService } from "@/lib/ai/accounting/ledger";
 import { decryptAICredential } from "@/lib/crypto/encryption";
-import { verifyAIAccessEntitlement } from "@/lib/ai/auth/entitlement-guard";
+import { verifyAIAccessEntitlement, canPlanUseBYOK } from "@/lib/ai/auth/entitlement-guard";
 import { AICreditReservationService } from "@/lib/ai/accounting/reservation";
 
 export const dynamic = "force-dynamic";
@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
       prompt?: string;
       model?: string;
       selectionMode?: "auto" | "preferred" | "task";
+      credentialMode?: "platform" | "byok";
       taskType?: AITaskType;
       selectedSourceIds?: string[];
       authorizationGrant?: GrantAuthorizationParams;
@@ -135,64 +136,100 @@ export async function POST(req: NextRequest) {
     const targetModel = routing.selectedModel.realModelId;
     const targetProvider: SupportedProviderId = routing.selectedModel.provider;
 
-    // 8. Resolve Credentials (Check Personal BYOK first, then Workspace BYOK)
+    // 8. Resolve Credentials with Explicit Mode & Strict Dual-Workspace Isolation
+    const isPersonal = activeOrg.workspace_type === "personal";
+    const requestedMode = body.credentialMode || "platform";
     let apiKey: string | undefined;
     let customBaseUrl: string | undefined;
     let isByok = false;
     let userCredentialId: string | null = null;
 
-    // Check personal credentials (without filtering status='active' so inactive/revoked keys fail explicitly)
-    const { data: userCred } = await supabase
-      .from("user_ai_credentials")
-      .select("id, encrypted_api_key, custom_base_url, status")
-      .eq("user_id", user.id)
-      .eq("provider", targetProvider)
-      .maybeSingle();
-
-    if (userCred) {
-      if (userCred.status !== "active") {
+    if (requestedMode === "byok") {
+      // 8.1 Commercial Invariant: BYOK is strictly reserved for Pro and Enterprise plans
+      if (!canPlanUseBYOK(planTier) || entitlement.isTrial) {
         return new Response(
           JSON.stringify({
-            error: `A sua credencial pessoal para o fornecedor '${targetProvider}' encontra-se inativa ou revogada (estado: ${userCred.status}). Atualize a chave em Definições > Chaves de IA.`,
-            code: "BYOK_CREDENTIAL_INACTIVE",
+            error:
+              "A funcionalidade de chaves próprias (BYOK) está reservada aos planos Pro e Enterprise. O plano Starter inclui acesso aos modelos da plataforma BusinessBrain. Faça upgrade para o plano Pro para utilizar as suas próprias API keys.",
+            code: "BYOK_PLAN_RESTRICTED",
           }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
+          { status: 403, headers: { "Content-Type": "application/json" } }
         );
       }
-      try {
-        apiKey = decryptAICredential(userCred.encrypted_api_key);
-      } catch (decErr) {
-        logger.error("Failed to decrypt personal BYOK credential", decErr, { userId: user.id, provider: targetProvider });
-        return new Response(
-          JSON.stringify({
-            error: `Não foi possível desencriptar a sua credencial pessoal para '${targetProvider}'. A chave de encriptação do sistema pode ter sido alterada. Atualize a chave em Definições > Chaves de IA.`,
-            code: "BYOK_DECRYPTION_FAILED",
-          }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
-        );
-      }
-      customBaseUrl = userCred.custom_base_url || undefined;
-      isByok = true;
-      userCredentialId = userCred.id;
-    } else {
-      // Check organization credentials
-      const { data: orgCred } = await supabase
-        .from("organization_ai_credentials")
-        .select("id, encrypted_api_key, custom_base_url, status")
-        .eq("organization_id", activeOrg.id)
-        .eq("provider", targetProvider)
-        .maybeSingle();
 
-      if (orgCred) {
+      // Query BYOK key strictly according to workspace type (Personal vs Organization)
+      if (isPersonal) {
+        const { data: userCred } = await supabase
+          .from("user_ai_credentials")
+          .select("id, encrypted_api_key, custom_base_url, status")
+          .eq("user_id", user.id)
+          .eq("provider", targetProvider)
+          .maybeSingle();
+
+        if (!userCred) {
+          return new Response(
+            JSON.stringify({
+              error: `Não foi encontrada nenhuma chave de API própria (BYOK) para o fornecedor '${targetProvider}'. Configure uma credencial pessoal ativa em Definições > Chaves de IA.`,
+              code: "BYOK_CREDENTIAL_REQUIRED",
+            }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+          );
+        }
+
+        if (userCred.status !== "active") {
+          return new Response(
+            JSON.stringify({
+              error: `A sua credencial pessoal para o fornecedor '${targetProvider}' encontra-se inativa ou revogada (estado: ${userCred.status}). Atualize a chave em Definições > Chaves de IA.`,
+              code: "BYOK_CREDENTIAL_INACTIVE",
+            }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+          );
+        }
+
+        try {
+          apiKey = decryptAICredential(userCred.encrypted_api_key);
+        } catch (decErr) {
+          logger.error("Failed to decrypt personal BYOK credential", decErr, { userId: user.id, provider: targetProvider });
+          return new Response(
+            JSON.stringify({
+              error: `Não foi possível desencriptar a sua credencial pessoal para '${targetProvider}'. Atualize a chave em Definições > Chaves de IA.`,
+              code: "BYOK_DECRYPTION_FAILED",
+            }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+          );
+        }
+
+        customBaseUrl = userCred.custom_base_url || undefined;
+        isByok = true;
+        userCredentialId = userCred.id;
+      } else {
+        const { data: orgCred } = await supabase
+          .from("organization_ai_credentials")
+          .select("id, encrypted_api_key, custom_base_url, status")
+          .eq("organization_id", activeOrg.id)
+          .eq("provider", targetProvider)
+          .maybeSingle();
+
+        if (!orgCred) {
+          return new Response(
+            JSON.stringify({
+              error: `Não foi encontrada nenhuma chave de API própria (BYOK) para o fornecedor '${targetProvider}' neste workspace empresarial. Configure a chave nas definições do workspace.`,
+              code: "BYOK_CREDENTIAL_REQUIRED",
+            }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+          );
+        }
+
         if (orgCred.status !== "active") {
           return new Response(
             JSON.stringify({
-              error: `A credencial do workspace para o fornecedor '${targetProvider}' encontra-se inativa ou revogada (estado: ${orgCred.status}).`,
+              error: `A credencial do workspace empresarial para o fornecedor '${targetProvider}' encontra-se inativa ou revogada (estado: ${orgCred.status}).`,
               code: "ORG_CREDENTIAL_INACTIVE",
             }),
             { status: 400, headers: { "Content-Type": "application/json" } }
           );
         }
+
         try {
           apiKey = decryptAICredential(orgCred.encrypted_api_key);
         } catch (decErr) {
@@ -205,25 +242,29 @@ export async function POST(req: NextRequest) {
             { status: 400, headers: { "Content-Type": "application/json" } }
           );
         }
+
         customBaseUrl = orgCred.custom_base_url || undefined;
         isByok = true;
       }
+    } else {
+      // 8.2 Mode = "platform": Use centralized BusinessBrain credentials
+      // Verify if platform provider is configured on server
+      const isConfigured = isPlatformProviderConfigured(targetProvider);
+      if (!isConfigured && process.env.NODE_ENV !== "test") {
+        return new Response(
+          JSON.stringify({
+            error: `O fornecedor '${targetProvider}' ainda não possui chave de API da plataforma configurada no servidor.`,
+            code: "PLATFORM_PROVIDER_NOT_CONFIGURED",
+          }),
+          { status: 503, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      isByok = false;
+      apiKey = undefined;
     }
 
-    // Guard: Never silently substitute an absent BYOK credential with platform credentials
-    // If the model is a BYOK-only model or BYOK was explicitly requested, reject if no active BYOK key exists
-    if (!routing.selectedModel.isSystemProvided && !isByok) {
-      return new Response(
-        JSON.stringify({
-          error: `O modelo '${routing.selectedModel.displayName}' requer uma chave de API própria (BYOK). Configure uma credencial ativa para '${targetProvider}' em Definições > Chaves de IA.`,
-          code: "BYOK_CREDENTIAL_REQUIRED",
-        }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-
-    // 8.1 Two-Phase Credit Reservation & Concurrency Guard
-    const estimatedCredits = AICreditReservationService.estimateCredits(prompt);
+    // 8.3 Two-Phase Credit Reservation with Model Pricing Multiplier
+    const estimatedCredits = AICreditReservationService.estimateCredits(prompt, targetModel);
     const reservation = await AICreditReservationService.reserveCredits({
       organizationId: activeOrg.id,
       userId: user.id,
@@ -249,9 +290,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 9. Manage conversation session
+    // 9. Manage conversation session with IDOR protection and Workspace Isolation
     let conversationId = body.conversationId;
-    if (!conversationId) {
+    if (conversationId) {
+      // Verify conversation ownership and workspace boundary
+      const existingConv = await AIChatService.getConversation(conversationId, activeOrg.id, user.id);
+      if (!existingConv) {
+        return new Response(
+          JSON.stringify({
+            error: "Conversa não encontrada ou acesso negado neste workspace.",
+            code: "CONVERSATION_ACCESS_DENIED",
+          }),
+          { status: 404, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      if (body.selectedSourceIds) {
+        await AIChatService.updateConversationSelectedSources(
+          conversationId,
+          activeOrg.id,
+          body.selectedSourceIds
+        );
+      }
+    } else {
       const title = prompt.length > 35 ? prompt.slice(0, 32) + "..." : prompt;
       const newConv = await AIChatService.createConversation(
         activeOrg.id,
@@ -259,15 +320,10 @@ export async function POST(req: NextRequest) {
         title,
         targetProvider,
         targetModel,
-        body.selectedSourceIds || []
+        body.selectedSourceIds || [],
+        isPersonal ? "personal" : "company"
       );
       conversationId = newConv.id;
-    } else if (body.selectedSourceIds) {
-      await AIChatService.updateConversationSelectedSources(
-        conversationId,
-        activeOrg.id,
-        body.selectedSourceIds
-      );
     }
 
     // 10. Retrieve grounded authorized context with hard scoping
@@ -408,6 +464,19 @@ export async function POST(req: NextRequest) {
               providerReportedUsage = chunk.usage;
             }
 
+            if (chunk.reasoningText) {
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({
+                    type: "reasoning",
+                    text: chunk.reasoningText,
+                    provider: provider.id,
+                    model: selectedModel,
+                  })}\n\n`
+                )
+              );
+            }
+
             if (chunk.text) {
               accumulatedText += chunk.text;
               controller.enqueue(
@@ -453,6 +522,7 @@ export async function POST(req: NextRequest) {
                     reservationId: reservation.reservationId,
                     actualTokens: totalActualTokens,
                     isByok,
+                    model: targetModel,
                     status: "canceled",
                   });
                 } catch (settleErr) {
@@ -558,6 +628,7 @@ export async function POST(req: NextRequest) {
                 reservationId: reservation.reservationId,
                 actualTokens: actualPromptTokens + actualCompletionTokens,
                 isByok,
+                model: targetModel,
                 status: "success",
               });
             }
@@ -625,6 +696,7 @@ export async function POST(req: NextRequest) {
                   reservationId: reservation.reservationId,
                   actualTokens: settledTotalTokens,
                   isByok,
+                  model: targetModel,
                   status: "canceled",
                 });
               } catch (settleErr) {

@@ -120,7 +120,7 @@ export function FirstStepsChecklist({
   };
 
   return (
-    <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-b from-[#141418] to-[#0E0E10] p-5 shadow-xl transition-all">
+    <div className="rounded-2xl border border-blue-500/20 bg-card p-5 shadow-xl transition-all">
       {/* Top Header */}
       <div className="flex items-center justify-between pb-3">
         <div className="flex items-center gap-2.5">
@@ -128,10 +128,10 @@ export function FirstStepsChecklist({
             <Sparkles className="h-4 w-4" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-[#F5F5F5] tracking-tight">
+            <h3 className="text-sm font-bold text-foreground tracking-tight">
               Get started with Company Brain
             </h3>
-            <p className="text-xs text-[#A1A1AA]">
+            <p className="text-xs text-muted-foreground">
               {completedCount} of {tasks.length} tasks completed
             </p>
           </div>
@@ -141,7 +141,7 @@ export function FirstStepsChecklist({
           <button
             type="button"
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-[#71717A] hover:bg-[#1C1C20] hover:text-[#FAFAFA] transition-colors"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-hover hover:text-foreground transition-colors"
             title={isCollapsed ? "Expand checklist" : "Collapse checklist"}
           >
             {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -149,7 +149,7 @@ export function FirstStepsChecklist({
           <button
             type="button"
             onClick={handleDismiss}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-[#71717A] hover:bg-[#1C1C20] hover:text-[#FAFAFA] transition-colors"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-hover hover:text-foreground transition-colors"
             title="Dismiss checklist"
           >
             <X className="h-4 w-4" />
@@ -158,7 +158,7 @@ export function FirstStepsChecklist({
       </div>
 
       {/* Progress Bar */}
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[#1F1F24]">
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-secondary">
         <div
           className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500 rounded-full"
           style={{ width: `${progressPercent}%` }}
@@ -175,8 +175,8 @@ export function FirstStepsChecklist({
                 key={task.key}
                 className={`flex items-start justify-between gap-3 rounded-xl border p-3.5 transition-all ${
                   task.isCompleted
-                    ? "border-emerald-500/20 bg-emerald-500/5 text-[#A1A1AA]"
-                    : "border-[#242428] bg-[#141416]/80 text-[#F5F5F5] hover:border-[#323238]"
+                    ? "border-emerald-500/20 bg-emerald-500/5 text-muted-foreground"
+                    : "border-[#242428] bg-[#141416]/80 text-foreground hover:border-[#323238]"
                 }`}
               >
                 <div className="flex items-start gap-3 min-w-0">
@@ -189,19 +189,19 @@ export function FirstStepsChecklist({
                     {task.isCompleted ? (
                       <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                     ) : (
-                      <Circle className="h-4 w-4 text-[#52525B] hover:text-blue-400" />
+                      <Circle className="h-4 w-4 text-muted-foreground hover:text-blue-400" />
                     )}
                   </button>
 
                   <div className="min-w-0">
                     <p
                       className={`text-xs font-semibold leading-tight ${
-                        task.isCompleted ? "line-through text-[#71717A]" : "text-[#F5F5F5]"
+                        task.isCompleted ? "line-through text-muted-foreground" : "text-foreground"
                       }`}
                     >
                       {task.title}
                     </p>
-                    <p className="mt-1 text-[11px] text-[#71717A] leading-snug">
+                    <p className="mt-1 text-[11px] text-muted-foreground leading-snug">
                       {task.description}
                     </p>
                   </div>
@@ -212,7 +212,7 @@ export function FirstStepsChecklist({
                   <Link
                     href={task.href}
                     onClick={task.onAction}
-                    className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-[#2E2E34] bg-[#1A1A1E] px-2.5 py-1 text-[11px] font-medium text-[#D4D4D8] hover:bg-[#25252A] hover:text-white transition-colors"
+                    className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-border bg-surface-secondary px-2.5 py-1 text-[11px] font-medium text-foreground hover:bg-hover hover:text-foreground transition-colors"
                   >
                     <span>{task.actionText}</span>
                     <ArrowRight className="h-3 w-3" />
@@ -221,7 +221,7 @@ export function FirstStepsChecklist({
                   <button
                     type="button"
                     onClick={task.onAction}
-                    className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-[#2E2E34] bg-[#1A1A1E] px-2.5 py-1 text-[11px] font-medium text-[#D4D4D8] hover:bg-[#25252A] hover:text-white transition-colors"
+                    className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-border bg-surface-secondary px-2.5 py-1 text-[11px] font-medium text-foreground hover:bg-hover hover:text-foreground transition-colors"
                   >
                     <span>{task.actionText}</span>
                     <ArrowRight className="h-3 w-3" />

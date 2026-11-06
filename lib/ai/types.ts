@@ -105,6 +105,7 @@ export interface StreamChunk {
   finishReason?: "stop" | "length" | "abort" | "error";
   provider?: string;
   model?: string;
+  reasoningText?: string;
 }
 
 export type AIErrorCode =

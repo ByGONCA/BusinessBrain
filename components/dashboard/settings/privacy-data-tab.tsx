@@ -117,7 +117,7 @@ export function PrivacyDataTab({ activeOrg }: PrivacyDataTabProps) {
         </span>
 
         {/* Personal Data Export */}
-        <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] flex items-center justify-between">
+        <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground flex items-center justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
@@ -131,7 +131,7 @@ export function PrivacyDataTab({ activeOrg }: PrivacyDataTabProps) {
             type="button"
             onClick={handleExportPersonal}
             disabled={downloadingPersonal}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
           >
             {downloadingPersonal ? (
               <>
@@ -153,7 +153,7 @@ export function PrivacyDataTab({ activeOrg }: PrivacyDataTabProps) {
         </div>
 
         {/* Workspace Data Export */}
-        <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] flex items-center justify-between">
+        <div className="p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground flex items-center justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Database className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
@@ -167,7 +167,7 @@ export function PrivacyDataTab({ activeOrg }: PrivacyDataTabProps) {
             type="button"
             onClick={handleExportWorkspace}
             disabled={!isOwnerOrAdmin || downloadingWorkspace}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
           >
             {downloadingWorkspace ? (
               <>
@@ -222,7 +222,7 @@ export function PrivacyDataTab({ activeOrg }: PrivacyDataTabProps) {
               </button>
             </div>
           ) : (
-            <div className="p-3 rounded-lg border border-rose-300 dark:border-rose-800 bg-white dark:bg-[#1a1a1d] space-y-3">
+            <div className="p-3 rounded-lg border border-rose-300 dark:border-rose-800 bg-surface-secondary text-foreground space-y-3">
               <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
                 Confirm Account Erasure
               </p>

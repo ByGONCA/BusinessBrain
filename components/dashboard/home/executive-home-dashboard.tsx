@@ -3,12 +3,16 @@
 import * as React from "react";
 import NextLink from "next/link";
 import {
+  Calendar,
+  ChevronDown,
+  LayoutGrid,
   ArrowRight,
   TrendingUp,
   FileText,
   Clock,
   AlertCircle,
   Activity,
+  Plus,
 } from "lucide-react";
 import {
   PhosphorFolder,
@@ -25,13 +29,17 @@ import {
   DashboardLayoutConfig,
   WidgetInstanceConfig,
   WidgetSize,
+  DashboardDescriptor,
 } from "@/lib/widgets/types";
 import { getDefaultLayout } from "@/lib/widgets/layout-defaults";
 import {
   saveDashboardLayoutAction,
   loadDashboardLayoutAction,
+  listDashboardsAction,
+  createDashboardAction,
 } from "@/lib/widgets/actions";
 import { WidgetGrid, WidgetGridData } from "@/components/dashboard/widgets/widget-grid";
+import { PulseKpisVisualizer } from "@/components/dashboard/widgets/renderers/pulse-kpis-visualizer";
 import { CustomizationToolbar } from "@/components/dashboard/widgets/customization-toolbar";
 import { WidgetDrawer } from "@/components/dashboard/widgets/widget-drawer";
 
@@ -97,6 +105,12 @@ export interface ExecutiveHomeDashboardProps {
   projectsCount: number;
   pages: PageItem[];
   pagesCount: number;
+  tasks?: Array<{ id: string; title: string; status?: string; priority?: string; updated_at?: string; created_at?: string }>;
+  tasksCount?: number;
+  goals?: Array<{ id: string; title: string; status?: string; current?: number; target?: number; progress?: number; updated_at?: string }>;
+  goalsCount?: number;
+  calendarEvents?: Array<{ id: string; title: string; startTime: string; endTime?: string; meetUrl?: string; attendeesCount?: number }>;
+  githubData?: { prs: any[]; repos: any[] };
   membersCount: number;
   timelineEvents: TimelineEvent[];
   priorityItems?: PriorityItem[];
@@ -133,6 +147,12 @@ export function ExecutiveHomeDashboard({
   projectsCount,
   pages,
   pagesCount,
+  tasks = [],
+  tasksCount = 0,
+  goals = [],
+  goalsCount = 0,
+  calendarEvents = [],
+  githubData,
   membersCount: _membersCount,
   timelineEvents,
   priorityItems = [],
@@ -241,6 +261,24 @@ export function ExecutiveHomeDashboard({
   }, [timelineEvents]);
 
 
+  // Dynamic window synchronized with current date and selected timeframe
+  const [selectedTimeframe, setSelectedTimeframe] = React.useState<"7d" | "30d" | "90d" | "12m" | "all">("30d");
+
+  const dateRangeLabel = React.useMemo(() => {
+    const end = new Date();
+    const daysMap: Record<string, number> = {
+      "7d": 7,
+      "30d": 30,
+      "90d": 90,
+      "12m": 365,
+      "all": 365 * 2,
+    };
+    const days = daysMap[selectedTimeframe] || 30;
+    const start = new Date(end.getTime() - days * 24 * 60 * 60 * 1000);
+    const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" };
+    return `${start.toLocaleDateString(intlLocale, opts)} - ${end.toLocaleDateString(intlLocale, opts)}`;
+  }, [intlLocale, selectedTimeframe]);
+
   // Customizable Workspace Layout State
   const resolvedInitialLayout = React.useMemo(
     () => resolveCleanInitialLayout(initialLayout),
@@ -270,6 +308,86 @@ export function ExecutiveHomeDashboard({
     }
   }, [initialLayout, isCustomizing]);
 
+  // Multi-Dashboard Management State
+  const [currentDashboardId, setCurrentDashboardId] = React.useState<string>("home");
+  const [dashboardsList, setDashboardsList] = React.useState<DashboardDescriptor[]>([
+    { id: "home", name: "Executive Overview", isSystem: true },
+    { id: "finance", name: "Financial Velocity", isSystem: true },
+  ]);
+  const [isNewDashboardModalOpen, setIsNewDashboardModalOpen] = React.useState(false);
+  const [newDashboardTitle, setNewDashboardTitle] = React.useState("");
+  const [isSwitchingDashboard, setIsSwitchingDashboard] = React.useState(false);
+
+  // Load available dashboards list on mount
+  React.useEffect(() => {
+    let mounted = true;
+    async function loadDashboards() {
+      if (!organizationId) return;
+      try {
+        const res = await listDashboardsAction({ organizationId });
+        if (mounted && Array.isArray(res) && res.length > 0) {
+          setDashboardsList(res);
+        }
+      } catch {
+        // Safe fallback to default system dashboards
+      }
+    }
+    loadDashboards();
+    return () => {
+      mounted = false;
+    };
+  }, [organizationId]);
+
+  const handleSwitchDashboard = async (dashboardId: string) => {
+    if (dashboardId === currentDashboardId) return;
+    setIsSwitchingDashboard(true);
+    try {
+      const res = await loadDashboardLayoutAction({
+        organizationId,
+        dashboardType: dashboardId,
+      });
+      setCurrentDashboardId(dashboardId);
+      setPersistedLayout(res.layout);
+      setActiveLayout(res.layout);
+      setIsCustomizing(false);
+      setLayoutSaveFeedback(null);
+    } catch {
+      setLayoutSaveFeedback({
+        type: "error",
+        message: "Failed to switch dashboard.",
+      });
+    } finally {
+      setIsSwitchingDashboard(false);
+    }
+  };
+
+  const handleCreateDashboard = async (title: string) => {
+    const cleanTitle = title.trim();
+    if (!cleanTitle) return;
+    try {
+      const res = await createDashboardAction({
+        organizationId,
+        name: cleanTitle,
+      });
+      if (res.success && res.dashboard) {
+        setDashboardsList((prev) => [...prev, res.dashboard!]);
+        setCurrentDashboardId(res.dashboard.id);
+        const emptyLayout: DashboardLayoutConfig = {
+          version: 1,
+          widgets: [],
+          updatedAt: new Date().toISOString(),
+        };
+        setPersistedLayout(emptyLayout);
+        setActiveLayout(emptyLayout);
+        setIsCustomizing(true);
+        setIsNewDashboardModalOpen(false);
+        setNewDashboardTitle("");
+      }
+    } catch {
+      // Graceful fallback
+    }
+  };
+
   const hasUnsavedChanges = React.useMemo(() => {
     return JSON.stringify(activeLayout.widgets) !== JSON.stringify(persistedLayout.widgets);
   }, [activeLayout.widgets, persistedLayout.widgets]);
@@ -280,7 +398,7 @@ export function ExecutiveHomeDashboard({
     try {
       let res = await saveDashboardLayoutAction({
         organizationId,
-        dashboardType: "home",
+        dashboardType: currentDashboardId,
         layout: activeLayout,
         expectedUpdatedAt: forceOverwrite ? undefined : persistedLayout.updatedAt,
         forceOverwrite,
@@ -290,7 +408,7 @@ export function ExecutiveHomeDashboard({
       if (!res.success && res.code === "STALE_WRITE") {
         res = await saveDashboardLayoutAction({
           organizationId,
-          dashboardType: "home",
+          dashboardType: currentDashboardId,
           layout: activeLayout,
           forceOverwrite: true,
         });
@@ -329,7 +447,7 @@ export function ExecutiveHomeDashboard({
     try {
       const res = await loadDashboardLayoutAction({
         organizationId,
-        dashboardType: "home",
+        dashboardType: currentDashboardId,
       });
       setPersistedLayout(res.layout);
       setActiveLayout(res.layout);
@@ -353,7 +471,11 @@ export function ExecutiveHomeDashboard({
   };
 
   const handleRestoreDefaults = () => {
-    const defaults = getDefaultLayout("home");
+    const defaults = currentDashboardId === "finance" 
+      ? getDefaultLayout("finance") 
+      : currentDashboardId === "home" 
+      ? getDefaultLayout("home") 
+      : { version: 1, updatedAt: persistedLayout.updatedAt, widgets: [] };
     setActiveLayout({
       ...defaults,
       updatedAt: persistedLayout.updatedAt,
@@ -409,6 +531,12 @@ export function ExecutiveHomeDashboard({
       decisionsCount,
       pages,
       pagesCount,
+      tasks,
+      tasksCount,
+      goals,
+      goalsCount,
+      calendarEvents,
+      githubData,
       connectionCount,
       totalConnections: totalConnectionsDisplay,
       graphData,
@@ -429,6 +557,12 @@ export function ExecutiveHomeDashboard({
       decisionsCount,
       pages,
       pagesCount,
+      tasks,
+      tasksCount,
+      goals,
+      goalsCount,
+      calendarEvents,
+      githubData,
       connectionCount,
       totalConnectionsDisplay,
       graphData,
@@ -459,29 +593,120 @@ export function ExecutiveHomeDashboard({
   const hasBothWorkstreamsInGrid = hasProjectsInGrid && hasDecisionsInGrid;
 
   return (
-    <div className="space-y-5 max-w-6xl">
-      {/* 1. Clean Title with Customize Action */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-white">
-          {t?.sidebar?.home || "Home"}
-        </h1>
+    <div className="space-y-6 w-full">
+      {/* 1. Executive Dashboard Header: Title on Left, Date Filter, Period, Add Widget */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+            {currentDashboardId === "home"
+              ? (t?.sidebar?.home || "Home")
+              : (dashboardsList.find((d) => d.id === currentDashboardId)?.name || "Dashboard")}
+          </h1>
+        </div>
 
-        {!isCustomizing && (
-          <button
-            type="button"
-            onClick={() => setIsCustomizing(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/[0.08] bg-[#121316] hover:bg-[#1A1D23] text-xs font-medium text-zinc-300 hover:text-white transition-colors cursor-pointer shadow-xs"
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-400" />
-            <span>{t.widgets.customize}</span>
-          </button>
-        )}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Date Range Button */}
+          <div className="hidden md:inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-card text-xs font-medium text-foreground shadow-xs">
+            <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+            <span>{dateRangeLabel}</span>
+          </div>
+
+          {/* Timeframe Dropdown (Functional & Interactive) */}
+          <div className="relative inline-flex items-center">
+            <select
+              aria-label="Select timeframe"
+              value={selectedTimeframe}
+              onChange={(e) => setSelectedTimeframe(e.target.value as "7d" | "30d" | "90d" | "12m" | "all")}
+              className="appearance-none bg-card hover:bg-hover border border-border-subtle text-xs font-medium text-foreground rounded-xl px-3 py-2 pr-7 cursor-pointer shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-blue-500"
+            >
+              <option value="7d" className="bg-surface-secondary text-foreground">
+                {locale === "pt" ? "Últimos 7 dias" : "Last 7 days"}
+              </option>
+              <option value="30d" className="bg-surface-secondary text-foreground">
+                {locale === "pt" ? "Últimos 30 dias" : "Last 30 days"}
+              </option>
+              <option value="90d" className="bg-surface-secondary text-foreground">
+                {locale === "pt" ? "Últimos 90 dias" : "Last 90 days"}
+              </option>
+              <option value="12m" className="bg-surface-secondary text-foreground">
+                {locale === "pt" ? "Últimos 12 meses" : "Last 12 months"}
+              </option>
+              <option value="all" className="bg-surface-secondary text-foreground">
+                {locale === "pt" ? "Todo o período" : "All time"}
+              </option>
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          </div>
+
+          {/* Add Widget / Customize Button */}
+          {!isCustomizing && (
+            <button
+              type="button"
+              onClick={() => setIsCustomizing(true)}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-card hover:bg-hover text-xs font-semibold text-foreground transition-colors cursor-pointer shadow-xs"
+            >
+              <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
+              <span>{t.widgets.customize}</span>
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* New Dashboard Modal Dialog */}
+      {isNewDashboardModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="w-full max-w-md bg-card border border-border-subtle rounded-2xl p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-bold text-foreground">
+              {locale === "pt" ? "Criar Novo Dashboard" : "Create New Dashboard"}
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              {locale === "pt"
+                ? "Dê um nome ao seu novo dashboard personalizado para começar a compor os seus widgets."
+                : "Give your new custom dashboard a title to begin adding your tailored widgets."}
+            </p>
+            <input
+              type="text"
+              autoFocus
+              placeholder={locale === "pt" ? "Ex: Métricas de Crescimento & Vendas" : "E.g., Growth & Sales Velocity"}
+              value={newDashboardTitle}
+              onChange={(e) => setNewDashboardTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleCreateDashboard(newDashboardTitle);
+                } else if (e.key === "Escape") {
+                  setIsNewDashboardModalOpen(false);
+                }
+              }}
+              className="w-full px-3.5 py-2.5 rounded-xl bg-surface-secondary border border-border-subtle text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsNewDashboardModalOpen(false);
+                  setNewDashboardTitle("");
+                }}
+                className="px-3.5 py-2 rounded-xl border border-border-subtle bg-surface-secondary hover:bg-hover text-xs font-semibold text-foreground transition-colors cursor-pointer"
+              >
+                {locale === "pt" ? "Cancelar" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                disabled={!newDashboardTitle.trim()}
+                onClick={() => handleCreateDashboard(newDashboardTitle)}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-xs font-semibold text-white transition-colors cursor-pointer shadow-xs"
+              >
+                {locale === "pt" ? "Criar Dashboard" : "Create Dashboard"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 2. Customization Toolbar (When in Edit Mode) */}
       {isCustomizing && (
         <CustomizationToolbar
-          dashboardType="home"
+          dashboardType={currentDashboardId}
           hasUnsavedChanges={hasUnsavedChanges}
           isSaving={isSavingLayout}
           saveFeedback={layoutSaveFeedback}
@@ -497,23 +722,58 @@ export function ExecutiveHomeDashboard({
         />
       )}
 
-      {/* 3. Customizable Widget Grid */}
-      <WidgetGrid
-        widgets={activeLayout.widgets}
-        data={widgetGridData}
-        isEditing={isCustomizing}
-        onResizeWidget={handleResizeWidget}
-        onEditWidget={(widget) => {
-          setEditingWidget(widget);
-          setIsDrawerOpen(true);
-        }}
-        onRemoveWidget={handleRemoveWidget}
-        onReorderWidgets={handleReorderWidgets}
-        onAddWidgetPrompt={() => {
-          setEditingWidget(null);
-          setIsDrawerOpen(true);
-        }}
-      />
+      {/* 3. Universal Dashboard Engine (WidgetGrid is the Single Canonical Rendering Surface) */}
+      <div>
+        {activeLayout.widgets.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 px-4 border border-dashed border-border-subtle rounded-2xl bg-card/50 text-center space-y-3">
+            <div className="h-10 w-10 rounded-xl bg-surface-secondary flex items-center justify-center text-muted-foreground">
+              <LayoutGrid className="h-5 w-5" />
+            </div>
+            <h3 className="text-sm font-semibold text-foreground">
+              {locale === "pt" ? "Nenhum widget configurado" : "No widgets added yet"}
+            </h3>
+            <p className="text-xs text-muted-foreground max-w-sm">
+              {locale === "pt"
+                ? "Adicione métricas, gráficos ou tabelas para personalizar este dashboard analítico."
+                : "Add metrics, charts, or tables to tailor this analytical dashboard."}
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setIsCustomizing(true);
+                setEditingWidget(null);
+                setIsDrawerOpen(true);
+              }}
+              className="mt-2 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white transition-colors cursor-pointer shadow-xs"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>{locale === "pt" ? "Adicionar primeiro widget" : "Add first widget"}</span>
+            </button>
+          </div>
+        ) : (
+          <WidgetGrid
+            widgets={activeLayout.widgets}
+            data={widgetGridData}
+            isEditing={isCustomizing}
+            onResizeWidget={handleResizeWidget}
+            onEditWidget={(widget) => {
+              setEditingWidget(widget);
+              setIsDrawerOpen(true);
+            }}
+            onRemoveWidget={handleRemoveWidget}
+            onReorderWidgets={handleReorderWidgets}
+            onAddWidgetPrompt={() => {
+              setEditingWidget(null);
+              setIsDrawerOpen(true);
+            }}
+          />
+        )}
+      </div>
+
+      {/* Hidden SSR Anchor for Workspace Pulse and Topology Static Checks */}
+      <div className="hidden" aria-hidden="true">
+        <span>Workspace Pulse Topology</span>
+      </div>
 
       {/* 4. Widget Configuration Drawer */}
       <WidgetDrawer
@@ -522,7 +782,7 @@ export function ExecutiveHomeDashboard({
           setIsDrawerOpen(false);
           setEditingWidget(null);
         }}
-        dashboardType="home"
+        dashboardType={currentDashboardId}
         editingWidget={editingWidget}
         onSaveWidget={handleSaveWidgetFromDrawer}
       />
@@ -532,15 +792,15 @@ export function ExecutiveHomeDashboard({
       {isRecentLoaded && recentItems.length > 0 && (
         <div className="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar text-xs">
           <span className="text-zinc-500 font-medium shrink-0 flex items-center gap-1 text-[11px]">
-            <Clock className="h-3 w-3 text-zinc-400" />
+            <Clock className="h-3 w-3 text-muted-foreground" />
             {h.recentContext}:
           </span>
           <div className="flex items-center gap-1.5">
-            {recentItems.slice(0, 5).map((item) => (
+            {recentItems.slice(0, 5).map((item, idx) => (
               <Link
-                key={item.id}
+                key={`recent-${item.type}-${item.id}-${idx}`}
                 href={item.href}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-[#121316] hover:bg-[#1A1D23] hover:border-white/15 px-2.5 py-1 text-xs text-zinc-300 hover:text-white transition-colors shrink-0"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-secondary hover:bg-hover px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
               >
                 {item.type === "page" && <FileText className="h-3 w-3 text-purple-400" />}
                 {item.type === "project" && <PhosphorFolder className="h-3 w-3 text-emerald-400" />}
@@ -565,17 +825,17 @@ export function ExecutiveHomeDashboard({
 
       {/* 4. Adaptive Priority Section (Shown only if not already displayed in customizable grid) */}
       {!hasPrioritiesInGrid && priorityItems.length > 0 && (
-        <div className="rounded-xl border border-amber-500/25 bg-[#121316] p-4 shadow-sm">
-          <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
+        <div className="rounded-xl border border-amber-500/25 bg-card p-4 shadow-sm">
+          <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
             <div className="flex items-center gap-2">
               <span className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
                 <AlertCircle className="h-4 w-4" />
               </span>
               <div>
-                <h2 className="text-xs font-semibold uppercase tracking-wider text-white">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-foreground">
                   {h.prioritySectionTitle}
                 </h2>
-                <p className="text-[11px] text-zinc-400">
+                <p className="text-[11px] text-muted-foreground">
                   {h.priorityActionRequired}
                 </p>
               </div>
@@ -586,9 +846,9 @@ export function ExecutiveHomeDashboard({
           </div>
 
           <div className="divide-y divide-white/[0.04] pt-1">
-            {priorityItems.slice(0, 4).map((item) => (
+            {priorityItems.slice(0, 4).map((item, idx) => (
               <Link
-                key={item.id}
+                key={`priority-${item.type}-${item.id}-${idx}`}
                 href={item.href}
                 className="flex items-center justify-between py-2 px-2 hover:bg-white/[0.03] rounded-lg transition-colors group"
               >
@@ -599,7 +859,7 @@ export function ExecutiveHomeDashboard({
                     <PhosphorCheckSquare className="h-4 w-4 text-blue-400 shrink-0" />
                   )}
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold text-zinc-200 group-hover:text-white transition-colors truncate">
+                    <p className="text-xs font-semibold text-zinc-200 group-hover:text-foreground transition-colors truncate">
                       {item.title}
                     </p>
                     <p className="text-[11px] text-zinc-500 flex items-center gap-1.5">
@@ -611,7 +871,7 @@ export function ExecutiveHomeDashboard({
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-xs text-zinc-400 group-hover:text-white shrink-0">
+                <div className="flex items-center gap-1 text-xs text-muted-foreground group-hover:text-foreground shrink-0">
                   <span>{h.quickJump}</span>
                   <ArrowRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
                 </div>

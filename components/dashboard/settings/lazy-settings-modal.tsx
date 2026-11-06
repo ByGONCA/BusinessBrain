@@ -2,9 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { useSettings } from "./settings-context";
-import { OrganizationWithRole, OrganizationMember } from "@/lib/organizations/types";
-import { OrganizationEntitlement } from "@/lib/organizations/entitlements";
-import { OrganizationIntegration } from "@/lib/integrations/types";
+import type { OrganizationWithRole, OrganizationMember } from "@/lib/organizations/types";
+import type { OrganizationEntitlement } from "@/lib/organizations/entitlements";
+import type { OrganizationIntegration } from "@/lib/integrations/types";
 
 // Dynamic import with ssr: false ensures that the 55KB SettingsModal (and its 11 sub-tabs)
 // are only fetched over the wire when the modal is actually opened by the user.

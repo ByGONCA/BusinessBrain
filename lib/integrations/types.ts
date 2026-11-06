@@ -120,4 +120,5 @@ export interface GoogleCalendarEvent {
   htmlLink?: string;
   hangoutLink?: string;
   status?: string;
+  attendees?: string[];
 }

@@ -4,7 +4,11 @@ export const widgetSizeSchema = z.enum(["sm", "md", "lg", "full"]);
 export const visualizationSchema = z.enum([
   "kpi",
   "chart",
+  "line",
+  "area",
   "bar",
+  "donut",
+  "radial_gauge",
   "table",
   "priorities",
   "pulse_kpis",
@@ -19,6 +23,7 @@ export const visualizationSchema = z.enum([
 ]);
 export const timeRangeSchema = z.enum(["30D", "90D", "12M", "YTD", "ALL", "current"]);
 export const granularitySchema = z.enum(["daily", "monthly"]);
+export const dashboardTypeSchema = z.string().trim().regex(/^[a-z0-9_-]{1,64}$/i);
 
 export const widgetTabSchema = z.object({
   id: z.string().trim().min(1).max(50),

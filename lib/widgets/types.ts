@@ -1,14 +1,15 @@
-/**
- * Types and contracts for BusinessBrain customizable dashboards.
- * Scoped to Home (/dashboard) and Finance (/dashboard/finance).
- */
+// Types and contracts for BusinessBrain customizable dashboards.
 
 export type WidgetSize = "sm" | "md" | "lg" | "full";
 
 export type VisualizationType =
   | "kpi"
   | "chart"
+  | "line"
+  | "area"
   | "bar"
+  | "donut"
+  | "radial_gauge"
   | "table"
   | "priorities"
   | "pulse_kpis"
@@ -25,13 +26,13 @@ export type TimeRange = "30D" | "90D" | "12M" | "YTD" | "ALL" | "current";
 
 export type ChartGranularity = "daily" | "monthly";
 
-export type MetricCategory = "finance" | "workspace";
+export type MetricCategory = "finance" | "workspace" | "integrations" | "calendar" | "github";
 
-export type MetricUnit = "cents" | "count" | "percentage" | "items";
+export type MetricUnit = "cents" | "count" | "percentage" | "items" | "hours";
 
 export type TimeSemantics = "point_in_time" | "period_aggregate" | "chronological";
 
-export type DashboardType = "home" | "finance";
+export type DashboardType = "home" | "finance" | (string & {});
 
 export interface MetricFilterDefinition {
   key: string;
@@ -40,7 +41,7 @@ export interface MetricFilterDefinition {
 }
 
 export interface MetricCapability {
-  id: string; // e.g. "finance.net_revenue", "workspace.priorities"
+  id: string; // e.g. "finance.net_revenue", "workspace.priorities", "workspace.tasks"
   category: MetricCategory;
   labelKey: string;
   descriptionKey: string;
@@ -53,8 +54,8 @@ export interface MetricCapability {
   hasHistoricalPoints: boolean;
   supportedFilters?: MetricFilterDefinition[];
   supportedDimensions?: string[];
-  requiresConnectedIntegration?: "stripe";
-  allowedDashboards: DashboardType[]; // Home only, Finance only, or both
+  requiresConnectedIntegration?: "stripe" | "github" | "google_calendar" | "microsoft_calendar" | "calendar";
+  allowedDashboards: string[]; // Can be used in "home", "finance", or any custom dashboard
 }
 
 export interface WidgetTabConfig {
@@ -76,6 +77,15 @@ export interface WidgetOptions {
   customWidthPercent?: number; // 100% customizable width in percentage (20% - 100%)
   tabs?: WidgetTabConfig[];
   activeTabId?: string;
+  targetValue?: number;
+  currentValue?: number;
+  unitPrefix?: string;
+  unitSuffix?: string;
+  donutHoleRatio?: number;
+  showValues?: boolean;
+  colorScheme?: "blue" | "emerald" | "amber" | "purple" | "multi";
+  showMilestoneDots?: boolean;
+  showSpline?: boolean;
 }
 
 export interface WidgetInstanceConfig {
@@ -95,6 +105,17 @@ export interface DashboardLayoutConfig {
   version: number; // Schema version (1)
   updatedAt: string; // ISO 8601 timestamp for Compare-And-Swap OCC
   widgets: WidgetInstanceConfig[];
+}
+
+export interface DashboardDescriptor {
+  id: string; // "home", "finance", or "custom-[slug/uuid]"
+  name: string;
+  title?: string;
+  description?: string;
+  isDefault?: boolean;
+  isSystem?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type SaveLayoutErrorCode =

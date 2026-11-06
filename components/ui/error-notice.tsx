@@ -40,15 +40,35 @@ export interface ErrorNoticeProps {
  * ErrorNotice - Non-blocking recoverable error alert
  * Used for network glitches, retryable mutations, and component-level issues.
  */
+
+function sanitizeErrorMessage(msg?: string): string {
+  if (!msg) return "A temporary system interruption occurred. Please try again or refresh the page.";
+  const isTechnical =
+    msg.includes("node_modules") ||
+    msg.includes("Module [") ||
+    msg.includes("at ") ||
+    msg.includes("factory is not available") ||
+    msg.includes("SyntaxError") ||
+    msg.includes("TypeError") ||
+    msg.includes("ChunkLoadError") ||
+    msg.includes(".tsx:") ||
+    msg.includes("digest:");
+  if (isTechnical) {
+    return "A temporary system interruption occurred. Please try again or refresh the page.";
+  }
+  return msg;
+}
+
 export function ErrorNotice({
   title = "Action failed",
-  message,
+  message: rawMessage,
   digest,
   onRetry,
   onDismiss,
   variant = "toast",
   className = "",
 }: ErrorNoticeProps) {
+  const message = sanitizeErrorMessage(rawMessage);
   const [isRetrying, setIsRetrying] = React.useState(false);
 
   const handleRetry = async () => {
@@ -185,13 +205,14 @@ export interface ErrorPanelProps {
  */
 export function ErrorPanel({
   title = "Something went wrong",
-  description = "A temporary server or network interruption occurred. You can retry the action or refresh the page without losing your workspace state.",
+  description: rawDescription = "A temporary server or network interruption occurred. You can retry the action or refresh the page without losing your workspace state.",
   digest,
   onRetry,
   showRefresh = true,
   showDashboardLink = false,
   className = "",
 }: ErrorPanelProps) {
+  const description = sanitizeErrorMessage(rawDescription);
   const [isRetrying, setIsRetrying] = React.useState(false);
 
   const handleRetry = async () => {

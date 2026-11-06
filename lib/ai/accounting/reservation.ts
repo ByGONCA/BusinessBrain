@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { SupabaseClient } from "@supabase/supabase-js";
-import { getAICreditQuota } from "@/lib/ai/config";
+import { getAICreditQuota, calculateRequiredCredits } from "@/lib/ai/config";
 import { logger } from "@/lib/security/logger";
 
 export interface ReservationResult {
@@ -15,12 +15,24 @@ export interface ReservationResult {
 
 export class AICreditReservationService {
   /**
-   * Estimates conservative credits required for a task (1 credit = 1,000 tokens).
+   * Estimates conservative credits required for a task with model pricing multiplier.
    */
-  static estimateCredits(promptText: string, maxTokens = 2000): number {
+  static estimateCredits(
+    promptText: string,
+    modelOrMaxTokens: string | number = "gemini-2.5-flash",
+    maxTokens = 2000
+  ): number {
+    let model = "gemini-2.5-flash";
+    let tokenLimit = maxTokens;
+    if (typeof modelOrMaxTokens === "string") {
+      model = modelOrMaxTokens;
+    } else if (typeof modelOrMaxTokens === "number") {
+      tokenLimit = modelOrMaxTokens;
+    }
+
     const estimatedPromptTokens = Math.ceil((promptText || "").length / 3.5);
-    const totalEstimatedTokens = estimatedPromptTokens + maxTokens;
-    return Math.max(1, Math.ceil(totalEstimatedTokens / 1000));
+    const totalEstimatedTokens = estimatedPromptTokens + tokenLimit;
+    return calculateRequiredCredits(model, totalEstimatedTokens);
   }
 
   /**
@@ -288,11 +300,16 @@ export class AICreditReservationService {
     reservationId: string;
     actualTokens: number;
     isByok: boolean;
+    model?: string;
     status?: "success" | "failed" | "canceled";
     clientOverride?: SupabaseClient;
   }): Promise<{ success: boolean; settledCredits: number; error?: string }> {
     const supabase = params.clientOverride || (await createClient());
-    const settledCredits = params.isByok ? 0 : Math.max(1, Math.ceil(params.actualTokens / 1000));
+    const settledCredits = params.isByok
+      ? 0
+      : params.model
+        ? calculateRequiredCredits(params.model, params.actualTokens)
+        : Math.max(1, Math.ceil(params.actualTokens / 1000));
 
     // 1. Attempt PostgreSQL RPC atomic settlement
     try {

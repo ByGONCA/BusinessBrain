@@ -33,7 +33,7 @@ import {
 } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { OrganizationWithRole } from "@/lib/organizations/types";
-import { OrganizationEntitlement } from "@/lib/organizations/entitlements";
+import type { OrganizationEntitlement } from "@/lib/organizations/entitlements";
 import { PageTreeNode, PageRecord } from "@/lib/pages/types";
 import { OrganizationIntegration } from "@/lib/integrations/types";
 import { AccountMenu } from "./account-menu";
@@ -383,12 +383,12 @@ export function Sidebar({
           className={cn(
             "shrink-0 transition-colors",
             isSubitem ? "h-4 w-4" : "h-[17px] w-[17px]",
-            item.isActive ? "text-[#FFFFFF]" : "text-[#71717A] group-hover:text-[#FAFAFA]"
+            item.isActive ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground group-hover:text-foreground"
           )}
         />
         <span className="truncate">{item.name}</span>
         {item.badge && (
-          <span className="ml-auto flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full bg-blue-500/15 text-blue-400 text-[10px] font-semibold border border-blue-500/25">
+          <span className="ml-auto flex items-center justify-center h-4 min-w-4 px-1.5 rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 text-[10px] font-semibold border border-emerald-200/50">
             {item.badge}
           </span>
         )}
@@ -398,9 +398,9 @@ export function Sidebar({
     const itemClass = cn(
       "group flex w-full items-center rounded-lg transition-all select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600",
       isSubitem
-        ? "h-[32px] px-2.5 gap-2 text-[13px] font-medium text-[#94949E] hover:text-[#FAFAFA] hover:bg-[#18181B]"
-        : "h-[36px] px-2.5 gap-2.5 text-[13.5px] font-medium text-[#94949E] hover:text-[#FAFAFA] hover:bg-[#18181B]",
-      item.isActive && "bg-[#202024] text-[#FFFFFF] font-medium border border-[#2E2E34]/50 shadow-2xs"
+        ? "h-[32px] px-2.5 gap-2 text-[13px] font-medium text-muted-foreground opacity-65 hover:opacity-100 hover:text-foreground hover:bg-hover"
+        : "h-[36px] px-2.5 gap-2.5 text-[13.5px] font-medium text-muted-foreground hover:text-foreground hover:bg-hover",
+      item.isActive && "bg-blue-50/90 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 font-semibold shadow-2xs opacity-100"
     );
 
     const dataTour = item.id === "connections" ? "company-map" : undefined;
@@ -444,17 +444,17 @@ export function Sidebar({
       className={cn(
         "group flex w-full items-center justify-between rounded-lg h-[36px] px-2.5 text-[13.5px] font-medium transition-all select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600",
         hasActiveChild && !isExpanded
-          ? "bg-[#18181B] text-[#FAFAFA] font-medium"
-          : "text-[#94949E] hover:bg-[#18181B] hover:text-[#FAFAFA]"
+          ? "bg-surface-secondary text-foreground font-medium"
+          : "text-muted-foreground hover:bg-hover hover:text-foreground"
       )}
     >
       <div className="flex items-center gap-2.5 min-w-0">
-        <Icon className="h-[17px] w-[17px] shrink-0 text-[#71717A] group-hover:text-[#FAFAFA]" />
+        <Icon className="h-[17px] w-[17px] shrink-0 text-muted-foreground group-hover:text-foreground" />
         <span className="truncate">{name}</span>
       </div>
       <ChevronDown
         className={cn(
-          "h-3.5 w-3.5 text-[#52525B] group-hover:text-[#A1A1AA] transition-transform duration-150",
+          "h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-transform duration-150",
           !isExpanded && "-rotate-90"
         )}
       />
@@ -473,14 +473,14 @@ export function Sidebar({
         className={cn(
           "relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600",
           item.isActive
-            ? "bg-[#202024] text-[#FFFFFF] border border-[#2E2E34]/50 shadow-2xs"
-            : "text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#18181B]"
+            ? "bg-selected text-foreground shadow-2xs"
+            : "text-muted-foreground hover:text-foreground hover:bg-hover"
         )}
         title={item.name}
       >
         <Icon className="h-4 w-4" />
         {item.hasBadge && (
-          <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-blue-500 ring-2 ring-[#09090A]" />
+          <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-blue-500 ring-2 ring-sidebar" />
         )}
       </button>
     ) : (
@@ -492,8 +492,8 @@ export function Sidebar({
         className={cn(
           "relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600",
           item.isActive
-            ? "bg-[#202024] text-[#FFFFFF] border border-[#2E2E34]/50 shadow-2xs"
-            : "text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#18181B]"
+            ? "bg-selected text-foreground shadow-2xs"
+            : "text-muted-foreground hover:text-foreground hover:bg-hover"
         )}
         title={item.name}
       >
@@ -520,8 +520,8 @@ export function Sidebar({
           className={cn(
             "flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600",
             isGroupActive
-              ? "bg-[#202024] text-[#FFFFFF] border border-[#2E2E34]/50 shadow-2xs"
-              : "text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#18181B]"
+              ? "bg-selected text-foreground shadow-2xs"
+              : "text-muted-foreground hover:text-foreground hover:bg-hover"
           )}
           title={group.name}
           aria-haspopup="true"
@@ -532,11 +532,11 @@ export function Sidebar({
 
         {isFlyoutOpen && (
           <div
-            className="absolute left-full top-0 ml-2 w-52 rounded-xl border border-[#242428] bg-[#121215] p-1.5 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95 duration-100"
+            className="absolute left-full top-0 ml-2 w-52 rounded-xl border border-border bg-surface-elevated p-1.5 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95 duration-100"
             onMouseEnter={() => handleFlyoutEnter(group.id)}
             onMouseLeave={handleFlyoutLeave}
           >
-            <div className="px-2.5 py-1 text-[11px] font-semibold text-[#FAFAFA] border-b border-[#1E1E22] mb-1">
+            <div className="px-2.5 py-1 text-[11px] font-semibold text-foreground border-b border-sidebar-border mb-1">
               {group.name}
             </div>
             <div className="space-y-0.5">
@@ -551,8 +551,8 @@ export function Sidebar({
                     className={cn(
                       "flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs transition-colors",
                       item.isActive
-                        ? "bg-[#202024] text-[#FFFFFF] font-medium"
-                        : "text-[#94949E] hover:bg-[#18181B] hover:text-[#FAFAFA]"
+                        ? "bg-selected text-foreground font-medium"
+                        : "text-muted-foreground hover:bg-hover hover:text-foreground"
                     )}
                   >
                     <div className="flex items-center gap-2 min-w-0">
@@ -591,8 +591,8 @@ export function Sidebar({
         data-sidebar="true"
         className={cn(
           demoMode
-            ? "relative flex h-full max-h-full shrink-0 flex-col border-r border-[#1E1E22] bg-[#09090B] select-none transition-all duration-200 ease-in-out"
-            : "fixed md:sticky top-0 left-0 flex h-screen shrink-0 flex-col border-r border-[#1E1E22] bg-[#09090B] select-none z-50 transition-all duration-200 ease-in-out",
+            ? "relative flex h-full max-h-full shrink-0 flex-col bg-sidebar select-none transition-all duration-200 ease-in-out border-r border-sidebar-border"
+            : "fixed md:sticky top-0 left-0 flex h-screen shrink-0 flex-col bg-sidebar select-none z-50 transition-all duration-200 ease-in-out border-r border-sidebar-border",
           // Mobile state
           isMobileOpen ? "translate-x-0 w-60 shadow-2xl" : "-translate-x-full md:translate-x-0",
           // Desktop compact vs expanded
@@ -622,19 +622,22 @@ export function Sidebar({
               <Link
                 href="/"
                 onClick={(e) => handleNavClick("/dashboard", e)}
-                className="flex items-center justify-center rounded-md p-0.5 hover:bg-[#141416] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600"
-                title="Go to home page"
+                className="flex items-center gap-2.5 rounded-md p-1 hover:bg-hover transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600 group"
+                title="BusinessBrain"
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-600 text-white shadow-xs shrink-0 ring-1 ring-blue-500/20 hover:bg-blue-500 transition-colors">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs shrink-0 ring-1 ring-blue-500/20 group-hover:bg-blue-500 transition-colors">
                   <Sparkles className="h-3.5 w-3.5" />
                 </div>
+                <span className="font-bold text-sm tracking-tight text-foreground">
+                  BusinessBrain
+                </span>
               </Link>
 
               {/* Collapse button on desktop */}
               <button
                 type="button"
                 onClick={toggleSidebar}
-                className="hidden md:flex h-7 w-7 items-center justify-center rounded-md text-[#71717A] hover:bg-[#18181B] hover:text-[#FAFAFA] transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600 cursor-pointer"
+                className="hidden md:flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600 cursor-pointer"
                 title="Collapse sidebar (Ctrl+\)"
                 aria-label="Collapse sidebar"
               >
@@ -649,11 +652,11 @@ export function Sidebar({
               type="button"
               data-tour="search-bar"
               onClick={() => setSearchOpen(true)}
-              className="flex w-full items-center gap-2 rounded-lg border border-[#242428] bg-[#141416] px-2.5 h-9 text-xs text-[#71717A] hover:border-[#323238] hover:text-[#D4D4D8] transition-colors shadow-2xs mt-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600"
+              className="flex w-full items-center gap-2 rounded-lg bg-surface-secondary px-2.5 h-9 text-xs text-muted-foreground hover:text-foreground transition-colors shadow-2xs mt-0.5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600"
             >
-              <Search className="h-3.5 w-3.5 text-[#71717A]" />
+              <Search className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="truncate">{t?.sidebar?.searchPlaceholder || "Search or ask..."}</span>
-              <kbd className="ml-auto rounded border border-[#27272A] bg-[#1C1C1F] px-1.5 py-0.5 text-[10px] text-[#A1A1AA] font-mono">
+              <kbd className="ml-auto rounded bg-surface-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground font-mono">
                 {formatShortcut("K")}
               </kbd>
             </button>
@@ -662,7 +665,7 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={() => setSearchOpen(true)}
-                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#71717A] hover:bg-[#18181B] hover:text-[#FAFAFA] transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600"
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-hover hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600"
                 title={`Search (${formatShortcut("K")})`}
                 aria-label="Search"
               >
@@ -684,16 +687,16 @@ export function Sidebar({
                     <Icon
                       className={cn(
                         "shrink-0 transition-colors",
-                        isActive ? "h-4 w-4 text-[#FFFFFF]" : "h-4 w-4 text-[#71717A] group-hover:text-[#FAFAFA]"
+                        isActive ? "h-4 w-4 text-foreground" : "h-4 w-4 text-muted-foreground group-hover:text-foreground"
                       )}
                     />
                     {isActive && (
-                      <span className="text-xs font-semibold truncate max-w-[75px] leading-none text-[#FFFFFF]">
+                      <span className="text-xs font-semibold truncate max-w-[75px] leading-none text-foreground">
                         {item.name}
                       </span>
                     )}
                     {item.hasBadge && !isActive && (
-                      <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-blue-500 ring-2 ring-[#09090B]" />
+                      <span className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-blue-500 ring-2 ring-sidebar" />
                     )}
                     {item.hasBadge && isActive && (
                       <span className="ml-1 flex items-center justify-center h-3.5 min-w-3.5 px-1 rounded-full bg-blue-500/20 text-blue-400 text-[9px] font-semibold border border-blue-500/30">
@@ -706,8 +709,8 @@ export function Sidebar({
                 const itemClassName = cn(
                   "group relative flex items-center transition-all duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600 select-none",
                   isActive
-                    ? "h-8 gap-1.5 rounded-lg bg-[#202024] px-2.5 text-xs font-semibold text-[#FFFFFF] border border-[#2E2E34]/50 shadow-2xs"
-                    : "h-8 w-8 items-center justify-center rounded-lg text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#18181B]"
+                    ? "h-8 gap-1.5 rounded-lg bg-selected px-2.5 text-xs font-semibold text-foreground shadow-2xs"
+                    : "h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-hover"
                 );
 
                 return isInboxItem ? (
@@ -737,7 +740,7 @@ export function Sidebar({
           )}
         </div>
 
-        <div className="mx-2.5 my-1 border-t border-[#1E1E22]" />
+        <div className="mx-2.5 my-1 border-t border-sidebar-border" />
 
         {/* ========================================================= */}
         {/* Navigation List: Unified Vertical List with Dropdowns      */}
@@ -749,7 +752,7 @@ export function Sidebar({
               {/* 1. Top items: Home, Inbox, Calendar, Email */}
               {topNavItems.map((item) => renderCompactNavItem(item))}
 
-              <div className="w-6 border-t border-[#1E1E22] my-1" />
+              <div className="w-6 my-1" />
 
               {/* 2. Work in compact mode */}
               {renderCompactGroup(dropdownGroups[0])}
@@ -763,8 +766,8 @@ export function Sidebar({
                   className={cn(
                     "flex h-10 w-10 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600",
                     effectivePath.startsWith("/dashboard/pages")
-                      ? "bg-[#202024] text-[#FFFFFF] border border-[#2E2E34]/50 shadow-2xs"
-                      : "text-[#71717A] hover:text-[#FAFAFA] hover:bg-[#18181B]"
+                      ? "bg-selected text-foreground shadow-2xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-hover"
                   )}
                   title="Pages"
                 >
@@ -782,7 +785,7 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={toggleSidebar}
-                className="hidden md:flex h-8 w-8 items-center justify-center rounded-md text-[#71717A] hover:bg-[#18181B] hover:text-[#FAFAFA] transition-colors mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
+                className="hidden md:flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground transition-colors mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-600"
                 title="Expand sidebar (Ctrl+\)"
                 aria-label="Expand sidebar"
               >
@@ -797,7 +800,7 @@ export function Sidebar({
                 {renderGroupToggle("work", "Work", PhosphorFolder, isGroupExpanded("work"), workItems.some((i) => i.isActive))}
 
                 {isGroupExpanded("work") && (
-                  <div className="ml-2 space-y-0.5 pt-0.5 my-0.5 animate-in fade-in duration-150">
+                  <div className="ml-2.5 pl-1.5 space-y-0.5 pt-0.5 my-0.5 animate-in fade-in duration-150">
                     {workItems.map((item) => renderNavItem(item, true))}
                   </div>
                 )}
@@ -809,7 +812,7 @@ export function Sidebar({
                   {renderGroupToggle("pages", "Pages", PhosphorBookOpen, isGroupExpanded("pages"), effectivePath.startsWith("/dashboard/pages"))}
 
                   {isGroupExpanded("pages") && (
-                    <div className="ml-2 pt-0.5 my-0.5 animate-in fade-in duration-150">
+                    <div className="ml-2.5 pl-1.5 pt-0.5 my-0.5 animate-in fade-in duration-150">
                       <SidebarPageTree
                         initialPages={pageTree}
                         favoritePages={favoritePages}
@@ -828,7 +831,7 @@ export function Sidebar({
                 {renderGroupToggle("brain", "Brain", PhosphorBrain, isGroupExpanded("brain"), brainItems.some((i) => i.isActive))}
 
                 {isGroupExpanded("brain") && (
-                  <div className="ml-2 space-y-0.5 pt-0.5 my-0.5 animate-in fade-in duration-150">
+                  <div className="ml-2.5 pl-1.5 space-y-0.5 pt-0.5 my-0.5 animate-in fade-in duration-150">
                     {brainItems.map((item) => renderNavItem(item, true))}
                   </div>
                 )}
@@ -839,7 +842,7 @@ export function Sidebar({
                 {renderGroupToggle("company", "Organization", PhosphorUserList, isGroupExpanded("company"), organizationItems.some((i) => i.isActive))}
 
                 {isGroupExpanded("company") && (
-                  <div className="ml-2 space-y-0.5 pt-0.5 my-0.5 animate-in fade-in duration-150">
+                  <div className="ml-2.5 pl-1.5 space-y-0.5 pt-0.5 my-0.5 animate-in fade-in duration-150">
                     {organizationItems.map((item) => renderNavItem(item, true))}
                   </div>
                 )}
@@ -851,7 +854,9 @@ export function Sidebar({
         {/* ========================================================= */}
         {/* Bottom User Profile & Workspace Menu (Reference Image 2)  */}
         {/* ========================================================= */}
-        <div className="mt-auto p-2 border-t border-[#1E1E22] bg-[#09090A] shrink-0">
+        
+
+        <div className="mt-auto p-2 bg-sidebar shrink-0">
           <AccountMenu
             user={user}
             organizations={organizations}

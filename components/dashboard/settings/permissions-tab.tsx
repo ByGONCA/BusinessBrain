@@ -140,7 +140,7 @@ export function PermissionsTab() {
       </div>
 
       {/* Permissions Matrix Table */}
-      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] overflow-hidden">
+      <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-card overflow-hidden">
         <table className="w-full text-left border-collapse text-xs">
           <thead>
             <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50">

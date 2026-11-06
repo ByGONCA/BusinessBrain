@@ -158,7 +158,7 @@ export function SidebarTrigger() {
       type="button"
       data-sidebar-trigger="true"
       onClick={toggleMobileSidebar}
-      className="md:hidden fixed top-3 left-3 z-40 flex h-8 w-8 items-center justify-center rounded-lg border border-[#242427] bg-[#141415]/90 backdrop-blur shadow-sm text-[#A1A1AA] hover:text-[#F5F5F5] hover:bg-[#1C1C1F] transition-all duration-150"
+      className="md:hidden fixed top-3 left-3 z-40 flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card/90 backdrop-blur shadow-sm text-muted-foreground hover:text-foreground hover:bg-hover transition-all duration-150"
       title="Toggle sidebar"
       aria-label="Toggle navigation menu"
     >

@@ -33,15 +33,26 @@ export function getMicrosoftConfig() {
     process.env.MICROSOFT_REDIRECT_URI ||
     `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/integrations/microsoft/callback`;
 
+  const isConfigured = Boolean(
+    clientId &&
+    clientSecret &&
+    !clientId.includes("your-") &&
+    !clientSecret.includes("your-")
+  );
+
   return {
     clientId,
     clientSecret,
     tenantId,
     redirectUri,
-    isConfigured: !!(clientId && clientSecret),
+    isConfigured,
   };
 }
 
 export function isMicrosoftIntegrationConfigured(): boolean {
-  return !!(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET);
+  const id = process.env.MICROSOFT_CLIENT_ID;
+  const secret = process.env.MICROSOFT_CLIENT_SECRET;
+  if (!id || !secret) return false;
+  if (id.includes("your-") || secret.includes("your-")) return false;
+  return true;
 }

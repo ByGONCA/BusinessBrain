@@ -58,7 +58,7 @@ export function CustomizationToolbar({
       aria-label="Customization Toolbar"
       className={cn(
         "sticky top-2 z-30 mb-6 rounded-2xl border shadow-md transition-all duration-200",
-        "border-blue-500/30 bg-white/95 dark:bg-[#16181D]/95 backdrop-blur-md p-3 sm:p-4",
+        "border-blue-500/30 bg-white/95 dark:bg-card/95 backdrop-blur-md p-3 sm:p-4",
         className
       )}
     >
@@ -143,7 +143,7 @@ export function CustomizationToolbar({
 
       {/* FEEDBACK BANNERS */}
       {saveFeedback && (
-        <div className="mt-3 pt-3 border-t border-zinc-100 dark:border-white/[0.06]">
+        <div className="mt-3 pt-3 border-t border-zinc-100 dark:border-border">
           {saveFeedback.type === "success" && (
             <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400 font-medium">
               <Check className="h-4 w-4 shrink-0" />

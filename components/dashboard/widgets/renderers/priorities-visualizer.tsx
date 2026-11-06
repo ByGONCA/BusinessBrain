@@ -34,12 +34,12 @@ export function PrioritiesVisualizer({
 
   if (priorityItems.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[140px] text-center p-6 text-zinc-400 dark:text-zinc-500">
+      <div className="flex flex-col items-center justify-center min-h-[140px] text-center p-6 text-muted-foreground dark:text-zinc-500">
         <CheckCircle2 className="h-6 w-6 text-emerald-500/80 mb-2" />
-        <p className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+        <p className="text-xs font-semibold text-foreground">
           {t.widgets.allPrioritiesUpToDate}
         </p>
-        <p className="text-[11px] text-zinc-400 mt-0.5">
+        <p className="text-[11px] text-muted-foreground mt-0.5">
           {t.widgets.noUrgentPriorities}
         </p>
       </div>
@@ -50,7 +50,7 @@ export function PrioritiesVisualizer({
   const visibleItems = priorityItems.slice(0, 4);
 
   return (
-    <div className={`divide-y divide-zinc-100 dark:divide-white/[0.04] ${className || ""}`}>
+    <div className={`divide-y divide-border-subtle ${className || ""}`}>
       {visibleItems.map((item) => {
         const isUrgent = item.status === "overdue" || item.priority === "urgent";
         const isHigh = item.priority === "high" || item.status === "proposed";
@@ -59,7 +59,7 @@ export function PrioritiesVisualizer({
           <NextLink
             key={item.id}
             href={item.href}
-            className="group flex items-center justify-between py-2.5 px-1 hover:bg-zinc-50/50 dark:hover:bg-white/[0.02] rounded-lg transition-colors"
+            className="group flex items-center justify-between py-2.5 px-1 hover:bg-hover rounded-lg transition-colors"
           >
             <div className="flex items-center gap-2.5 min-w-0">
               {/* Subtle status dot (Not a fake button pill) */}
@@ -75,18 +75,18 @@ export function PrioritiesVisualizer({
               />
 
               <div className="min-w-0">
-                <p className="text-xs font-medium text-zinc-900 dark:text-zinc-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                <p className="text-xs font-medium text-foreground truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                   {item.title}
                 </p>
                 {item.context && (
-                  <p className="text-[10px] text-zinc-400 truncate">
+                  <p className="text-[10px] text-muted-foreground truncate">
                     {item.context}
                   </p>
                 )}
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0 text-[11px] text-zinc-400 font-mono">
+            <div className="flex items-center gap-2 shrink-0 text-[11px] text-muted-foreground font-mono">
               {item.status === "overdue" ? (
                 <span className="text-rose-600 dark:text-rose-400 font-semibold text-[10px]">
                   {locale === "pt" ? "Em atraso" : "Overdue"}

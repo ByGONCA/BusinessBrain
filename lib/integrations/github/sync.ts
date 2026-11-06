@@ -311,11 +311,14 @@ export async function processGitHubWebhookEvent(
 
   const repoOwner = repoFullName.split("/")[0]?.toLowerCase();
 
-  // Match organization strictly by selected_repositories or matching account login/id
+  // Match organization strictly by default_repository, selected_repositories, or matching account login/id
   const matchingOrgs = integrations.filter((integ) => {
     const meta = (integ.metadata as any) || {};
+    if (meta.default_repository && meta.default_repository.toLowerCase() === repoFullName.toLowerCase()) {
+      return true;
+    }
     if (meta.selected_repositories && Array.isArray(meta.selected_repositories)) {
-      return meta.selected_repositories.includes(repoFullName);
+      return meta.selected_repositories.some((r: string) => r.toLowerCase() === repoFullName.toLowerCase());
     }
     const accountLogin = (meta.github_login || meta.account_login || integ.provider_account_id || "").toLowerCase();
     return Boolean(repoOwner && accountLogin && accountLogin === repoOwner);

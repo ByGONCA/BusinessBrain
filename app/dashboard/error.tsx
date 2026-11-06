@@ -10,6 +10,7 @@ interface DashboardErrorProps {
 
 export default function DashboardError({ error, reset }: DashboardErrorProps) {
   React.useEffect(() => {
+    // Log technical error details to console safely for debugging
     console.error("Dashboard Canvas Error:", {
       message: error?.message,
       digest: error?.digest,
@@ -20,7 +21,7 @@ export default function DashboardError({ error, reset }: DashboardErrorProps) {
     <div className="flex flex-1 items-center justify-center p-6 sm:p-10 min-h-[60vh]">
       <ErrorPanel
         title="Unable to load this view"
-        description={error?.message || "A temporary interruption occurred while loading this dashboard view. You can reload safely without losing your workspace state."}
+        description="A temporary interruption occurred while loading this dashboard view. Your workspace data and state are completely safe."
         digest={error?.digest}
         onRetry={reset}
         showRefresh={true}

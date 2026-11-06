@@ -2,6 +2,8 @@ export const GOOGLE_SCOPES = {
   EMAIL: "https://www.googleapis.com/auth/userinfo.email",
   PROFILE: "https://www.googleapis.com/auth/userinfo.profile",
   GMAIL_READONLY: "https://www.googleapis.com/auth/gmail.readonly",
+  GMAIL_COMPOSE: "https://www.googleapis.com/auth/gmail.compose",
+  GMAIL_MODIFY: "https://www.googleapis.com/auth/gmail.modify",
   CALENDAR_READONLY: "https://www.googleapis.com/auth/calendar.readonly",
   CALENDAR_EVENTS_READONLY: "https://www.googleapis.com/auth/calendar.events.readonly",
   CALENDAR_EVENTS: "https://www.googleapis.com/auth/calendar.events",
@@ -13,6 +15,7 @@ export const GMAIL_INTEGRATION_SCOPES: string[] = [
   GOOGLE_SCOPES.EMAIL,
   GOOGLE_SCOPES.PROFILE,
   GOOGLE_SCOPES.GMAIL_READONLY,
+  GOOGLE_SCOPES.GMAIL_COMPOSE,
 ];
 
 export const CALENDAR_INTEGRATION_SCOPES: string[] = [
@@ -32,6 +35,7 @@ export const DEFAULT_GOOGLE_INTEGRATION_SCOPES: string[] = [
   GOOGLE_SCOPES.EMAIL,
   GOOGLE_SCOPES.PROFILE,
   GOOGLE_SCOPES.GMAIL_READONLY,
+  GOOGLE_SCOPES.GMAIL_COMPOSE,
   GOOGLE_SCOPES.CALENDAR_READONLY,
   GOOGLE_SCOPES.CALENDAR_EVENTS,
   GOOGLE_SCOPES.DRIVE_READONLY,

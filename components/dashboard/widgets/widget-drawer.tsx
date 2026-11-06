@@ -12,6 +12,10 @@ import {
   Clock,
   Search,
   TrendingUp,
+  CheckSquare,
+  Target,
+  Github,
+  Layers,
 } from "lucide-react";
 import {
   PhosphorFolder,
@@ -97,6 +101,9 @@ export function WidgetDrawer({
       { id: "all", label: t.widgets.categoryAll },
       { id: "workspace", label: t.widgets.categoryWorkspace },
       { id: "finance", label: t.widgets.categoryFinance },
+      { id: "tasks", label: "Tarefas & Metas" },
+      { id: "calendar", label: "Calendário" },
+      { id: "github", label: "GitHub" },
       { id: "pages", label: t.widgets.categoryPages },
       { id: "connections", label: t.widgets.categoryConnections },
       { id: "activity", label: t.widgets.categoryActivity },
@@ -113,6 +120,12 @@ export function WidgetDrawer({
       list = list.filter((m) => m.category === "finance");
     } else if (selectedCategoryTab === "workspace") {
       list = list.filter((m) => m.category === "workspace");
+    } else if (selectedCategoryTab === "tasks") {
+      list = list.filter((m) => m.id.includes("tasks") || m.id.includes("goals"));
+    } else if (selectedCategoryTab === "calendar") {
+      list = list.filter((m) => m.category === "calendar" || m.id.includes("meeting") || m.id.includes("agenda"));
+    } else if (selectedCategoryTab === "github") {
+      list = list.filter((m) => m.category === "github" || m.id.includes("github") || m.id.includes("repo"));
     } else if (selectedCategoryTab === "pages") {
       list = list.filter((m) => m.id.includes("pages"));
     } else if (selectedCategoryTab === "connections") {
@@ -264,6 +277,14 @@ export function WidgetDrawer({
     switch (vis) {
       case "chart":
         return locale === "pt" ? "Gráfico de Linhas" : t.widgets.visChart;
+      case "line":
+        return locale === "pt" ? "Gráfico de Linha" : "Line Chart";
+      case "area":
+        return locale === "pt" ? "Área Preenchida" : "Area Chart";
+      case "donut":
+        return locale === "pt" ? "Gráfico Donut / Circular" : "Donut Chart";
+      case "radial_gauge":
+        return locale === "pt" ? "Medidor Radial / Metas" : "Radial Gauge";
       case "bar":
         return locale === "pt" ? "Gráfico de Barras" : t.widgets.visBar;
       case "strip":
@@ -297,6 +318,14 @@ export function WidgetDrawer({
     switch (vis) {
       case "chart":
         return locale === "pt" ? "Curva temporal e histórico" : "Historical trend over time";
+      case "line":
+        return locale === "pt" ? "Traçado contínuo ao longo do tempo" : "Continuous curve over time";
+      case "area":
+        return locale === "pt" ? "Volume e evolução com gradiente" : "Filled volume and trend gradient";
+      case "donut":
+        return locale === "pt" ? "Distribuição percentual por categorias" : "Percentage distribution by slice";
+      case "radial_gauge":
+        return locale === "pt" ? "Progresso em arco circular com milestones" : "Radial arc progress with milestones";
       case "bar":
         return locale === "pt" ? "Distribuição por planos" : "Proportional breakdown";
       case "strip":
@@ -327,6 +356,46 @@ export function WidgetDrawer({
               strokeWidth="2"
               strokeLinecap="round"
             />
+          </svg>
+        );
+      case "line":
+        return (
+          <svg className="w-5 h-3.5" viewBox="0 0 20 12" fill="none">
+            <path
+              d="M1 10 Q5 7 9 5 T15 3 T19 1"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+        );
+      case "area":
+        return (
+          <svg className="w-5 h-3.5" viewBox="0 0 20 12" fill="none">
+            <path
+              d="M1 10 Q5 7 9 5 T15 3 T19 1 L19 11 L1 11 Z"
+              fill="currentColor"
+              opacity="0.3"
+            />
+            <path
+              d="M1 10 Q5 7 9 5 T15 3 T19 1"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        );
+      case "donut":
+        return (
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+            <circle cx="12" cy="12" r="9" opacity="0.3" />
+            <path d="M12 3 A9 9 0 0 1 21 12" strokeLinecap="round" />
+          </svg>
+        );
+      case "radial_gauge":
+        return (
+          <svg className="w-5 h-3.5" viewBox="0 0 20 12" fill="none">
+            <path d="M2 11 A8 8 0 0 1 18 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="1.5 2.5" />
           </svg>
         );
       case "bar":
@@ -395,6 +464,13 @@ export function WidgetDrawer({
   };
 
   const getMetricIcon = (metricId: string) => {
+    if (metricId.includes("tasks")) return <CheckSquare className="h-4 w-4 text-emerald-400 shrink-0" />;
+    if (metricId.includes("goals")) return <Target className="h-4 w-4 text-amber-400 shrink-0" />;
+    if (metricId.includes("meeting") || metricId.includes("calendar"))
+      return <Calendar className="h-4 w-4 text-blue-400 shrink-0" />;
+    if (metricId.includes("github") || metricId.includes("repo") || metricId.includes("prs"))
+      return <Github className="h-4 w-4 text-zinc-300 shrink-0" />;
+    if (metricId.includes("integrations")) return <Layers className="h-4 w-4 text-sky-400 shrink-0" />;
     if (metricId.includes("pages")) return <FileText className="h-4 w-4 text-purple-400 shrink-0" />;
     if (metricId.includes("topology") || metricId.includes("connections"))
       return <PhosphorNetwork className="h-4 w-4 text-indigo-400 shrink-0" />;
@@ -421,10 +497,10 @@ export function WidgetDrawer({
         <div
           role="dialog"
           aria-modal="true"
-          className="w-full max-w-5xl bg-white dark:bg-[#15171C] border border-zinc-200 dark:border-white/[0.08] rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden text-left relative z-10 animate-in fade-in-0 zoom-in-95 duration-200"
+          className="w-full max-w-5xl bg-white dark:bg-[#15171C] border border-zinc-200 dark:border-border rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden text-left relative z-10 animate-in fade-in-0 zoom-in-95 duration-200"
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-white/[0.08] bg-zinc-50/70 dark:bg-[#121316]">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-border bg-zinc-50/70 dark:bg-card">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500 border border-blue-500/20">
                 <Sparkles className="h-4 w-4" />
@@ -453,9 +529,9 @@ export function WidgetDrawer({
           <form id="widget-modal-form" onSubmit={handleSubmit} className="flex-1 overflow-hidden flex flex-col">
             <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[460px]">
               {/* Left Panel: Metrics Library (5 cols) */}
-              <div className="lg:col-span-5 border-b lg:border-b-0 lg:border-r border-zinc-200 dark:border-white/[0.08] flex flex-col h-full bg-zinc-50/40 dark:bg-[#121316]/50">
+              <div className="lg:col-span-5 border-b lg:border-b-0 lg:border-r border-zinc-200 dark:border-border flex flex-col h-full bg-zinc-50/40 dark:bg-card/50">
                 {/* Search & Categories */}
-                <div className="p-4 border-b border-zinc-200 dark:border-white/[0.08] space-y-3 shrink-0">
+                <div className="p-4 border-b border-zinc-200 dark:border-border space-y-3 shrink-0">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
                     <input
@@ -523,7 +599,7 @@ export function WidgetDrawer({
                             "flex items-start gap-3 p-3 rounded-xl border text-xs cursor-pointer transition-all select-none",
                             isSelected
                               ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/30 text-zinc-900 dark:text-zinc-100 shadow-2xs ring-1 ring-blue-500/50"
-                              : "border-zinc-200/80 dark:border-white/[0.06] bg-white dark:bg-[#16181D] hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-600 dark:text-zinc-300"
+                              : "border-zinc-200/80 dark:border-border bg-white dark:bg-[#16181D] hover:border-zinc-300 dark:hover:border-zinc-700 text-zinc-600 dark:text-zinc-300"
                           )}
                         >
                           <div className="mt-0.5 p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 shrink-0">
@@ -577,7 +653,7 @@ export function WidgetDrawer({
                       Atualiza em tempo real
                     </span>
                   </div>
-                  <div className="rounded-2xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50/60 dark:bg-[#121316] p-1.5 shadow-inner">
+                  <div className="rounded-2xl border border-zinc-200 dark:border-border bg-zinc-50/60 dark:bg-card p-1.5 shadow-inner">
                     <WidgetPreview
                       metricId={selectedMetricId}
                       visualization={selectedVisualization}
@@ -634,7 +710,7 @@ export function WidgetDrawer({
                               "p-3 rounded-xl border text-xs text-left transition-all cursor-pointer flex flex-col justify-between gap-3 min-h-[84px]",
                               isSelected
                                 ? "border-blue-500 bg-blue-50/60 dark:bg-blue-950/30 text-blue-600 dark:text-blue-300 shadow-2xs ring-1 ring-blue-500"
-                                : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700 bg-white dark:bg-[#121316]"
+                                : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700 bg-white dark:bg-card"
                             )}
                           >
                             <div className="flex items-center justify-between w-full">
@@ -779,7 +855,7 @@ export function WidgetDrawer({
           </form>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-zinc-200 dark:border-white/[0.08] bg-zinc-50/70 dark:bg-[#121316]">
+          <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-zinc-200 dark:border-border bg-zinc-50/70 dark:bg-card">
             <button
               type="button"
               onClick={onClose}

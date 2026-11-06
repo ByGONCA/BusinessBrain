@@ -237,9 +237,9 @@ export function PageCalendarBlock({
   };
 
   return (
-    <div className="my-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] overflow-hidden shadow-2xs select-none">
+    <div className="my-3 rounded-2xl border border-zinc-200 border-border bg-white dark:bg-card overflow-hidden shadow-2xs select-none">
       {/* Block Header Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 p-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/40">
+      <div className="flex flex-wrap items-center justify-between gap-2 p-3 border-b border-zinc-200 border-border bg-zinc-50/70 dark:bg-zinc-900/40">
         <div className="flex items-center gap-2 min-w-0">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
             <CalendarIcon className="h-4 w-4" />
@@ -269,7 +269,7 @@ export function PageCalendarBlock({
         {/* Controls: Month Nav, Tag Connector, View Toggle & + Add Event */}
         <div className="flex items-center gap-1.5">
           {/* Month Prev/Next */}
-          <div className="flex items-center border border-zinc-200 dark:border-zinc-800 rounded-md bg-white dark:bg-zinc-900 overflow-hidden">
+          <div className="flex items-center border border-zinc-200 border-border rounded-md bg-white dark:bg-zinc-900 overflow-hidden">
             <button
               type="button"
               onClick={prevMonth}
@@ -292,7 +292,7 @@ export function PageCalendarBlock({
               type="button"
               disabled={readOnly}
               onClick={() => setIsTagDropdownOpen((prev) => !prev)}
-              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 border-border bg-white dark:bg-zinc-900 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
             >
               <Tag className="h-3 w-3 text-zinc-400" />
               <span>Tag: #{filterTag}</span>
@@ -300,7 +300,7 @@ export function PageCalendarBlock({
             </button>
 
             {isTagDropdownOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-56 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] p-1.5 shadow-xl z-30 animate-in fade-in-0 zoom-in-95 duration-100">
+              <div className="absolute right-0 top-full mt-1.5 w-56 rounded-xl border border-zinc-200 border-border bg-white dark:bg-card p-1.5 shadow-xl z-30 animate-in fade-in-0 zoom-in-95 duration-100">
                 <div className="px-2 py-1 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
                   Connect Tag to Calendar
                 </div>
@@ -378,13 +378,13 @@ export function PageCalendarBlock({
                 )}
 
                 {/* Custom tag input & save */}
-                <div className="mt-1 pt-1 border-t border-zinc-200 dark:border-zinc-800 flex items-center gap-1">
+                <div className="mt-1 pt-1 border-t border-zinc-200 border-border flex items-center gap-1">
                   <input
                     type="text"
                     value={customTagInput}
                     onChange={(e) => setCustomTagInput(e.target.value)}
                     placeholder="Custom tag..."
-                    className="flex-1 rounded px-1.5 py-0.5 text-xs border border-zinc-200 dark:border-zinc-800 bg-transparent outline-none"
+                    className="flex-1 rounded px-1.5 py-0.5 text-xs border border-zinc-200 border-border bg-transparent outline-none"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && customTagInput.trim()) {
                         e.preventDefault();
@@ -439,7 +439,7 @@ export function PageCalendarBlock({
           </div>
 
           {/* View toggle (Month / List) */}
-          <div className="flex items-center border border-zinc-200 dark:border-zinc-800 rounded-lg p-0.5 bg-white dark:bg-zinc-900">
+          <div className="flex items-center border border-zinc-200 border-border rounded-lg p-0.5 bg-white dark:bg-zinc-900">
             <button
               type="button"
               onClick={() => setBlockViewMode("month")}
@@ -489,7 +489,7 @@ export function PageCalendarBlock({
       {viewMode === "month" ? (
         <div>
           {/* Days header */}
-          <div className="grid grid-cols-7 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30 text-center">
+          <div className="grid grid-cols-7 border-b border-zinc-200 border-border bg-zinc-50/50 dark:bg-zinc-900/30 text-center">
             {(firstDayPref === "sunday"
               ? ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
               : DAYS_SHORT
@@ -520,7 +520,7 @@ export function PageCalendarBlock({
                   className={cn(
                     "min-h-[64px] p-1.5 transition-colors cursor-pointer group flex flex-col justify-between",
                     cell.isCurrentMonth
-                      ? "bg-white dark:bg-[#161618] hover:bg-zinc-50 dark:hover:bg-zinc-900/30"
+                      ? "bg-white dark:bg-card hover:bg-zinc-50 dark:hover:bg-zinc-900/30"
                       : "bg-zinc-50/40 dark:bg-zinc-950/20 text-zinc-400 dark:text-zinc-600"
                   )}
                 >
@@ -587,7 +587,7 @@ export function PageCalendarBlock({
               return (
                 <div
                   key={evt.id}
-                  className="flex items-center justify-between p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30 text-xs"
+                  className="flex items-center justify-between p-2 rounded-lg border border-zinc-200 border-border bg-zinc-50/50 dark:bg-zinc-900/30 text-xs"
                 >
                   <div className="flex items-center gap-2 min-w-0 pr-2">
                     <span

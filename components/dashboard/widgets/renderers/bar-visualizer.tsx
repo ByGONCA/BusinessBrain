@@ -49,7 +49,7 @@ export function BarVisualizer({
 
   if (plansData.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[140px] text-center p-4 text-zinc-400 dark:text-zinc-500">
+      <div className="flex flex-col items-center justify-center min-h-[140px] text-center p-4 text-muted-foreground dark:text-zinc-500">
         <p className="text-xs font-medium">
           {t.widgets.noPlansRecorded}
         </p>
@@ -76,19 +76,19 @@ export function BarVisualizer({
             <div className="flex items-center justify-between text-xs">
               <div className="flex items-center gap-1.5 min-w-0">
                 <span className={`h-2 w-2 rounded-full ${colorClass} shrink-0`} />
-                <span className="font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                <span className="font-medium text-foreground truncate">
                   {plan.planName}
                 </span>
-                <span className="text-[11px] text-zinc-400 font-mono">
+                <span className="text-[11px] text-muted-foreground font-mono">
                   ({plan.subscribersCount} {locale === "pt" ? "subs" : "subs"})
                 </span>
               </div>
 
               <div className="flex items-center gap-2 font-mono text-xs">
-                <span className="font-semibold text-zinc-900 dark:text-zinc-100">
+                <span className="font-semibold text-foreground">
                   {formatMoney(plan.mrrCents)}
                 </span>
-                <span className="text-zinc-400 text-[11px] w-8 text-right">
+                <span className="text-muted-foreground text-[11px] w-8 text-right">
                   {percentOfMrr}%
                 </span>
               </div>

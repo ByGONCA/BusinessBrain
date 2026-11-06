@@ -51,11 +51,11 @@ import {
   DEMO_FINANCE_DATA,
   DEMO_TELEMETRY,
 } from "@/lib/marketing/demo-data";
-import { PageRecord, PageTreeNode, EditorBlock } from "@/lib/pages/types";
-import { OrganizationWithRole } from "@/lib/organizations/types";
-import { OrganizationEntitlement } from "@/lib/organizations/entitlements";
-import { CompanyGraphData, GraphNode, GraphEdge, EntityType } from "@/lib/connections/types";
-import { StripeFinancialSnapshot } from "@/lib/integrations/stripe/types";
+import type { PageRecord, PageTreeNode, EditorBlock } from "@/lib/pages/types";
+import type { OrganizationWithRole } from "@/lib/organizations/types";
+import type { OrganizationEntitlement } from "@/lib/organizations/entitlements";
+import type { CompanyGraphData, GraphNode, GraphEdge, EntityType } from "@/lib/connections/types";
+import type { StripeFinancialSnapshot } from "@/lib/integrations/stripe/types";
 
 // ==============================================================================
 // 1. Static Mock Data Mappings for Production Dashboard Components

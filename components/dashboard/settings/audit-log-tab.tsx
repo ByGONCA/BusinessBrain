@@ -86,12 +86,12 @@ export function AuditLogTab({ activeOrg }: AuditLogTabProps) {
               value={filterQuery}
               onChange={(e) => setFilterQuery(e.target.value)}
               placeholder="Filter by action, actor, or resource type..."
-              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] py-1.5 pl-8 pr-2.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors"
+              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground py-1.5 pl-8 pr-2.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors"
             />
           </div>
 
           {/* Audit Logs List */}
-          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] overflow-hidden">
+          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-card overflow-hidden">
             {loading ? (
               <div className="p-8 text-center text-xs text-zinc-500">Loading audit trail...</div>
             ) : filteredLogs.length === 0 ? (

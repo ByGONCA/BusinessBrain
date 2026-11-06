@@ -82,7 +82,15 @@ export async function getAuthenticatedMicrosoftClient(
         })
         .eq("id", integration.id);
     } catch (err) {
-      console.warn("Failed to refresh Microsoft access token, proceeding with existing token", err);
+      console.warn("Failed to refresh Microsoft access token, marking as needs_reauth", err);
+      await supabase
+        .from("organization_integrations")
+        .update({
+          status: "needs_reauth",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", integration.id);
+      throw new Error("Microsoft access token has expired and could not be renewed. Please reconnect.");
     }
   }
 
@@ -126,10 +134,20 @@ export async function getAuthenticatedMicrosoftClient(
     headers.set("Authorization", `Bearer ${accessToken}`);
     headers.set("Accept", "application/json");
 
-    return fetch(url, {
+    const response = await fetch(url, {
       ...init,
       headers,
     });
+    if (response.status === 401) {
+      await supabase
+        .from("organization_integrations")
+        .update({
+          status: "needs_reauth",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", integration.id);
+    }
+    return response;
   };
 
   return {

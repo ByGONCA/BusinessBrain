@@ -227,22 +227,6 @@ export function RepositoryDetailView({
                 <span>Connect Object</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() =>
-                  setCommentsDrawer({
-                    isOpen: true,
-                    entityType: "github_repo",
-                    entityId: repository.full_name,
-                    entityTitle: repository.name,
-                  })
-                }
-                className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-card-foreground hover:bg-muted transition-colors shadow-2xs"
-              >
-                <MessageSquare className="h-3.5 w-3.5" />
-                <span>Discussion</span>
-              </button>
-
               <a
                 href={repository.html_url}
                 target="_blank"

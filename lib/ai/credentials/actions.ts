@@ -14,6 +14,7 @@ import { encryptAICredential, computeKeyFingerprint } from "@/lib/crypto/encrypt
 import { getAIProvider, resolveProviderForModel } from "../index";
 import { SupportedProviderId } from "../types";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
+import { verifyBYOKEntitlement } from "@/lib/ai/auth/entitlement-guard";
 
 export interface AICredentialDTO {
   id: string;
@@ -95,6 +96,18 @@ export async function savePersonalAICredentialAction(params: {
   const rl = await rateLimit("save-ai-key", user.id, RATE_LIMIT_PRESETS.MUTATIONS);
   if (!rl.success) {
     return { success: false, error: "Demasiadas tentativas de alteração de chaves. Aguarde um momento." };
+  }
+
+  // Commercial Invariant: BYOK is strictly reserved for Pro and Enterprise plans
+  const activeOrg = await getActiveOrganization();
+  if (activeOrg) {
+    const byokCheck = await verifyBYOKEntitlement(activeOrg.id, supabase);
+    if (!byokCheck.allowed) {
+      return {
+        success: false,
+        error: byokCheck.message || "A funcionalidade de chaves próprias (BYOK) requer o plano Pro ou Enterprise.",
+      };
+    }
   }
 
   const cleanKey = params.apiKey.trim();
@@ -268,6 +281,15 @@ export async function saveOrganizationAICredentialAction(params: {
     return {
       success: false,
       error: "Sem permissão: Apenas administradores do workspace podem configurar credenciais de IA da organização.",
+    };
+  }
+
+  // Commercial Invariant: BYOK is strictly reserved for Pro and Enterprise plans
+  const byokCheck = await verifyBYOKEntitlement(activeOrg.id, supabase);
+  if (!byokCheck.allowed) {
+    return {
+      success: false,
+      error: byokCheck.message || "A funcionalidade de chaves de API próprias (BYOK) requer o plano Pro ou Enterprise.",
     };
   }
 

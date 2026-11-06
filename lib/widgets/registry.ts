@@ -22,7 +22,7 @@ export const METRIC_REGISTRY: Record<string, MetricCapability> = {
     descriptionKey: "widgets.metrics.finance.net_revenue.description",
     unit: "cents",
     timeSemantics: "period_aggregate",
-    supportedVisualizers: ["kpi", "chart", "bar", "progress"],
+    supportedVisualizers: ["kpi", "chart", "line", "area", "bar", "progress"],
     supportedTimeRanges: ["30D", "90D", "12M", "YTD", "ALL"],
     defaultSize: "md",
     allowedSizes: ["sm", "md", "lg", "full"],
@@ -38,7 +38,7 @@ export const METRIC_REGISTRY: Record<string, MetricCapability> = {
     descriptionKey: "widgets.metrics.finance.gross_revenue.description",
     unit: "cents",
     timeSemantics: "period_aggregate",
-    supportedVisualizers: ["kpi", "chart", "bar"],
+    supportedVisualizers: ["kpi", "chart", "line", "area", "bar"],
     supportedTimeRanges: ["30D", "90D", "12M", "YTD", "ALL"],
     defaultSize: "md",
     allowedSizes: ["sm", "md", "lg", "full"],
@@ -54,7 +54,7 @@ export const METRIC_REGISTRY: Record<string, MetricCapability> = {
     descriptionKey: "widgets.metrics.finance.mrr.description",
     unit: "cents",
     timeSemantics: "point_in_time",
-    supportedVisualizers: ["kpi", "gauge"],
+    supportedVisualizers: ["kpi", "gauge", "radial_gauge"],
     supportedTimeRanges: ["current"],
     defaultSize: "sm",
     allowedSizes: ["sm", "md"],
@@ -134,7 +134,7 @@ export const METRIC_REGISTRY: Record<string, MetricCapability> = {
     descriptionKey: "widgets.metrics.finance.plans_breakdown.description",
     unit: "cents",
     timeSemantics: "point_in_time",
-    supportedVisualizers: ["table", "bar"],
+    supportedVisualizers: ["donut", "bar", "table"],
     supportedTimeRanges: ["current"],
     defaultSize: "md",
     allowedSizes: ["md", "lg", "full"],
@@ -348,6 +348,179 @@ export const METRIC_REGISTRY: Record<string, MetricCapability> = {
     requiresConnectedIntegration: "stripe",
     allowedDashboards: ["home", "finance"],
   },
+
+  // ---------------------------------------------------------------------------
+  // 3. EXTENDED WORKSPACE METRICS (Tasks & Goals)
+  // ---------------------------------------------------------------------------
+  "workspace.tasks": {
+    id: "workspace.tasks",
+    category: "workspace",
+    labelKey: "widgets.metrics.workspace.tasks.label",
+    descriptionKey: "widgets.metrics.workspace.tasks.description",
+    unit: "items",
+    timeSemantics: "chronological",
+    supportedVisualizers: ["table", "cards", "progress", "kpi"],
+    supportedTimeRanges: ["current"],
+    defaultSize: "md",
+    allowedSizes: ["sm", "md", "lg", "full"],
+    hasHistoricalPoints: false,
+    supportedFilters: [
+      {
+        key: "status",
+        labelKey: "widgets.filters.status",
+        options: [
+          { value: "all", labelKey: "widgets.filters.all" },
+          { value: "todo", labelKey: "widgets.filters.todo" },
+          { value: "in_progress", labelKey: "widgets.filters.in_progress" },
+          { value: "done", labelKey: "widgets.filters.done" },
+        ],
+      },
+    ],
+    allowedDashboards: ["home"],
+  },
+
+  "workspace.tasks_count": {
+    id: "workspace.tasks_count",
+    category: "workspace",
+    labelKey: "widgets.metrics.workspace.tasks_count.label",
+    descriptionKey: "widgets.metrics.workspace.tasks_count.description",
+    unit: "count",
+    timeSemantics: "point_in_time",
+    supportedVisualizers: ["kpi"],
+    supportedTimeRanges: ["current"],
+    defaultSize: "sm",
+    allowedSizes: ["sm", "md"],
+    hasHistoricalPoints: false,
+    allowedDashboards: ["home"],
+  },
+
+  "workspace.goals": {
+    id: "workspace.goals",
+    category: "workspace",
+    labelKey: "widgets.metrics.workspace.goals.label",
+    descriptionKey: "widgets.metrics.workspace.goals.description",
+    unit: "percentage",
+    timeSemantics: "point_in_time",
+    supportedVisualizers: ["radial_gauge", "progress", "table", "kpi"],
+    supportedTimeRanges: ["current"],
+    defaultSize: "md",
+    allowedSizes: ["sm", "md", "lg", "full"],
+    hasHistoricalPoints: false,
+    supportedFilters: [
+      {
+        key: "status",
+        labelKey: "widgets.filters.status",
+        options: [
+          { value: "all", labelKey: "widgets.filters.all" },
+          { value: "active", labelKey: "widgets.filters.active" },
+          { value: "completed", labelKey: "widgets.filters.completed" },
+        ],
+      },
+    ],
+    allowedDashboards: ["home"],
+  },
+
+  "workspace.goals_count": {
+    id: "workspace.goals_count",
+    category: "workspace",
+    labelKey: "widgets.metrics.workspace.goals_count.label",
+    descriptionKey: "widgets.metrics.workspace.goals_count.description",
+    unit: "count",
+    timeSemantics: "point_in_time",
+    supportedVisualizers: ["kpi", "radial_gauge"],
+    supportedTimeRanges: ["current"],
+    defaultSize: "sm",
+    allowedSizes: ["sm", "md"],
+    hasHistoricalPoints: false,
+    allowedDashboards: ["home"],
+  },
+
+  // ---------------------------------------------------------------------------
+  // 4. CALENDAR & MEETINGS METRICS
+  // ---------------------------------------------------------------------------
+  "calendar.upcoming_meetings": {
+    id: "calendar.upcoming_meetings",
+    category: "calendar",
+    labelKey: "widgets.metrics.calendar.upcoming_meetings.label",
+    descriptionKey: "widgets.metrics.calendar.upcoming_meetings.description",
+    unit: "items",
+    timeSemantics: "chronological",
+    supportedVisualizers: ["agenda", "table", "cards", "timeline"],
+    supportedTimeRanges: ["current"],
+    defaultSize: "md",
+    allowedSizes: ["sm", "md", "lg", "full"],
+    hasHistoricalPoints: false,
+    requiresConnectedIntegration: "calendar",
+    allowedDashboards: ["home"],
+  },
+
+  "calendar.weekly_meeting_hours": {
+    id: "calendar.weekly_meeting_hours",
+    category: "calendar",
+    labelKey: "widgets.metrics.calendar.weekly_meeting_hours.label",
+    descriptionKey: "widgets.metrics.calendar.weekly_meeting_hours.description",
+    unit: "hours",
+    timeSemantics: "period_aggregate",
+    supportedVisualizers: ["kpi", "bar", "progress"],
+    supportedTimeRanges: ["30D", "current"],
+    defaultSize: "sm",
+    allowedSizes: ["sm", "md"],
+    hasHistoricalPoints: false,
+    allowedDashboards: ["home"],
+  },
+
+  // ---------------------------------------------------------------------------
+  // 5. GITHUB INTEGRATION METRICS
+  // ---------------------------------------------------------------------------
+  "github.open_prs": {
+    id: "github.open_prs",
+    category: "github",
+    labelKey: "widgets.metrics.github.open_prs.label",
+    descriptionKey: "widgets.metrics.github.open_prs.description",
+    unit: "items",
+    timeSemantics: "chronological",
+    supportedVisualizers: ["table", "kpi", "cards"],
+    supportedTimeRanges: ["current"],
+    defaultSize: "md",
+    allowedSizes: ["sm", "md", "lg", "full"],
+    hasHistoricalPoints: false,
+    requiresConnectedIntegration: "github",
+    allowedDashboards: ["home"],
+  },
+
+  "github.repo_activity": {
+    id: "github.repo_activity",
+    category: "github",
+    labelKey: "widgets.metrics.github.repo_activity.label",
+    descriptionKey: "widgets.metrics.github.repo_activity.description",
+    unit: "items",
+    timeSemantics: "chronological",
+    supportedVisualizers: ["chart", "area", "bar", "table"],
+    supportedTimeRanges: ["30D", "current"],
+    defaultSize: "md",
+    allowedSizes: ["sm", "md", "lg", "full"],
+    hasHistoricalPoints: true,
+    requiresConnectedIntegration: "github",
+    allowedDashboards: ["home"],
+  },
+
+  // ---------------------------------------------------------------------------
+  // 6. INTEGRATIONS OVERVIEW
+  // ---------------------------------------------------------------------------
+  "integrations.status_overview": {
+    id: "integrations.status_overview",
+    category: "integrations",
+    labelKey: "widgets.metrics.integrations.status_overview.label",
+    descriptionKey: "widgets.metrics.integrations.status_overview.description",
+    unit: "items",
+    timeSemantics: "point_in_time",
+    supportedVisualizers: ["cards", "table", "kpi"],
+    supportedTimeRanges: ["current"],
+    defaultSize: "md",
+    allowedSizes: ["sm", "md", "lg", "full"],
+    hasHistoricalPoints: false,
+    allowedDashboards: ["home"],
+  },
 };
 
 /**
@@ -367,9 +540,15 @@ export function getAllMetricCapabilities(): MetricCapability[] {
 /**
  * Returns metric capabilities filtered for a specific dashboard surface.
  */
-export function getMetricsForDashboard(dashboardType: DashboardType): MetricCapability[] {
+export function getMetricsForDashboard(dashboardType: string): MetricCapability[] {
+  if (dashboardType === "finance") {
+    return Object.values(METRIC_REGISTRY).filter((m) =>
+      m.allowedDashboards.includes("finance")
+    );
+  }
+  // For "home" or any custom dashboard, return metrics authorized for general workspaces
   return Object.values(METRIC_REGISTRY).filter((m) =>
-    m.allowedDashboards.includes(dashboardType)
+    m.allowedDashboards.includes("home") || m.allowedDashboards.includes(dashboardType)
   );
 }
 

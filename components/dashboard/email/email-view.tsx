@@ -588,7 +588,7 @@ function EmailHtmlViewer({ html }: { html: string }) {
   }, [srcDoc]);
 
   return (
-    <div className="w-full rounded-xl border border-zinc-200/90 dark:border-zinc-800 bg-white overflow-hidden shadow-2xs">
+    <div className="w-full rounded-xl border border-zinc-200/90 border-border bg-white overflow-hidden shadow-2xs">
       <iframe
         ref={iframeRef}
         srcDoc={srcDoc}
@@ -944,7 +944,7 @@ export function EmailView({
     <div className="space-y-3 max-w-5xl">
       {/* Sample Evaluation Banner when live integration is not active */}
       {!isLiveConnected && (
-        <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 text-xs text-zinc-600 dark:text-zinc-400">
+        <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg border border-zinc-200 border-border bg-zinc-50 dark:bg-zinc-900/60 text-xs text-zinc-600 dark:text-zinc-400">
           <div className="flex items-center gap-2">
             <Info className="h-4 w-4 shrink-0 text-zinc-400" />
             <span>
@@ -971,7 +971,7 @@ export function EmailView({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t.emailPage.searchPlaceholder}
-            className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] pl-8 pr-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600"
+            className="w-full rounded-lg border border-zinc-200 border-border bg-white dark:bg-card pl-8 pr-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-zinc-400 dark:focus:border-zinc-600"
           />
         </div>
 
@@ -980,7 +980,7 @@ export function EmailView({
           <button
             type="button"
             onClick={() => setIsAccountDropdownOpen((prev) => !prev)}
-            className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] px-2.5 py-1.5 text-xs font-semibold text-zinc-800 dark:text-zinc-200 shadow-2xs hover:bg-zinc-50 dark:hover:bg-zinc-900/60 transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 border-border bg-white dark:bg-card px-2.5 py-1.5 text-xs font-semibold text-zinc-800 dark:text-zinc-200 shadow-2xs hover:bg-zinc-50 dark:hover:bg-zinc-900/60 transition-colors"
           >
             <div className="flex h-3.5 w-3.5 shrink-0 items-center justify-center overflow-hidden">
               <img src={activeAccountLogo} alt="" className="h-full w-full object-contain" />
@@ -995,7 +995,7 @@ export function EmailView({
           </button>
 
           {isAccountDropdownOpen && (
-            <div className="absolute right-0 top-full mt-1.5 w-72 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] p-1.5 shadow-lg z-30 animate-in fade-in-0 zoom-in-95">
+            <div className="absolute right-0 top-full mt-1.5 w-72 rounded-xl border border-zinc-200 border-border bg-white dark:bg-card p-1.5 shadow-lg z-30 animate-in fade-in-0 zoom-in-95">
               <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
                 {t.emailPage.connectedAccounts}
               </div>
@@ -1052,7 +1052,7 @@ export function EmailView({
                 );
               })}
 
-              <div className="my-1 border-t border-zinc-200 dark:border-zinc-800" />
+              <div className="my-1 border-t border-zinc-200 border-border" />
 
               {/* Manage / Connect Accounts in Settings */}
               <button
@@ -1093,9 +1093,9 @@ export function EmailView({
       {/* Main Content: Email List or Full Email Reader */}
       {selectedEmail ? (
         /* ================= FULL EMAIL READER VIEW ================= */
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] p-5 sm:p-6 shadow-2xs space-y-6 animate-in fade-in-0 duration-150">
+        <div className="rounded-xl border border-zinc-200 border-border bg-white dark:bg-card p-5 sm:p-6 shadow-2xs space-y-6 animate-in fade-in-0 duration-150">
           {/* Reader Top Bar */}
-          <div className="flex items-center justify-between gap-3 pb-4 border-b border-zinc-200 dark:border-zinc-800">
+          <div className="flex items-center justify-between gap-3 pb-4 border-b border-zinc-200 border-border">
             <button
               type="button"
               onClick={() => setSelectedEmail(null)}
@@ -1108,7 +1108,7 @@ export function EmailView({
             <div className="flex items-center gap-2">
               {/* Toggle Formatted HTML vs Plain Text when HTML exists */}
               {selectedEmail.htmlBody && (
-                <div className="inline-flex items-center rounded-lg border border-zinc-200/90 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 p-0.5">
+                <div className="inline-flex items-center rounded-lg border border-zinc-200/90 border-border bg-zinc-100 dark:bg-zinc-900 p-0.5">
                   <button
                     type="button"
                     onClick={() => setReaderViewMode("html")}
@@ -1141,7 +1141,7 @@ export function EmailView({
           </div>
 
           {/* Sender & Recipient Information */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/80 dark:border-zinc-800">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/80 border-border">
             <div className="flex items-center gap-3">
               {/* Sender Logo or Initials Monogram Badge in Reader */}
               {(() => {
@@ -1216,7 +1216,7 @@ export function EmailView({
             ) : readerViewMode === "html" && selectedEmail.htmlBody ? (
               <EmailHtmlViewer html={selectedEmail.htmlBody} />
             ) : (
-              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30 p-5 text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-line font-sans">
+              <div className="rounded-xl border border-zinc-200 border-border bg-zinc-50/50 dark:bg-zinc-900/30 p-5 text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed whitespace-pre-line font-sans">
                 {selectedEmail.body}
               </div>
             )}
@@ -1224,7 +1224,7 @@ export function EmailView({
 
           {/* Attachments Section (if any) */}
           {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
-            <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 space-y-2.5">
+            <div className="pt-4 border-t border-zinc-200 border-border space-y-2.5">
               <div className="flex items-center gap-1.5 text-zinc-500">
                 <Paperclip className="h-3.5 w-3.5" />
                 <span className="text-[11px] font-semibold uppercase tracking-wider">
@@ -1248,7 +1248,7 @@ export function EmailView({
                   return (
                     <div
                       key={i}
-                      className="group flex items-center justify-between p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/40 hover:bg-zinc-100/70 dark:hover:bg-zinc-900/70 transition-all shadow-2xs gap-2"
+                      className="group flex items-center justify-between p-2.5 rounded-xl border border-zinc-200 border-border bg-zinc-50/70 dark:bg-zinc-900/40 hover:bg-zinc-100/70 dark:hover:bg-zinc-900/70 transition-all shadow-2xs gap-2"
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
                         <div
@@ -1309,7 +1309,7 @@ export function EmailView({
         </div>
       ) : (
         /* ================= EMAIL THREADS LIST & REAL PAGINATION ================= */
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] shadow-2xs overflow-hidden">
+        <div className="rounded-xl border border-zinc-200 border-border bg-white dark:bg-card shadow-2xs overflow-hidden">
           {isLoadingPage ? (
             <div className="p-12 text-center flex flex-col items-center justify-center space-y-2 text-zinc-400">
               <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
@@ -1422,7 +1422,7 @@ export function EmailView({
 
           {/* Real Pagination Controls (10 items per page, cursor-based) */}
           {currentEmails.length > 0 && (
-            <div className="flex items-center justify-between gap-2 px-3.5 py-2 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30">
+            <div className="flex items-center justify-between gap-2 px-3.5 py-2 border-t border-zinc-200 border-border bg-zinc-50/50 dark:bg-zinc-900/30">
               <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">
                 {interpolate(t.emailPage.showingCount, {
                   start: startNumber,
@@ -1435,7 +1435,7 @@ export function EmailView({
                   type="button"
                   disabled={pageIndex === 0 || isLoadingPage}
                   onClick={handlePreviousPage}
-                  className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                  className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 border-border bg-white dark:bg-card px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
                   <span>{t.emailPage.previous}</span>
@@ -1445,7 +1445,7 @@ export function EmailView({
                   type="button"
                   disabled={!currentNextPageToken || isLoadingPage}
                   onClick={handleNextPage}
-                  className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                  className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 border-border bg-white dark:bg-card px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
                 >
                   <span>{t.emailPage.next}</span>
                   <ChevronRight className="h-3.5 w-3.5" />

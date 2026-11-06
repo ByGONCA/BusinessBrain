@@ -141,23 +141,23 @@ export function CreateEntityModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
       <div
-        className="relative w-full max-w-lg rounded-xl border border-white/[0.08] bg-[#121316] p-6 shadow-2xl text-foreground"
+        className="relative w-full max-w-lg rounded-xl border border-border bg-background text-foreground p-6 shadow-2xl text-foreground"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-white/[0.08]">
+        <div className="flex items-center justify-between pb-4 border-b border-border">
           <div>
-            <h2 id="modal-title" className="text-base font-semibold text-white">
+            <h2 id="modal-title" className="text-base font-semibold text-foreground">
               Create {config.label}
             </h2>
-            <p className="text-xs text-zinc-400 mt-0.5">{config.description}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{config.description}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors"
+            className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-hover transition-colors"
             aria-label="Close dialog"
           >
             <X className="h-4 w-4" />
@@ -173,7 +173,7 @@ export function CreateEntityModal({
         {/* Form */}
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div>
-            <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
               Title <span className="text-rose-400">*</span>
             </label>
             <input
@@ -182,17 +182,17 @@ export function CreateEntityModal({
               onChange={(e) => setTitle(e.target.value)}
               placeholder={config.titlePlaceholder}
               autoFocus
-              className="w-full rounded-lg border border-white/[0.08] bg-[#16181D] px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-hidden focus:ring-1 focus:ring-emerald-400"
+              className="w-full rounded-lg border border-border bg-surface-secondary px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-1 focus:ring-emerald-400"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1.5">Status</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Status</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.08] bg-[#16181D] px-3 py-2 text-xs text-white focus:outline-hidden focus:ring-1 focus:ring-emerald-400"
+                className="w-full rounded-lg border border-border bg-surface-secondary px-3 py-2 text-xs text-foreground focus:outline-hidden focus:ring-1 focus:ring-emerald-400"
               >
                 {type === "task" ? (
                   <>
@@ -219,7 +219,7 @@ export function CreateEntityModal({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                 {type === "task" ? "Due Date" : "Target Date"}
               </label>
               <input
@@ -227,18 +227,18 @@ export function CreateEntityModal({
                 value={targetDate}
                 onChange={(e) => setTargetDate(e.target.value)}
                 placeholder="e.g. Q4 2026 or 2026-11-15"
-                className="w-full rounded-lg border border-white/[0.08] bg-[#16181D] px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-hidden focus:ring-1 focus:ring-emerald-400"
+                className="w-full rounded-lg border border-border bg-surface-secondary px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-1 focus:ring-emerald-400"
               />
             </div>
           </div>
 
           {type === "task" && (
             <div>
-              <label className="block text-xs font-medium text-zinc-300 mb-1.5">Priority</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Priority</label>
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
-                className="w-full rounded-lg border border-white/[0.08] bg-[#16181D] px-3 py-2 text-xs text-white focus:outline-hidden focus:ring-1 focus:ring-emerald-400"
+                className="w-full rounded-lg border border-border bg-surface-secondary px-3 py-2 text-xs text-foreground focus:outline-hidden focus:ring-1 focus:ring-emerald-400"
               >
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
@@ -249,7 +249,7 @@ export function CreateEntityModal({
           )}
 
           <div>
-            <label className="block text-xs font-medium text-zinc-300 mb-1.5">
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
               Description & Notes
             </label>
             <textarea
@@ -257,24 +257,24 @@ export function CreateEntityModal({
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder={config.contentPlaceholder}
-              className="w-full rounded-lg border border-white/[0.08] bg-[#16181D] px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-hidden focus:ring-1 focus:ring-emerald-400 resize-none"
+              className="w-full rounded-lg border border-border bg-surface-secondary px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-1 focus:ring-emerald-400 resize-none"
             />
           </div>
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/[0.08]">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
             <button
               type="button"
               onClick={onClose}
               disabled={isPending}
-              className="rounded-lg border border-white/[0.08] bg-[#16181D] px-3 py-1.5 text-xs font-medium text-zinc-300 hover:bg-white/[0.06] hover:text-white transition-colors"
+              className="rounded-lg border border-border bg-surface-secondary px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-hover hover:text-foreground transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isPending || !title.trim()}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white px-3.5 py-1.5 text-xs font-medium transition-colors shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-foreground px-3.5 py-1.5 text-xs font-medium transition-colors shadow-sm"
             >
               {isPending ? (
                 <>

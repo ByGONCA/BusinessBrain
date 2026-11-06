@@ -2,8 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Particle404Canvas } from "@/components/ui/particle-404-canvas";
-import { AlertCircle, RotateCcw, RefreshCw, Home } from "lucide-react";
+import { AlertCircle, RotateCcw, RefreshCw, LayoutDashboard } from "lucide-react";
 
 interface RootErrorProps {
   error: Error & { digest?: string };
@@ -12,118 +11,71 @@ interface RootErrorProps {
 
 export default function RootError({ error, reset }: RootErrorProps) {
   React.useEffect(() => {
-    // Log unexpected runtime error safely without leaking secrets
+    // Log unexpected runtime error safely to console for debugging without leaking technical internals to the user UI
     console.error("Root Application Error:", {
       message: error?.message,
       digest: error?.digest,
     });
   }, [error]);
 
-  const errorMessage = error?.message || "An unexpected error occurred while processing this request.";
-
   return (
-    <main className="relative min-h-screen w-full overflow-hidden bg-[#080607] bg-[radial-gradient(ellipse_80%_80%_at_60%_35%,rgba(90,14,20,0.22)_0%,rgba(8,6,7,0.96)_72%,#080607_100%)] text-foreground font-sans select-none selection:bg-[#ef4444]/25">
-      {/* Interactive Particle Constellation Canvas */}
-      <Particle404Canvas />
-
-      {/* Responsive Content Overlay */}
-      <div className="relative z-10 flex min-h-screen w-full flex-col justify-between p-6 sm:p-12 md:p-16 lg:p-20 pointer-events-none">
-        {/* MOBILE VIEW (Top Aligned) */}
-        <div className="flex sm:hidden flex-col items-start pt-6 pointer-events-auto max-w-md animate-in fade-in duration-300">
-          <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#ef4444]">
-            <AlertCircle className="h-3.5 w-3.5" />
-            <span>Application Notice</span>
-          </div>
-
-          <h1 className="mt-2 text-2xl font-normal tracking-tight text-white leading-tight">
-            Something went wrong while loading this view.
-          </h1>
-
-          {/* Clean Error Message Display */}
-          <div className="mt-4 w-full rounded-xl border border-red-500/25 bg-[#140b0d]/90 p-3.5 text-xs font-mono text-red-200/90 backdrop-blur-md">
-            <p className="line-clamp-3 select-text">{errorMessage}</p>
-            {error?.digest && (
-              <p className="mt-2 text-[10px] text-zinc-500 font-mono select-text">Digest: {error.digest}</p>
-            )}
-          </div>
-
-          <div className="mt-5 flex flex-wrap items-center gap-2.5">
-            <button
-              type="button"
-              onClick={reset}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#ef4444] hover:bg-[#dc2626] active:scale-[0.98] text-white px-4 py-2 text-xs font-semibold transition-all duration-200 shadow-lg shadow-red-950/40"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              <span>Try again</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#161112]/90 hover:bg-[#221618] active:scale-[0.98] text-[#f0ebea] hover:text-white px-4 py-2 text-xs font-medium border border-[#3c1c21]/80 hover:border-[#58222b] transition-all duration-200 backdrop-blur-md"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              <span>Refresh</span>
-            </button>
-            <Link
-              href="/"
-              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#161112]/90 hover:bg-[#221618] active:scale-[0.98] text-[#f0ebea] hover:text-white px-4 py-2 text-xs font-medium border border-[#3c1c21]/80 hover:border-[#58222b] transition-all duration-200 backdrop-blur-md"
-            >
-              <Home className="h-3.5 w-3.5" />
-              <span>Home</span>
-            </Link>
-          </div>
+    <main className="relative min-h-screen w-full flex items-center justify-center p-6 sm:p-10 bg-[#101114] bg-[radial-gradient(ellipse_70%_60%_at_50%_35%,rgba(59,130,246,0.06)_0%,rgba(16,17,20,0.98)_100%)] text-foreground font-sans select-none">
+      <div className="relative z-10 w-full max-w-lg rounded-2xl border border-white/[0.06] bg-[#17181D]/90 p-8 sm:p-10 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 text-center">
+        {/* Subtle Icon Badge */}
+        <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 shadow-sm">
+          <AlertCircle className="h-6 w-6" />
         </div>
 
-        {/* Desktop flex spacer */}
-        <div className="hidden sm:block" aria-hidden="true" />
+        {/* Category Label */}
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-blue-400">
+          System Notice
+        </span>
 
-        {/* DESKTOP VIEW (Lower-Left Aligned matching 404 art direction) */}
-        <div className="hidden sm:flex flex-col items-start mt-auto pointer-events-auto max-w-xl lg:max-w-2xl animate-in fade-in duration-300">
-          <div className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-[#ef4444]">
-            <AlertCircle className="h-4 w-4" />
-            <span>Application Notice</span>
-          </div>
+        {/* Reassuring Main Heading */}
+        <h1 className="mt-2.5 text-2xl sm:text-3xl font-bold tracking-tight text-white leading-snug">
+          Something went wrong while loading this view.
+        </h1>
 
-          <h1 className="mt-2 text-3xl sm:text-4xl md:text-5xl font-normal tracking-tight text-white leading-[1.15]">
-            Something went wrong while loading this view.
-          </h1>
+        {/* Clean, Non-Technical User-Facing Reassurance */}
+        <p className="mt-3 text-sm text-[#A0A2AB] leading-relaxed max-w-md mx-auto">
+          A temporary interruption occurred while processing your request. Your workspace data, documents, and settings are completely safe.
+        </p>
 
-          {/* Clean Error Detail Container */}
-          <div className="mt-5 w-full rounded-xl border border-red-500/25 bg-[#140b0d]/90 p-4 text-xs font-mono text-red-200/90 backdrop-blur-md shadow-xl select-text">
-            <div className="text-[11px] font-sans font-semibold text-red-400 mb-1">Error Details:</div>
-            <p className="select-text leading-relaxed">{errorMessage}</p>
-            {error?.digest && (
-              <p className="mt-2 text-[10px] text-zinc-500 font-mono select-text">Digest Reference: {error.digest}</p>
-            )}
-          </div>
+        {/* Action Buttons */}
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={reset}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white px-5 py-2.5 text-xs sm:text-sm font-semibold transition-all duration-150 shadow-md shadow-blue-950/40 cursor-pointer"
+          >
+            <RotateCcw className="h-4 w-4" />
+            <span>Try again</span>
+          </button>
 
-          {/* Action Buttons */}
-          <div className="mt-7 flex items-center gap-3">
-            <button
-              type="button"
-              onClick={reset}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#ef4444] hover:bg-[#dc2626] active:scale-[0.98] text-white px-5 py-2.5 text-xs sm:text-sm font-semibold transition-all duration-200 shadow-lg shadow-red-950/40 cursor-pointer"
-            >
-              <RotateCcw className="h-3.5 w-3.5" />
-              <span>Try again</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#161112]/90 hover:bg-[#221618] active:scale-[0.98] text-[#f0ebea] hover:text-white px-5 py-2.5 text-xs sm:text-sm font-medium border border-[#3c1c21]/80 hover:border-[#58222b] transition-all duration-200 backdrop-blur-md shadow-lg hover:shadow-red-950/20 cursor-pointer"
-            >
-              <RefreshCw className="h-3.5 w-3.5" />
-              <span>Refresh page</span>
-            </button>
-            <Link
-              href="/"
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#161112]/90 hover:bg-[#221618] active:scale-[0.98] text-[#f0ebea] hover:text-white px-5 py-2.5 text-xs sm:text-sm font-medium border border-[#3c1c21]/80 hover:border-[#58222b] transition-all duration-200 backdrop-blur-md shadow-lg hover:shadow-red-950/20"
-            >
-              <Home className="h-3.5 w-3.5" />
-              <span>Back to home</span>
-            </Link>
-          </div>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#202228] hover:bg-[#282A32] active:scale-[0.98] text-[#F2F2F4] hover:text-white px-5 py-2.5 text-xs sm:text-sm font-medium border border-white/[0.06] hover:border-white/[0.12] transition-all duration-150 cursor-pointer shadow-xs"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span>Refresh page</span>
+          </button>
+
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#202228] hover:bg-[#282A32] active:scale-[0.98] text-[#F2F2F4] hover:text-white px-5 py-2.5 text-xs sm:text-sm font-medium border border-white/[0.06] hover:border-white/[0.12] transition-all duration-150 shadow-xs"
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            <span>Dashboard</span>
+          </Link>
         </div>
+
+        {/* Subtle, non-intrusive digest reference for support tickets */}
+        {error?.digest && (
+          <p className="mt-6 text-[11px] text-zinc-500 font-mono">
+            Reference: #{error.digest}
+          </p>
+        )}
       </div>
     </main>
   );

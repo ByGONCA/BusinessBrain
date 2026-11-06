@@ -134,7 +134,7 @@ export function WorkspaceGeneralTab({ activeOrg }: WorkspaceGeneralTabProps) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Acme Corporation"
-              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
+              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
             />
           </div>
 
@@ -147,7 +147,7 @@ export function WorkspaceGeneralTab({ activeOrg }: WorkspaceGeneralTabProps) {
               value={logoUrl}
               onChange={(e) => setLogoUrl(e.target.value)}
               placeholder="https://example.com/logo.svg"
-              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
+              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
             />
             <p className="text-[10px] text-zinc-500">Square or transparent SVG/PNG works best for company branding.</p>
           </div>
@@ -161,7 +161,7 @@ export function WorkspaceGeneralTab({ activeOrg }: WorkspaceGeneralTabProps) {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What does your company do?"
-              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 resize-none"
+              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50 resize-none"
             />
           </div>
 
@@ -173,7 +173,7 @@ export function WorkspaceGeneralTab({ activeOrg }: WorkspaceGeneralTabProps) {
                 disabled={!isOwnerOrAdmin}
                 value={industry}
                 onChange={(e) => setIndustry(e.target.value)}
-                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-2.5 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer"
+                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-2.5 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer"
               >
                 {INDUSTRIES.map((ind) => (
                   <option key={ind} value={ind}>
@@ -189,7 +189,7 @@ export function WorkspaceGeneralTab({ activeOrg }: WorkspaceGeneralTabProps) {
                 disabled={!isOwnerOrAdmin}
                 value={companySize}
                 onChange={(e) => setCompanySize(e.target.value)}
-                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-2.5 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer"
+                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-2.5 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 disabled:opacity-50 cursor-pointer"
               >
                 {COMPANY_SIZES.map((size) => (
                   <option key={size} value={size}>
@@ -209,7 +209,7 @@ export function WorkspaceGeneralTab({ activeOrg }: WorkspaceGeneralTabProps) {
               value={country}
               onChange={(e) => setCountry(e.target.value)}
               placeholder="e.g. Portugal"
-              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
+              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
             />
           </div>
         </div>
@@ -272,7 +272,7 @@ export function WorkspaceGeneralTab({ activeOrg }: WorkspaceGeneralTabProps) {
               <button
                 type="button"
                 onClick={() => setDangerConfirmOpen("transfer")}
-                className="flex items-center gap-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                className="flex items-center gap-1 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-2.5 py-1 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
               >
                 <ArrowRightLeft className="h-3 w-3" />
                 <span>Transfer</span>
@@ -303,7 +303,7 @@ export function WorkspaceGeneralTab({ activeOrg }: WorkspaceGeneralTabProps) {
       {/* Confirmation Modal for Delete Workspace */}
       {dangerConfirmOpen === "delete" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-red-300 dark:border-red-900 bg-white dark:bg-[#1a1a1d] p-5 shadow-2xl space-y-4 text-zinc-900 dark:text-zinc-100">
+          <div className="w-full max-w-md rounded-2xl border border-red-300 dark:border-red-900 bg-surface-secondary text-foreground p-5 shadow-2xl space-y-4 text-zinc-900 dark:text-zinc-100">
             <div className="flex items-center gap-2 text-red-600">
               <AlertTriangle className="h-5 w-5" />
               <h4 className="font-bold text-sm">Delete Workspace Permanently?</h4>
@@ -354,7 +354,7 @@ export function WorkspaceGeneralTab({ activeOrg }: WorkspaceGeneralTabProps) {
       {/* Confirmation Modal for Transfer */}
       {dangerConfirmOpen === "transfer" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] p-5 shadow-2xl space-y-4 text-zinc-900 dark:text-zinc-100">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-300 dark:border-zinc-800 bg-surface-secondary text-foreground p-5 shadow-2xl space-y-4 text-zinc-900 dark:text-zinc-100">
             <h4 className="font-bold text-sm">Transfer Workspace Ownership</h4>
             <p className="text-xs text-zinc-600 dark:text-zinc-400">
               Select an administrator from the People tab to assign primary ownership privileges.

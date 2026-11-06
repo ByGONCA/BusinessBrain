@@ -2,13 +2,16 @@ import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { createClient as createJsClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
-import dns from "node:dns";
 
 // Ensure Node.js prefers IPv4 resolution to prevent Windows dual-stack IPv6 routing failures ("TypeError: fetch failed")
-try {
-  dns.setDefaultResultOrder("ipv4first");
-} catch {
-  // Ignore in environments where setDefaultResultOrder is not supported
+if (typeof window === "undefined") {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const dns = require("node:dns");
+    dns.setDefaultResultOrder?.("ipv4first");
+  } catch {
+    // Ignore in environments where setDefaultResultOrder is not supported
+  }
 }
 
 function getSupabaseCredentials() {

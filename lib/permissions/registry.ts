@@ -325,6 +325,12 @@ export const PERMISSIONS_REGISTRY: PermissionDefinition[] = [
     name: "Disconnect Integrations",
     description: "Revoke and unlink external service connections.",
   },
+  {
+    key: "integrations.send_mail",
+    category: "integrations",
+    name: "Send Integration Emails",
+    description: "Authorize and dispatch approved outgoing emails via connected workspace providers.",
+  },
 
   // GitHub
   {

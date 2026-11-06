@@ -200,7 +200,7 @@ export function PreferencesTab() {
             <select
               value={prefs.defaultEditorWidth}
               onChange={(e) => handleChange("defaultEditorWidth", e.target.value as "standard" | "full" | "narrow")}
-              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
+              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
             >
               <option value="standard">Standard (720px)</option>
               <option value="full">Full Width</option>
@@ -226,14 +226,14 @@ export function PreferencesTab() {
                 type="time"
                 value={prefs.workingHoursStart}
                 onChange={(e) => handleChange("workingHoursStart", e.target.value)}
-                className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-2 py-1 text-xs font-mono text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500"
+                className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-2 py-1 text-xs font-mono text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500"
               />
               <span className="text-xs text-zinc-400">to</span>
               <input
                 type="time"
                 value={prefs.workingHoursEnd}
                 onChange={(e) => handleChange("workingHoursEnd", e.target.value)}
-                className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-2 py-1 text-xs font-mono text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500"
+                className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-2 py-1 text-xs font-mono text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500"
               />
             </div>
           </div>
@@ -247,7 +247,7 @@ export function PreferencesTab() {
             <select
               value={prefs.defaultMeetingDuration}
               onChange={(e) => handleChange("defaultMeetingDuration", Number(e.target.value))}
-              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
+              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
             >
               <option value={15}>15 minutes</option>
               <option value={30}>30 minutes</option>

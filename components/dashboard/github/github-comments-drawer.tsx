@@ -145,9 +145,9 @@ function CommentSnippetView({
   const baseLineNumber = snippet.startLine || 1;
 
   return (
-    <div className="rounded-xl overflow-hidden text-xs my-1 border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#141416] text-zinc-900 dark:text-zinc-100 shadow-2xs max-w-full">
+    <div className="rounded-xl overflow-hidden text-xs my-1 border border-zinc-200 border-border bg-zinc-50 dark:bg-card text-zinc-900 dark:text-zinc-100 shadow-2xs max-w-full">
       {/* Header: File path itself IS the link */}
-      <div className="flex items-center justify-between px-2.5 py-1.5 bg-zinc-100/90 dark:bg-[#1c1c1f] border-b border-zinc-200 dark:border-zinc-800 text-[11px] select-none gap-2">
+      <div className="flex items-center justify-between px-2.5 py-1.5 bg-zinc-100/90 dark:bg-surface-secondary border-b border-zinc-200 border-border text-[11px] select-none gap-2">
         {onOpenFile ? (
           <button
             type="button"
@@ -190,13 +190,13 @@ function CommentSnippetView({
       </div>
 
       {/* Code snippet lines with high contrast line numbers and syntax coloring */}
-      <div className="p-1.5 font-mono text-[11px] overflow-x-auto leading-relaxed select-text bg-white dark:bg-[#141416]">
+      <div className="p-1.5 font-mono text-[11px] overflow-x-auto leading-relaxed select-text bg-white dark:bg-card">
         <table className="border-collapse w-full">
           <tbody>
             {highlighted.map((hLine, idx) => (
               <tr key={idx} className="hover:bg-zinc-100/70 dark:hover:bg-zinc-800/30 transition-colors">
                 {snippet.startLine !== undefined && (
-                  <td className="w-7 min-w-7 select-none pr-2 pl-1 text-right text-zinc-400 dark:text-zinc-500 font-mono text-[10px] align-top border-r border-zinc-200 dark:border-zinc-800 font-medium">
+                  <td className="w-7 min-w-7 select-none pr-2 pl-1 text-right text-zinc-400 dark:text-zinc-500 font-mono text-[10px] align-top border-r border-zinc-200 border-border font-medium">
                     {baseLineNumber + idx}
                   </td>
                 )}

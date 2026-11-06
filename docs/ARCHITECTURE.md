@@ -154,3 +154,16 @@ Every tenant in Company Brain corresponds to an `organizations` row.
   - `invoice.payment_failed`
 - **Canonical Source of Truth**:
   Client-side `success=true` query parameters are never trusted. Product entitlement is granted only when the verified Stripe webhook state is recorded in `public.subscriptions`.
+
+---
+
+## 7. Universal Dashboard Engine & Widget Ecosystem
+
+- **Single Presentation Surface**:
+  All dashboards (Home, Finance, etc.) render strictly through the canonical `WidgetGrid` (`components/dashboard/widgets/widget-grid.tsx`). No legacy parallel widgets or hardcoded secondary dashboards exist.
+- **Contract-Driven Registry**:
+  All metrics are declared in `lib/widgets/registry.ts`, with units, time semantics (`point_in_time` vs `period_aggregate`), and compatible visualizers strictly validated.
+- **Optimistic Concurrency Control (CAS)**:
+  Layouts are persisted per user and organization in `user_dashboard_layouts`. Concurrency conflicts are prevented via CAS token checks (`expectedUpdatedAt`).
+- **Detailed Reference**:
+  See comprehensive architectural manual in [`docs/DASHBOARD_ENGINE.md`](./DASHBOARD_ENGINE.md).

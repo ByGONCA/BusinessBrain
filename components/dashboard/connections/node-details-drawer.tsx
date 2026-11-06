@@ -120,12 +120,12 @@ export function NodeDetailsDrawer({
   return (
     <div
       className={cn(
-        "flex flex-col w-80 sm:w-96 h-full bg-[#141415] border-l border-[#242427] shadow-xl z-20 animate-in slide-in-from-right duration-200",
+        "flex flex-col w-80 sm:w-96 h-full bg-card border-l border-border shadow-xl z-20 animate-in slide-in-from-right duration-200",
         className
       )}
     >
       {/* Header */}
-      <div className="flex items-start justify-between p-4 border-b border-[#242427]">
+      <div className="flex items-start justify-between p-4 border-b border-border">
         <div className="flex items-start gap-3 min-w-0 pr-2">
           <div className={cn("p-2 rounded-xl border shrink-0 flex items-center justify-center", cfg.color)}>
             {node.type === "page" ? (
@@ -135,7 +135,7 @@ export function NodeDetailsDrawer({
             )}
           </div>
           <div className="min-w-0">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-[#71717A]">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
               {cfg.label}
             </span>
             <h3 className="text-base font-bold text-foreground truncate">
@@ -147,7 +147,7 @@ export function NodeDetailsDrawer({
         <button
           type="button"
           onClick={onClose}
-          className="p-1.5 rounded-lg text-[#71717A] hover:text-foreground hover:bg-[#1C1C1F] transition-colors"
+          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-hover transition-colors"
           title="Close details"
         >
           <X className="h-4 w-4" />
@@ -180,7 +180,7 @@ export function NodeDetailsDrawer({
           <button
             type="button"
             onClick={() => onOpenConnectModal(node)}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-[#242427] hover:bg-[#1C1C1F] text-xs font-medium text-foreground transition-colors"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-border hover:bg-hover text-xs font-medium text-foreground transition-colors"
           >
             <Plus className="h-3.5 w-3.5" />
             <span>Connect</span>
@@ -188,7 +188,7 @@ export function NodeDetailsDrawer({
         </div>
 
         {/* Focus Mode & Path Finder Row */}
-        <div className="p-3 rounded-xl bg-[#19191B] border border-[#242427] space-y-2.5">
+        <div className="p-3 rounded-xl bg-surface-secondary border border-border space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
               <Eye className="h-3.5 w-3.5 text-blue-500" /> Foco / Vizinhança
@@ -243,7 +243,7 @@ export function NodeDetailsDrawer({
                 onClose();
                 onSetFocusDepth(null);
               }}
-              className="py-1.5 px-2.5 rounded-lg border border-[#242427] text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-foreground text-xs transition-colors"
+              className="py-1.5 px-2.5 rounded-lg border border-border text-[#A1A1AA] hover:bg-hover hover:text-foreground text-xs transition-colors"
               title="Regressar à visão geral completa"
             >
               Visão Geral
@@ -253,7 +253,7 @@ export function NodeDetailsDrawer({
           <button
             type="button"
             onClick={() => onOpenPathModal(node)}
-            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-[#242427] hover:bg-[#1C1C1F] text-xs text-[#A1A1AA] hover:text-foreground font-medium transition-colors"
+            className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-border hover:bg-hover text-xs text-[#A1A1AA] hover:text-foreground font-medium transition-colors"
           >
             <Route className="h-3.5 w-3.5 text-emerald-500" />
             <span>Encontrar Caminho para Outro Nó...</span>
@@ -262,35 +262,35 @@ export function NodeDetailsDrawer({
 
         {/* Statistics Pill */}
         <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="p-2 rounded-xl bg-[#19191B] border border-[#242427]">
+          <div className="p-2 rounded-xl bg-surface-secondary border border-border">
             <span className="block text-lg font-bold text-foreground">
               {node.degree}
             </span>
-            <span className="text-[10px] text-[#71717A]">Total Conn</span>
+            <span className="text-[10px] text-muted-foreground">Total Conn</span>
           </div>
-          <div className="p-2 rounded-xl bg-[#19191B] border border-[#242427]">
+          <div className="p-2 rounded-xl bg-surface-secondary border border-border">
             <span className="block text-lg font-bold text-blue-400">
               {node.outDegree}
             </span>
-            <span className="text-[10px] text-[#71717A]">Outgoing</span>
+            <span className="text-[10px] text-muted-foreground">Outgoing</span>
           </div>
-          <div className="p-2 rounded-xl bg-[#19191B] border border-[#242427]">
+          <div className="p-2 rounded-xl bg-surface-secondary border border-border">
             <span className="block text-lg font-bold text-indigo-400">
               {node.inDegree}
             </span>
-            <span className="text-[10px] text-[#71717A]">Backlinks</span>
+            <span className="text-[10px] text-muted-foreground">Backlinks</span>
           </div>
         </div>
 
         {/* Outgoing Connections */}
         <div className="space-y-2">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[#71717A] flex items-center gap-1.5">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
             <ArrowRight className="h-3.5 w-3.5 text-blue-500" />
             Outgoing Connections ({outgoingEdges.length})
           </h4>
 
           {outgoingEdges.length === 0 ? (
-            <p className="text-xs text-[#71717A] italic">No outgoing connections.</p>
+            <p className="text-xs text-muted-foreground italic">No outgoing connections.</p>
           ) : (
             <div className="space-y-1.5">
               {outgoingEdges.map((e) => {
@@ -301,7 +301,7 @@ export function NodeDetailsDrawer({
                 return (
                   <div
                     key={e.id}
-                    className="group flex items-center justify-between p-2 rounded-lg border border-[#242427] bg-[#19191B] hover:border-[#29292D] transition-colors"
+                    className="group flex items-center justify-between p-2 rounded-lg border border-border bg-surface-secondary hover:border-[#29292D] transition-colors"
                   >
                     <div
                       onClick={() => targetNode && onSelectNode(targetNode)}
@@ -332,7 +332,7 @@ export function NodeDetailsDrawer({
                         type="button"
                         disabled={isDeletingId === e.id}
                         onClick={() => handleRemoveEdge(e, relLabel)}
-                        className="p-1 rounded text-[#71717A] hover:text-red-400 hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="p-1 rounded text-muted-foreground hover:text-red-400 hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Remove connection"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -347,13 +347,13 @@ export function NodeDetailsDrawer({
 
         {/* Incoming Backlinks */}
         <div className="space-y-2">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-[#71717A] flex items-center gap-1.5">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
             <ArrowLeft className="h-3.5 w-3.5 text-indigo-400" />
             Incoming Backlinks ({incomingEdges.length})
           </h4>
 
           {incomingEdges.length === 0 ? (
-            <p className="text-xs text-[#71717A] italic">No incoming backlinks.</p>
+            <p className="text-xs text-muted-foreground italic">No incoming backlinks.</p>
           ) : (
             <div className="space-y-1.5">
               {incomingEdges.map((e) => {
@@ -364,7 +364,7 @@ export function NodeDetailsDrawer({
                 return (
                   <div
                     key={e.id}
-                    className="group flex items-center justify-between p-2 rounded-lg border border-[#242427] bg-[#19191B] hover:border-[#29292D] transition-colors"
+                    className="group flex items-center justify-between p-2 rounded-lg border border-border bg-surface-secondary hover:border-[#29292D] transition-colors"
                   >
                     <div
                       onClick={() => sourceNode && onSelectNode(sourceNode)}
@@ -395,7 +395,7 @@ export function NodeDetailsDrawer({
                         type="button"
                         disabled={isDeletingId === e.id}
                         onClick={() => handleRemoveEdge(e, reverseLabel)}
-                        className="p-1 rounded text-[#71717A] hover:text-red-400 hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="p-1 rounded text-muted-foreground hover:text-red-400 hover:bg-red-950/30 opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Remove connection"
                       >
                         <Trash2 className="h-3.5 w-3.5" />

@@ -61,7 +61,7 @@ export function ChartVisualizer({
   // Empty state if no data or integration not connected
   if (!financialSnapshot || points.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[180px] text-center p-6 text-zinc-400 dark:text-zinc-500">
+      <div className="flex flex-col items-center justify-center min-h-[180px] text-center p-6 text-muted-foreground dark:text-zinc-500">
         <p className="text-xs font-medium">
           {t.widgets.noHistoricalData}
         </p>
@@ -112,10 +112,10 @@ export function ChartVisualizer({
       {/* Dynamic Scrubber / Active Metric Header */}
       <div className="flex items-center justify-between text-xs pb-1">
         <div>
-          <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+          <span className="text-[11px] text-muted-foreground">
             {activePoint?.pt.fullDate || activePoint?.pt.date}
           </span>
-          <div className="text-base sm:text-lg font-bold font-mono text-zinc-900 dark:text-zinc-100">
+          <div className="text-base sm:text-lg font-bold font-mono text-foreground">
             {formatMoney(activePoint?.pt.revenue || 0)}
           </div>
         </div>
@@ -203,7 +203,7 @@ export function ChartVisualizer({
       </div>
 
       {/* Time Axis Labels */}
-      <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400 dark:text-zinc-500 pt-1">
+      <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground dark:text-zinc-500 pt-1">
         <span>{svgCoords[0]?.pt.shortDate || svgCoords[0]?.pt.date}</span>
         {svgCoords.length > 2 && (
           <span>{svgCoords[Math.floor(svgCoords.length / 2)]?.pt.shortDate}</span>

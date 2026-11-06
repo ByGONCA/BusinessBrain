@@ -3,12 +3,15 @@
 import * as React from "react";
 import { VerifiedSource } from "@/lib/ai/types";
 import { ExternalLink, FileText, GitPullRequest, MessageSquare, Brain, Target, FolderGit2, CheckSquare } from "lucide-react";
+import { useLanguage } from "@/lib/i18n";
 
 interface SourcesPopoverProps {
   sources: VerifiedSource[];
 }
 
 export function SourcesPopover({ sources }: SourcesPopoverProps) {
+  const { locale } = useLanguage();
+  const isPt = locale === "pt";
   const [isOpen, setIsOpen] = React.useState(false);
 
   if (!sources || sources.length === 0) return null;
@@ -22,7 +25,14 @@ export function SourcesPopover({ sources }: SourcesPopoverProps) {
       >
         <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
         <span>
-          {sources.length} {sources.length === 1 ? "fonte verificada" : "fontes verificadas"}
+          {sources.length}{" "}
+          {isPt
+            ? sources.length === 1
+              ? "fonte verificada"
+              : "fontes verificadas"
+            : sources.length === 1
+            ? "verified source"
+            : "verified sources"}
         </span>
       </button>
 
@@ -30,11 +40,10 @@ export function SourcesPopover({ sources }: SourcesPopoverProps) {
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
           <div className="absolute left-0 bottom-full mb-2 z-50 w-80 sm:w-96 p-3 rounded-xl border border-border bg-card text-foreground shadow-xl space-y-2.5 max-h-80 overflow-y-auto">
-            <div className="flex items-center justify-between pb-1.5 border-b border-border/60">
+            <div className="flex items-center justify-between pb-1.5 border-b border-border">
               <span className="text-xs font-semibold tracking-tight text-foreground">
-                Documentos & Fontes Citadas
+                {isPt ? "Documentos & Fontes Citadas" : "Documents & Cited Sources"}
               </span>
-              <span className="text-[10px] font-mono text-muted-foreground">Isolamento Seguro</span>
             </div>
 
             <div className="space-y-2">
@@ -46,14 +55,11 @@ export function SourcesPopover({ sources }: SourcesPopoverProps) {
                 if (src.type === "goal") Icon = Target;
                 if (src.type === "project") Icon = FolderGit2;
                 if (src.type === "task") Icon = CheckSquare;
-                if (src.type === "goal") Icon = Target;
-                if (src.type === "project") Icon = FolderGit2;
-                if (src.type === "task") Icon = CheckSquare;
 
                 return (
                   <div
                     key={src.id}
-                    className="p-2 rounded-lg border border-border/50 bg-background/50 hover:bg-hover/50 transition-colors space-y-1"
+                    className="p-2 rounded-lg border border-white/[0.05] bg-surface-secondary/50 hover:bg-surface-secondary transition-colors space-y-1"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 truncate">
@@ -72,7 +78,7 @@ export function SourcesPopover({ sources }: SourcesPopoverProps) {
                       )}
                     </div>
                     {src.snippet && (
-                      <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-3 font-mono bg-card/60 p-1.5 rounded border border-border/30">
+                      <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-3 font-mono bg-black/40 p-1.5 rounded border border-white/[0.04]">
                         {src.snippet}
                       </p>
                     )}

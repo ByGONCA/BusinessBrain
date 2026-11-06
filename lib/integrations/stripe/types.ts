@@ -94,6 +94,7 @@ export interface StripeFinancialSnapshot {
   primaryCurrency: string;
   currencies: Record<string, CurrencyFinancialTotals>;
   monthlyHistory: Record<string, MonthlyMetricPoint[]>; // currency -> 12-month points
+  dailyHistory?: Record<string, Record<string, number>>; // currency -> YYYY-MM-DD -> net cents
   totalActiveCustomersCount: number; // Deduplicated customer IDs across all active subs/charges
   totalAtRiskCustomersCount: number;
   dunningGracePeriodDays: number;

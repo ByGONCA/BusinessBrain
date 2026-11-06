@@ -4,6 +4,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { OrganizationWithRole, OrganizationMember, Organization, Profile } from "./types";
 import { isValidUuid } from "@/lib/security/authorization";
 import { logger } from "@/lib/security/logger";
+import { ensurePersonalWorkspace } from "./personal";
 
 export const ACTIVE_ORG_COOKIE_NAME = "cb_active_org_id";
 export const ORG_HEADER_NAME = "x-organization-id";
@@ -51,12 +52,31 @@ export const getUserOrganizations = cache(async (): Promise<OrganizationWithRole
 
   const queryRows = data as unknown as OrgMemberQueryResult[];
 
-  return queryRows
+  let orgs = queryRows
     .filter((row): row is OrgMemberQueryResult & { organizations: Organization } => row.organizations !== null)
     .map((row) => ({
       ...row.organizations,
       role: row.role,
     }));
+
+  // Ensure every user has an individual Personal Workspace
+  const hasPersonal = orgs.some((o) => o.workspace_type === "personal");
+  if (!hasPersonal) {
+    try {
+      const personal = await ensurePersonalWorkspace(
+        user.id,
+        user.user_metadata?.full_name || user.email,
+        supabase
+      );
+      if (personal) {
+        orgs = [personal, ...orgs];
+      }
+    } catch (err) {
+      logger.warn("Could not auto-provision personal workspace in queries", { err });
+    }
+  }
+
+  return orgs;
 });
 
 /**

@@ -499,7 +499,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
   return (
     <div className="space-y-4 max-w-7xl animate-in fade-in-0 duration-150">
       {/* Top Header & Account Switcher Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-zinc-200 dark:border-zinc-800">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-zinc-200 border-border">
         {/* Left: Navigation & Today */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
@@ -511,7 +511,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
             </span>
           </div>
 
-          <div className="flex items-center gap-1 border border-zinc-200 dark:border-zinc-800 rounded-lg p-0.5 bg-zinc-50 dark:bg-zinc-900/40">
+          <div className="flex items-center gap-1 border border-zinc-200 border-border rounded-lg p-0.5 bg-zinc-50 dark:bg-zinc-900/40">
             <button
               type="button"
               onClick={navigatePrevious}
@@ -541,7 +541,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
         {/* Right: Sequence STRICTLY requested: DIA | SEMANA | MÊS | AGENDA */}
         <div className="flex flex-wrap items-center gap-2.5">
           {/* View Mode Toggle: Day -> Week -> Month -> Agenda */}
-          <div className="inline-flex items-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 p-0.5">
+          <div className="inline-flex items-center rounded-lg border border-zinc-200 border-border bg-zinc-100 dark:bg-zinc-900 p-0.5">
             <button
               type="button"
               onClick={() => setViewMode("day")}
@@ -597,7 +597,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
             <button
               type="button"
               onClick={() => setIsAccountDropdownOpen((prev) => !prev)}
-              className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-2xs"
+              className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 border-border bg-white dark:bg-zinc-900/60 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-2xs"
             >
               <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm overflow-hidden">
                 <img
@@ -613,7 +613,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
             </button>
 
             {isAccountDropdownOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-72 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] p-1.5 shadow-xl z-30 animate-in fade-in-0 zoom-in-95 duration-100">
+              <div className="absolute right-0 top-full mt-1.5 w-72 rounded-xl border border-zinc-200 border-border bg-white dark:bg-card p-1.5 shadow-xl z-30 animate-in fade-in-0 zoom-in-95 duration-100">
                 <div className="px-2 py-1.5 text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
                   {t.calendarPage.connectedCalendar}
                 </div>
@@ -664,7 +664,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
                   </div>
                 )}
 
-                <div className="my-1 border-t border-zinc-200 dark:border-zinc-800" />
+                <div className="my-1 border-t border-zinc-200 border-border" />
 
                 <button
                   type="button"
@@ -700,7 +700,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
             </button>
 
             {isNewMenuOpen && (
-              <div className="absolute right-0 top-full mt-1.5 w-48 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] p-1.5 shadow-xl z-30 animate-in fade-in-0 zoom-in-95 duration-100 space-y-0.5">
+              <div className="absolute right-0 top-full mt-1.5 w-48 rounded-xl border border-zinc-200 border-border bg-white dark:bg-card p-1.5 shadow-xl z-30 animate-in fade-in-0 zoom-in-95 duration-100 space-y-0.5">
                 <button
                   type="button"
                   onClick={() => handleOpenCreateModal(undefined, "event")}
@@ -810,7 +810,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
                     "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all shrink-0",
                     isSelected
                       ? "bg-zinc-900 dark:bg-zinc-800 text-white border-zinc-600 shadow-xs font-semibold ring-1 ring-zinc-500"
-                      : "bg-zinc-100/80 dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:border-zinc-300 dark:hover:border-zinc-700"
+                      : "bg-zinc-100/80 dark:bg-zinc-900/60 border-zinc-200 border-border text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:border-zinc-300 dark:hover:border-zinc-700"
                   )}
                 >
                   <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", colors.dot)} />
@@ -831,8 +831,8 @@ export function CalendarView({ integrations }: CalendarViewProps) {
               </button>
 
               {isCreatingTag && (
-                <div className="absolute left-0 top-full mt-2 w-64 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] p-3 shadow-xl z-30 animate-in fade-in-0 zoom-in-95 duration-100 space-y-2.5">
-                  <div className="flex items-center justify-between pb-1 border-b border-zinc-100 dark:border-zinc-800">
+                <div className="absolute left-0 top-full mt-2 w-64 rounded-xl border border-zinc-200 border-border bg-white dark:bg-card p-3 shadow-xl z-30 animate-in fade-in-0 zoom-in-95 duration-100 space-y-2.5">
+                  <div className="flex items-center justify-between pb-1 border-b border-zinc-100 border-border">
                     <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
                       {t.calendarPage.createTag}
                     </span>
@@ -858,7 +858,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
                           handleCreateNewTag();
                         }
                       }}
-                      className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 px-2.5 py-1 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+                      className="w-full rounded-lg border border-zinc-200 border-border bg-zinc-50 dark:bg-zinc-900/60 px-2.5 py-1 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
                     />
                   </div>
 
@@ -912,7 +912,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t.calendarPage.searchPlaceholder}
-              className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 pl-8 pr-3 py-1 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
+              className="w-full rounded-lg border border-zinc-200 border-border bg-zinc-50 dark:bg-zinc-900/60 pl-8 pr-3 py-1 text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-blue-500/40"
             />
           </div>
         </div>
@@ -920,7 +920,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
 
       {/* ================= 1. DAY VIEW ================= */}
       {viewMode === "day" && (
-        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] p-5 shadow-2xs space-y-4">
+        <div className="rounded-2xl border border-zinc-200 border-border bg-white dark:bg-card p-5 shadow-2xs space-y-4">
           {(() => {
             const currentDayStr = currentDate.toISOString().split("T")[0];
             const currentDayEvents = eventsByDate.get(currentDayStr) || [];
@@ -928,7 +928,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
 
             return (
               <>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800 gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-zinc-200 border-border gap-2">
                   <div className="flex items-center gap-3">
                     <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-500/15 border border-blue-200/80 dark:border-blue-500/30 text-blue-600 dark:text-blue-400 font-bold text-lg">
                       {currentDate.getDate()}
@@ -961,7 +961,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
 
                 {/* All-Day Events row if present */}
                 {allDayEvents.length > 0 && (
-                  <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 dark:border-zinc-800 space-y-1.5">
+                  <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-200 border-border space-y-1.5">
                     <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
                       {t.calendarPage.allDay}
                     </span>
@@ -972,7 +972,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
                           <div
                             key={evt.id}
                             onClick={() => handleOpenEditModal(evt)}
-                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 text-xs font-semibold cursor-pointer transition-all hover:border-zinc-300 dark:hover:border-zinc-700 shadow-2xs"
+                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-zinc-200 border-border bg-zinc-50 dark:bg-zinc-900/60 text-xs font-semibold cursor-pointer transition-all hover:border-zinc-300 dark:hover:border-zinc-700 shadow-2xs"
                           >
                             <span className={cn("h-2 w-2 rounded-full", colors.dot)} />
                             <span>{evt.title}</span>
@@ -1024,7 +1024,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
                                   <div
                                     key={evt.id}
                                     onClick={() => handleOpenEditModal(evt)}
-                                    className="p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/60 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all cursor-pointer shadow-2xs space-y-1.5"
+                                    className="p-3 rounded-xl border border-zinc-200 border-border bg-zinc-50/80 dark:bg-zinc-900/60 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all cursor-pointer shadow-2xs space-y-1.5"
                                   >
                                     <div className="flex items-center justify-between gap-2">
                                       <div className="flex items-center gap-2 min-w-0">
@@ -1045,7 +1045,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
                                     )}
 
                                     <div className="flex flex-wrap items-center gap-3 text-[11px] pt-0.5">
-                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium border border-zinc-200 border-border bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
                                         #{evt.tag}
                                       </span>
 
@@ -1108,16 +1108,16 @@ export function CalendarView({ integrations }: CalendarViewProps) {
 
       {/* ================= 2. WEEK VIEW ================= */}
       {viewMode === "week" && (
-        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] p-5 shadow-2xs">
+        <div className="rounded-2xl border border-zinc-200 border-border bg-white dark:bg-card p-5 shadow-2xs">
           <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
             {weekDays.map((col, idx) => {
               const dayEvents = eventsByDate.get(col.dateString) || [];
               return (
                 <div
                   key={idx}
-                  className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-3 bg-zinc-50/50 dark:bg-zinc-900/30 flex flex-col min-h-[300px] overflow-hidden"
+                  className="rounded-xl border border-zinc-200 border-border p-3 bg-zinc-50/50 dark:bg-zinc-900/30 flex flex-col min-h-[300px] overflow-hidden"
                 >
-                  <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800 mb-2">
+                  <div className="flex items-center justify-between pb-2 border-b border-zinc-200 border-border mb-2">
                     <div>
                       <p className="text-[10px] uppercase font-semibold text-zinc-400">
                         {daysOfWeek[idx]}
@@ -1142,7 +1142,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
                         <div
                           key={evt.id}
                           onClick={() => handleOpenEditModal(evt)}
-                          className="p-2 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/80 hover:border-zinc-300 dark:hover:border-zinc-700 text-xs cursor-pointer transition-all w-full max-w-full overflow-hidden min-w-0 shadow-2xs"
+                          className="p-2 rounded-lg border border-zinc-200 border-border bg-zinc-50 dark:bg-zinc-900/80 hover:border-zinc-300 dark:hover:border-zinc-700 text-xs cursor-pointer transition-all w-full max-w-full overflow-hidden min-w-0 shadow-2xs"
                         >
                           <div className="flex items-center justify-between gap-1">
                             <div className="flex items-center gap-1.5 min-w-0">
@@ -1178,8 +1178,8 @@ export function CalendarView({ integrations }: CalendarViewProps) {
 
       {/* ================= 3. MONTH VIEW ================= */}
       {viewMode === "month" && (
-        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] overflow-hidden shadow-2xs">
-          <div className="grid grid-cols-7 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/50 text-center">
+        <div className="rounded-2xl border border-zinc-200 border-border bg-white dark:bg-card overflow-hidden shadow-2xs">
+          <div className="grid grid-cols-7 border-b border-zinc-200 border-border bg-zinc-50/80 dark:bg-zinc-900/50 text-center">
             {daysOfWeek.map((day) => (
               <div
                 key={day}
@@ -1201,7 +1201,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
                   className={cn(
                     "min-h-[110px] p-2 transition-colors cursor-pointer group flex flex-col justify-between overflow-hidden",
                     cell.isCurrentMonth
-                      ? "bg-white dark:bg-[#161618] hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
+                      ? "bg-white dark:bg-card hover:bg-zinc-50/70 dark:hover:bg-zinc-900/40"
                       : "bg-zinc-50/40 dark:bg-zinc-950/20 text-zinc-400 dark:text-zinc-600 hover:bg-zinc-50 dark:hover:bg-zinc-900/20"
                   )}
                 >
@@ -1245,7 +1245,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
                           key={evt.id}
                           onClick={(e) => handleOpenEditModal(evt, e)}
                           title={`${evt.title} (${timeStr}) - #${evt.tag}`}
-                          className="flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-medium border border-zinc-200 dark:border-zinc-800/80 bg-zinc-50/90 dark:bg-zinc-900/90 text-zinc-800 dark:text-zinc-200 w-full max-w-full overflow-hidden min-w-0 transition-all hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-2xs cursor-pointer"
+                          className="flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-medium border border-zinc-200 border-border/80 bg-zinc-50/90 dark:bg-zinc-900/90 text-zinc-800 dark:text-zinc-200 w-full max-w-full overflow-hidden min-w-0 transition-all hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-2xs cursor-pointer"
                         >
                           <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", colors.dot)} />
                           {!evt.allDay && (
@@ -1273,8 +1273,8 @@ export function CalendarView({ integrations }: CalendarViewProps) {
 
       {/* ================= 4. AGENDA VIEW ================= */}
       {viewMode === "agenda" && (
-        <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] p-5 shadow-2xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="rounded-2xl border border-zinc-200 border-border bg-white dark:bg-card p-5 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-zinc-200 border-border">
             <h2 className="text-sm font-bold text-zinc-900 dark:text-white">
               {t.calendarPage.timelineTitle}
             </h2>
@@ -1302,10 +1302,10 @@ export function CalendarView({ integrations }: CalendarViewProps) {
                   <div
                     key={evt.id}
                     onClick={() => handleOpenEditModal(evt)}
-                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer gap-3"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border border-zinc-200 border-border bg-zinc-50/50 dark:bg-zinc-900/30 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors cursor-pointer gap-3"
                   >
                     <div className="flex items-start gap-3 min-w-0 pr-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-zinc-200 border-border bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300">
                         {evt.entityType === "task" ? (
                           <CheckSquare className="h-4 w-4" />
                         ) : evt.entityType === "meeting" ? (
@@ -1321,7 +1321,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
                           <p className="text-xs font-semibold text-zinc-900 dark:text-white truncate">
                             {evt.title}
                           </p>
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-medium border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-medium border border-zinc-200 border-border bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
                             <span className={cn("h-1.5 w-1.5 rounded-full", colors.dot)} />
                             <span>#{evt.tag}</span>
                           </span>

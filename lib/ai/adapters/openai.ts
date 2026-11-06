@@ -94,7 +94,7 @@ export class OpenAIAdapter extends BaseAIAdapter implements AIProviderAdapter {
       };
     }
 
-    const isReasoning = model.startsWith("o1-") || model.startsWith("o3-");
+    const isReasoning = model === "o1" || model.startsWith("o1-") || model === "o3" || model.startsWith("o3-");
     const payload: Record<string, unknown> = {
       model,
       messages: this.formatMessages(messages, options?.systemInstruction, isReasoning),
@@ -162,7 +162,7 @@ export class OpenAIAdapter extends BaseAIAdapter implements AIProviderAdapter {
       return;
     }
 
-    const isReasoning = model.startsWith("o1-") || model.startsWith("o3-");
+    const isReasoning = model === "o1" || model.startsWith("o1-") || model === "o3" || model.startsWith("o3-");
     const payload: Record<string, unknown> = {
       model,
       messages: this.formatMessages(messages, options?.systemInstruction, isReasoning),

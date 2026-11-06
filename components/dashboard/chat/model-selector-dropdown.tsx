@@ -2,30 +2,78 @@
 
 // ==============================================================================
 // Company Brain: Model Selector Dropdown
-// Clean, accessible, executive model picker with Automatic, Available and Unconfigured groups.
-// Strictly adheres to AGENTS.md: zero fake button pill badges, subtle semantic dots.
+// Clean, accessible model picker with Provider Logos & Zero White Borders.
 // ==============================================================================
 
 import React, { useState, useRef, useEffect } from "react";
-import { Sparkles, ChevronDown, Check, Settings, ExternalLink } from "lucide-react";
+import { ChevronDown, Check, Settings, ExternalLink, Zap } from "lucide-react";
+import { useLanguage } from "@/lib/i18n";
 import { MODEL_CATALOG } from "@/lib/ai/catalog/models";
-import { ModelMetadata } from "@/lib/ai/catalog/types";
 
 interface ModelSelectorDropdownProps {
   selectedModelId?: string | null;
-  isAutomatic?: boolean;
   configuredProviders?: string[];
-  onSelectModel: (modelId: string | null) => void;
+  dropDirection?: "up" | "down";
+  align?: "left" | "right";
+  onSelectModel: (modelId: string) => void;
   onOpenSettings?: () => void;
+  onOpenLimits?: () => void;
+}
+
+export function ProviderLogo({
+  provider,
+  className = "h-3.5 w-3.5 object-contain shrink-0",
+}: {
+  provider?: string;
+  className?: string;
+}) {
+  if (!provider) return null;
+  const p = provider.toLowerCase();
+  let src = "";
+
+  if (p === "google" || p === "gemini") {
+    src = "/Logos/google-gemini-icon.svg";
+  } else if (p === "openai") {
+    src = "/Logos/openai-icon.svg";
+  } else if (p === "anthropic") {
+    src = "/Logos/anthropic-icon.svg";
+  } else if (p === "mistral") {
+    src = "/Logos/mistral-ai-icon.svg";
+  } else if (p === "perplexity") {
+    src = "/Logos/perplexity-icon.svg";
+  } else if (p === "deepseek") {
+    src = "/Logos/deepseek-icon.svg";
+  } else if (p === "xai") {
+    src = "/Logos/x-ai.svg";
+  } else {
+    src = "/Logos/google-gemini-icon.svg";
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt={provider}
+      className={className}
+      onError={(e) => {
+        (e.target as HTMLElement).style.display = "none";
+      }}
+    />
+  );
 }
 
 export function ModelSelectorDropdown({
   selectedModelId,
-  isAutomatic = true,
   configuredProviders = ["gemini"],
+  dropDirection = "down",
+  align = "left",
   onSelectModel,
   onOpenSettings,
+  onOpenLimits,
 }: ModelSelectorDropdownProps) {
+  const { locale } = useLanguage();
+  const isPt = locale === "pt";
+
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -51,15 +99,13 @@ export function ModelSelectorDropdown({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const activeModel = selectedModelId
-    ? MODEL_CATALOG.find((m) => m.id === selectedModelId || m.realModelId === selectedModelId)
-    : null;
+  // Find active model or fallback to gemini-2.5-flash
+  const activeModel =
+    MODEL_CATALOG.find((m) => m.id === selectedModelId || m.realModelId === selectedModelId) ||
+    MODEL_CATALOG.find((m) => m.id === "gemini-2.5-flash") ||
+    MODEL_CATALOG[0];
 
-  const currentLabel = isAutomatic
-    ? "Automático"
-    : activeModel
-    ? activeModel.displayName
-    : "Gemini 2.5 Flash";
+  const currentLabel = activeModel ? activeModel.displayName : "Gemini 2.5 Flash";
 
   const availableModels = MODEL_CATALOG.filter(
     (m) => m.isSystemProvided || configuredProviders.includes(m.provider)
@@ -71,66 +117,41 @@ export function ModelSelectorDropdown({
 
   return (
     <div className="relative inline-block text-left" ref={containerRef}>
-      {/* Trigger Button */}
+      {/* Trigger Button - subtle dark borders, zero stark white */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#121316] px-3 py-1.5 text-xs text-zinc-300 transition-colors hover:border-white/[0.15] hover:bg-[#16181D] hover:text-white focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+        className="flex items-center gap-1.5 rounded-lg border border-border bg-card/90 px-2.5 py-1 text-xs text-zinc-300 transition-colors hover:bg-surface-secondary hover:border-border-strong hover:text-zinc-100 focus:outline-none cursor-pointer shadow-2xs"
       >
-        {isAutomatic ? (
-          <Sparkles className="h-3.5 w-3.5 text-blue-400" />
-        ) : (
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        {activeModel && (
+          <ProviderLogo provider={activeModel.provider} className="h-3.5 w-3.5 object-contain shrink-0" />
         )}
-        <span className="font-medium text-zinc-200">{currentLabel}</span>
-        <ChevronDown className="h-3 w-3 text-zinc-400 opacity-70" />
+        <span className="font-medium text-xs">{currentLabel}</span>
+        <ChevronDown className="h-3 w-3 text-zinc-400 opacity-75" />
       </button>
 
       {/* Dropdown Menu */}
       {isOpen && (
         <div
           role="listbox"
-          className="absolute left-0 z-50 mt-1.5 w-72 rounded-xl border border-white/[0.08] bg-[#121316] p-1.5 shadow-2xl backdrop-blur-xl animate-in fade-in-0 zoom-in-95 duration-100"
+          className={`absolute ${align === "right" ? "right-0" : "left-0"} ${
+            dropDirection === "up" ? "bottom-full mb-1.5" : "mt-1.5"
+          } z-50 w-64 rounded-xl border border-border bg-card p-1.5 shadow-2xl backdrop-blur-xl animate-in fade-in-0 zoom-in-95 duration-100 text-left`}
         >
-          {/* Automatic Mode */}
-          <button
-            type="button"
-            role="option"
-            aria-selected={isAutomatic}
-            onClick={() => {
-              onSelectModel(null);
-              setIsOpen(false);
-            }}
-            className={`flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
-              isAutomatic
-                ? "bg-white/[0.06] text-white"
-                : "text-zinc-300 hover:bg-white/[0.04] hover:text-white"
-            }`}
-          >
-            <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" />
-            <div className="flex-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium">Modo Automático</span>
-                {isAutomatic && <Check className="h-3.5 w-3.5 text-blue-400" />}
-              </div>
-              <p className="text-[11px] text-zinc-400">
-                Encaminhamento inteligente com proteção de custos e menor latência
-              </p>
-            </div>
-          </button>
-
-          <div className="my-1.5 border-t border-white/[0.06]" />
-
-          {/* Available Models Group */}
-          <div className="px-2 py-1 text-[10px] font-semibold tracking-wider text-zinc-400 uppercase">
-            Modelos Ativos & Prontos
+          {/* Available Models Group - Included in Platform Plans */}
+          <div className="flex items-center justify-between px-2 py-1 text-[10px] font-semibold tracking-wider text-zinc-400 uppercase">
+            <span>{isPt ? "Modelos Incluídos (BusinessBrain)" : "Included Models (BusinessBrain)"}</span>
+            <span className="text-[9px] text-emerald-400/90 font-normal">
+              {isPt ? "No Plano" : "Included"}
+            </span>
           </div>
 
-          <div className="space-y-0.5">
+          <div className="space-y-0.5 max-h-64 overflow-y-auto pr-1">
             {availableModels.map((model) => {
-              const isSelected = !isAutomatic && activeModel?.id === model.id;
+              const isSelected = activeModel?.id === model.id;
+              const multiplier = model.creditMultiplier ?? 1;
               return (
                 <button
                   key={model.id}
@@ -141,25 +162,22 @@ export function ModelSelectorDropdown({
                     onSelectModel(model.realModelId);
                     setIsOpen(false);
                   }}
-                  className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left transition-colors ${
+                  className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-left transition-colors cursor-pointer ${
                     isSelected
-                      ? "bg-white/[0.06] text-white"
-                      : "text-zinc-300 hover:bg-white/[0.04] hover:text-white"
+                      ? "bg-white/[0.07] text-white font-medium"
+                      : "text-zinc-400 hover:text-zinc-100 hover:bg-surface-secondary"
                   }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                    <div>
-                      <div className="text-xs font-medium">{model.displayName}</div>
-                      <div className="text-[10px] text-zinc-400">
-                        {model.limits.contextWindowTokens >= 1_000_000
-                          ? "1M+ contexto"
-                          : `${Math.round(model.limits.contextWindowTokens / 1000)}k contexto`}{" "}
-                        • {model.latencyProfile === "ultra_low" ? "Rápido" : "Avançado"}
-                      </div>
-                    </div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ProviderLogo provider={model.provider} className="h-3.5 w-3.5 object-contain shrink-0" />
+                    <span className="truncate">{model.displayName}</span>
                   </div>
-                  {isSelected && <Check className="h-3.5 w-3.5 text-emerald-400" />}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[10px] text-zinc-500 font-mono">
+                      {multiplier}x
+                    </span>
+                    {isSelected && <Check className="h-3.5 w-3.5 text-zinc-200 shrink-0" />}
+                  </div>
                 </button>
               );
             })}
@@ -168,19 +186,19 @@ export function ModelSelectorDropdown({
           {/* Unconfigured Models Group */}
           {unconfiguredModels.length > 0 && (
             <>
-              <div className="my-1.5 border-t border-white/[0.06]" />
+              <div className="my-1 border-t border-border" />
               <div className="px-2 py-1 text-[10px] font-semibold tracking-wider text-zinc-400 uppercase">
-                Disponíveis via Chave Própria (BYOK)
+                {isPt ? "Chave Própria (BYOK)" : "Bring Your Own Key (BYOK)"}
               </div>
               <div className="space-y-0.5">
-                {unconfiguredModels.slice(0, 3).map((model) => (
+                {unconfiguredModels.slice(0, 4).map((model) => (
                   <div
                     key={model.id}
-                    className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-zinc-400 opacity-60"
+                    className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-zinc-500"
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-zinc-600" />
-                      <span>{model.displayName}</span>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <ProviderLogo provider={model.provider} className="h-3.5 w-3.5 object-contain shrink-0 opacity-50" />
+                      <span className="truncate">{model.displayName}</span>
                     </div>
                     {onOpenSettings && (
                       <button
@@ -189,9 +207,9 @@ export function ModelSelectorDropdown({
                           setIsOpen(false);
                           onOpenSettings();
                         }}
-                        className="text-[10px] text-blue-400 hover:text-blue-300"
+                        className="text-[10px] text-zinc-400 hover:text-zinc-200 hover:underline ml-2"
                       >
-                        Configurar
+                        {isPt ? "Ativar" : "Enable"}
                       </button>
                     )}
                   </div>
@@ -200,21 +218,42 @@ export function ModelSelectorDropdown({
             </>
           )}
 
+          {/* Account Limits Shortcut */}
+          {onOpenLimits && (
+            <>
+              <div className="my-1 border-t border-border" />
+              <button
+                type="button"
+                onClick={() => {
+                  setIsOpen(false);
+                  onOpenLimits();
+                }}
+                className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-surface-secondary hover:text-white cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Zap className="h-3.5 w-3.5 text-amber-400" />
+                  <span>{isPt ? "Ver Limites da Conta" : "View Account Limits"}</span>
+                </div>
+                <ExternalLink className="h-3 w-3 opacity-60" />
+              </button>
+            </>
+          )}
+
           {/* Settings Shortcut */}
           {onOpenSettings && (
             <>
-              <div className="my-1.5 border-t border-white/[0.06]" />
+              <div className="my-1 border-t border-border" />
               <button
                 type="button"
                 onClick={() => {
                   setIsOpen(false);
                   onOpenSettings();
                 }}
-                className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-200"
+                className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-zinc-400 hover:bg-surface-secondary hover:text-zinc-200 cursor-pointer"
               >
                 <div className="flex items-center gap-1.5">
                   <Settings className="h-3.5 w-3.5" />
-                  <span>Gerir Fornecedores & Chaves</span>
+                  <span>{isPt ? "Gerir Fornecedores" : "Manage Providers"}</span>
                 </div>
                 <ExternalLink className="h-3 w-3 opacity-60" />
               </button>

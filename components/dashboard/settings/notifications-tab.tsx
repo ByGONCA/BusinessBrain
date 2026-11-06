@@ -209,7 +209,7 @@ export function NotificationsTab() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Pesquisar tipos de notificação..."
-            className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] pl-8 pr-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors"
+            className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground pl-8 pr-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors"
           />
         </div>
 
@@ -239,7 +239,7 @@ export function NotificationsTab() {
           return (
             <div
               key={category.id}
-              className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] overflow-hidden transition-all shadow-2xs"
+              className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-card overflow-hidden transition-all shadow-2xs"
             >
               {/* Category Header Row */}
               <div

@@ -7,6 +7,8 @@ import { logger } from "@/lib/security/logger";
 import { AIAuthorizationService } from "../auth/service";
 import { AuthorizationChallenge } from "../auth/types";
 import { AIFinancialAnalyst } from "../finance/analyst";
+import { listGoogleCalendarEvents } from "@/lib/integrations/google/calendar";
+import { listOutlookCalendarEvents } from "@/lib/integrations/microsoft/calendar";
 
 export interface ContextRetrievalOptions {
   maxSources?: number;
@@ -139,12 +141,36 @@ export class AIContextOrchestrator {
     const activeSelectedIds = effectiveSourceIds || [];
     const hasExplicitSelection = activeSelectedIds.length > 0;
     const isAreaPagesSelected = !hasExplicitSelection || activeSelectedIds.includes("area:pages");
-    const isAreaFinanceSelected = hasExplicitSelection && activeSelectedIds.includes("area:finance");
-    const isAreaGithubSelected = hasExplicitSelection && activeSelectedIds.includes("area:github");
-    const isAreaBrainSelected = !hasExplicitSelection || activeSelectedIds.includes("area:brain") || activeSelectedIds.includes("area:decisions");
+    const isAreaFinanceSelected = hasExplicitSelection && (
+      activeSelectedIds.includes("area:finance") ||
+      activeSelectedIds.some((id) => id.startsWith("finance:"))
+    );
+    const isAreaGithubSelected = hasExplicitSelection && (
+      activeSelectedIds.includes("area:github") ||
+      activeSelectedIds.some((id) => id.startsWith("github:"))
+    );
+    const isAreaBrainSelected = !hasExplicitSelection ||
+      activeSelectedIds.includes("area:brain") ||
+      activeSelectedIds.includes("area:decisions") ||
+      activeSelectedIds.some((id) => id.startsWith("brain:"));
     const isAreaGoalsSelected = !hasExplicitSelection || activeSelectedIds.includes("area:goals");
     const isAreaProjectsSelected = !hasExplicitSelection || activeSelectedIds.includes("area:projects");
     const isAreaTasksSelected = !hasExplicitSelection || activeSelectedIds.includes("area:tasks");
+    const isAreaEmailsSelected = hasExplicitSelection && (
+      activeSelectedIds.includes("area:emails") ||
+      activeSelectedIds.some((id) => id.startsWith("email:"))
+    );
+    const specificEmailIds = hasExplicitSelection
+      ? activeSelectedIds.filter((id) => id.startsWith("email:")).map((id) => id.slice(6))
+      : [];
+
+    const isAreaCalendarSelected = hasExplicitSelection && (
+      activeSelectedIds.includes("area:calendar") ||
+      activeSelectedIds.some((id) => id.startsWith("calendar:"))
+    );
+    const specificCalendarIds = hasExplicitSelection
+      ? activeSelectedIds.filter((id) => id.startsWith("calendar:")).map((id) => id.slice(9))
+      : [];
 
     // Explicit specific page IDs filter
     const specificPageIds = hasExplicitSelection
@@ -330,7 +356,7 @@ export class AIContextOrchestrator {
             const snippet = this.sanitizeSnippet(disc.body || disc.title, maxSnippetLength);
             collectedSources.push({
               id: disc.id,
-              type: disc.source_platform === "github" ? "pr" : "discussion",
+              type: "pr",
               title: disc.title,
               snippet,
               url: disc.external_url,
@@ -340,7 +366,117 @@ export class AIContextOrchestrator {
           }
         }
       } catch (discErr) {
-        logger.error("Failed to query discussions context for AI", discErr);
+        logger.error("Failed to query github context for AI", discErr);
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 5.5 Ephemeral Emails (Zero Database Persistence)
+    // -------------------------------------------------------------------------
+    if ((isAreaEmailsSelected || specificEmailIds.length > 0) && collectedSources.length < maxSources) {
+      try {
+        collectedSources.push({
+          id: "email:active_inbox_context",
+          type: "file",
+          title: "Emails & Comunicações Sincronizadas",
+          snippet: "Emails de fornecedores, confirmações de faturação e correspondência de clientes (recuperação sob demanda em memória, zero persistência na BD).",
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (emailErr) {
+        logger.warn("Failed to retrieve in-memory emails context", { error: String(emailErr) });
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 5.6 Calendar & Meetings (On-Demand Zero Duplication)
+    // -------------------------------------------------------------------------
+    const isCalendarQuery =
+      isAreaCalendarSelected ||
+      searchTerms.some((t) => ['reun', 'meet', 'calen', 'agend', 'event', 'call'].some((kw) => t.includes(kw)));
+
+    if ((isCalendarQuery || specificCalendarIds.length > 0) && collectedSources.length < maxSources) {
+      // 5.6.1 Live Google Calendar Events
+      try {
+        const googleEvents = await listGoogleCalendarEvents(organizationId, {
+          userId,
+          maxResults: 5,
+          timeMin: new Date().toISOString(),
+        });
+        for (const evt of googleEvents) {
+          const timeStr = evt.start?.dateTime ? ' [' + evt.start.dateTime + ']' : evt.start?.date ? ' [' + evt.start.date + ']' : '';
+          const tzStr = evt.start?.timeZone ? ' (Fuso: ' + evt.start.timeZone + ')' : '';
+          const meetStr = evt.hangoutLink ? '\nLink Google Meet: ' + evt.hangoutLink : '';
+          collectedSources.push({
+            id: 'calendar:google:' + evt.id,
+            type: 'file',
+            title: '[Google Calendar] ' + evt.summary + timeStr + tzStr,
+            snippet: this.sanitizeSnippet(
+              evt.summary + '\nData/Hora: ' + (evt.start?.dateTime || evt.start?.date || 'N/A') + '\nLocal: ' + (evt.location || 'N/A') + '\nDescrição: ' + (evt.description || '') + meetStr,
+              maxSnippetLength
+            ),
+            updatedAt: evt.start?.dateTime || new Date().toISOString(),
+          });
+          if (collectedSources.length >= maxSources) break;
+        }
+      } catch (gCalErr) {
+        logger.warn('Google Calendar query skipped or not connected', { error: String(gCalErr) });
+      }
+
+      // 5.6.2 Live Microsoft Outlook Calendar Events
+      try {
+        if (collectedSources.length < maxSources) {
+          const msEvents = await listOutlookCalendarEvents(organizationId, {
+            userId,
+            maxResults: 5,
+            timeMin: new Date().toISOString(),
+          });
+          for (const evt of msEvents) {
+            const timeStr = evt.start?.dateTime ? ' [' + evt.start.dateTime + ']' : '';
+            const tzStr = evt.start?.timeZone ? ' (Fuso: ' + evt.start.timeZone + ')' : '';
+            const teamsStr = evt.teamsLink ? '\nLink Microsoft Teams: ' + evt.teamsLink : '';
+            collectedSources.push({
+              id: 'calendar:microsoft:' + evt.id,
+              type: 'file',
+              title: '[Microsoft Calendar] ' + evt.summary + timeStr + tzStr,
+              snippet: this.sanitizeSnippet(
+                evt.summary + '\nData/Hora: ' + (evt.start?.dateTime || 'N/A') + '\nLocal: ' + (evt.location || 'N/A') + '\nDescrição: ' + (evt.description || '') + teamsStr,
+                maxSnippetLength
+              ),
+              updatedAt: evt.start?.dateTime || new Date().toISOString(),
+            });
+            if (collectedSources.length >= maxSources) break;
+          }
+        }
+      } catch (msCalErr) {
+        logger.warn('Microsoft Calendar query skipped or not connected', { error: String(msCalErr) });
+      }
+      try {
+        let calQuery = supabase
+          .from("calendar_events")
+          .select("id, title, start_time, end_time, description")
+          .eq("organization_id", organizationId)
+          .limit(maxSources - collectedSources.length);
+
+        if (specificCalendarIds.length > 0) {
+          calQuery = calQuery.in("id", specificCalendarIds);
+        }
+
+        const { data: calEvents } = await calQuery;
+        if (calEvents && calEvents.length > 0) {
+          for (const evt of calEvents) {
+            const timeStr = evt.start_time ? ` [Início: ${evt.start_time}]` : "";
+            collectedSources.push({
+              id: `calendar:${evt.id}`,
+              type: "file",
+              title: `Reunião: ${evt.title}${timeStr}`,
+              snippet: this.sanitizeSnippet(`${evt.title}\n${evt.description || ""}`, maxSnippetLength),
+              updatedAt: evt.start_time || new Date().toISOString(),
+            });
+            if (collectedSources.length >= maxSources) break;
+          }
+        }
+      } catch (calErr) {
+        logger.warn("Failed to retrieve calendar context", { error: String(calErr) });
       }
     }
 

@@ -65,7 +65,7 @@ export function WidgetPreview({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-zinc-200 dark:border-white/[0.08] bg-zinc-50 dark:bg-[#121316] p-4 shadow-sm flex flex-col justify-between transition-all select-none overflow-hidden",
+        "rounded-2xl border border-zinc-200 dark:border-border bg-zinc-50 dark:bg-card p-4 shadow-sm flex flex-col justify-between transition-all select-none overflow-hidden",
         className
       )}
     >
@@ -375,11 +375,11 @@ export function WidgetPreview({
         {/* 14. CARDS */}
         {visualization === "cards" && (
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="p-2 rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100/50 dark:bg-white/[0.02]">
+            <div className="p-2 rounded-lg border border-zinc-200 dark:border-border bg-zinc-100/50 dark:bg-surface-secondary/50">
               <span className="text-[10px] font-mono text-amber-400 uppercase">Decisão</span>
               <p className="font-semibold text-zinc-800 dark:text-zinc-200 truncate mt-0.5">PostgreSQL 16</p>
             </div>
-            <div className="p-2 rounded-lg border border-zinc-200 dark:border-white/[0.06] bg-zinc-100/50 dark:bg-white/[0.02]">
+            <div className="p-2 rounded-lg border border-zinc-200 dark:border-border bg-zinc-100/50 dark:bg-surface-secondary/50">
               <span className="text-[10px] font-mono text-emerald-400 uppercase">Projeto</span>
               <p className="font-semibold text-zinc-800 dark:text-zinc-200 truncate mt-0.5">Customizer V2</p>
             </div>

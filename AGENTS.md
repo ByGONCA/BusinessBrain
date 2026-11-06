@@ -2,7 +2,7 @@
 
 > **Project**: Company Brain (BusinessBrain)  
 > **Mission**: The memory and intelligence layer for modern companies.  
-> **Reference Docs**: Roadmap: [`docs/ROADMAP.md`](./docs/ROADMAP.md) | Architecture: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Codebase Map: [`docs/CODEBASE_MAP.md`](./docs/CODEBASE_MAP.md) | Investigation & Token Protocol: [`.agents/rules/investigation-protocol.md`](./.agents/rules/investigation-protocol.md) | Environment & Tooling Policy: [`docs/ENVIRONMENT_POLICY.md`](./docs/ENVIRONMENT_POLICY.md) & [`.agents/rules/tooling-and-environment.md`](./.agents/rules/tooling-and-environment.md) | Subagents Protocol: [`.agents/rules/subagents-protocol.md`](./.agents/rules/subagents-protocol.md)
+> **Reference Docs**: Roadmap: [`docs/ROADMAP.md`](./docs/ROADMAP.md) | Architecture: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Codebase Map: [`docs/CODEBASE_MAP.md`](./docs/CODEBASE_MAP.md) | AI Context: [`docs/AI_CONTEXT.md`](./docs/AI_CONTEXT.md) | Investigation & Token Protocol: [`.agents/rules/investigation-protocol.md`](./.agents/rules/investigation-protocol.md) | Graphify: [`.agents/rules/graphify.md`](./.agents/rules/graphify.md) | Ponytail: [`.agents/rules/ponytail.md`](./.agents/rules/ponytail.md) | Environment & Tooling Policy: [`docs/ENVIRONMENT_POLICY.md`](./docs/ENVIRONMENT_POLICY.md) & [`.agents/rules/tooling-and-environment.md`](./.agents/rules/tooling-and-environment.md) | Subagents Protocol: [`.agents/rules/subagents-protocol.md`](./.agents/rules/subagents-protocol.md)
 
 ---
 
@@ -68,6 +68,24 @@ Match testing depth to task risk to avoid wasted compute and console bloat:
      3. O **menor consumo de tokens possível** (mantendo a janela de contexto principal limpa de leituras massivas de ficheiros ou relatórios brutos de exploração).
    - **Controlo e Integração Central**: O Lead Agent coordena, sintetiza criticamente e detém a responsabilidade exclusiva pela implementação de código de produção e validação final (`npm run typecheck && npm run lint && npm test`).
    - Detalhes normativos em [`.agents/rules/subagents-protocol.md`](./.agents/rules/subagents-protocol.md).
+10. **Universal AI Optimization Stack (Graphify + Ponytail)**:
+    - **Codebase Intelligence (Graphify)**: Before performing broad file exploration, consult the project knowledge graph at `graphify-out/` via CLI (`graphify query "<concept>"`, `graphify path "<A>" "<B>"`, `graphify explain "<node>"`) or MCP (`query_graph`). Avoid reading raw files when a scoped subgraph answers the architectural question. After editing code, run `graphify update .` (AST-only, zero LLM cost) to maintain graph accuracy.
+    - **Implementation Minimalism (Ponytail)**: Apply the Ponytail ladder to all coding tasks:
+      1. *YAGNI*: Does this need to exist? Skip speculative requirements.
+      2. *Reuse*: Check `lib/` and `components/` before creating new abstractions.
+      3. *Stdlib*: Rely on native TypeScript/JavaScript/Node stdlib.
+      4. *Platform*: Prefer native HTML/CSS and database constraints over client JS.
+      5. *Existing Deps*: Use packages already in `package.json`; avoid new dependencies.
+      6. *Minimal Diff*: One line or smallest safe diff with a targeted check.
+    - **Non-Negotiable Boundaries**: Ponytail and token optimization NEVER justify weakening security, multi-tenant isolation, RLS policies, input validation (Zod), error handling, or accessibility. Understand the problem and trace callers before writing code.
+11. **Canonical Decision Hierarchy**:
+    1. Correctness and security.
+    2. User requirements.
+    3. Existing project architecture.
+    4. Simplicity and maintainability (Ponytail).
+    5. Efficient codebase understanding (Graphify).
+    6. Token and execution efficiency.
+    7. Concise communication.
 
 
 ---

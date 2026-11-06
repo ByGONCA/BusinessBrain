@@ -192,7 +192,18 @@ export class DeepSeekAdapter extends BaseAIAdapter implements AIProviderAdapter 
       try {
         const parsed = JSON.parse(dataStr);
         const delta = parsed.choices?.[0]?.delta?.content;
+        const reasoningDelta = parsed.choices?.[0]?.delta?.reasoning_content;
         const finishReason = parsed.choices?.[0]?.finish_reason;
+
+        if (reasoningDelta) {
+          yield {
+            text: "",
+            reasoningText: reasoningDelta,
+            done: false,
+            provider: this.id,
+            model,
+          };
+        }
 
         if (delta) {
           accumulatedText += delta;

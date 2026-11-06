@@ -33,6 +33,8 @@ import {
   Shield,
   FolderGit2,
   RefreshCw,
+  AlertTriangle,
+  HelpCircle,
 } from "lucide-react";
 import {
   PhosphorGear,
@@ -45,8 +47,8 @@ import {
   PhosphorArrowsClockwise,
 } from "@/components/icons";
 import { cn } from "@/lib/utils";
-import { OrganizationWithRole, OrganizationMember } from "@/lib/organizations/types";
-import { OrganizationEntitlement } from "@/lib/organizations/entitlements";
+import type { OrganizationWithRole, OrganizationMember } from "@/lib/organizations/types";
+import type { OrganizationEntitlement } from "@/lib/organizations/entitlements";
 import { useSettings } from "./settings-context";
 import { useTheme } from "@/components/theme/theme-provider";
 import { usePlatform } from "@/lib/hooks/use-platform";
@@ -60,6 +62,10 @@ import { OrganizationIntegration } from "@/lib/integrations/types";
 import {
   getOrganizationIntegrationsAction,
   deleteIntegrationAction,
+  testIntegrationConnectionAction,
+  getIntegrationConfigStatusAction,
+  ProviderConfigStatus,
+  TestConnectionResult,
 } from "@/lib/integrations/actions";
 import { disconnectStripeIntegrationAction } from "@/lib/integrations/stripe/actions";
 import {
@@ -184,6 +190,9 @@ export function SettingsModal({
   const [loadingIntegrations, setLoadingIntegrations] = React.useState(false);
   const [deletingIntegrationId, setDeletingIntegrationId] = React.useState<string | null>(null);
   const [infoModalItem, setInfoModalItem] = React.useState<IntegrationDefinition | null>(null);
+  const [configStatus, setConfigStatus] = React.useState<Record<string, ProviderConfigStatus>>({});
+  const [testingIntegrationId, setTestingIntegrationId] = React.useState<string | null>(null);
+  const [testResults, setTestResults] = React.useState<Record<string, TestConnectionResult>>({});
 
   React.useEffect(() => {
     if (initialIntegrations && initialIntegrations.length > 0) {
@@ -194,14 +203,40 @@ export function SettingsModal({
   const loadIntegrations = React.useCallback(async () => {
     setLoadingIntegrations(true);
     try {
-      const list = await getOrganizationIntegrationsAction();
+      const [list, configs] = await Promise.all([
+        getOrganizationIntegrationsAction(),
+        getIntegrationConfigStatusAction(),
+      ]);
       setIntegrations(list);
+      setConfigStatus(configs);
     } catch (err) {
       console.error("Failed to load integrations", err);
     } finally {
       setLoadingIntegrations(false);
     }
   }, []);
+
+  const handleTestConnection = async (integrationId: string) => {
+    setTestingIntegrationId(integrationId);
+    try {
+      const res = await testIntegrationConnectionAction(integrationId);
+      setTestResults((prev) => ({ ...prev, [integrationId]: res }));
+      if (res.status === "needs_reauth") {
+        await loadIntegrations();
+      }
+    } catch (err) {
+      setTestResults((prev) => ({
+        ...prev,
+        [integrationId]: {
+          success: false,
+          status: "error",
+          message: err instanceof Error ? err.message : "Erro no teste de conexão",
+        },
+      }));
+    } finally {
+      setTestingIntegrationId(null);
+    }
+  };
 
   React.useEffect(() => {
     if (isOpen && activeTab === "integrations") {
@@ -326,29 +361,29 @@ export function SettingsModal({
     >
       {/* Modal Dialog Window */}
       <div
-        className="relative flex h-[820px] max-h-[94vh] w-full max-w-6xl xl:max-w-7xl overflow-hidden rounded-2xl border border-[#242427] bg-[#141415] text-[#F5F5F5] shadow-2xl transition-colors duration-150"
+        className="relative flex h-[820px] max-h-[94vh] w-full max-w-6xl xl:max-w-7xl overflow-hidden rounded-2xl border border-border bg-card text-foreground shadow-2xl shadow-2xl transition-colors duration-150"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ========================================================= */}
         {/* LEFT SETTINGS SIDEBAR                                    */}
         {/* ========================================================= */}
-        <aside className="w-56 shrink-0 border-r border-[#1C1C1F] bg-[#080809] p-3 flex flex-col justify-between select-none">
+        <aside className="w-56 shrink-0 border-r border-border bg-surface-secondary/60 p-3 flex flex-col justify-between select-none">
           <div className="space-y-3 overflow-y-auto no-scrollbar">
             {/* Search Input */}
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#71717A]" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t.settings.searchPlaceholder}
-                className="w-full rounded-lg border border-[#242427] bg-[#141415] py-1.5 pl-8 pr-2.5 text-xs text-[#F5F5F5] placeholder-[#71717A] focus:border-[#3B82F6] focus:outline-none transition-colors"
+                className="w-full rounded-lg border border-border bg-surface-secondary py-1.5 pl-8 pr-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none transition-colors"
               />
             </div>
 
             {/* Section: Account */}
             <div className="space-y-0.5">
-              <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-[#71717A]">
+              <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Account
               </span>
 
@@ -358,8 +393,8 @@ export function SettingsModal({
                 className={cn(
                   "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "profile"
-                    ? "bg-[#242427] text-[#F5F5F5] font-semibold"
-                    : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
+                    ? "bg-selected text-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-hover hover:text-foreground"
                 )}
               >
                 <div className="relative flex h-4 w-4 shrink-0 items-center justify-center rounded-full overflow-hidden bg-blue-600/20 text-[10px] font-bold text-blue-400">
@@ -378,11 +413,11 @@ export function SettingsModal({
                 className={cn(
                   "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "security"
-                    ? "bg-[#242427] text-[#F5F5F5] font-semibold"
-                    : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
+                    ? "bg-selected text-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-hover hover:text-foreground"
                 )}
               >
-                <PhosphorWarningOctagon className="h-3.5 w-3.5 text-[#71717A]" />
+                <PhosphorWarningOctagon className="h-3.5 w-3.5 text-muted-foreground" />
                 <span>Security</span>
               </button>
 
@@ -392,11 +427,11 @@ export function SettingsModal({
                 className={cn(
                   "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "preferences"
-                    ? "bg-[#242427] text-[#F5F5F5] font-semibold"
-                    : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
+                    ? "bg-selected text-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-hover hover:text-foreground"
                 )}
               >
-                <Sliders className="h-3.5 w-3.5 text-[#71717A]" />
+                <Sliders className="h-3.5 w-3.5 text-muted-foreground" />
                 <span>Preferences</span>
               </button>
 
@@ -406,11 +441,11 @@ export function SettingsModal({
                 className={cn(
                   "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "appearance"
-                    ? "bg-[#242427] text-[#F5F5F5] font-semibold"
-                    : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
+                    ? "bg-selected text-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-hover hover:text-foreground"
                 )}
               >
-                <Palette className="h-3.5 w-3.5 text-[#71717A]" />
+                <Palette className="h-3.5 w-3.5 text-muted-foreground" />
                 <span>Appearance</span>
               </button>
 
@@ -420,11 +455,11 @@ export function SettingsModal({
                 className={cn(
                   "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "notifications"
-                    ? "bg-[#242427] text-[#F5F5F5] font-semibold"
-                    : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
+                    ? "bg-selected text-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-hover hover:text-foreground"
                 )}
               >
-                <PhosphorBell className="h-3.5 w-3.5 text-[#71717A]" />
+                <PhosphorBell className="h-3.5 w-3.5 text-muted-foreground" />
                 <span>Notifications</span>
               </button>
             </div>
@@ -432,7 +467,7 @@ export function SettingsModal({
             {/* Section: Workspace */}
             {(hasCompanyView || hasIntegrationsView) && (
               <div className="space-y-0.5 pt-2">
-                <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-[#71717A]">
+                <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   Workspace
                 </span>
 
@@ -443,11 +478,11 @@ export function SettingsModal({
                     className={cn(
                       "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                       activeTab === "workspace"
-                        ? "bg-[#242427] text-[#F5F5F5] font-semibold"
-                        : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
+                        ? "bg-selected text-foreground font-semibold"
+                        : "text-muted-foreground hover:bg-hover hover:text-foreground"
                     )}
                   >
-                    <PhosphorGear className="h-3.5 w-3.5 text-[#71717A]" />
+                    <PhosphorGear className="h-3.5 w-3.5 text-muted-foreground" />
                     <span>General</span>
                   </button>
                 )}
@@ -459,11 +494,11 @@ export function SettingsModal({
                     className={cn(
                       "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                       activeTab === "integrations"
-                        ? "bg-[#242427] text-[#F5F5F5] font-semibold"
-                        : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
+                        ? "bg-selected text-foreground font-semibold"
+                        : "text-muted-foreground hover:bg-hover hover:text-foreground"
                     )}
                   >
-                    <PhosphorPlugs className="h-3.5 w-3.5 text-[#71717A]" />
+                    <PhosphorPlugs className="h-3.5 w-3.5 text-muted-foreground" />
                     <span>Integrations</span>
                   </button>
                 )}
@@ -475,11 +510,11 @@ export function SettingsModal({
                     className={cn(
                       "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                       activeTab === "defaults"
-                        ? "bg-[#242427] text-[#F5F5F5] font-semibold"
-                        : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
+                        ? "bg-selected text-foreground font-semibold"
+                        : "text-muted-foreground hover:bg-hover hover:text-foreground"
                     )}
                   >
-                    <PhosphorGear className="h-3.5 w-3.5 text-[#71717A]" />
+                    <PhosphorGear className="h-3.5 w-3.5 text-muted-foreground" />
                     <span>Defaults</span>
                   </button>
                 )}
@@ -488,7 +523,7 @@ export function SettingsModal({
 
             {/* Section: Data & Security */}
             <div className="space-y-0.5 pt-2">
-              <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-[#71717A]">
+              <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 Data & Security
               </span>
 
@@ -498,11 +533,11 @@ export function SettingsModal({
                 className={cn(
                   "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                   activeTab === "privacy"
-                    ? "bg-[#242427] text-[#F5F5F5] font-semibold"
-                    : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
+                    ? "bg-selected text-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-hover hover:text-foreground"
                 )}
               >
-                <FileText className="h-3.5 w-3.5 text-[#71717A]" />
+                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                 <span>Privacy & Data</span>
               </button>
 
@@ -513,11 +548,11 @@ export function SettingsModal({
                   className={cn(
                     "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                     activeTab === "audit_log"
-                      ? "bg-[#242427] text-[#F5F5F5] font-semibold"
-                      : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
+                      ? "bg-selected text-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-hover hover:text-foreground"
                   )}
                 >
-                  <PhosphorClock className="h-3.5 w-3.5 text-[#71717A]" />
+                  <PhosphorClock className="h-3.5 w-3.5 text-muted-foreground" />
                   <span>Audit Log</span>
                 </button>
               )}
@@ -529,11 +564,11 @@ export function SettingsModal({
                   className={cn(
                     "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                     activeTab === "storage"
-                      ? "bg-[#242427] text-[#F5F5F5] font-semibold"
-                      : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
+                      ? "bg-selected text-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-hover hover:text-foreground"
                   )}
                 >
-                  <PhosphorFiles className="h-3.5 w-3.5 text-[#71717A]" />
+                  <PhosphorFiles className="h-3.5 w-3.5 text-muted-foreground" />
                   <span>Storage</span>
                 </button>
               )}
@@ -542,7 +577,7 @@ export function SettingsModal({
             {/* Section: Access & Billing */}
             {hasBillingView && (
               <div className="space-y-0.5 pt-2">
-                <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-[#71717A]">
+                <span className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   {t.settings.sections.accessAndBilling}
                 </span>
 
@@ -552,11 +587,11 @@ export function SettingsModal({
                   className={cn(
                     "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                     activeTab === "billing"
-                      ? "bg-[#242427] text-[#F5F5F5] font-semibold"
-                      : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
+                      ? "bg-selected text-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-hover hover:text-foreground"
                   )}
                 >
-                  <PhosphorCreditCard className="h-3.5 w-3.5 text-[#71717A]" />
+                  <PhosphorCreditCard className="h-3.5 w-3.5 text-muted-foreground" />
                   <span>Usage & Billing</span>
                 </button>
                 <button
@@ -565,11 +600,11 @@ export function SettingsModal({
                   className={cn(
                     "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left cursor-pointer",
                     activeTab === "ai_providers"
-                      ? "bg-[#242427] text-[#F5F5F5] font-semibold"
-                      : "text-[#A1A1AA] hover:bg-[#1C1C1F] hover:text-[#F5F5F5]"
+                      ? "bg-selected text-foreground font-semibold"
+                      : "text-muted-foreground hover:bg-hover hover:text-foreground"
                   )}
                 >
-                  <Sparkles className="h-3.5 w-3.5 text-[#71717A]" />
+                  <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
                   <span>Modelos & IA</span>
                 </button>
               </div>
@@ -577,7 +612,7 @@ export function SettingsModal({
           </div>
 
           {/* Bottom Hint */}
-          <div className="pt-2 border-t border-[#1C1C1F] text-[10px] text-[#71717A] font-mono">
+          <div className="pt-2 border-t border-border-subtle text-[10px] text-muted-foreground font-mono">
             <span>{t.settings.escToClose} &bull; {modKey} ,</span>
           </div>
         </aside>
@@ -585,13 +620,13 @@ export function SettingsModal({
         {/* ========================================================= */}
         {/* RIGHT ACTIVE TAB CONTENT                                  */}
         {/* ========================================================= */}
-        <main className="flex-1 overflow-y-auto p-7 no-scrollbar relative bg-[#0B0B0C] text-[#F5F5F5]">
+        <main className="flex-1 overflow-y-auto p-7 no-scrollbar relative bg-background text-foreground">
           {/* Close button */}
           <button
             type="button"
             onClick={closeSettings}
             aria-label="Close settings"
-            className="absolute top-5 right-5 p-1.5 rounded-lg text-[#71717A] hover:text-[#F5F5F5] hover:bg-[#1C1C1F] transition-colors"
+            className="absolute top-5 right-5 p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-hover transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -660,9 +695,8 @@ export function SettingsModal({
                           : item.id
                       ] || { name: item.name, description: "" };
 
-                    // Find all connected accounts for this specific integration
+                    // Find all accounts for this specific integration
                     const connectedAccounts = integrations.filter((i) => {
-                      if (i.status !== "connected") return false;
                       if (i.provider === item.id) return true;
                       if (i.provider === "google") {
                         if (item.id === "gmail" && i.scopes?.some((s) => s.includes("gmail"))) return true;
@@ -678,6 +712,9 @@ export function SettingsModal({
                       }
                       return false;
                     });
+
+                    const providerConfig = configStatus[item.id];
+                    const isConfigured = providerConfig ? providerConfig.isConfigured : true;
 
                     const handleConfigureClick = () => {
                       if (item.id === "gmail") {
@@ -720,14 +757,44 @@ export function SettingsModal({
                           {item.id === "stripe" && connectedAccounts.length > 0 ? (
                             <div className="shrink-0 flex items-center gap-2">
                               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                <span
+                                  className={cn(
+                                    "h-1.5 w-1.5 rounded-full shrink-0",
+                                    connectedAccounts[0].status === "needs_reauth"
+                                      ? "bg-amber-400"
+                                      : connectedAccounts[0].status === "error"
+                                      ? "bg-rose-500"
+                                      : "bg-emerald-500"
+                                  )}
+                                />
                                 <span className="font-mono text-[11px] font-medium text-zinc-800 dark:text-zinc-200">
                                   {connectedAccounts[0].providerAccountId}
                                 </span>
-                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-wider ml-1">
-                                  Connected
+                                <span
+                                  className={cn(
+                                    "text-[10px] font-semibold uppercase tracking-wider ml-1",
+                                    connectedAccounts[0].status === "needs_reauth"
+                                      ? "text-amber-600 dark:text-amber-400"
+                                      : connectedAccounts[0].status === "error"
+                                      ? "text-rose-600 dark:text-rose-400"
+                                      : "text-emerald-600 dark:text-emerald-400"
+                                  )}
+                                >
+                                  {connectedAccounts[0].status === "needs_reauth" ? "Reauth Required" : "Connected"}
                                 </span>
                               </div>
+                              {canManageIntegrations && (
+                                <button
+                                  type="button"
+                                  disabled={testingIntegrationId === connectedAccounts[0].id}
+                                  onClick={() => handleTestConnection(connectedAccounts[0].id)}
+                                  className="px-2 py-1 text-[11px] font-medium rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition-colors flex items-center gap-1 cursor-pointer"
+                                  title="Testar conexão com Stripe"
+                                >
+                                  <RefreshCw className={cn("h-3 w-3", testingIntegrationId === connectedAccounts[0].id && "animate-spin")} />
+                                  <span>Testar</span>
+                                </button>
+                              )}
                               {canManageIntegrations && (
                                 <button
                                   type="button"
@@ -773,14 +840,44 @@ export function SettingsModal({
                           ) : item.id === "github" && connectedAccounts.length > 0 ? (
                             <div className="shrink-0 flex items-center gap-2">
                               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                <span
+                                  className={cn(
+                                    "h-1.5 w-1.5 rounded-full shrink-0",
+                                    connectedAccounts[0].status === "needs_reauth"
+                                      ? "bg-amber-400"
+                                      : connectedAccounts[0].status === "error"
+                                      ? "bg-rose-500"
+                                      : "bg-emerald-500"
+                                  )}
+                                />
                                 <span className="font-mono text-[11px] font-medium text-zinc-800 dark:text-zinc-200">
                                   @{(connectedAccounts[0].metadata as any)?.github_login || connectedAccounts[0].accountEmail || connectedAccounts[0].providerAccountId}
                                 </span>
-                                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-wider ml-1">
-                                  Connected
+                                <span
+                                  className={cn(
+                                    "text-[10px] font-semibold uppercase tracking-wider ml-1",
+                                    connectedAccounts[0].status === "needs_reauth"
+                                      ? "text-amber-600 dark:text-amber-400"
+                                      : connectedAccounts[0].status === "error"
+                                      ? "text-rose-600 dark:text-rose-400"
+                                      : "text-emerald-600 dark:text-emerald-400"
+                                  )}
+                                >
+                                  {connectedAccounts[0].status === "needs_reauth" ? "Reauth Required" : "Connected"}
                                 </span>
                               </div>
+                              {canManageGitHubConnection && (
+                                <button
+                                  type="button"
+                                  disabled={testingIntegrationId === connectedAccounts[0].id}
+                                  onClick={() => handleTestConnection(connectedAccounts[0].id)}
+                                  className="px-2 py-1 text-[11px] font-medium rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition-colors flex items-center gap-1 cursor-pointer"
+                                  title="Testar conexão com GitHub"
+                                >
+                                  <RefreshCw className={cn("h-3 w-3", testingIntegrationId === connectedAccounts[0].id && "animate-spin")} />
+                                  <span>Testar</span>
+                                </button>
+                              )}
                               {canManageGitHubConnection && (
                                 <button
                                   type="button"
@@ -817,6 +914,21 @@ export function SettingsModal({
                                 </button>
                               )}
                             </div>
+                          ) : !isConfigured ? (
+                            <div className="shrink-0 flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] font-medium text-amber-500">
+                                <AlertTriangle className="h-3 w-3" />
+                                <span>Configuração em Falta</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setInfoModalItem(item)}
+                                className="p-1 rounded-md text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors cursor-pointer"
+                                title="Ver variáveis de ambiente necessárias"
+                              >
+                                <HelpCircle className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           ) : (
                             ((item.id === "github" ? canManageGitHubConnection : canManageIntegrations) ? (
                               <button
@@ -830,6 +942,31 @@ export function SettingsModal({
                             ) : null)
                           )}
                         </div>
+
+                        {/* Inline Test Result Banner */}
+                        {connectedAccounts.length > 0 && testResults[connectedAccounts[0].id] && (
+                          <div
+                            className={cn(
+                              "mt-2 px-2.5 py-1.5 rounded-lg text-[11px] flex items-center justify-between",
+                              testResults[connectedAccounts[0].id].success
+                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                            )}
+                          >
+                            <span>{testResults[connectedAccounts[0].id].message}</span>
+                            <button
+                              type="button"
+                              onClick={() => setTestResults((prev) => {
+                                const next = { ...prev };
+                                delete next[connectedAccounts[0].id];
+                                return next;
+                              })}
+                              className="text-zinc-400 hover:text-foreground ml-2 text-xs"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        )}
 
                         {/* GitHub Default Repository Selector for Workspace */}
                         {item.id === "github" && connectedAccounts.length > 0 && (
@@ -877,7 +1014,7 @@ export function SettingsModal({
                                         setIsSavingDefaultRepo(false);
                                       }
                                     }}
-                                    className="w-full text-xs font-mono rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#161618] px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 shadow-2xs focus:border-zinc-500 focus:outline-hidden cursor-pointer"
+                                    className="w-full text-xs font-mono rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-card px-2.5 py-1.5 text-zinc-900 dark:text-zinc-100 shadow-2xs focus:border-zinc-500 focus:outline-hidden cursor-pointer"
                                   >
                                     <option value="">-- Selecionar repositório predefinido --</option>
                                     {githubRepos.map((repo) => (
@@ -1006,48 +1143,120 @@ export function SettingsModal({
                             </div>
                             <div className="space-y-1">
                               {connectedAccounts.map((acc) => (
-                                <div
-                                  key={acc.id}
-                                  className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-zinc-100/70 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-700/60 text-xs"
-                                >
-                                  <div className="flex items-center gap-2 min-w-0 pr-2">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-                                    <span className="font-mono text-[11px] text-zinc-800 dark:text-zinc-200 truncate">
-                                      {acc.accountEmail || acc.providerAccountId}
-                                    </span>
-                                  </div>
-                                  {canManageIntegrations && (
-                                    <button
-                                      type="button"
-                                      disabled={deletingIntegrationId === acc.id}
-                                      onClick={async (e) => {
-                                        e.stopPropagation();
-                                        if (confirm(`Deseja remover a integração de ${acc.accountEmail || acc.providerAccountId}?`)) {
-                                          setDeletingIntegrationId(acc.id);
-                                          try {
-                                            await deleteIntegrationAction(acc.id);
-                                            await loadIntegrations();
-                                            window.dispatchEvent(
-                                              new CustomEvent("cb-integration-changed", {
-                                                detail: { provider: acc.provider, status: "disconnected" },
-                                              })
-                                            );
-                                          } catch (err) {
-                                            console.error("Erro ao remover conta:", err);
-                                          } finally {
-                                            setDeletingIntegrationId(null);
-                                          }
-                                        }
-                                      }}
-                                      className="p-1 rounded text-zinc-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-40"
-                                      title="Remover conta"
-                                    >
-                                      {deletingIntegrationId === acc.id ? (
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />
-                                      ) : (
-                                        <Trash2 className="h-3.5 w-3.5" />
+                                <div key={acc.id} className="space-y-1">
+                                  <div
+                                    className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-zinc-100/70 dark:bg-zinc-800/50 border border-zinc-200/70 dark:border-zinc-700/60 text-xs"
+                                  >
+                                    <div className="flex items-center gap-2 min-w-0 pr-2">
+                                      <span
+                                        className={cn(
+                                          "h-1.5 w-1.5 rounded-full shrink-0",
+                                          acc.status === "needs_reauth"
+                                            ? "bg-amber-400"
+                                            : acc.status === "error"
+                                            ? "bg-rose-500"
+                                            : "bg-emerald-500"
+                                        )}
+                                      />
+                                      <span className="font-mono text-[11px] text-zinc-800 dark:text-zinc-200 truncate">
+                                        {acc.accountEmail || acc.providerAccountId}
+                                      </span>
+                                      <span
+                                        className={cn(
+                                          "text-[10px] font-semibold uppercase tracking-wider ml-1",
+                                          acc.status === "needs_reauth"
+                                            ? "text-amber-600 dark:text-amber-400"
+                                            : acc.status === "error"
+                                            ? "text-rose-600 dark:text-rose-400"
+                                            : "text-emerald-600 dark:text-emerald-400"
+                                        )}
+                                      >
+                                        {acc.status === "needs_reauth" ? "Reauth Required" : "Connected"}
+                                      </span>
+                                      {acc.lastSyncAt && (
+                                        <span className="text-[10px] text-zinc-400 hidden sm:inline">
+                                          • {new Date(acc.lastSyncAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
                                       )}
-                                    </button>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0">
+                                      {acc.status === "needs_reauth" ? (
+                                        <button
+                                          type="button"
+                                          onClick={handleConfigureClick}
+                                          className="px-2 py-0.5 text-[10px] font-semibold rounded bg-amber-500 hover:bg-amber-600 text-white transition-colors cursor-pointer"
+                                        >
+                                          Reautorizar
+                                        </button>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          disabled={testingIntegrationId === acc.id}
+                                          onClick={() => handleTestConnection(acc.id)}
+                                          className="px-2 py-0.5 text-[10px] font-medium rounded border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition-colors flex items-center gap-1 cursor-pointer"
+                                          title="Testar conexão"
+                                        >
+                                          <RefreshCw className={cn("h-2.5 w-2.5", testingIntegrationId === acc.id && "animate-spin")} />
+                                          <span>Testar</span>
+                                        </button>
+                                      )}
+                                      {canManageIntegrations && (
+                                        <button
+                                          type="button"
+                                          disabled={deletingIntegrationId === acc.id}
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (confirm(`Deseja remover a integração de ${acc.accountEmail || acc.providerAccountId}?`)) {
+                                              setDeletingIntegrationId(acc.id);
+                                              try {
+                                                await deleteIntegrationAction(acc.id);
+                                                await loadIntegrations();
+                                                window.dispatchEvent(
+                                                  new CustomEvent("cb-integration-changed", {
+                                                    detail: { provider: acc.provider, status: "disconnected" },
+                                                  })
+                                                );
+                                              } catch (err) {
+                                                console.error("Erro ao remover conta:", err);
+                                              } finally {
+                                                setDeletingIntegrationId(null);
+                                              }
+                                            }
+                                          }}
+                                          className="p-1 rounded text-zinc-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-40"
+                                          title="Remover conta"
+                                        >
+                                          {deletingIntegrationId === acc.id ? (
+                                            <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />
+                                          ) : (
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          )}
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {testResults[acc.id] && (
+                                    <div
+                                      className={cn(
+                                        "px-2 py-1 rounded text-[10px] flex items-center justify-between",
+                                        testResults[acc.id].success
+                                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                          : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                                      )}
+                                    >
+                                      <span>{testResults[acc.id].message}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setTestResults((prev) => {
+                                          const next = { ...prev };
+                                          delete next[acc.id];
+                                          return next;
+                                        })}
+                                        className="text-zinc-400 hover:text-foreground text-[10px]"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
                                   )}
                                 </div>
                               ))}
@@ -1078,7 +1287,9 @@ export function SettingsModal({
             <UsageBillingTab entitlement={entitlement} closeSettings={closeSettings} />
           )}
           {/* TAB: AI PROVIDERS & BYOK */}
-          {activeTab === "ai_providers" && <AIProvidersTab />}
+          {activeTab === "ai_providers" && (
+            <AIProvidersTab entitlement={entitlement} activeOrg={activeOrg} />
+          )}
         </main>
       </div>
 
@@ -1089,7 +1300,7 @@ export function SettingsModal({
           onClick={() => setInfoModalItem(null)}
         >
           <div
-            className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] p-5 shadow-2xl text-zinc-900 dark:text-zinc-100 animate-in fade-in zoom-in-95"
+            className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-card p-5 shadow-2xl text-zinc-900 dark:text-zinc-100 animate-in fade-in zoom-in-95"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">

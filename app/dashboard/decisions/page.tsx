@@ -32,7 +32,7 @@ export default async function DecisionsPage() {
   ).length;
 
   return (
-    <div className="space-y-6 max-w-6xl">
+    <div className="space-y-6 w-full">
       {/* Interactive Page Header */}
       <EntityPageHeader
         title="Decision Registry (ADRs)"

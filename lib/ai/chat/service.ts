@@ -12,6 +12,7 @@ export interface AIConversationRecord {
   model: string;
   isByok: boolean;
   selectedSourceIds: string[];
+  workspaceType: "company" | "personal";
   createdAt: string;
   updatedAt: string;
 }
@@ -41,7 +42,8 @@ export class AIChatService {
     title = "Nova Discussão",
     provider = "gemini",
     model = "gemini-2.5-flash",
-    selectedSourceIds: string[] = []
+    selectedSourceIds: string[] = [],
+    workspaceType: "company" | "personal" = "company"
   ): Promise<AIConversationRecord> {
     const supabase = await createClient();
 
@@ -54,6 +56,7 @@ export class AIChatService {
         provider,
         model,
         selected_source_ids: selectedSourceIds,
+        workspace_type: workspaceType,
       })
       .select()
       .single();
@@ -72,6 +75,7 @@ export class AIChatService {
       model: data.model,
       isByok: data.is_byok,
       selectedSourceIds: data.selected_source_ids || [],
+      workspaceType: data.workspace_type || workspaceType,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     };
@@ -108,16 +112,22 @@ export class AIChatService {
    */
   static async listConversations(
     organizationId: string,
-    userId: string
+    userId: string,
+    workspaceType?: "company" | "personal"
   ): Promise<AIConversationRecord[]> {
     const supabase = await createClient();
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("ai_conversations")
-      .select("id, organization_id, user_id, title, provider, model, is_byok, selected_source_ids, created_at, updated_at")
+      .select("id, organization_id, user_id, title, provider, model, is_byok, selected_source_ids, workspace_type, created_at, updated_at")
       .eq("organization_id", organizationId)
-      .eq("user_id", userId)
-      .order("updated_at", { ascending: false });
+      .eq("user_id", userId);
+
+    if (workspaceType) {
+      query = query.eq("workspace_type", workspaceType);
+    }
+
+    const { data, error } = await query.order("updated_at", { ascending: false });
 
     if (error || !data) {
       return [];
@@ -132,9 +142,47 @@ export class AIChatService {
       model: c.model,
       isByok: c.is_byok,
       selectedSourceIds: c.selected_source_ids || [],
+      workspaceType: (c.workspace_type as "company" | "personal") || "company",
       createdAt: c.created_at,
       updatedAt: c.updated_at,
     }));
+  }
+
+  /**
+   * Retrieves a single conversation metadata record verifying IDOR ownership.
+   */
+  static async getConversation(
+    conversationId: string,
+    organizationId: string,
+    userId: string
+  ): Promise<AIConversationRecord | null> {
+    const supabase = await createClient();
+
+    const { data: conv, error } = await supabase
+      .from("ai_conversations")
+      .select("id, organization_id, user_id, title, provider, model, is_byok, selected_source_ids, workspace_type, created_at, updated_at")
+      .eq("id", conversationId)
+      .eq("organization_id", organizationId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error || !conv) {
+      return null;
+    }
+
+    return {
+      id: conv.id,
+      organizationId: conv.organization_id,
+      userId: conv.user_id,
+      title: conv.title,
+      provider: conv.provider,
+      model: conv.model,
+      isByok: conv.is_byok,
+      selectedSourceIds: conv.selected_source_ids || [],
+      workspaceType: (conv.workspace_type as "company" | "personal") || "company",
+      createdAt: conv.created_at,
+      updatedAt: conv.updated_at,
+    };
   }
 
   /**
@@ -191,6 +239,7 @@ export class AIChatService {
         model: conv.model,
         isByok: conv.is_byok,
         selectedSourceIds: conv.selected_source_ids || [],
+        workspaceType: (conv.workspace_type as "company" | "personal") || "company",
         createdAt: conv.created_at,
         updatedAt: conv.updated_at,
       },
@@ -283,6 +332,7 @@ export class AIChatService {
     completionTokens: number;
     estimatedCostUsd: number;
     status: "success" | "failed" | "canceled" | "rate_limited";
+    scope?: "personal" | "org";
   }): Promise<void> {
     const supabase = await createClient();
 
@@ -297,6 +347,7 @@ export class AIChatService {
       completion_tokens: params.completionTokens,
       estimated_cost_usd: params.estimatedCostUsd,
       status: params.status,
+      scope: params.scope || "org",
     });
   }
 

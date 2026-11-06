@@ -151,7 +151,7 @@ export function InboxPageView() {
                     className={cn(
                       "px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors shrink-0",
                       isActive
-                        ? "bg-[#1A1A1E] text-white border border-[#2E2E33]"
+                        ? "bg-selected text-foreground border border-border font-semibold"
                         : "text-muted-foreground hover:text-foreground hover:bg-hover"
                     )}
                   >

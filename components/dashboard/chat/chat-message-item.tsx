@@ -4,7 +4,8 @@ import * as React from "react";
 import { AIMessageRecord } from "@/lib/ai/chat/service";
 import { SourcesPopover } from "./sources-popover";
 import { PhosphorBrain } from "@/components/icons";
-import { AlertCircle, StopCircle, User } from "lucide-react";
+import { AlertCircle, StopCircle } from "lucide-react";
+import { useLanguage } from "@/lib/i18n";
 
 interface ChatMessageItemProps {
   message: AIMessageRecord | {
@@ -21,7 +22,11 @@ interface ChatMessageItemProps {
   userAvatar?: string | null;
 }
 
-export function ChatMessageItem({ message, userName = "Você", userAvatar }: ChatMessageItemProps) {
+export function ChatMessageItem({ message, userName, userAvatar }: ChatMessageItemProps) {
+  const { locale } = useLanguage();
+  const isPt = locale === "pt";
+
+  const resolvedUserName = userName || (isPt ? "Você" : "You");
   const isUser = message.role === "user";
   const isAborted = message.errorCode === "ABORTED";
   const isError = Boolean(message.errorCode && message.errorCode !== "ABORTED");
@@ -33,9 +38,10 @@ export function ChatMessageItem({ message, userName = "Você", userAvatar }: Cha
         {isUser ? (
           <div className="h-7 w-7 rounded-lg bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xs font-semibold text-zinc-800 dark:text-zinc-200 overflow-hidden">
             {userAvatar ? (
-              <img src={userAvatar} alt={userName} className="h-full w-full object-cover" />
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={userAvatar} alt={resolvedUserName} className="h-full w-full object-cover" />
             ) : (
-              userName.charAt(0).toUpperCase()
+              resolvedUserName.charAt(0).toUpperCase()
             )}
           </div>
         ) : (
@@ -48,17 +54,17 @@ export function ChatMessageItem({ message, userName = "Você", userAvatar }: Cha
       {/* Message Body */}
       <div className={`max-w-[85%] sm:max-w-[78%] space-y-1.5 ${isUser ? "text-right" : "text-left"}`}>
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-medium">
-          <span>{isUser ? userName : "BusinessBrain AI"}</span>
+          <span>{isUser ? resolvedUserName : "BusinessBrain AI"}</span>
           {isAborted && (
             <span className="inline-flex items-center gap-1 text-[10px] text-amber-500">
               <StopCircle className="h-3 w-3" />
-              <span>Interrompido</span>
+              <span>{isPt ? "Interrompido" : "Interrupted"}</span>
             </span>
           )}
           {isError && (
             <span className="inline-flex items-center gap-1 text-[10px] text-rose-500">
               <AlertCircle className="h-3 w-3" />
-              <span>Falha</span>
+              <span>{isPt ? "Falha" : "Failed"}</span>
             </span>
           )}
         </div>
@@ -67,7 +73,7 @@ export function ChatMessageItem({ message, userName = "Você", userAvatar }: Cha
           className={`p-3.5 rounded-xl text-left whitespace-pre-wrap leading-relaxed ${
             isUser
               ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 rounded-tr-xs"
-              : "border border-border bg-card/60 text-foreground rounded-tl-xs"
+              : "border border-border/60 bg-card/60 text-foreground rounded-tl-xs"
           }`}
         >
           {message.content ? (
@@ -77,7 +83,7 @@ export function ChatMessageItem({ message, userName = "Você", userAvatar }: Cha
           ) : (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground py-1">
               <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
-              <span>A pensar e a sintetizar memória...</span>
+              <span>{isPt ? "A pensar e a sintetizar memória..." : "Thinking and synthesizing context..."}</span>
             </div>
           )}
 

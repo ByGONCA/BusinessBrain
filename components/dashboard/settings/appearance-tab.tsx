@@ -58,7 +58,7 @@ function PixelInputRow({
         <button
           type="button"
           onClick={() => onChange(formatPxValue(Math.max(min, numValue - 1), fallback))}
-          className="h-7 w-7 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center transition-colors cursor-pointer select-none"
+          className="h-7 w-7 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-surface-secondary text-foreground text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center transition-colors cursor-pointer select-none"
           title="Decrease by 1px"
         >
           -
@@ -78,7 +78,7 @@ function PixelInputRow({
             }}
             aria-label={`${label} in pixels`}
             placeholder={String(fallback)}
-            className="w-16 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-2 py-1 pr-6 text-xs text-right font-mono font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 transition-colors shadow-2xs"
+            className="w-16 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-2 py-1 pr-6 text-xs text-right font-mono font-semibold text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 transition-colors shadow-2xs"
           />
           <span className="absolute right-2 text-[10px] font-mono text-zinc-400 dark:text-zinc-500 pointer-events-none select-none">
             px
@@ -88,7 +88,7 @@ function PixelInputRow({
         <button
           type="button"
           onClick={() => onChange(formatPxValue(Math.min(max, numValue + 1), fallback))}
-          className="h-7 w-7 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center transition-colors cursor-pointer select-none"
+          className="h-7 w-7 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-surface-secondary text-foreground text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center justify-center transition-colors cursor-pointer select-none"
           title="Increase by 1px"
         >
           +
@@ -143,7 +143,7 @@ export function AppearanceTab() {
               "group relative flex flex-col items-center gap-2 rounded-xl border p-3.5 text-center transition-all cursor-pointer",
               theme === "light"
                 ? "border-blue-600 bg-blue-50/50 dark:bg-blue-950/20 ring-1 ring-blue-600 shadow-xs"
-                : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] hover:border-zinc-300 dark:hover:border-zinc-700"
+                : "border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground hover:border-zinc-300 dark:hover:border-zinc-700"
             )}
           >
             <div className="flex h-10 w-full items-center justify-center rounded-lg bg-zinc-100 border border-zinc-200/80 shadow-2xs">
@@ -168,7 +168,7 @@ export function AppearanceTab() {
               "group relative flex flex-col items-center gap-2 rounded-xl border p-3.5 text-center transition-all cursor-pointer",
               theme === "dark"
                 ? "border-blue-600 bg-blue-50/50 dark:bg-blue-950/20 ring-1 ring-blue-600 shadow-xs"
-                : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] hover:border-zinc-300 dark:hover:border-zinc-700"
+                : "border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground hover:border-zinc-300 dark:hover:border-zinc-700"
             )}
           >
             <div className="flex h-10 w-full items-center justify-center rounded-lg bg-[#141416] border border-zinc-800 shadow-2xs">
@@ -193,7 +193,7 @@ export function AppearanceTab() {
               "group relative flex flex-col items-center gap-2 rounded-xl border p-3.5 text-center transition-all cursor-pointer",
               theme === "system"
                 ? "border-blue-600 bg-blue-50/50 dark:bg-blue-950/20 ring-1 ring-blue-600 shadow-xs"
-                : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] hover:border-zinc-300 dark:hover:border-zinc-700"
+                : "border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground hover:border-zinc-300 dark:hover:border-zinc-700"
             )}
           >
             <div className="flex h-10 w-full items-center justify-center rounded-lg bg-zinc-200/50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 shadow-2xs">

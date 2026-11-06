@@ -263,7 +263,7 @@ function TableBlockContent({ block, onUpdateProperties }: TableBlockContentProps
   };
 
   return (
-    <div className="my-2 overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 p-2 shadow-2xs">
+    <div className="my-2 overflow-x-auto rounded-xl border border-zinc-200 border-border bg-white dark:bg-zinc-900/60 p-2 shadow-2xs">
       <table ref={tableRef} className="w-full min-w-[320px] text-left text-xs border-collapse table-fixed">
         <colgroup>
           {tableData.headers.map((_, cIdx) => (
@@ -277,12 +277,12 @@ function TableBlockContent({ block, onUpdateProperties }: TableBlockContentProps
           <col style={{ width: "32px" }} />
         </colgroup>
         <thead>
-          <tr className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40">
+          <tr className="border-b border-zinc-200 border-border bg-zinc-50/50 dark:bg-zinc-800/40">
             {tableData.headers.map((h, cIdx) => (
               <th
                 key={cIdx}
                 style={{ width: `${colWidths[cIdx] || defaultShare}%` }}
-                className="p-2 border-r border-zinc-200 dark:border-zinc-800 last:border-r-0 group/col relative align-top"
+                className="p-2 border-r border-zinc-200 border-border last:border-r-0 group/col relative align-top"
               >
                 <textarea
                   rows={1}
@@ -335,12 +335,12 @@ function TableBlockContent({ block, onUpdateProperties }: TableBlockContentProps
         </thead>
         <tbody>
           {tableData.rows.map((row, rIdx) => (
-            <tr key={rIdx} className="border-b border-zinc-100 dark:border-zinc-800/60 last:border-b-0 group/row">
+            <tr key={rIdx} className="border-b border-zinc-100 border-border/60 last:border-b-0 group/row">
               {row.map((cell, cIdx) => (
                 <td
                   key={cIdx}
                   style={{ width: `${colWidths[cIdx] || defaultShare}%` }}
-                  className="p-2 border-r border-zinc-100 dark:border-zinc-800/60 last:border-r-0 align-top"
+                  className="p-2 border-r border-zinc-100 border-border/60 last:border-r-0 align-top"
                 >
                   <textarea
                     rows={1}
@@ -377,7 +377,7 @@ function TableBlockContent({ block, onUpdateProperties }: TableBlockContentProps
           ))}
         </tbody>
       </table>
-      <div className="pt-2 flex items-center justify-between border-t border-zinc-100 dark:border-zinc-800 mt-2">
+      <div className="pt-2 flex items-center justify-between border-t border-zinc-100 border-border mt-2">
         <button
           type="button"
           onClick={addRow}
@@ -414,8 +414,8 @@ function ColumnsBlockContent({ block, onUpdateProperties }: ColumnsBlockContentP
   const split = columnsData.splitPercent ?? 50;
 
   return (
-    <div className="my-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/30 p-2.5">
-      <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-200/60 dark:border-zinc-800 text-[11px] text-zinc-500">
+    <div className="my-2 rounded-xl border border-zinc-200 border-border bg-zinc-50/30 dark:bg-zinc-900/30 p-2.5">
+      <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-200/60 border-border text-[11px] text-zinc-500">
         <span className="font-semibold flex items-center gap-1.5 text-zinc-700 dark:text-zinc-300">
           <LayoutGrid className="h-3.5 w-3.5 text-indigo-500" />
           Side by Side Columns
@@ -452,7 +452,7 @@ function ColumnsBlockContent({ block, onUpdateProperties }: ColumnsBlockContentP
         {/* Left Column */}
         <div
           style={{ gridColumn: `span ${Math.round((split / 100) * 12)}` }}
-          className="rounded-lg border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 p-2.5 shadow-2xs"
+          className="rounded-lg border border-zinc-200/80 border-border bg-white dark:bg-zinc-900/70 p-2.5 shadow-2xs"
         >
           <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
             {columnsData.leftTitle || "Left Side"}
@@ -481,7 +481,7 @@ function ColumnsBlockContent({ block, onUpdateProperties }: ColumnsBlockContentP
         {/* Right Column */}
         <div
           style={{ gridColumn: `span ${12 - Math.round((split / 100) * 12)}` }}
-          className="rounded-lg border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900/70 p-2.5 shadow-2xs"
+          className="rounded-lg border border-zinc-200/80 border-border bg-white dark:bg-zinc-900/70 p-2.5 shadow-2xs"
         >
           <div className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">
             {columnsData.rightTitle || "Right Side"}
@@ -669,7 +669,7 @@ function ImageBlockContent({
 
   if (isLoading && !activeUrl) {
     return (
-      <div className="my-2 p-8 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 flex flex-col items-center justify-center gap-2 text-zinc-400">
+      <div className="my-2 p-8 rounded-xl border border-dashed border-zinc-200 border-border bg-zinc-50/50 dark:bg-zinc-900/40 flex flex-col items-center justify-center gap-2 text-zinc-400">
         <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
         <span className="text-xs">Loading image...</span>
       </div>
@@ -775,7 +775,7 @@ function ImageBlockContent({
 
   // Empty state: Attach / Upload
   return (
-    <div className="my-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 p-6 flex flex-col items-center justify-center gap-3 text-zinc-400">
+    <div className="my-2 rounded-xl border border-zinc-200 border-border bg-zinc-50/50 dark:bg-zinc-900/50 p-6 flex flex-col items-center justify-center gap-3 text-zinc-400">
       <ImageIcon className="h-8 w-8 text-zinc-300 dark:text-zinc-600" />
       <div className="flex flex-col sm:flex-row items-center gap-2 max-w-md w-full">
         {onOpenFilePicker && (
@@ -797,7 +797,7 @@ function ImageBlockContent({
                 if (val) onUpdateProperties(block.id, { mediaUrl: val });
               }
             }}
-            className="flex-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-800 dark:text-zinc-200 outline-none focus:ring-1 focus:ring-blue-500"
+            className="flex-1 px-3 py-1.5 rounded-lg border border-zinc-200 border-border bg-white dark:bg-zinc-900 text-xs text-zinc-800 dark:text-zinc-200 outline-none focus:ring-1 focus:ring-blue-500"
           />
         </div>
       </div>
@@ -1283,7 +1283,7 @@ export function BlockItem({
             </div>
 
             {menuOpen && (
-              <div className="absolute left-6 top-0 z-50 w-56 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100 select-none max-h-96 overflow-y-auto no-scrollbar">
+              <div className="absolute left-6 top-0 z-50 w-56 rounded-xl border border-zinc-200 border-border bg-white dark:bg-zinc-900 p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100 select-none max-h-96 overflow-y-auto no-scrollbar">
                 <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400">
                   Quick Actions
                 </div>
@@ -1303,7 +1303,7 @@ export function BlockItem({
                       "flex items-center justify-center gap-0.5 py-1 px-1 rounded text-[11px] border transition-colors",
                       blockAlign === "left"
                         ? "bg-indigo-50 border-indigo-300 text-indigo-600 dark:bg-indigo-950/60 dark:border-indigo-700 dark:text-indigo-400 font-semibold"
-                        : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                        : "border-zinc-200 border-border text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
                     )}
                     title="Place on Left side (50% width)"
                   >
@@ -1319,7 +1319,7 @@ export function BlockItem({
                       "flex items-center justify-center gap-0.5 py-1 px-1 rounded text-[11px] border transition-colors",
                       blockAlign === "full"
                         ? "bg-indigo-50 border-indigo-300 text-indigo-600 dark:bg-indigo-950/60 dark:border-indigo-700 dark:text-indigo-400 font-semibold"
-                        : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                        : "border-zinc-200 border-border text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
                     )}
                     title="Full Width"
                   >
@@ -1335,7 +1335,7 @@ export function BlockItem({
                       "flex items-center justify-center gap-0.5 py-1 px-1 rounded text-[11px] border transition-colors",
                       blockAlign === "right"
                         ? "bg-indigo-50 border-indigo-300 text-indigo-600 dark:bg-indigo-950/60 dark:border-indigo-700 dark:text-indigo-400 font-semibold"
-                        : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                        : "border-zinc-200 border-border text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-800"
                     )}
                     title="Place on Right side (50% width)"
                   >
@@ -1358,7 +1358,7 @@ export function BlockItem({
                   </button>
 
                   {transformOpen && (
-                    <div className="my-1 pl-3 pr-1 py-1 space-y-0.5 border-l border-zinc-200 dark:border-zinc-800 ml-2">
+                    <div className="my-1 pl-3 pr-1 py-1 space-y-0.5 border-l border-zinc-200 border-border ml-2">
                       <div className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider px-2 py-0.5">
                         Blocks
                       </div>
@@ -1491,7 +1491,7 @@ export function BlockItem({
                   <CopyPlus className="h-3.5 w-3.5 text-zinc-400" /> Duplicate
                 </button>
 
-                <div className="my-1 h-px bg-zinc-200 dark:border-zinc-800" />
+                <div className="my-1 h-px bg-zinc-200 border-border" />
 
                 {/* Move Up / Down */}
                 <button
@@ -1835,7 +1835,7 @@ export function BlockItem({
                 </div>
               </div>
               {block.properties?.isOpen && (
-                <div className="pl-6 pt-1 text-xs text-zinc-500 border-l border-zinc-200 dark:border-zinc-800 ml-2 mt-1">
+                <div className="pl-6 pt-1 text-xs text-zinc-500 border-l border-zinc-200 border-border ml-2 mt-1">
                   <p className="text-zinc-400 italic">Toggle container content. Press enter or add sub-blocks below.</p>
                 </div>
               )}
@@ -1876,7 +1876,7 @@ export function BlockItem({
           {/* DIVIDER */}
           {block.type === "divider" && (
             <div className="py-2.5">
-              <hr className="border-t border-zinc-200 dark:border-zinc-800" />
+              <hr className="border-t border-zinc-200 border-border" />
             </div>
           )}
 
@@ -1889,10 +1889,10 @@ export function BlockItem({
                 // Prevent page-level marquee drag from clearing text selection inside code
                 e.stopPropagation();
               }}
-              className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#18181b] overflow-hidden my-2 shadow-xs group/codecard select-text"
+              className="rounded-xl border border-zinc-200 border-border bg-card border-border overflow-hidden my-2 shadow-xs group/codecard select-text"
             >
               {/* Card Header */}
-              <div className="flex items-center justify-between px-3.5 py-2 bg-zinc-100/75 dark:bg-[#121214] border-b border-zinc-200 dark:border-zinc-800/90 text-xs select-none">
+              <div className="flex items-center justify-between px-3.5 py-2 bg-surface-secondary/75 border-border border-b border-zinc-200 border-border/90 text-xs select-none">
                 <div className="flex items-center gap-2 min-w-0 flex-wrap">
                   {isGitHubSnippet ? (
                     <>
@@ -1994,7 +1994,7 @@ export function BlockItem({
                 <div
                   ref={setRef as unknown as React.Ref<HTMLDivElement>}
                   onDoubleClick={() => setIsEditingCode(true)}
-                  className="overflow-x-auto max-h-[640px] overflow-y-auto bg-zinc-50/50 dark:bg-[#1a1a1d] text-zinc-900 dark:text-zinc-100 font-mono text-[12px] leading-relaxed select-text py-1 outline-none"
+                  className="overflow-x-auto max-h-[640px] overflow-y-auto bg-background text-foreground text-zinc-900 dark:text-zinc-100 font-mono text-[12px] leading-relaxed select-text py-1 outline-none"
                   title="Duplo clique para editar o código"
                 >
                   <table className="w-full border-collapse select-text">
@@ -2010,7 +2010,7 @@ export function BlockItem({
                             className="hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 transition-colors group/row"
                           >
                             {/* Line Number Column */}
-                            <td className="w-12 min-w-12 select-none pr-4 pl-3 text-right text-zinc-400 dark:text-zinc-600 text-[11px] align-top border-r border-zinc-200/80 dark:border-zinc-800/80 group-hover/row:text-zinc-700 dark:group-hover/row:text-zinc-400">
+                            <td className="w-12 min-w-12 select-none pr-4 pl-3 text-right text-zinc-400 dark:text-zinc-600 text-[11px] align-top border-r border-zinc-200/80 border-border/80 group-hover/row:text-zinc-700 dark:group-hover/row:text-zinc-400">
                               {currentLineNum}
                             </td>
                             {/* Syntax Highlighted Tokens */}
@@ -2033,7 +2033,7 @@ export function BlockItem({
 
           {/* CALLOUT */}
           {block.type === "callout" && (
-            <div className="flex items-start gap-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/40 p-3 my-1">
+            <div className="flex items-start gap-2.5 rounded-xl border border-zinc-200 border-border bg-zinc-50 dark:bg-zinc-800/40 p-3 my-1">
               <div className="flex items-center justify-center shrink-0 w-6 h-6 select-none">
                 <EmojiPicker
                   currentEmoji={block.properties?.calloutIcon || "💡"}
@@ -2075,7 +2075,7 @@ export function BlockItem({
 
           {/* VIDEO */}
           {block.type === "video" && (
-            <div className="my-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 p-2">
+            <div className="my-2 rounded-xl border border-zinc-200 border-border bg-zinc-50/50 dark:bg-zinc-900/50 p-2">
               {block.properties?.fileStatus === "unavailable" ? (
                 <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -2129,7 +2129,7 @@ export function BlockItem({
                           if (val) onUpdateProperties(block.id, { mediaUrl: val });
                         }
                       }}
-                      className="flex-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-800 dark:text-zinc-200 outline-none focus:ring-1 focus:ring-blue-500"
+                      className="flex-1 px-3 py-1.5 rounded-lg border border-zinc-200 border-border bg-white dark:bg-zinc-900 text-xs text-zinc-800 dark:text-zinc-200 outline-none focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -2139,7 +2139,7 @@ export function BlockItem({
 
           {/* AUDIO */}
           {block.type === "audio" && (
-            <div className="my-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 p-3">
+            <div className="my-2 rounded-xl border border-zinc-200 border-border bg-zinc-50/50 dark:bg-zinc-900/50 p-3">
               {block.properties?.mediaUrl ? (
                 <div className="flex items-center gap-3">
                   <Music className="h-5 w-5 text-indigo-500 shrink-0" />
@@ -2166,7 +2166,7 @@ export function BlockItem({
                         if (val) onUpdateProperties(block.id, { mediaUrl: val });
                       }
                     }}
-                    className="flex-1 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-xs text-zinc-800 dark:text-zinc-200 outline-none focus:ring-1 focus:ring-blue-500"
+                    className="flex-1 px-3 py-1.5 rounded-lg border border-zinc-200 border-border bg-white dark:bg-zinc-900 text-xs text-zinc-800 dark:text-zinc-200 outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
               )}
@@ -2175,7 +2175,7 @@ export function BlockItem({
 
           {/* FILE / DOCUMENT */}
           {block.type === "file" && (
-            <div className="my-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 p-3">
+            <div className="my-2 rounded-xl border border-zinc-200 border-border bg-zinc-50/50 dark:bg-zinc-900/50 p-3">
               {block.properties?.fileStatus === "unavailable" ? (
                 <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/50 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -2261,7 +2261,7 @@ export function BlockItem({
 
           {/* BOOKMARK */}
           {block.type === "bookmark" && (
-            <div className="my-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50 p-3 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
+            <div className="my-2 rounded-xl border border-zinc-200 border-border bg-zinc-50/50 dark:bg-zinc-900/50 p-3 hover:border-zinc-300 dark:hover:border-zinc-700 transition-colors">
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-1 min-w-0 flex-1">
                   <input
@@ -2380,9 +2380,9 @@ export function BlockItem({
             };
 
             return (
-              <div className="my-2 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 space-y-3">
+              <div className="my-2 p-3 rounded-xl border border-zinc-200 border-border bg-zinc-50/60 dark:bg-zinc-900/40 space-y-3">
                 {/* Board Header: Title, Blame & Actions */}
-                <div className="flex items-center justify-between pb-2 border-b border-zinc-200/60 dark:border-zinc-800 text-xs">
+                <div className="flex items-center justify-between pb-2 border-b border-zinc-200/60 border-border text-xs">
                   <div className="flex items-center gap-2 min-w-0">
                     <Kanban className="h-4 w-4 text-indigo-500 shrink-0" />
                     <input
@@ -2508,7 +2508,7 @@ export function BlockItem({
             };
 
             return (
-              <div className="my-2 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+              <div className="my-2 p-3 rounded-xl border border-zinc-200 border-border bg-zinc-50/50 dark:bg-zinc-900/50">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {galleryData.items.map((item) => (
                     <div key={item.id} className="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 p-3 shadow-2xs flex flex-col justify-between h-28">
@@ -2561,7 +2561,7 @@ export function BlockItem({
             };
 
             return (
-              <div className="my-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60 p-2 shadow-2xs">
+              <div className="my-2 rounded-xl border border-zinc-200 border-border bg-white dark:bg-zinc-900/60 p-2 shadow-2xs">
                 <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
                   {listData.items.map((it) => (
                     <div key={it.id} className="flex items-center justify-between py-2 px-2 text-xs">
@@ -2612,7 +2612,7 @@ export function BlockItem({
 
           {/* EQUATION */}
           {block.type === "equation" && (
-            <div className="my-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60 p-3 text-center">
+            <div className="my-2 rounded-xl border border-zinc-200 border-border bg-zinc-50 dark:bg-zinc-900/60 p-3 text-center">
               <div className="font-mono text-base font-semibold text-indigo-600 dark:text-indigo-400 py-2">
                 {block.properties?.equationFormula || "f(x) = a x^2 + b x + c"}
               </div>
@@ -2621,7 +2621,7 @@ export function BlockItem({
                 value={block.properties?.equationFormula || ""}
                 onChange={(e) => onUpdateProperties(block.id, { equationFormula: e.target.value })}
                 placeholder="Type equation (e.g. E = mc^2)..."
-                className="w-full text-center text-xs text-zinc-400 bg-transparent border-t border-zinc-200 dark:border-zinc-800 pt-2 outline-none focus:text-zinc-700 dark:focus:text-zinc-300 font-mono"
+                className="w-full text-center text-xs text-zinc-400 bg-transparent border-t border-zinc-200 border-border pt-2 outline-none focus:text-zinc-700 dark:focus:text-zinc-300 font-mono"
               />
             </div>
           )}
@@ -2633,7 +2633,7 @@ export function BlockItem({
             );
 
             return (
-              <div className="my-2 p-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/50">
+              <div className="my-2 p-3 rounded-xl border border-zinc-200 border-border bg-zinc-50/50 dark:bg-zinc-900/50">
                 <div className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <ListTree className="h-3.5 w-3.5 text-indigo-500" /> Table of Contents
                 </div>
@@ -2701,7 +2701,7 @@ export function BlockItem({
                   onUpdateContent(block.id, e.target.value);
                 }}
                 placeholder="Label..."
-                className="text-xs text-zinc-500 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2 py-1 bg-transparent"
+                className="text-xs text-zinc-500 border border-zinc-200 border-border rounded-lg px-2 py-1 bg-transparent"
               />
               <input
                 type="url"
@@ -2715,7 +2715,7 @@ export function BlockItem({
                   });
                 }}
                 placeholder="https://..."
-                className="text-xs text-zinc-500 border border-zinc-200 dark:border-zinc-800 rounded-lg px-2 py-1 bg-transparent w-48"
+                className="text-xs text-zinc-500 border border-zinc-200 border-border rounded-lg px-2 py-1 bg-transparent w-48"
               />
             </div>
           )}
@@ -2731,7 +2731,7 @@ export function BlockItem({
             };
 
             return (
-              <div className="my-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50 p-3.5 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all shadow-2xs">
+              <div className="my-2.5 rounded-xl border border-zinc-200 border-border bg-zinc-50/70 dark:bg-zinc-900/50 p-3.5 hover:border-zinc-300 dark:hover:border-zinc-700 transition-all shadow-2xs">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 shadow-2xs shrink-0">
@@ -2790,7 +2790,7 @@ export function BlockItem({
                       href={gh.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800 text-[11px] font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-zinc-200 border-border bg-white dark:bg-zinc-800 text-[11px] font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
                     >
                       <span>GitHub</span>
                       <ExternalLink className="h-3 w-3" />

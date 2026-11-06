@@ -11,6 +11,7 @@ export interface OutlookCalendarEvent {
   teamsLink?: string;
   isAllDay?: boolean;
   status?: string;
+  attendees?: string[];
 }
 
 export interface CreateOutlookCalendarEventInput {
@@ -52,7 +53,7 @@ export async function listOutlookCalendarEvents(
   params.set("$orderby", "start/dateTime asc");
   params.set(
     "$select",
-    "id,subject,bodyPreview,start,end,isAllDay,location,webLink,onlineMeeting,isOnlineMeeting"
+    "id,subject,bodyPreview,start,end,isAllDay,location,webLink,onlineMeeting,isOnlineMeeting,attendees"
   );
 
   const response = await microsoftFetch(`/me/calendarview?${params.toString()}`);
@@ -74,6 +75,7 @@ export async function listOutlookCalendarEvents(
       webLink?: string;
       isOnlineMeeting?: boolean;
       onlineMeeting?: { joinUrl?: string };
+      attendees?: Array<{ emailAddress?: { name?: string; address?: string } }>;
     }>;
   };
 
@@ -89,6 +91,7 @@ export async function listOutlookCalendarEvents(
     isAllDay: !!evt.isAllDay,
     htmlLink: evt.webLink,
     teamsLink: evt.onlineMeeting?.joinUrl,
+    attendees: evt.attendees?.map((a) => a.emailAddress?.address || a.emailAddress?.name).filter(Boolean) as string[] | undefined,
   }));
 }
 
@@ -193,4 +196,98 @@ export async function deleteOutlookCalendarEvent(
     const errorText = await response.text();
     throw new Error(`Microsoft Graph delete event failed (${response.status}): ${errorText}`);
   }
+}
+
+export interface UpdateOutlookCalendarEventInput {
+  summary?: string;
+  description?: string;
+  location?: string;
+  start?: { dateTime: string; timeZone?: string };
+  end?: { dateTime: string; timeZone?: string };
+  attendees?: string[];
+  isAllDay?: boolean;
+  userId?: string;
+}
+
+/**
+ * Updates an existing event in Microsoft Outlook via Microsoft Graph PATCH.
+ */
+export async function updateOutlookCalendarEvent(
+  organizationId: string,
+  eventId: string,
+  input: UpdateOutlookCalendarEventInput
+): Promise<OutlookCalendarEvent> {
+  const { microsoftFetch } = await getAuthenticatedMicrosoftClient(organizationId, { userId: input.userId });
+
+  const bodyPayload: Record<string, unknown> = {};
+  if (input.summary !== undefined) bodyPayload.subject = input.summary;
+  if (input.description !== undefined) {
+    bodyPayload.body = {
+      contentType: "HTML",
+      content: input.description,
+    };
+  }
+  if (input.start !== undefined) {
+    bodyPayload.start = {
+      dateTime: input.start.dateTime,
+      timeZone: input.start.timeZone || "UTC",
+    };
+  }
+  if (input.end !== undefined) {
+    bodyPayload.end = {
+      dateTime: input.end.dateTime,
+      timeZone: input.end.timeZone || "UTC",
+    };
+  }
+  if (input.isAllDay !== undefined) {
+    bodyPayload.isAllDay = input.isAllDay;
+  }
+  if (input.location !== undefined) {
+    bodyPayload.location = {
+      displayName: input.location,
+    };
+  }
+  if (input.attendees !== undefined) {
+    bodyPayload.attendees = input.attendees.map((email) => ({
+      emailAddress: { address: email },
+      type: "required",
+    }));
+  }
+
+  const response = await microsoftFetch(`/me/events/${encodeURIComponent(eventId)}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(bodyPayload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Microsoft Graph update event failed (${response.status}): ${errorText}`);
+  }
+
+  const updated = (await response.json()) as {
+    id: string;
+    subject?: string;
+    bodyPreview?: string;
+    location?: { displayName?: string };
+    start?: { dateTime?: string; timeZone?: string };
+    end?: { dateTime?: string; timeZone?: string };
+    isAllDay?: boolean;
+    webLink?: string;
+    onlineMeeting?: { joinUrl?: string };
+  };
+
+  return {
+    id: updated.id,
+    summary: updated.subject || input.summary || "",
+    description: updated.bodyPreview,
+    location: updated.location?.displayName || input.location,
+    start: updated.start,
+    end: updated.end,
+    isAllDay: !!updated.isAllDay,
+    htmlLink: updated.webLink,
+    teamsLink: updated.onlineMeeting?.joinUrl,
+  };
 }

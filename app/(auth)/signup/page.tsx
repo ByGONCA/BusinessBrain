@@ -185,7 +185,7 @@ function SignUpContent() {
         </div>
 
         {/* Auth Card */}
-        <div className="mt-8 rounded-2xl border border-[#E5E5E0] dark:border-[#29292D] bg-white dark:bg-[#141416] p-6 shadow-xl">
+        <div className="mt-8 rounded-2xl border border-border bg-card text-card-foreground shadow-xl p-6 shadow-xl">
           {/* OAuth Providers */}
           <OAuthButtons returnUrl={rawReturnUrl} />
 

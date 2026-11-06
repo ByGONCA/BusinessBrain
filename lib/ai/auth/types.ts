@@ -11,7 +11,9 @@ export type AIResourceType =
   | "finance"
   | "github"
   | "brain"
-  | "tool";
+  | "tool"
+  | "email"
+  | "calendar";
 
 export type AIActionType = "read" | "create" | "modify" | "execute";
 
@@ -46,7 +48,7 @@ export interface AuthorizationChallenge {
 }
 
 export interface ContextSourceItem {
-  id: string; // e.g. "area:finance", "area:pages", "page:<uuid>", "area:github"
+  id: string; // e.g. "area:finance", "area:pages", "page:<uuid>", "finance:mrr", etc.
   label: string;
   type: AIResourceType;
   category: "workspace_areas" | "pages" | "finance" | "external";
@@ -55,6 +57,9 @@ export interface ContextSourceItem {
   hasAccess: boolean; // Based on user's underlying permissions
   requiresExplicitGrant: boolean; // True for sensitive areas like finance
   updatedAt?: string;
+  parentId?: string | null;
+  children?: ContextSourceItem[];
+  itemCount?: number;
 }
 
 export interface GrantAuthorizationParams {

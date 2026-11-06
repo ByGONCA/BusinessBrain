@@ -79,6 +79,7 @@ export async function listGoogleCalendarEvents(
       end?: { dateTime?: string; date?: string };
       htmlLink?: string;
       status?: string;
+      attendees?: Array<{ email?: string; displayName?: string }>;
     }>;
   };
   const items = data.items || [];
@@ -93,6 +94,7 @@ export async function listGoogleCalendarEvents(
     htmlLink: evt.htmlLink,
     hangoutLink: (evt as { hangoutLink?: string }).hangoutLink,
     status: evt.status,
+    attendees: evt.attendees?.map((a) => a.email || a.displayName).filter(Boolean) as string[] | undefined,
   }));
 }
 
@@ -250,4 +252,81 @@ export async function deleteGoogleCalendarEvent(
     const errText = await response.text();
     throw new Error(`Google Calendar delete event failed (${response.status}): ${errText}`);
   }
+}
+
+export interface UpdateGoogleCalendarEventInput {
+  calendarId?: string;
+  summary?: string;
+  description?: string;
+  location?: string;
+  start?: { dateTime?: string; date?: string; timeZone?: string };
+  end?: { dateTime?: string; date?: string; timeZone?: string };
+  attendees?: string[];
+  userId?: string;
+}
+
+/**
+ * Updates an existing event in Google Calendar with partial mutation (PATCH).
+ */
+export async function updateGoogleCalendarEvent(
+  organizationId: string,
+  eventId: string,
+  input: UpdateGoogleCalendarEventInput
+): Promise<GoogleCalendarEvent> {
+  const { googleFetch } = await getAuthenticatedGoogleClient(organizationId, {
+    userId: input.userId,
+    service: "google_calendar",
+  });
+  const encodedCalId = encodeURIComponent(input.calendarId || "primary");
+  const encodedEventId = encodeURIComponent(eventId);
+
+  const bodyPayload: Record<string, unknown> = {};
+  if (input.summary !== undefined) bodyPayload.summary = input.summary;
+  if (input.description !== undefined) bodyPayload.description = input.description;
+  if (input.location !== undefined) bodyPayload.location = input.location;
+  if (input.start !== undefined) bodyPayload.start = input.start;
+  if (input.end !== undefined) bodyPayload.end = input.end;
+  if (input.attendees !== undefined) {
+    bodyPayload.attendees = input.attendees.map((email) => ({ email }));
+  }
+
+  const response = await googleFetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodedCalId}/events/${encodedEventId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(bodyPayload),
+    }
+  );
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Google Calendar update event failed (${response.status}): ${errText}`);
+  }
+
+  const updated = (await response.json()) as {
+    id: string;
+    summary?: string;
+    description?: string;
+    location?: string;
+    start?: { dateTime?: string; date?: string; timeZone?: string };
+    end?: { dateTime?: string; date?: string; timeZone?: string };
+    htmlLink?: string;
+    hangoutLink?: string;
+    status?: string;
+  };
+
+  return {
+    id: updated.id,
+    summary: updated.summary || input.summary || "",
+    description: updated.description,
+    location: updated.location,
+    start: updated.start,
+    end: updated.end,
+    htmlLink: updated.htmlLink,
+    hangoutLink: updated.hangoutLink,
+    status: updated.status,
+  };
 }

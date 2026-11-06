@@ -35,12 +35,13 @@ export default async function BrainChatPage() {
   const userAvatar = user.user_metadata?.avatar_url || null;
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto h-full">
+    <div className="h-full w-full overflow-hidden">
       <ChatView
         initialConversations={initialConversations}
         activeOrgName={activeOrg.name}
         userName={userName}
         userAvatar={userAvatar}
+        isPersonalWorkspace={activeOrg.workspace_type === "personal"}
       />
     </div>
   );

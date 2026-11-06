@@ -6,6 +6,7 @@ import { isValidUuid } from "@/lib/security/authorization";
 import {
   DashboardLayoutConfig,
   DashboardType,
+  DashboardDescriptor,
   LoadLayoutResult,
   SaveLayoutErrorCode,
   SaveLayoutResult,
@@ -36,11 +37,12 @@ export async function saveDashboardLayoutAction(params: {
     };
   }
 
-  if (params.dashboardType !== "home" && params.dashboardType !== "finance") {
+  const isSafeDashboardType = /^[a-z0-9_-]{1,64}$/i.test(params.dashboardType);
+  if (!isSafeDashboardType) {
     return {
       success: false,
       code: "INVALID_DASHBOARD",
-      message: "Invalid dashboard type.",
+      message: "Invalid dashboard type format. Only alphanumeric characters, dashes, and underscores are allowed.",
     };
   }
 
@@ -131,15 +133,16 @@ export async function saveDashboardLayoutAction(params: {
  */
 export async function loadDashboardLayoutAction(params: {
   organizationId: string;
-  dashboardType: DashboardType;
+  dashboardType: string;
 }): Promise<LoadLayoutResult> {
-  const fallback = getDefaultLayout(params.dashboardType);
+  const fallback = getDefaultLayout(params.dashboardType as DashboardType);
 
   if (!isValidUuid(params.organizationId)) {
     return { layout: fallback, isCustom: false };
   }
 
-  if (params.dashboardType !== "home" && params.dashboardType !== "finance") {
+  const isSafeDashboardType = /^[a-z0-9_-]{1,64}$/i.test(params.dashboardType);
+  if (!isSafeDashboardType) {
     return { layout: fallback, isCustom: false };
   }
 
@@ -210,4 +213,211 @@ export async function loadDashboardLayoutAction(params: {
     },
     isCustom: true,
   };
+}
+
+/**
+ * Returns the list of all dashboards available for the user in the organization.
+ * Always includes canonical "home" and "finance", plus any customized boards.
+ */
+export async function listDashboardsAction(params: {
+  organizationId: string;
+}): Promise<DashboardDescriptor[]> {
+  const defaultDashboards: DashboardDescriptor[] = [
+    {
+      id: "home",
+      name: "Executive Overview",
+      description: "Visão estratégica global, entregáveis e velocidade operacional.",
+      isDefault: true,
+      isSystem: true,
+    },
+    {
+      id: "finance",
+      name: "Financial Velocity",
+      description: "Métricas Stripe, MRR, ARR e liquidação líquida.",
+      isDefault: false,
+      isSystem: true,
+    },
+  ];
+
+  if (!isValidUuid(params.organizationId)) {
+    return defaultDashboards;
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return defaultDashboards;
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("user_preferences")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const prefs = (profile?.user_preferences as Record<string, unknown>) || {};
+  const customRegistry = (prefs.dashboards_registry as Record<string, DashboardDescriptor[]>) || {};
+  const orgCustomDashboards = customRegistry[params.organizationId] || [];
+
+  return [...defaultDashboards, ...orgCustomDashboards];
+}
+
+/**
+ * Creates a new custom dashboard for this user and organization.
+ */
+export async function createDashboardAction(params: {
+  organizationId: string;
+  name: string;
+  description?: string;
+  template?: "home" | "finance" | "blank";
+}): Promise<{ success: boolean; dashboard?: DashboardDescriptor; message?: string }> {
+  if (!isValidUuid(params.organizationId)) {
+    return { success: false, message: "Invalid organization ID." };
+  }
+
+  const trimmedName = params.name?.trim();
+  if (!trimmedName || trimmedName.length > 50) {
+    return { success: false, message: "Dashboard name must be between 1 and 50 characters." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, message: "Unauthenticated." };
+  }
+
+  const dashboardId = `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  const nowIso = new Date().toISOString();
+
+  const newDashboard: DashboardDescriptor = {
+    id: dashboardId,
+    name: trimmedName,
+    description: params.description?.trim() || "",
+    isDefault: false,
+    isSystem: false,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("user_preferences")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const prefs = (profile?.user_preferences as Record<string, unknown>) || {};
+  const customRegistry = (prefs.dashboards_registry as Record<string, DashboardDescriptor[]>) || {};
+  const currentList = customRegistry[params.organizationId] || [];
+
+  // Limit max custom dashboards per user to 12
+  if (currentList.length >= 12) {
+    return { success: false, message: "Maximum limit of 12 custom dashboards reached." };
+  }
+
+  const updatedList = [...currentList, newDashboard];
+  const updatedRegistry = {
+    ...customRegistry,
+    [params.organizationId]: updatedList,
+  };
+
+  // Seed with template layout
+  const templateLayout =
+    params.template === "finance"
+      ? getDefaultLayout("finance")
+      : params.template === "blank"
+      ? { version: 1, updatedAt: nowIso, widgets: [] }
+      : getDefaultLayout("home");
+
+  const saveRes = await saveDashboardLayoutAction({
+    organizationId: params.organizationId,
+    dashboardType: dashboardId,
+    layout: templateLayout,
+    forceOverwrite: true,
+  });
+
+  if (!saveRes.success) {
+    return { success: false, message: saveRes.message || "Failed to persist initial layout." };
+  }
+
+  await supabase
+    .from("profiles")
+    .update({
+      user_preferences: {
+        ...prefs,
+        dashboards_registry: updatedRegistry,
+      },
+    })
+    .eq("id", user.id);
+
+  return { success: true, dashboard: newDashboard };
+}
+
+/**
+ * Deletes a custom dashboard. System dashboards ("home", "finance") cannot be deleted.
+ */
+export async function deleteDashboardAction(params: {
+  organizationId: string;
+  dashboardId: string;
+}): Promise<{ success: boolean; message?: string }> {
+  if (params.dashboardId === "home" || params.dashboardId === "finance") {
+    return { success: false, message: "System dashboards cannot be deleted." };
+  }
+
+  if (!isValidUuid(params.organizationId)) {
+    return { success: false, message: "Invalid organization ID." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, message: "Unauthenticated." };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("user_preferences")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const prefs = (profile?.user_preferences as Record<string, unknown>) || {};
+  const customRegistry = (prefs.dashboards_registry as Record<string, DashboardDescriptor[]>) || {};
+  const currentList = customRegistry[params.organizationId] || [];
+
+  const updatedList = currentList.filter((d) => d.id !== params.dashboardId);
+  const updatedRegistry = {
+    ...customRegistry,
+    [params.organizationId]: updatedList,
+  };
+
+  // Remove layout from preferences
+  const layouts = (prefs.dashboard_layouts as Record<string, Record<string, unknown>>) || {};
+  const orgLayouts = { ...(layouts[params.organizationId] || {}) };
+  delete orgLayouts[params.dashboardId];
+
+  const updatedLayouts = {
+    ...layouts,
+    [params.organizationId]: orgLayouts,
+  };
+
+  await supabase
+    .from("profiles")
+    .update({
+      user_preferences: {
+        ...prefs,
+        dashboards_registry: updatedRegistry,
+        dashboard_layouts: updatedLayouts,
+      },
+    })
+    .eq("id", user.id);
+
+  return { success: true };
 }

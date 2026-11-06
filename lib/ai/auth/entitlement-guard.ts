@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { SubscriptionTier, SubscriptionStatus } from "@/lib/stripe/types";
+import { canPlanUseBYOK } from "@/lib/stripe/config";
 import { SupabaseClient } from "@supabase/supabase-js";
+
+export { canPlanUseBYOK };
 
 export interface AIAccessEntitlementResult {
   allowed: boolean;
@@ -108,5 +111,50 @@ export async function verifyAIAccessEntitlement(
     error: "SUBSCRIPTION_INACTIVE",
     message:
       "A subscrição deste workspace não se encontra ativa. Regularize o estado da conta para aceder aos modelos de inteligência artificial.",
+  };
+}
+
+export interface BYOKEntitlementResult {
+  allowed: boolean;
+  status: 200 | 401 | 402 | 403;
+  error?: string;
+  message?: string;
+  plan?: SubscriptionTier;
+}
+
+/**
+ * Authoritative Server-Side Guard for BYOK Key Configuration & Execution.
+ * Blocks Starter and Trial accounts with HTTP 403 Forbidden.
+ */
+export async function verifyBYOKEntitlement(
+  organizationId: string,
+  clientOverride?: SupabaseClient
+): Promise<BYOKEntitlementResult> {
+  const aiEntitlement = await verifyAIAccessEntitlement(organizationId, clientOverride);
+  if (!aiEntitlement.allowed) {
+    return {
+      allowed: false,
+      status: aiEntitlement.status,
+      error: aiEntitlement.error,
+      message: aiEntitlement.message,
+    };
+  }
+
+  const plan = aiEntitlement.plan || "starter";
+  if (!canPlanUseBYOK(plan) || aiEntitlement.isTrial) {
+    return {
+      allowed: false,
+      status: 403,
+      error: "BYOK_PLAN_RESTRICTED",
+      plan,
+      message:
+        "A funcionalidade de chaves de API próprias (BYOK) está reservada aos planos Pro e Enterprise. O seu plano Starter inclui acesso aos modelos disponibilizados pela plataforma BusinessBrain. Faça upgrade para o plano Pro para ligar as suas próprias chaves de API.",
+    };
+  }
+
+  return {
+    allowed: true,
+    status: 200,
+    plan,
   };
 }

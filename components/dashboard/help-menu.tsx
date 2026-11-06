@@ -99,8 +99,8 @@ export function HelpMenu({
           aria-label={label || t.help.documentation}
           title={label || t.help.documentation}
           className={cn(
-            "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 hover:text-zinc-900 dark:hover:text-white transition-colors text-left",
-            isOpen && "bg-zinc-100 dark:bg-zinc-800/60 text-zinc-900 dark:text-white"
+            "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 hover:text-zinc-900 hover:text-foreground transition-colors text-left",
+            isOpen && "bg-zinc-100 dark:bg-zinc-800/60 text-foreground"
           )}
         >
           <div className="flex items-center gap-2.5">
@@ -121,8 +121,8 @@ export function HelpMenu({
           aria-label={label || t.help.documentation}
           title={label || t.help.documentation}
           className={cn(
-            "relative flex items-center transition-all duration-150 focus:outline-none rounded-lg p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800/60",
-            isOpen && "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white shadow-2xs"
+            "relative flex items-center transition-all duration-150 focus:outline-none rounded-lg p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-800/60",
+            isOpen && "bg-zinc-200 dark:bg-zinc-800 text-foreground shadow-2xs"
           )}
         >
           <HelpCircle className="h-4 w-4 shrink-0" />
@@ -139,8 +139,8 @@ export function HelpMenu({
           aria-label={t.help.documentation}
           title={t.help.documentation}
           className={cn(
-            "flex h-7 w-7 items-center justify-center rounded-lg border border-transparent text-slate-400 hover:border-slate-800 hover:bg-slate-900/80 hover:text-slate-200 transition-colors focus:outline-none",
-            isOpen && "bg-slate-900 border-slate-800 text-white"
+            "flex h-7 w-7 items-center justify-center rounded-lg border border-transparent text-muted-foreground hover:border-slate-800 hover:bg-slate-900/80 hover:text-foreground transition-colors focus:outline-none",
+            isOpen && "bg-selected border-border text-foreground"
           )}
         >
           <HelpCircle className="h-4 w-4" />
@@ -151,7 +151,7 @@ export function HelpMenu({
       {isOpen && (
         <div
           className={cn(
-            "absolute w-64 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] p-1.5 shadow-2xl backdrop-blur-2xl text-zinc-800 dark:text-zinc-200 z-50 animate-in fade-in zoom-in-95",
+            "absolute w-64 rounded-xl border border-zinc-200 border-border bg-card border-border p-1.5 shadow-2xl backdrop-blur-2xl text-zinc-800 dark:text-zinc-200 z-50 animate-in fade-in zoom-in-95",
             triggerVariant === "account-item"
               ? "left-full bottom-0 ml-2.5 max-h-[calc(100vh-80px)] overflow-y-auto no-scrollbar"
               : placement === "top"
@@ -185,7 +185,7 @@ export function HelpMenu({
             <Link
               href="/dashboard/knowledge"
               onClick={() => setIsOpen(false)}
-              className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 hover:text-zinc-900 dark:hover:text-white transition-colors"
+              className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-zinc-100 hover:bg-hover hover:text-zinc-900 hover:text-foreground transition-colors"
             >
               <BookOpen className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
               <span>{t.help.documentation}</span>
@@ -194,7 +194,7 @@ export function HelpMenu({
             <a
               href="mailto:support@companybrain.io?subject=Support%20Request"
               onClick={() => setIsOpen(false)}
-              className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 hover:text-zinc-900 dark:hover:text-white transition-colors"
+              className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-zinc-100 hover:bg-hover hover:text-zinc-900 hover:text-foreground transition-colors"
             >
               <MessageSquare className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
               <span>{t.help.getSupport}</span>
@@ -210,8 +210,8 @@ export function HelpMenu({
                 type="button"
                 onClick={() => setIsMoreOpen(!isMoreOpen)}
                 className={cn(
-                  "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 hover:text-zinc-900 dark:hover:text-white transition-colors",
-                  isMoreOpen && "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-900 dark:text-white"
+                  "flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-medium text-muted-foreground hover:bg-zinc-100 hover:bg-hover hover:text-zinc-900 hover:text-foreground transition-colors",
+                  isMoreOpen && "bg-zinc-100 dark:bg-zinc-800/80 text-foreground"
                 )}
               >
                 <div className="flex items-center gap-2.5">
@@ -225,7 +225,7 @@ export function HelpMenu({
               {isMoreOpen && (
                 <div
                   className={cn(
-                    "absolute left-full ml-1 w-60 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] p-1.5 shadow-2xl backdrop-blur-2xl text-zinc-800 dark:text-zinc-200 z-50 animate-in fade-in",
+                    "absolute left-full ml-1 w-60 rounded-xl border border-zinc-200 border-border bg-card border-border p-1.5 shadow-2xl backdrop-blur-2xl text-zinc-800 dark:text-zinc-200 z-50 animate-in fade-in",
                     placement === "top" ? "top-0" : "bottom-0"
                   )}
                 >
@@ -236,7 +236,7 @@ export function HelpMenu({
                         setShowShortcutsModal(true);
                         setIsOpen(false);
                       }}
-                      className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-zinc-100 hover:bg-hover hover:text-zinc-900 hover:text-foreground transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <Keyboard className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
@@ -251,7 +251,7 @@ export function HelpMenu({
                       href="https://twitter.com"
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                      className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-zinc-100 hover:bg-hover hover:text-zinc-900 hover:text-foreground transition-colors"
                     >
                       <span>X (formerly Twitter)</span>
                       <ExternalLink className="h-3 w-3 text-zinc-400 dark:text-zinc-500" />
@@ -260,13 +260,13 @@ export function HelpMenu({
                     <Link
                       href="/pricing"
                       onClick={() => setIsOpen(false)}
-                      className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                      className="flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-zinc-100 hover:bg-hover hover:text-zinc-900 hover:text-foreground transition-colors"
                     >
                       <FileText className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
                       <span>{t.help.termsPrivacy}</span>
                     </Link>
 
-                    <div className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-300">
+                    <div className="flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground">
                       <div className="flex items-center gap-2">
                         <Activity className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
                         <span>{t.help.status}</span>
@@ -280,7 +280,7 @@ export function HelpMenu({
                     <button
                       type="button"
                       onClick={handleClearCache}
-                      className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 hover:text-zinc-900 dark:hover:text-white transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-zinc-100 hover:bg-hover hover:text-zinc-900 hover:text-foreground transition-colors"
                     >
                       <div className="flex items-center gap-2">
                         <RotateCcw className="h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
@@ -290,11 +290,11 @@ export function HelpMenu({
                     </button>
                   </div>
 
-                  <div className="my-1.5 border-t border-zinc-200 dark:border-zinc-800" />
+                  <div className="my-1.5 border-t border-zinc-200 border-border" />
 
                   {/* Version Footnote */}
                   <div className="px-2.5 py-1 text-[10px] font-mono text-zinc-500 dark:text-zinc-400 leading-tight space-y-0.5">
-                    <p className="text-zinc-700 dark:text-zinc-300 font-semibold">Company Brain 0.5.0</p>
+                    <p className="text-muted-foreground font-semibold">Company Brain 0.5.0</p>
                     <p>{t.help.webCloudEdition}</p>
                     <p className="text-zinc-400 dark:text-zinc-500">{t.help.updatedToday}</p>
                   </div>
@@ -303,31 +303,31 @@ export function HelpMenu({
             </div>
           </div>
 
-          <div className="my-1.5 border-t border-zinc-200 dark:border-zinc-800" />
+          <div className="my-1.5 border-t border-zinc-200 border-border" />
 
           {/* What's new? Section with connected vertical timeline */}
           <div className="px-2 py-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
               {t.help.whatsNew}
             </p>
 
-            <div className="relative pl-3.5 space-y-2 border-l border-slate-700/60 ml-1.5">
+            <div className="relative pl-3.5 space-y-2 border-l border-border ml-1.5">
               <div className="relative">
-                <div className="absolute -left-[19px] top-1.5 h-1.5 w-1.5 rounded-full bg-blue-500 ring-2 ring-slate-900" />
-                <p className="text-xs font-medium text-slate-200">Company Brain 0.5</p>
-                <p className="text-[10px] text-slate-400">Unified memory layer</p>
+                <div className="absolute -left-[19px] top-1.5 h-1.5 w-1.5 rounded-full bg-blue-500 ring-2 ring-card" />
+                <p className="text-xs font-medium text-foreground">Company Brain 0.5</p>
+                <p className="text-[10px] text-muted-foreground">Unified memory layer</p>
               </div>
 
               <div className="relative">
-                <div className="absolute -left-[19px] top-1.5 h-1.5 w-1.5 rounded-full bg-slate-500 ring-2 ring-slate-900" />
-                <p className="text-xs font-medium text-slate-200">Interactive Timeline</p>
-                <p className="text-[10px] text-slate-400">Continuous pan & zoom</p>
+                <div className="absolute -left-[19px] top-1.5 h-1.5 w-1.5 rounded-full bg-slate-500 ring-2 ring-card" />
+                <p className="text-xs font-medium text-foreground">Interactive Timeline</p>
+                <p className="text-[10px] text-muted-foreground">Continuous pan & zoom</p>
               </div>
 
               <div className="relative">
-                <div className="absolute -left-[19px] top-1.5 h-1.5 w-1.5 rounded-full bg-slate-500 ring-2 ring-slate-900" />
-                <p className="text-xs font-medium text-slate-200">Google Workspace Sync</p>
-                <p className="text-[10px] text-slate-400">Gmail & Calendar connected</p>
+                <div className="absolute -left-[19px] top-1.5 h-1.5 w-1.5 rounded-full bg-slate-500 ring-2 ring-card" />
+                <p className="text-xs font-medium text-foreground">Google Workspace Sync</p>
+                <p className="text-[10px] text-muted-foreground">Gmail & Calendar connected</p>
               </div>
             </div>
 
@@ -346,49 +346,49 @@ export function HelpMenu({
       {/* Keyboard Shortcuts Dialog Modal */}
       {showShortcutsModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#161618] p-5 shadow-2xl animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-200 dark:border-zinc-800">
+          <div className="w-full max-w-sm rounded-2xl border border-zinc-200 border-border bg-card border-border p-5 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-200 border-border">
               <div className="flex items-center gap-2">
                 <Keyboard className="h-4 w-4 text-blue-500 dark:text-blue-400" />
-                <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">{t.help.shortcutsTitle}</h3>
+                <h3 className="text-sm font-semibold text-foreground">{t.help.shortcutsTitle}</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setShowShortcutsModal(false)}
-                className="p-1 rounded-md text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                className="p-1 rounded-md text-zinc-400 hover:text-zinc-900 hover:text-foreground hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             <div className="py-3 space-y-2.5 text-xs">
-              <div className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
+              <div className="flex items-center justify-between text-muted-foreground">
                 <span>{t.help.quickSearch}</span>
-                <kbd className="rounded border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-zinc-700 dark:text-zinc-300">
+                <kbd className="rounded border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
                   {formatShortcut("K", true)}
                 </kbd>
               </div>
-              <div className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
+              <div className="flex items-center justify-between text-muted-foreground">
                 <span>{t.help.zoomTimeline}</span>
-                <kbd className="rounded border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-zinc-700 dark:text-zinc-300">
+                <kbd className="rounded border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
                   {modKeyName} + Scroll
                 </kbd>
               </div>
-              <div className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
+              <div className="flex items-center justify-between text-muted-foreground">
                 <span>{t.help.panTimeline}</span>
-                <kbd className="rounded border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-zinc-700 dark:text-zinc-300">
+                <kbd className="rounded border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
                   Click & Drag
                 </kbd>
               </div>
-              <div className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
+              <div className="flex items-center justify-between text-muted-foreground">
                 <span>{t.help.closeModal}</span>
-                <kbd className="rounded border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-zinc-700 dark:text-zinc-300">
+                <kbd className="rounded border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
                   Esc
                 </kbd>
               </div>
             </div>
 
-            <div className="pt-3 border-t border-zinc-200 dark:border-zinc-800 text-right">
+            <div className="pt-3 border-t border-zinc-200 border-border text-right">
               <button
                 type="button"
                 onClick={() => setShowShortcutsModal(false)}

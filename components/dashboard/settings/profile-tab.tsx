@@ -571,7 +571,7 @@ export function ProfileTab({ user, onProfileUpdated }: ProfileTabProps) {
               value={customUrlInput}
               onChange={(e) => setCustomUrlInput(e.target.value)}
               placeholder="https://example.com/avatar.png"
-              className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors"
+              className="flex-1 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors"
             />
             <button
               type="submit"
@@ -633,7 +633,7 @@ export function ProfileTab({ user, onProfileUpdated }: ProfileTabProps) {
             <select
               value={locale}
               onChange={(e) => setLocale(e.target.value as Locale)}
-              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
+              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
             >
               {SUPPORTED_LOCALES.map((loc) => (
                 <option key={loc.code} value={loc.code}>
@@ -658,7 +658,7 @@ export function ProfileTab({ user, onProfileUpdated }: ProfileTabProps) {
             <select
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
-              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs max-w-[220px]"
+              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs max-w-[220px]"
             >
               {POPULAR_TIMEZONES.map((tz) => (
                 <option key={tz.value} value={tz.value}>
@@ -683,7 +683,7 @@ export function ProfileTab({ user, onProfileUpdated }: ProfileTabProps) {
             <select
               value={dateFormat}
               onChange={(e) => setDateFormat(e.target.value)}
-              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-[#1a1a1d] px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
+              className="rounded-lg border border-zinc-300 dark:border-zinc-700 bg-surface-secondary text-foreground px-3 py-1.5 text-xs font-medium text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
             >
               <option value="DD/MM/YYYY">DD/MM/YYYY (Default)</option>
               <option value="MM/DD/YYYY">MM/DD/YYYY</option>
@@ -707,7 +707,7 @@ export function ProfileTab({ user, onProfileUpdated }: ProfileTabProps) {
                 onClick={() => setTimeFormat("24h")}
                 className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer ${
                   timeFormat === "24h"
-                    ? "bg-white dark:bg-[#1a1a1d] text-zinc-900 dark:text-white shadow-2xs font-semibold"
+                    ? "bg-surface-secondary text-foreground text-zinc-900 dark:text-white shadow-2xs font-semibold"
                     : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900"
                 }`}
               >
@@ -718,7 +718,7 @@ export function ProfileTab({ user, onProfileUpdated }: ProfileTabProps) {
                 onClick={() => setTimeFormat("12h")}
                 className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer ${
                   timeFormat === "12h"
-                    ? "bg-white dark:bg-[#1a1a1d] text-zinc-900 dark:text-white shadow-2xs font-semibold"
+                    ? "bg-surface-secondary text-foreground text-zinc-900 dark:text-white shadow-2xs font-semibold"
                     : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900"
                 }`}
               >
@@ -745,7 +745,7 @@ export function ProfileTab({ user, onProfileUpdated }: ProfileTabProps) {
                 onClick={() => setFirstDayOfWeek("monday")}
                 className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer ${
                   firstDayOfWeek === "monday"
-                    ? "bg-white dark:bg-[#1a1a1d] text-zinc-900 dark:text-white shadow-2xs font-semibold"
+                    ? "bg-surface-secondary text-foreground text-zinc-900 dark:text-white shadow-2xs font-semibold"
                     : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900"
                 }`}
               >
@@ -756,7 +756,7 @@ export function ProfileTab({ user, onProfileUpdated }: ProfileTabProps) {
                 onClick={() => setFirstDayOfWeek("sunday")}
                 className={`px-3 py-1 rounded-md font-medium transition-colors cursor-pointer ${
                   firstDayOfWeek === "sunday"
-                    ? "bg-white dark:bg-[#1a1a1d] text-zinc-900 dark:text-white shadow-2xs font-semibold"
+                    ? "bg-surface-secondary text-foreground text-zinc-900 dark:text-white shadow-2xs font-semibold"
                     : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900"
                 }`}
               >

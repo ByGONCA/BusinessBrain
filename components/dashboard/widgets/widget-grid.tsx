@@ -14,6 +14,10 @@ import { PulseStripVisualizer } from "./renderers/pulse-strip-visualizer";
 import { TopologyMapVisualizer } from "./renderers/topology-map-visualizer";
 import { RecentPagesVisualizer } from "./renderers/recent-pages-visualizer";
 import { TimelineActivityVisualizer } from "./renderers/timeline-activity-visualizer";
+import { DonutVisualizer } from "./renderers/donut-visualizer";
+import { RadialGaugeVisualizer } from "./renderers/radial-gauge-visualizer";
+import { AgendaVisualizer } from "./renderers/agenda-visualizer";
+import { ProgressVisualizer } from "./renderers/progress-visualizer";
 import { StripeFinancialSnapshot, MetricFreshnessStatus } from "@/lib/integrations/stripe/types";
 import { CompanyGraphData } from "@/lib/connections/types";
 import { TimelineEvent } from "@/lib/timeline/types";
@@ -29,6 +33,15 @@ export interface WidgetGridData {
   projectsCount?: number;
   decisions?: Array<{ id: string; title: string; status?: string; updated_at: string; created_at?: string; metadata?: Record<string, unknown> }>;
   decisionsCount?: number;
+  tasks?: Array<{ id: string; title: string; status?: string; priority?: string; updated_at?: string; created_at?: string }>;
+  tasksCount?: number;
+  goals?: Array<{ id: string; title: string; status?: string; current?: number; target?: number; progress?: number; updated_at?: string }>;
+  goalsCount?: number;
+  calendarEvents?: Array<{ id: string; title: string; startTime: string; endTime?: string; meetUrl?: string; attendeesCount?: number }>;
+  githubData?: {
+    prs: Array<{ id: string; title: string; repo?: string; author?: string; status?: string; url?: string }>;
+    repos: Array<{ id: string; name: string; url?: string; stars?: number; openIssues?: number }>;
+  };
   pages?: Array<{ id: string; title: string; icon?: string | null; updated_at: string }>;
   pagesCount?: number;
   connectionCount?: number;
@@ -369,10 +382,17 @@ export function WidgetGrid({
                   pagesCount={data.pagesCount}
                   connectionCount={data.connectionCount}
                   totalConnections={data.totalConnections}
+                  tasksCount={data.tasksCount}
+                  goalsCount={data.goalsCount}
+                  calendarEvents={data.calendarEvents}
+                  githubData={data.githubData}
+                  isStripeConnected={data.isStripeConnected}
                 />
               )}
 
-              {resolvedVisualization === "chart" && (
+              {(resolvedVisualization === "chart" ||
+                resolvedVisualization === "line" ||
+                resolvedVisualization === "area") && (
                 <ChartVisualizer
                   widget={resolvedWidget}
                   financialSnapshot={data.financialSnapshot}
@@ -393,6 +413,11 @@ export function WidgetGrid({
                   widget={resolvedWidget}
                   projects={data.projects}
                   decisions={data.decisions}
+                  tasks={data.tasks}
+                  calendarEvents={data.calendarEvents}
+                  githubData={data.githubData}
+                  financialSnapshot={data.financialSnapshot}
+                  currency={data.currency}
                 />
               )}
 
@@ -460,97 +485,123 @@ export function WidgetGrid({
                 />
               )}
 
-              {/* 11. PROGRESS VISUALIZER */}
+              {/* 11. DONUT VISUALIZER */}
+              {resolvedVisualization === "donut" && (
+                <DonutVisualizer
+                  widget={resolvedWidget}
+                  data={
+                    resolvedWidget.metricId === "finance.plans_breakdown" && data.financialSnapshot?.currencies
+                      ? (() => {
+                          const firstCurr = Object.values(data.financialSnapshot.currencies)[0];
+                          if (firstCurr?.revenueByPlan && Object.keys(firstCurr.revenueByPlan).length > 0) {
+                            return Object.entries(firstCurr.revenueByPlan).map(([k, p], i) => ({
+                              id: k,
+                              label: p.planName || k,
+                              value: p.subscribersCount,
+                              color: ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6"][i % 4],
+                            }));
+                          }
+                          return [];
+                        })()
+                      : data.tasks && data.tasks.length > 0
+                      ? (() => {
+                          const statusMap: Record<string, number> = {};
+                          for (const t of data.tasks) {
+                            const s = t.status || "pending";
+                            statusMap[s] = (statusMap[s] || 0) + 1;
+                          }
+                          const colors = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6"];
+                          return Object.entries(statusMap).map(([s, val], i) => ({
+                            id: s,
+                            label: s.charAt(0).toUpperCase() + s.slice(1),
+                            value: val,
+                            color: colors[i % colors.length],
+                          }));
+                        })()
+                      : data.projects && data.projects.length > 0
+                      ? (() => {
+                          const statusMap: Record<string, number> = {};
+                          for (const p of data.projects) {
+                            const s = p.status || "active";
+                            statusMap[s] = (statusMap[s] || 0) + 1;
+                          }
+                          const colors = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6"];
+                          return Object.entries(statusMap).map(([s, val], i) => ({
+                            id: s,
+                            label: s.charAt(0).toUpperCase() + s.slice(1),
+                            value: val,
+                            color: colors[i % colors.length],
+                          }));
+                        })()
+                      : []
+                  }
+                  centerLabel="Total"
+                />
+              )}
+
+              {/* 12. PROGRESS VISUALIZER */}
               {resolvedVisualization === "progress" && (
-                <div className="p-4 flex flex-col justify-between h-full space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-[11px] font-mono text-zinc-400 uppercase tracking-wider">
-                        {resolvedWidget.metricId.includes("finance") ? "Meta de Faturação" : "Conclusão de Objetivos"}
-                      </span>
-                      <h4 className="text-sm font-bold text-white mt-0.5">Progresso do Período</h4>
-                    </div>
-                    <span className="text-xl font-mono font-extrabold text-blue-400">
-                      {resolvedWidget.metricId.includes("finance") ? "84%" : "72%"}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="h-3 w-full rounded-full bg-zinc-800/80 overflow-hidden p-0.5 border border-white/[0.06]">
-                      <div
-                        className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-500"
-                        style={{ width: resolvedWidget.metricId.includes("finance") ? "84%" : "72%" }}
-                      />
-                    </div>
-                    <div className="flex justify-between text-[11px] font-mono text-zinc-400">
-                      <span>0%</span>
-                      <span>Meta: 100%</span>
-                    </div>
-                  </div>
-                </div>
+                <ProgressVisualizer
+                  widget={resolvedWidget}
+                  singleCurrent={
+                    resolvedWidget.metricId.includes("finance")
+                      ? data.financialSnapshot?.currencies
+                        ? Math.round((Object.values(data.financialSnapshot.currencies)[0]?.netRevenueCents || 0) / 100)
+                        : 0
+                      : data.tasks && data.tasks.length > 0
+                      ? Math.min(100, Math.round(((data.tasks.filter((t) => t.status === "completed" || t.status === "done").length) / data.tasks.length) * 100))
+                      : data.goals && data.goals.length > 0
+                      ? Math.min(100, Math.round(((data.goals.filter((g) => g.status === "completed" || (typeof g.progress === "number" && g.progress >= 100)).length) / data.goals.length) * 100))
+                      : 0
+                  }
+                  singleTotal={resolvedWidget.options?.targetValue || 100}
+                  singleLabel={resolvedWidget.title || (resolvedWidget.metricId.includes("finance") ? "Meta de Faturação" : "Conclusão de Objetivos")}
+                />
               )}
 
-              {/* 12. GAUGE VISUALIZER */}
-              {resolvedVisualization === "gauge" && (
-                <div className="p-4 flex flex-col items-center justify-center h-full text-center">
-                  <div className="relative flex items-center justify-center">
-                    <svg className="w-36 h-20" viewBox="0 0 100 60">
-                      <path
-                        d="M10 50 A40 40 0 0 1 90 50"
-                        fill="none"
-                        stroke="rgba(255,255,255,0.08)"
-                        strokeWidth="8"
-                        strokeLinecap="round"
-                      />
-                      <path
-                        d="M10 50 A40 40 0 0 1 78 20"
-                        fill="none"
-                        stroke="#3B82F6"
-                        strokeWidth="8"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    <div className="absolute bottom-1 text-center">
-                      <span className="text-2xl font-mono font-black text-white">88%</span>
-                    </div>
-                  </div>
-                  <span className="text-xs font-semibold text-zinc-300 mt-2">Velocidade & Pulso Operacional</span>
-                  <span className="text-[11px] text-zinc-500">Ritmo de entrega acima da média trimestral</span>
-                </div>
+              {/* 13. RADIAL GAUGE VISUALIZER */}
+              {(resolvedVisualization === "radial_gauge" || resolvedVisualization === "gauge") && (
+                <RadialGaugeVisualizer
+                  widget={resolvedWidget}
+                  completedDeliverables={
+                    data.goals && data.goals.length > 0
+                      ? data.goals.filter((g) => g.status === "completed" || (typeof g.progress === "number" && g.progress >= 100)).length
+                      : data.tasks && data.tasks.length > 0
+                      ? data.tasks.filter((t) => t.status === "completed" || t.status === "done").length
+                      : 0
+                  }
+                  totalDeliverables={
+                    data.goals && data.goals.length > 0
+                      ? data.goals.length
+                      : data.tasks && data.tasks.length > 0
+                      ? data.tasks.length
+                      : 0
+                  }
+                  label={resolvedWidget.title || "Meta Operacional"}
+                />
               )}
 
-              {/* 13. AGENDA VISUALIZER */}
+              {/* 14. AGENDA VISUALIZER */}
               {resolvedVisualization === "agenda" && (
-                <div className="p-4 space-y-2.5 h-full overflow-y-auto">
-                  <span className="text-[11px] font-mono uppercase text-zinc-400 tracking-wider">
-                    Próximos Marcos & Sincronizações
-                  </span>
-                  <div className="space-y-2 pt-1">
-                    {(data.timelineEvents && data.timelineEvents.length > 0
-                      ? data.timelineEvents.slice(0, 3)
-                      : [
-                          { id: "e1", title: "Revisão Executiva Q4", timestamp: new Date().toISOString() },
-                          { id: "e2", title: "Lançamento da API Stripe", timestamp: new Date().toISOString() },
-                        ]
-                    ).map((evt: any, i: number) => (
-                      <div
-                        key={evt.id || i}
-                        className="flex items-center gap-3 p-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02]"
-                      >
-                        <div className="flex flex-col items-center justify-center px-2 py-1 rounded-lg bg-blue-500/10 text-blue-400 font-mono text-[10px] font-bold shrink-0">
-                          <span>DIA</span>
-                          <span>{new Date(evt.timestamp).getDate()}</span>
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold text-zinc-200 truncate">{evt.title}</p>
-                          <p className="text-[10px] text-zinc-400">
-                            {new Date(evt.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <AgendaVisualizer
+                  widget={resolvedWidget}
+                  events={
+                    data.calendarEvents && data.calendarEvents.length > 0
+                      ? data.calendarEvents.map((c) => ({
+                          id: c.id,
+                          title: c.title,
+                          startTime: c.startTime,
+                          endTime: c.endTime,
+                          meetUrl: c.meetUrl,
+                          attendeesCount: c.attendeesCount,
+                        }))
+                      : data.timelineEvents?.slice(0, 4).map((evt: any) => ({
+                          id: evt.id,
+                          title: evt.title,
+                          startTime: new Date(evt.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                        })) || []
+                  }
+                />
               )}
 
               {/* 14. CARDS VISUALIZER */}

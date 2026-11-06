@@ -373,36 +373,36 @@ export function EditEntityModal({
       role="dialog"
       aria-modal="true"
     >
-      <div className="relative w-full max-w-2xl bg-[#16181D] border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-2xl bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08] bg-[#121316]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-surface-secondary">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               {typeLabelMap[entity.type]}
             </span>
             <span className="text-zinc-600">•</span>
-            <span className="text-xs text-zinc-400 font-mono truncate max-w-[200px]">
+            <span className="text-xs text-muted-foreground font-mono truncate max-w-[200px]">
               {entity.title}
             </span>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-zinc-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/[0.06]"
+            className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-lg hover:bg-hover"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center px-6 border-b border-white/[0.08] bg-[#121316]/50 gap-4 text-xs font-medium">
+        <div className="flex items-center px-6 border-b border-border bg-surface-secondary/50 gap-4 text-xs font-medium">
           <button
             type="button"
             onClick={() => setActiveTab("details")}
             className={`py-3 flex items-center gap-1.5 border-b-2 transition-colors ${
               activeTab === "details"
-                ? "border-zinc-100 text-zinc-100"
-                : "border-transparent text-zinc-400 hover:text-zinc-200"
+                ? "border-zinc-100 text-foreground"
+                : "border-transparent text-muted-foreground hover:text-zinc-200"
             }`}
           >
             <FileText className="h-3.5 w-3.5" />
@@ -413,14 +413,14 @@ export function EditEntityModal({
             onClick={() => setActiveTab("connections")}
             className={`py-3 flex items-center gap-1.5 border-b-2 transition-colors ${
               activeTab === "connections"
-                ? "border-zinc-100 text-zinc-100"
-                : "border-transparent text-zinc-400 hover:text-zinc-200"
+                ? "border-zinc-100 text-foreground"
+                : "border-transparent text-muted-foreground hover:text-zinc-200"
             }`}
           >
             <Link2 className="h-3.5 w-3.5" />
             <span>Conexões</span>
             {(incomingConnections.length > 0 || outgoingConnections.length > 0) && (
-              <span className="ml-1 px-1.5 py-0.2 rounded-md bg-white/[0.08] text-[10px] text-zinc-300">
+              <span className="ml-1 px-1.5 py-0.2 rounded-md bg-white/[0.08] text-[10px] text-muted-foreground">
                 {incomingConnections.length + outgoingConnections.length}
               </span>
             )}
@@ -430,14 +430,14 @@ export function EditEntityModal({
             onClick={() => setActiveTab("history")}
             className={`py-3 flex items-center gap-1.5 border-b-2 transition-colors ${
               activeTab === "history"
-                ? "border-zinc-100 text-zinc-100"
-                : "border-transparent text-zinc-400 hover:text-zinc-200"
+                ? "border-zinc-100 text-foreground"
+                : "border-transparent text-muted-foreground hover:text-zinc-200"
             }`}
           >
             <History className="h-3.5 w-3.5" />
             <span>Histórico de Alterações</span>
             {activities.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.2 rounded-md bg-white/[0.08] text-[10px] text-zinc-300">
+              <span className="ml-1 px-1.5 py-0.2 rounded-md bg-white/[0.08] text-[10px] text-muted-foreground">
                 {activities.length}
               </span>
             )}
@@ -456,28 +456,28 @@ export function EditEntityModal({
 
             {/* Title */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-300">Título</label>
+              <label className="text-xs font-medium text-muted-foreground">Título</label>
               <input
                 type="text"
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Ex: Definir nova arquitetura de dados"
-                className="w-full rounded-lg border border-white/[0.08] bg-[#121316] px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400"
+                className="w-full rounded-lg border border-border bg-background text-foreground px-3 py-2 text-xs text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400"
               />
             </div>
 
             {/* Status & Priority Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-zinc-300">
-                  <Tag className="h-3.5 w-3.5 text-zinc-400" />
+                <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <Tag className="h-3.5 w-3.5 text-muted-foreground" />
                   <span>Estado Atual</span>
                 </label>
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  className="w-full rounded-lg border border-white/[0.08] bg-[#121316] px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-zinc-400 capitalize"
+                  className="w-full rounded-lg border border-border bg-background text-foreground px-3 py-2 text-xs text-foreground focus:outline-none focus:border-zinc-400 capitalize"
                 >
                   {currentStatusOptions.map((st) => (
                     <option key={st.value} value={st.value}>
@@ -488,14 +488,14 @@ export function EditEntityModal({
               </div>
 
               <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-zinc-300">
-                  <Clock className="h-3.5 w-3.5 text-zinc-400" />
+                <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                   <span>Prioridade</span>
                 </label>
                 <select
                   value={priority}
                   onChange={(e) => setPriority(e.target.value as "low" | "medium" | "high" | "urgent")}
-                  className="w-full rounded-lg border border-white/[0.08] bg-[#121316] px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-zinc-400"
+                  className="w-full rounded-lg border border-border bg-background text-foreground px-3 py-2 text-xs text-foreground focus:outline-none focus:border-zinc-400"
                 >
                   {PRIORITY_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -509,28 +509,28 @@ export function EditEntityModal({
             {/* Due Date & Assignee Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-zinc-300">
-                  <Calendar className="h-3.5 w-3.5 text-zinc-400" />
+                <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                   <span>{entity.type === "goal" ? "Data Limite Alvo" : "Prazo / Data"}</span>
                 </label>
                 <input
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full rounded-lg border border-white/[0.08] bg-[#121316] px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-zinc-400"
+                  className="w-full rounded-lg border border-border bg-background text-foreground px-3 py-2 text-xs text-foreground focus:outline-none focus:border-zinc-400"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-zinc-300">
-                  <User className="h-3.5 w-3.5 text-zinc-400" />
+                <label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <User className="h-3.5 w-3.5 text-muted-foreground" />
                   <span>Responsável</span>
                 </label>
                 <select
                   value={assigneeId}
                   onChange={(e) => setAssigneeId(e.target.value)}
                   disabled={isLoadingMembers}
-                  className="w-full rounded-lg border border-white/[0.08] bg-[#121316] px-3 py-2 text-xs text-zinc-100 focus:outline-none focus:border-zinc-400 disabled:opacity-50"
+                  className="w-full rounded-lg border border-border bg-background text-foreground px-3 py-2 text-xs text-foreground focus:outline-none focus:border-zinc-400 disabled:opacity-50"
                 >
                   <option value="">(Não atribuído)</option>
                   {members.map((m) => (
@@ -544,7 +544,7 @@ export function EditEntityModal({
 
             {/* Content / Description */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-300">
+              <label className="text-xs font-medium text-muted-foreground">
                 Descrição / Contexto
               </label>
               <textarea
@@ -552,13 +552,13 @@ export function EditEntityModal({
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Detalhes ou critérios de aceitação..."
-                className="w-full rounded-lg border border-white/[0.08] bg-[#121316] px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 resize-none"
+                className="w-full rounded-lg border border-border bg-background text-foreground px-3 py-2 text-xs text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 resize-none"
               />
             </div>
 
             {/* Internal Notes */}
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-300">
+              <label className="text-xs font-medium text-muted-foreground">
                 Notas & Decisões Complementares
               </label>
               <textarea
@@ -566,12 +566,12 @@ export function EditEntityModal({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Notas adicionais sobre trade-offs ou progresso..."
-                className="w-full rounded-lg border border-white/[0.08] bg-[#121316] px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 resize-none"
+                className="w-full rounded-lg border border-border bg-background text-foreground px-3 py-2 text-xs text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 resize-none"
               />
             </div>
 
             {/* Modal Actions */}
-            <div className="flex items-center justify-between pt-4 border-t border-white/[0.08]">
+            <div className="flex items-center justify-between pt-4 border-t border-border">
               <div>
                 {showDeleteConfirm ? (
                   <div className="flex items-center gap-1.5">
@@ -579,14 +579,14 @@ export function EditEntityModal({
                       type="button"
                       disabled={isDeleting}
                       onClick={handleDelete}
-                      className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-rose-500 transition-colors"
+                      className="inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-rose-500 transition-colors"
                     >
                       {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : "Confirmar Eliminação"}
                     </button>
                     <button
                       type="button"
                       onClick={() => setShowDeleteConfirm(false)}
-                      className="px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200"
+                      className="px-2 py-1.5 text-xs text-muted-foreground hover:text-zinc-200"
                     >
                       Cancelar
                     </button>
@@ -595,7 +595,7 @@ export function EditEntityModal({
                   <button
                     type="button"
                     onClick={() => setShowDeleteConfirm(true)}
-                    className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-rose-400 transition-colors py-1.5"
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-rose-400 transition-colors py-1.5"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     <span>Eliminar</span>
@@ -608,7 +608,7 @@ export function EditEntityModal({
                   type="button"
                   onClick={onClose}
                   disabled={isSaving || isDeleting}
-                  className="px-3.5 py-1.5 rounded-lg border border-white/[0.08] text-xs font-medium text-zinc-300 hover:bg-white/[0.06] transition-colors"
+                  className="px-3.5 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:bg-hover transition-colors"
                 >
                   Cancelar
                 </button>
@@ -668,9 +668,9 @@ export function EditEntityModal({
             )}
 
             {/* Create new association section */}
-            <div className="p-4 rounded-xl border border-white/[0.08] bg-[#121316] space-y-3">
+            <div className="p-4 rounded-xl border border-border bg-background text-foreground space-y-3">
               <h4 className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
-                <Plus className="h-3.5 w-3.5 text-zinc-400" />
+                <Plus className="h-3.5 w-3.5 text-muted-foreground" />
                 <span>Adicionar Nova Ligação no Grafo</span>
               </h4>
 
@@ -681,7 +681,7 @@ export function EditEntityModal({
                   value={connectionSearchQuery}
                   onChange={(e) => setConnectionSearchQuery(e.target.value)}
                   placeholder="Pesquisar página, tarefa, projeto ou objetivo para ligar..."
-                  className="w-full rounded-lg border border-white/[0.08] bg-[#16181D] px-3 py-2 text-xs text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400"
+                  className="w-full rounded-lg border border-border bg-surface-secondary px-3 py-2 text-xs text-foreground placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400"
                 />
                 {isSearchingCandidates && (
                   <Loader2 className="absolute right-3 top-2.5 h-3.5 w-3.5 text-zinc-500 animate-spin" />
@@ -702,7 +702,7 @@ export function EditEntityModal({
                         className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs text-left text-zinc-200 hover:bg-white/[0.08] transition-colors"
                       >
                         <span className="font-medium truncate">{cand.title}</span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/[0.06] text-zinc-400 uppercase">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-hover text-muted-foreground uppercase">
                           {cand.type}
                         </span>
                       </button>
@@ -713,12 +713,12 @@ export function EditEntityModal({
 
               {selectedTarget && (
                 <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
-                  <div className="flex-1 w-full flex items-center gap-2 text-xs text-zinc-300">
-                    <span className="text-zinc-400">Relação:</span>
+                  <div className="flex-1 w-full flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="text-muted-foreground">Relação:</span>
                     <select
                       value={selectedRelationship}
                       onChange={(e) => setSelectedRelationship(e.target.value as RelationshipType)}
-                      className="flex-1 rounded-lg border border-white/[0.08] bg-[#16181D] px-2.5 py-1.5 text-xs text-zinc-100 focus:outline-none focus:border-zinc-400"
+                      className="flex-1 rounded-lg border border-border bg-surface-secondary px-2.5 py-1.5 text-xs text-foreground focus:outline-none focus:border-zinc-400"
                     >
                       {RELATIONSHIP_TYPES.map((rel) => (
                         <option key={rel} value={rel}>
@@ -748,9 +748,9 @@ export function EditEntityModal({
                   <Loader2 className="h-5 w-5 text-zinc-500 animate-spin" />
                 </div>
               ) : outgoingConnections.length === 0 && incomingConnections.length === 0 ? (
-                <div className="text-center py-8 border border-dashed border-white/[0.08] rounded-xl p-4">
+                <div className="text-center py-8 border border-dashed border-border rounded-xl p-4">
                   <Link2 className="h-6 w-6 text-zinc-600 mx-auto mb-2" />
-                  <p className="text-xs text-zinc-400 font-medium">Nenhuma ligação registada</p>
+                  <p className="text-xs text-muted-foreground font-medium">Nenhuma ligação registada</p>
                   <p className="text-[11px] text-zinc-500 max-w-sm mx-auto mt-1">
                     Conecta este elemento com páginas, projetos, tarefas ou decisões para criar a memória interligada da empresa.
                   </p>
@@ -760,7 +760,7 @@ export function EditEntityModal({
                   {/* Outgoing Connections */}
                   {outgoingConnections.length > 0 && (
                     <div className="space-y-2">
-                      <h5 className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                      <h5 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                         Ligações de Saída ({outgoingConnections.length})
                       </h5>
                       <div className="space-y-1.5">
@@ -769,10 +769,10 @@ export function EditEntityModal({
                           return (
                             <div
                               key={conn.id}
-                              className="flex items-center justify-between p-2.5 rounded-lg bg-[#121316] border border-white/[0.06] text-xs hover:border-white/[0.12] transition-colors"
+                              className="flex items-center justify-between p-2.5 rounded-lg bg-surface-secondary border border-border text-xs hover:border-border-strong transition-colors"
                             >
                               <div className="flex items-center gap-2 overflow-hidden">
-                                <span className="px-1.5 py-0.5 rounded-md bg-white/[0.06] text-[10px] text-zinc-400 font-mono">
+                                <span className="px-1.5 py-0.5 rounded-md bg-hover text-[10px] text-muted-foreground font-mono">
                                   {relCfg.forward}
                                 </span>
                                 <ArrowRight className="h-3 w-3 text-zinc-600 shrink-0" />
@@ -783,14 +783,14 @@ export function EditEntityModal({
                                   <span>{conn.target_title || "Elemento sem título"}</span>
                                   <ExternalLink className="h-2.5 w-2.5 opacity-60" />
                                 </Link>
-                                <span className="text-[10px] px-1 rounded-md bg-white/[0.04] text-zinc-500 uppercase">
+                                <span className="text-[10px] px-1 rounded-md bg-surface-secondary text-zinc-500 uppercase">
                                   {conn.target_type}
                                 </span>
                               </div>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveConnection(conn.id)}
-                                className="text-zinc-500 hover:text-rose-400 p-1 rounded-md hover:bg-white/[0.04] transition-colors"
+                                className="text-zinc-500 hover:text-rose-400 p-1 rounded-md hover:bg-surface-secondary transition-colors"
                                 title="Remover ligação"
                               >
                                 <X className="h-3.5 w-3.5" />
@@ -805,7 +805,7 @@ export function EditEntityModal({
                   {/* Incoming Connections */}
                   {incomingConnections.length > 0 && (
                     <div className="space-y-2 pt-2">
-                      <h5 className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
+                      <h5 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                         Ligações de Entrada ({incomingConnections.length})
                       </h5>
                       <div className="space-y-1.5">
@@ -814,7 +814,7 @@ export function EditEntityModal({
                           return (
                             <div
                               key={conn.id}
-                              className="flex items-center justify-between p-2.5 rounded-lg bg-[#121316] border border-white/[0.06] text-xs hover:border-white/[0.12] transition-colors"
+                              className="flex items-center justify-between p-2.5 rounded-lg bg-surface-secondary border border-border text-xs hover:border-border-strong transition-colors"
                             >
                               <div className="flex items-center gap-2 overflow-hidden">
                                 <Link
@@ -824,18 +824,18 @@ export function EditEntityModal({
                                   <span>{conn.source_title || "Elemento sem título"}</span>
                                   <ExternalLink className="h-2.5 w-2.5 opacity-60" />
                                 </Link>
-                                <span className="text-[10px] px-1 rounded-md bg-white/[0.04] text-zinc-500 uppercase">
+                                <span className="text-[10px] px-1 rounded-md bg-surface-secondary text-zinc-500 uppercase">
                                   {conn.source_type}
                                 </span>
                                 <ArrowRight className="h-3 w-3 text-zinc-600 shrink-0" />
-                                <span className="px-1.5 py-0.5 rounded-md bg-white/[0.06] text-[10px] text-zinc-400 font-mono">
+                                <span className="px-1.5 py-0.5 rounded-md bg-hover text-[10px] text-muted-foreground font-mono">
                                   {relCfg.reverse}
                                 </span>
                               </div>
                               <button
                                 type="button"
                                 onClick={() => handleRemoveConnection(conn.id)}
-                                className="text-zinc-500 hover:text-rose-400 p-1 rounded-md hover:bg-white/[0.04] transition-colors"
+                                className="text-zinc-500 hover:text-rose-400 p-1 rounded-md hover:bg-surface-secondary transition-colors"
                                 title="Remover ligação"
                               >
                                 <X className="h-3.5 w-3.5" />
@@ -860,9 +860,9 @@ export function EditEntityModal({
                 <Loader2 className="h-5 w-5 text-zinc-500 animate-spin" />
               </div>
             ) : activities.length === 0 ? (
-              <div className="text-center py-8 border border-dashed border-white/[0.08] rounded-xl p-4">
+              <div className="text-center py-8 border border-dashed border-border rounded-xl p-4">
                 <History className="h-6 w-6 text-zinc-600 mx-auto mb-2" />
-                <p className="text-xs text-zinc-400 font-medium">Sem histórico recente registado</p>
+                <p className="text-xs text-muted-foreground font-medium">Sem histórico recente registado</p>
                 <p className="text-[11px] text-zinc-500 max-w-sm mx-auto mt-1">
                   As alterações de estado, prazo, prioridade e conteúdo são registadas automaticamente para garantir a rastreabilidade organizacional.
                 </p>
@@ -878,7 +878,7 @@ export function EditEntityModal({
                       {/* Bullet node */}
                       <span className="absolute left-2.5 top-1.5 -translate-x-1/2 h-2.5 w-2.5 rounded-full bg-zinc-700 border-2 border-[#16181D]" />
 
-                      <div className="p-3 rounded-xl bg-[#121316] border border-white/[0.06] space-y-1.5">
+                      <div className="p-3 rounded-xl bg-surface-secondary border border-border space-y-1.5">
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="font-semibold text-zinc-200">
                             {act.actor_name || "Membro da Equipa"}
@@ -886,7 +886,7 @@ export function EditEntityModal({
                           <span className="text-zinc-500">{dateStr}</span>
                         </div>
 
-                        <p className="text-zinc-400 text-xs">
+                        <p className="text-muted-foreground text-xs">
                           {act.action === "entity_created" && "Criou este registo."}
                           {act.action === "status_changed" && "Alterou o estado."}
                           {act.action === "priority_changed" && "Alterou a prioridade."}
@@ -901,7 +901,7 @@ export function EditEntityModal({
                         {Object.keys(changes).length > 0 && (
                           <div className="pt-1.5 mt-1 border-t border-white/[0.04] space-y-1">
                             {Object.entries(changes).map(([field, delta]) => (
-                              <div key={field} className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+                              <div key={field} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                                 <span className="font-mono text-zinc-500 capitalize">{field.replace(/_/g, " ")}:</span>
                                 {delta.old !== null && delta.old !== undefined ? (
                                   <span className="line-through text-zinc-500">

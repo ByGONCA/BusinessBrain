@@ -329,16 +329,16 @@ export function GuidedTour({
       {/* Floating Tour Popover */}
       <div
         style={cardStyle}
-        className="rounded-2xl border border-[#2E2E34] bg-[#141416]/95 p-5 text-[#F5F5F5] shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-200"
+        className="rounded-2xl border border-[#2E2E34] bg-[#141416]/95 p-5 text-foreground shadow-2xl backdrop-blur-md animate-in fade-in zoom-in-95 duration-200"
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#242428]">
+        <div className="flex items-center justify-between pb-3 border-b border-border">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-500/15 text-blue-400 border border-blue-500/25">
               <Icon className="h-4 w-4" />
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-semibold text-[#F5F5F5]">
+              <span className="text-xs font-semibold text-foreground">
                 {currentStep.title}
               </span>
             </div>
@@ -347,7 +347,7 @@ export function GuidedTour({
           <button
             type="button"
             onClick={handleDismiss}
-            className="flex h-6 w-6 items-center justify-center rounded-md text-[#71717A] hover:bg-[#1E1E22] hover:text-[#FAFAFA] transition-colors"
+            className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground transition-colors"
             title="Skip tour (Esc)"
           >
             <X className="h-3.5 w-3.5" />
@@ -355,12 +355,12 @@ export function GuidedTour({
         </div>
 
         {/* Body Description */}
-        <p className="mt-3 text-xs text-[#A1A1AA] leading-relaxed">
+        <p className="mt-3 text-xs text-muted-foreground leading-relaxed">
           {currentStep.description}
         </p>
 
         {/* Footer with Step Dots & Controls */}
-        <div className="mt-5 flex items-center justify-between pt-3 border-t border-[#242428]">
+        <div className="mt-5 flex items-center justify-between pt-3 border-t border-border">
           {/* Progress dots */}
           <div className="flex items-center gap-1">
             {TOUR_STEPS.map((_, idx) => (
@@ -371,7 +371,7 @@ export function GuidedTour({
                     ? "w-4 bg-blue-500 shadow-xs shadow-blue-500/50"
                     : idx < currentStepIndex
                     ? "w-1.5 bg-blue-500/50"
-                    : "w-1.5 bg-[#2E2E34]"
+                    : "w-1.5 bg-border"
                 }`}
               />
             ))}
@@ -385,7 +385,7 @@ export function GuidedTour({
                 variant="ghost"
                 size="sm"
                 onClick={handlePrev}
-                className="h-7 px-2 text-xs text-[#A1A1AA] hover:text-[#F5F5F5]"
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
               >
                 <ArrowLeft className="h-3 w-3 mr-1" />
                 <span>Prev</span>

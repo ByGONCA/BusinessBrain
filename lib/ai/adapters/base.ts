@@ -22,8 +22,8 @@ export abstract class BaseAIAdapter {
       clean = clean.split(apiKey).join("[REDACTED_API_KEY]");
     }
     return clean
-      .replace(/(AIzaSy)[A-Za-z0-9_-]{33}/g, "$1[REDACTED_API_KEY]")
-      .replace(/(sk-ant-)[A-Za-z0-9_-]{30,}/g, "$1[REDACTED_API_KEY]")
+      .replace(/(AIzaSy)[A-Za-z0-9_-]{25,}/g, "$1[REDACTED_API_KEY]")
+      .replace(/(sk-ant-)[A-Za-z0-9_-]{25,}/g, "$1[REDACTED_API_KEY]")
       .replace(/(sk-)[A-Za-z0-9_-]{20,}/g, "$1[REDACTED_API_KEY]")
       .replace(/(Bearer\s+)[A-Za-z0-9_.-]{16,}/gi, "$1[REDACTED_TOKEN]");
   }
@@ -276,12 +276,21 @@ export abstract class BaseAIAdapter {
    * Checks if offline mock mode should be used (e.g. test environment or mock keys).
    */
   protected isOfflineTestMode(apiKey?: string): boolean {
-    return (
-      process.env.NODE_ENV === "test" ||
-      !apiKey ||
+    if (!apiKey) return true;
+    if (
       apiKey.startsWith("mock_test_key_") ||
-      apiKey === "dummy" ||
-      apiKey.includes("test")
-    );
+      apiKey.startsWith("mock-") ||
+      apiKey === "dummy"
+    ) {
+      return true;
+    }
+    // In test environment, only mock if explicit mock/test key pattern is used
+    if (
+      process.env.NODE_ENV === "test" &&
+      (apiKey.includes("mock") || apiKey.includes("dummy") || apiKey.startsWith("sk-test-") || apiKey.startsWith("test-"))
+    ) {
+      return true;
+    }
+    return false;
   }
 }

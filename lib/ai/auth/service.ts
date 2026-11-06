@@ -426,6 +426,252 @@ export class AIAuthorizationService {
       isOwnerOrAdmin || hasPermission(userId, organizationId, "tasks.view"),
     ]);
 
+    // 2. Fetch dynamic real entities from workspace (Projects, Tasks, Goals, Decisions)
+    let projectsChildren: ContextSourceItem[] = [];
+    let tasksChildren: ContextSourceItem[] = [];
+    let goalsChildren: ContextSourceItem[] = [];
+    let decisionsChildren: ContextSourceItem[] = [];
+
+    try {
+      const { data: entities } = await supabase
+        .from("company_entities")
+        .select("id, type, title, metadata")
+        .eq("organization_id", organizationId)
+        .order("updated_at", { ascending: false })
+        .limit(40);
+
+      if (entities && entities.length > 0) {
+        for (const ent of entities) {
+          const item: ContextSourceItem = {
+            id: `entity:${ent.id}`,
+            label: ent.title || "Entidade sem título",
+            type: ent.type as any,
+            category: "workspace_areas",
+            hasAccess: true,
+            requiresExplicitGrant: false,
+            description: (ent.metadata as any)?.status ? `Estado: ${(ent.metadata as any).status}` : undefined,
+          };
+
+          if (ent.type === "project") {
+            item.parentId = "area:projects";
+            projectsChildren.push(item);
+          } else if (ent.type === "task") {
+            item.parentId = "area:tasks";
+            tasksChildren.push(item);
+          } else if (ent.type === "goal") {
+            item.parentId = "area:goals";
+            goalsChildren.push(item);
+          } else if (ent.type === "decision") {
+            item.parentId = "area:brain";
+            decisionsChildren.push(item);
+          }
+        }
+      }
+    } catch (entErr) {
+      logger.warn("Failed to load dynamic entities for context sources", { error: String(entErr) });
+    }
+
+    // Dynamic calendar events (In-memory, zero DB duplication)
+    let calendarChildren: ContextSourceItem[] = [];
+    try {
+      const { data: calEvents } = await supabase
+        .from("calendar_events")
+        .select("id, title, start_time, end_time")
+        .eq("organization_id", organizationId)
+        .order("start_time", { ascending: true })
+        .limit(10);
+
+      if (calEvents && calEvents.length > 0) {
+        calendarChildren = calEvents.map((evt) => ({
+          id: `calendar:${evt.id}`,
+          label: evt.title || "Evento de calendário",
+          type: "calendar",
+          category: "workspace_areas",
+          description: evt.start_time ? new Date(evt.start_time).toLocaleString("pt-PT", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : undefined,
+          hasAccess: true,
+          requiresExplicitGrant: false,
+          parentId: "area:calendar",
+        }));
+      }
+    } catch (calErr) {
+      logger.warn("Failed to load calendar events for context sources", { error: String(calErr) });
+    }
+
+    // Dynamic Ephemeral Emails (Zero DB persistence - on demand fetch)
+    const emailChildren: ContextSourceItem[] = [
+      {
+        id: "email:recent_inbox",
+        label: "Emails Recebidos Recentes",
+        type: "email",
+        category: "workspace_areas",
+        description: "Últimas comunicações e threads sincronizadas via Gmail/Outlook.",
+        hasAccess: true,
+        requiresExplicitGrant: false,
+        parentId: "area:emails",
+      },
+      {
+        id: "email:billing_threads",
+        label: "Emails Financeiros & Faturas",
+        type: "email",
+        category: "workspace_areas",
+        description: "Comunicações de cobrança, recibos Stripe e notificações de fornecedores.",
+        hasAccess: true,
+        requiresExplicitGrant: false,
+        parentId: "area:emails",
+      },
+      {
+        id: "email:clients",
+        label: "Comunicações com Clientes",
+        type: "email",
+        category: "workspace_areas",
+        description: "Mensagens trocadas com contas empresariais e parceiros.",
+        hasAccess: true,
+        requiresExplicitGrant: false,
+        parentId: "area:emails",
+      },
+    ];
+
+    // Build hierarchical context sources
+    const financeChildren: ContextSourceItem[] = [
+      {
+        id: "finance:mrr",
+        label: "MRR & Run-Rate (ARR)",
+        type: "finance",
+        category: "finance",
+        description: "Métricas de faturação recorrente mensal, projeção anualizada e crescimento.",
+        hasAccess: canViewBilling,
+        requiresExplicitGrant: true,
+        parentId: "area:finance",
+      },
+      {
+        id: "finance:subscriptions",
+        label: "Subscrições & Churn",
+        type: "finance",
+        category: "finance",
+        description: "Contagem de subscritores ativos, planos contratados e taxas de retenção.",
+        hasAccess: canViewBilling,
+        requiresExplicitGrant: true,
+        parentId: "area:finance",
+      },
+      {
+        id: "finance:revenue",
+        label: "Receita Líquida & Volume Bruto",
+        type: "finance",
+        category: "finance",
+        description: "Faturação liquidada do período e histórico financeiro Stripe.",
+        hasAccess: canViewBilling,
+        requiresExplicitGrant: true,
+        parentId: "area:finance",
+      },
+      {
+        id: "finance:customers",
+        label: "Clientes & Retenção LTV",
+        type: "finance",
+        category: "finance",
+        description: "Contratos ativos e métricas de fidelização de clientes.",
+        hasAccess: canViewBilling,
+        requiresExplicitGrant: true,
+        parentId: "area:finance",
+      },
+    ];
+
+    const brainChildren: ContextSourceItem[] = decisionsChildren.length > 0 ? decisionsChildren : [
+      {
+        id: "brain:decisions",
+        label: "Decisões Técnicas & Arquiteturais",
+        type: "brain",
+        category: "workspace_areas",
+        description: "Registos formais de escolhas de tecnologia, arquitetura e engenharia.",
+        hasAccess: canViewBrain,
+        requiresExplicitGrant: false,
+        parentId: "area:brain",
+      },
+      {
+        id: "brain:meetings",
+        label: "Atas de Reunião & Alinhamentos",
+        type: "brain",
+        category: "workspace_areas",
+        description: "Histórico de alinhamentos e notas estratégicas de liderança.",
+        hasAccess: canViewBrain,
+        requiresExplicitGrant: false,
+        parentId: "area:brain",
+      },
+    ];
+
+    const githubChildren: ContextSourceItem[] = [
+      {
+        id: "github:prs",
+        label: "Pull Requests & Code Reviews",
+        type: "github",
+        category: "external",
+        description: "Revisões de código e aprovações.",
+        hasAccess: canViewGithub,
+        requiresExplicitGrant: true,
+        parentId: "area:github",
+      },
+      {
+        id: "github:commits",
+        label: "Commits & Histórico de Código",
+        type: "github",
+        category: "external",
+        description: "Registo cronológico de commits nas branches do repositório.",
+        hasAccess: canViewGithub,
+        requiresExplicitGrant: true,
+        parentId: "area:github",
+      },
+    ];
+
+    // Fetch hierarchical pages if authorized
+    let rootPageItems: ContextSourceItem[] = [];
+    let totalPagesCount = 0;
+
+    if (canViewPages) {
+      try {
+        const { data: pages } = await supabase
+          .from("pages")
+          .select("id, parent_page_id, title, icon, updated_at, position")
+          .eq("organization_id", organizationId)
+          .eq("is_archived", false)
+          .order("position", { ascending: true })
+          .order("created_at", { ascending: true });
+
+        if (pages && pages.length > 0) {
+          totalPagesCount = pages.length;
+          const pageItemMap = new Map<string, ContextSourceItem>();
+
+          pages.forEach((p) => {
+            pageItemMap.set(p.id, {
+              id: `page:${p.id}`,
+              label: p.title && p.title.trim() !== "" ? p.title : "Página sem título",
+              type: "page",
+              category: "pages",
+              icon: p.icon || "📄",
+              hasAccess: true,
+              requiresExplicitGrant: false,
+              updatedAt: p.updated_at,
+              parentId: p.parent_page_id ? `page:${p.parent_page_id}` : "area:pages",
+              children: [],
+            });
+          });
+
+          pages.forEach((p) => {
+            const item = pageItemMap.get(p.id);
+            if (!item) return;
+
+            if (p.parent_page_id && pageItemMap.has(p.parent_page_id)) {
+              const parentItem = pageItemMap.get(p.parent_page_id)!;
+              if (!parentItem.children) parentItem.children = [];
+              parentItem.children.push(item);
+            } else {
+              rootPageItems.push(item);
+            }
+          });
+        }
+      } catch (err) {
+        logger.error("Failed to fetch pages for context source tree", err);
+      }
+    }
+
     const sources: ContextSourceItem[] = [
       {
         id: "area:pages",
@@ -435,6 +681,30 @@ export class AIAuthorizationService {
         description: "Manuais de operação, documentação interna e notas de equipa.",
         hasAccess: canViewPages,
         requiresExplicitGrant: false,
+        children: rootPageItems,
+        itemCount: totalPagesCount,
+      },
+      {
+        id: "area:emails",
+        label: "Emails & Comunicações",
+        type: "email",
+        category: "workspace_areas",
+        description: "Consultar emails sincronizados sob demanda via Gmail/Outlook.",
+        hasAccess: true,
+        requiresExplicitGrant: false,
+        children: emailChildren,
+        itemCount: emailChildren.length,
+      },
+      {
+        id: "area:calendar",
+        label: "Calendário & Reuniões",
+        type: "calendar",
+        category: "workspace_areas",
+        description: "Marcações de agenda, reuniões e alinhamentos da organização.",
+        hasAccess: true,
+        requiresExplicitGrant: false,
+        children: calendarChildren,
+        itemCount: calendarChildren.length,
       },
       {
         id: "area:brain",
@@ -444,6 +714,8 @@ export class AIAuthorizationService {
         description: "Registo de decisões técnicas, atas e acordos estratégicos.",
         hasAccess: canViewBrain,
         requiresExplicitGrant: false,
+        children: brainChildren,
+        itemCount: brainChildren.length,
       },
       {
         id: "area:goals",
@@ -453,6 +725,8 @@ export class AIAuthorizationService {
         description: "OKRs, metas e alinhamento de resultados estratégicos.",
         hasAccess: canViewGoals,
         requiresExplicitGrant: false,
+        children: goalsChildren,
+        itemCount: goalsChildren.length,
       },
       {
         id: "area:projects",
@@ -462,6 +736,8 @@ export class AIAuthorizationService {
         description: "Iniciativas corporativas, equipas e acompanhamento de marcos.",
         hasAccess: canViewProjects,
         requiresExplicitGrant: false,
+        children: projectsChildren,
+        itemCount: projectsChildren.length,
       },
       {
         id: "area:tasks",
@@ -471,6 +747,8 @@ export class AIAuthorizationService {
         description: "Tarefas operacionais, entregáveis e planos de ação.",
         hasAccess: canViewTasks,
         requiresExplicitGrant: false,
+        children: tasksChildren,
+        itemCount: tasksChildren.length,
       },
       {
         id: "area:finance",
@@ -480,46 +758,21 @@ export class AIAuthorizationService {
         description: "MRR, faturação liquidada, retenção de clientes e subscrições Stripe.",
         hasAccess: canViewBilling,
         requiresExplicitGrant: true, // Sensitive! Requires explicit grant
+        children: financeChildren,
+        itemCount: financeChildren.length,
       },
       {
         id: "area:github",
         label: "GitHub & Código do Repositório",
         type: "github",
         category: "external",
-        description: "Pull requests, discussões de engenharia e commits.",
+        description: "Pull requests e commits do repositório.",
         hasAccess: canViewGithub,
         requiresExplicitGrant: true,
+        children: githubChildren,
+        itemCount: githubChildren.length,
       },
     ];
-
-    // 2. Fetch specific recent pages if authorized
-    if (canViewPages) {
-      try {
-        const { data: pages } = await supabase
-          .from("pages")
-          .select("id, title, updated_at")
-          .eq("organization_id", organizationId)
-          .eq("is_archived", false)
-          .order("updated_at", { ascending: false })
-          .limit(10);
-
-        if (pages) {
-          for (const page of pages) {
-            sources.push({
-              id: `page:${page.id}`,
-              label: page.title || "Página sem título",
-              type: "page",
-              category: "pages",
-              hasAccess: true,
-              requiresExplicitGrant: false,
-              updatedAt: page.updated_at,
-            });
-          }
-        }
-      } catch (err) {
-        logger.error("Failed to fetch pages for context source tree", err);
-      }
-    }
 
     return sources;
   }

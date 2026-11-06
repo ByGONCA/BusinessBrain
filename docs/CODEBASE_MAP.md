@@ -103,6 +103,7 @@ Run only verified project commands from repository root:
 - **`components/dashboard/people/people-hub.tsx`**: User directory, invitations status, and team assignments.
 
 ### 3.8 Ecosystem Integrations & Public API v1
+- **`docs/INTEGRATIONS.md`**: Comprehensive external integrations manual, OAuth specifications, security invariants, and operational statuses.
 - **`lib/integrations/`**: Catalog and handlers for GitHub (`github/`), Slack (`slack/`), Google Drive/Meet/Calendar (`google/`), Microsoft (`microsoft/`), and Importers (`importers/` for Notion & Confluence).
 - **`app/api/v1/`**: Developer API endpoints (`discussions`, `documents`, `integrations`, `metrics`, `projects`, `keys`).
 - **`lib/api-keys/`**: Scoped API key generation (`cb_live_...`), SHA-256 cryptographic verification, and RBAC permission enforcement.
@@ -124,6 +125,18 @@ Run only verified project commands from repository root:
 - **`components/landing/real-dashboard-showcase.tsx`**: Production workstation showcase embedding the real application UI (Sidebar, ExecutiveHomeDashboard, Force Graph, Finance, PagesHub, and BlockEditor) with safe read-only demo mode.
 - **`app/demo/page.tsx`**: Dedicated full-screen interactive demonstration route rendering `RealDashboardShowcase` in standalone mode.
 - **`components/landing/interactive-workspace-demo.tsx`**: Interactive workstation demonstration with 5 navigable product sections.
+
+### 3.11 Universal Dashboard Engine & Widget Ecosystem
+- **`docs/DASHBOARD_ENGINE.md`**: Canonical architecture manual, visualizer catalog, CAS persistence, and new widget checklist.
+- **`lib/widgets/registry.ts`**: Semantic metric registry, units, time semantics (`point_in_time`, `period_aggregate`), and dashboard permissions.
+- **`lib/widgets/types.ts`**: Core TypeScript contracts for layout configs, widget instances, visualizer options, and CAS payload schemas.
+- **`lib/widgets/actions.ts`**: Authoritative server actions for layout persistence (`saveDashboardLayoutAction`, `loadDashboardLayoutAction`) with CAS token conflict detection.
+- **`lib/widgets/layout-defaults.ts`**: Default layouts for Home and Finance dashboards.
+- **`components/dashboard/widgets/widget-grid.tsx`**: Single canonical rendering surface for dashboards with drag reordering, inline resizing, and tabbed cards.
+- **`components/dashboard/widgets/widget-container.tsx`**: Structural widget wrapper with `WidgetErrorBoundary`, resize handles, tab switcher, and options menu.
+- **`components/dashboard/widgets/widget-drawer.tsx`**: Visual dashboard builder drawer for adding and configuring widgets.
+- **`components/dashboard/widgets/customization-toolbar.tsx`**: Header bar for editing mode, save, cancel, restore defaults, and CAS conflict prompts.
+- **`components/dashboard/widgets/renderers/`**: 14 production visualizers (`kpi`, `chart`, `bar`, `donut`, `radial-gauge`, `progress`, `table`, `agenda`, `priorities`, `topology`, `recent-pages`, `timeline`, `pulse-kpis`, `pulse-strip`).
 
 ---
 
