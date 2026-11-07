@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "npx tsx scripts/test-runner.ts",
+    "test:smoke": "npx tsx scripts/test-smoke-gate.ts",
     "validate:map": "npx tsx scripts/validate-codebase-map.ts",
     "compliance:check": "npx tsx scripts/verify-compliance-gate.ts",
     "compliance:monitor": "npx tsx scripts/monitor-regulatory-updates.ts",
