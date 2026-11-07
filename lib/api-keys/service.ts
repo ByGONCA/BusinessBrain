@@ -17,6 +17,21 @@ export function hashApiKey(secretKey: string): string {
 }
 
 /**
+ * Constant-time comparison between two SHA-256 digests to mitigate timing attacks.
+ */
+export function verifyApiKeyHash(providedHash: string, storedHash: string): boolean {
+  if (typeof providedHash !== "string" || typeof storedHash !== "string") {
+    return false;
+  }
+  const bufA = Buffer.from(providedHash, "utf8");
+  const bufB = Buffer.from(storedHash, "utf8");
+  if (bufA.length !== bufB.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+/**
  * Generates a new cryptographically secure API key for an enterprise organization.
  */
 export async function generateApiKey(
