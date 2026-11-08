@@ -5,6 +5,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme/theme-provider";
 import { TypographyProvider } from "@/components/theme/typography-provider";
 import { LanguageProvider } from "@/lib/i18n/context";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://kogsync.com"),
@@ -108,6 +109,7 @@ export default function RootLayout({
             <LanguageProvider>{children}</LanguageProvider>
           </TypographyProvider>
         </ThemeProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
