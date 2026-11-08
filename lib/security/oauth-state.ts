@@ -19,11 +19,16 @@ import crypto from "crypto";
  * 5. Deterministic fallback provided strictly for local development & test runners.
  */
 export function getOAuthStateSecret(): string {
-  const secret = process.env.OAUTH_STATE_SECRET?.trim();
+  const raw = process.env.OAUTH_STATE_SECRET?.trim();
 
-  if (secret) {
-    if (secret.length >= 32) {
-      return secret;
+  if (raw) {
+    const list = raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    const primary = list[0];
+    if (primary && primary.length >= 32) {
+      return primary;
     }
     throw new Error(
       "OAUTH_STATE_SECRET is invalid: must contain at least 32 characters (256 bits) of cryptographic secret material."
@@ -41,6 +46,39 @@ export function getOAuthStateSecret(): string {
 }
 
 /**
+ * Resolves all valid secrets for verifying inbound OAuth state signatures.
+ * Supports zero-downtime secret rotation by accepting comma-separated secrets.
+ */
+export function getOAuthStateVerificationSecrets(): string[] {
+  const raw = process.env.OAUTH_STATE_SECRET?.trim();
+
+  if (raw) {
+    const list = raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+    if (list.length > 0) {
+      for (const s of list) {
+        if (s.length < 32 && process.env.NODE_ENV === "production") {
+          throw new Error(
+            "OAUTH_STATE_SECRET candidate is invalid: must contain at least 32 characters."
+          );
+        }
+      }
+      return list;
+    }
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "OAUTH_STATE_SECRET is strictly required in production for OAuth state integrity."
+    );
+  }
+
+  return ["kogsync-default-dev-oauth-state-secret-32b-min!"];
+}
+
+/**
  * Computes an HMAC-SHA256 signature for a state payload string using OAUTH_STATE_SECRET.
  */
 export function signOAuthStatePayload(serializedPayload: string): string {
@@ -50,21 +88,26 @@ export function signOAuthStatePayload(serializedPayload: string): string {
 
 /**
  * Verifies an HMAC-SHA256 signature using timing-safe comparison.
+ * Evaluates candidate secrets sequentially to support zero-downtime rotation.
  */
 export function verifyOAuthStateSignature(
   serializedPayload: string,
   providedSignature: string
 ): boolean {
   try {
-    const expectedSignature = signOAuthStatePayload(serializedPayload);
+    const secrets = getOAuthStateVerificationSecrets();
     const sigBuf = Buffer.from(providedSignature);
-    const expBuf = Buffer.from(expectedSignature);
 
-    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
-      return false;
+    for (const secret of secrets) {
+      const expectedSignature = crypto.createHmac("sha256", secret).update(serializedPayload).digest("base64url");
+      const expBuf = Buffer.from(expectedSignature);
+
+      if (sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf)) {
+        return true;
+      }
     }
 
-    return true;
+    return false;
   } catch {
     return false;
   }

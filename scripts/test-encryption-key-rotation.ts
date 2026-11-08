@@ -25,6 +25,12 @@ import {
   tryDecryptWithKey,
   parseKey,
 } from "./rotate-encryption-keys";
+import {
+  getOAuthStateSecret,
+  getOAuthStateVerificationSecrets,
+  signOAuthStatePayload,
+  verifyOAuthStateSignature,
+} from "../lib/security/oauth-state";
 
 let passed = 0;
 let failed = 0;
@@ -248,6 +254,103 @@ async function runTests() {
     !certPassed,
     "Certification strictly fails (code 1) when unmigrated records remain on previous key"
   );
+
+  // ---------------------------------------------------------------------------
+  // TEST 12: OAuth State Secret Dual-Key Zero-Downtime Rotation & Integrity
+  // ---------------------------------------------------------------------------
+  console.log("\n--- TEST 12: OAuth State Secret Dual-Key Zero-Downtime Rotation ---");
+
+  const origOauthSecret = process.env.OAUTH_STATE_SECRET;
+  const origNodeEnv = process.env.NODE_ENV;
+
+  try {
+    const currentSecret = "current-oauth-state-secret-32-chars-minimum-primary!";
+    const previousSecret = "previous-oauth-state-secret-32-chars-minimum-backup!";
+    const unknownSecret = "unknown-oauth-state-secret-32-chars-minimum-attacker!";
+
+    // 12.1 Acceptance of state signed with current secret
+    process.env.OAUTH_STATE_SECRET = currentSecret;
+    const testPayload = JSON.stringify({ orgId: "org-1", nonce: "nonce-123", exp: Date.now() + 60000 });
+    const currentSignature = crypto.createHmac("sha256", currentSecret).update(testPayload).digest("base64url");
+    assert(
+      verifyOAuthStateSignature(testPayload, currentSignature),
+      "State signed with the current secret is accepted"
+    );
+
+    // 12.2 Acceptance of state signed with previous secret during rotation (comma-separated)
+    process.env.OAUTH_STATE_SECRET = `${currentSecret},${previousSecret}`;
+    const previousSignature = crypto.createHmac("sha256", previousSecret).update(testPayload).digest("base64url");
+    assert(
+      verifyOAuthStateSignature(testPayload, previousSignature),
+      "State signed with the previous secret is accepted during rotation"
+    );
+
+    // 12.3 Rejection of state signed with unknown secret
+    const unknownSignature = crypto.createHmac("sha256", unknownSecret).update(testPayload).digest("base64url");
+    assert(
+      !verifyOAuthStateSignature(testPayload, unknownSignature),
+      "State signed with an unknown secret is rejected"
+    );
+
+    // 12.4 Short secret (<32 chars) rejected in production
+    (process.env as Record<string, string | undefined>).NODE_ENV = "production";
+    process.env.OAUTH_STATE_SECRET = "too-short-secret-15b";
+    let shortSecretRejected = false;
+    try {
+      getOAuthStateSecret();
+    } catch {
+      shortSecretRejected = true;
+    }
+    assert(shortSecretRejected, "Secret shorter than 32 characters is rejected in production (primary)");
+
+    let shortCandidateRejected = false;
+    try {
+      getOAuthStateVerificationSecrets();
+    } catch {
+      shortCandidateRejected = true;
+    }
+    assert(shortCandidateRejected, "Secret candidate shorter than 32 characters is rejected in production (rotation list)");
+
+    // 12.5 Empty or malformed rotation entries handled safely
+    (process.env as Record<string, string | undefined>).NODE_ENV = "development";
+    process.env.OAUTH_STATE_SECRET = `  ,  ${currentSecret}  ,  ,  ${previousSecret}  ,  `;
+    const resolvedPrimary = getOAuthStateSecret();
+    const resolvedCandidates = getOAuthStateVerificationSecrets();
+    assert(
+      resolvedPrimary === currentSecret &&
+      resolvedCandidates.length === 2 &&
+      resolvedCandidates[0] === currentSecret &&
+      resolvedCandidates[1] === previousSecret,
+      "Empty or malformed rotation entries (whitespace, empty commas) are handled safely"
+    );
+
+    // 12.6 New states are always signed using the primary secret
+    const signedPayloadSig = signOAuthStatePayload(testPayload);
+    assert(
+      signedPayloadSig === currentSignature,
+      "New states are always signed using the primary secret"
+    );
+
+    // 12.7 Rotation verification uses timing-safe signature comparison
+    // Tampered signature of equal length is rejected via timingSafeEqual
+    const tamperedSignature = currentSignature.slice(0, -2) + "==";
+    assert(
+      !verifyOAuthStateSignature(testPayload, tamperedSignature),
+      "Rotation verification rejects tampered signature using timing-safe comparison"
+    );
+  } finally {
+    // Restore environment
+    if (origOauthSecret !== undefined) {
+      process.env.OAUTH_STATE_SECRET = origOauthSecret;
+    } else {
+      delete process.env.OAUTH_STATE_SECRET;
+    }
+    if (origNodeEnv !== undefined) {
+      (process.env as Record<string, string | undefined>).NODE_ENV = origNodeEnv;
+    } else {
+      delete (process.env as Record<string, string | undefined>).NODE_ENV;
+    }
+  }
 
   // Cleanup
   delete process.env.AI_CREDENTIALS_ENCRYPTION_KEY;

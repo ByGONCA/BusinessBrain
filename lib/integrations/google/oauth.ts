@@ -36,8 +36,8 @@ export function createOAuthState(payload: Omit<AuthStatePayload, "nonce" | "time
 }
 
 /**
- * Validates and unpacks an HMAC-signed OAuth state parameter.
- * Verified strictly using the dedicated OAUTH_STATE_SECRET.
+ * Validates and unpacks an HMAC-signed OAuth state parameter using timing-safe comparison (crypto.timingSafeEqual).
+ * Verified strictly using the dedicated OAUTH_STATE_SECRET via verifyOAuthStateSignature.
  */
 export function verifyOAuthState(state: string): AuthStatePayload | null {
   try {
