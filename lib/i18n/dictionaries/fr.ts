@@ -191,7 +191,7 @@ export const fr: Dictionary = {
         },
         linear: {
           name: "Linear",
-          description: "Synchronisez tickets de projet, cycles et feuilles de route avec votre espace.",
+          description: "Diffusez les tickets, cycles et vélocité de sprint en temps réel vers le moteur d'intelligence KogSync.",
         },
         vercel: {
           name: "Vercel",

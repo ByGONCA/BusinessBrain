@@ -191,7 +191,7 @@ export const pt: Dictionary = {
         },
         linear: {
           name: "Linear",
-          description: "Sincronize tarefas, ciclos e roteiros de projetos com o seu espaço de trabalho.",
+          description: "Transmita issues, ciclos e velocidade de sprint em tempo real para a KogSync Intelligence Engine.",
         },
         vercel: {
           name: "Vercel",
