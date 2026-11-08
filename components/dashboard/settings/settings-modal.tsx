@@ -727,6 +727,10 @@ export function SettingsModal({
                         window.location.href = "/api/integrations/microsoft/connect?service=outlook";
                       } else if (item.id === "outlook_calendar") {
                         window.location.href = "/api/integrations/microsoft/connect?service=outlook_calendar";
+                      } else if (item.id === "onedrive") {
+                        window.location.href = "/api/integrations/microsoft/connect?service=onedrive";
+                      } else if (item.id === "teams") {
+                        window.location.href = "/api/integrations/microsoft/connect?service=teams";
                       } else if (item.id === "github") {
                         window.location.href = "/api/integrations/github/connect";
                       } else if (item.id === "stripe") {

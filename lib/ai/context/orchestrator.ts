@@ -9,6 +9,8 @@ import { AuthorizationChallenge } from "../auth/types";
 import { AIFinancialAnalyst } from "../finance/analyst";
 import { listGoogleCalendarEvents } from "@/lib/integrations/google/calendar";
 import { listOutlookCalendarEvents } from "@/lib/integrations/microsoft/calendar";
+import { listOutlookMessages } from "@/lib/integrations/microsoft/mail";
+import { listGmailMessages } from "@/lib/integrations/google/gmail";
 
 export interface ContextRetrievalOptions {
   maxSources?: number;
@@ -271,6 +273,38 @@ export class AIContextOrchestrator {
             if (collectedSources.length >= maxSources) break;
           }
         }
+
+        // Query external synchronized documents (OneDrive & Google Drive)
+        if (collectedSources.length < maxSources) {
+          let docsQuery = supabase
+            .from("imported_documents")
+            .select("id, title, content_payload, source_platform, source_url, updated_at")
+            .eq("organization_id", organizationId)
+            .eq("sync_status", "imported")
+            .limit(maxSources - collectedSources.length);
+
+          if (searchTerms.length > 0) {
+            docsQuery = docsQuery.ilike("title", `%${searchTerms[0]}%`);
+          }
+
+          const { data: extDocs } = await docsQuery;
+          if (extDocs) {
+            for (const doc of extDocs) {
+              const platformLabel = doc.source_platform === "onedrive" ? "[OneDrive] " : "[Drive] ";
+              const rawSnippet = (doc.content_payload || doc.title || "").trim();
+              const snippet = this.sanitizeSnippet(rawSnippet, maxSnippetLength);
+              collectedSources.push({
+                id: doc.id,
+                type: "page",
+                title: `${platformLabel}${doc.title}`,
+                snippet,
+                url: doc.source_url || "/dashboard",
+                updatedAt: doc.updated_at,
+              });
+              if (collectedSources.length >= maxSources) break;
+            }
+          }
+        }
       } catch (pageErr) {
         logger.error("Failed to query pages context for AI", pageErr);
       }
@@ -373,15 +407,63 @@ export class AIContextOrchestrator {
     // -------------------------------------------------------------------------
     // 5.5 Ephemeral Emails (Zero Database Persistence)
     // -------------------------------------------------------------------------
-    if ((isAreaEmailsSelected || specificEmailIds.length > 0) && collectedSources.length < maxSources) {
+    const isEmailQuery =
+      isAreaEmailsSelected ||
+      searchTerms.some((t) => ["email", "correio", "mensagem", "inbox", "fatura"].some((kw) => t.includes(kw)));
+
+    if ((isEmailQuery || specificEmailIds.length > 0) && collectedSources.length < maxSources) {
       try {
-        collectedSources.push({
-          id: "email:active_inbox_context",
-          type: "file",
-          title: "Emails & Comunicações Sincronizadas",
-          snippet: "Emails de fornecedores, confirmações de faturação e correspondência de clientes (recuperação sob demanda em memória, zero persistência na BD).",
-          updatedAt: new Date().toISOString(),
-        });
+        // Attempt live Outlook emails retrieval
+        try {
+          const outlookData = await listOutlookMessages(organizationId, { maxResults: 3 });
+          for (const msg of outlookData.messages) {
+            collectedSources.push({
+              id: `email:outlook:${msg.id}`,
+              type: "file",
+              title: `[Outlook Email] ${msg.subject} (De: ${msg.sender})`,
+              snippet: this.sanitizeSnippet(
+                `Assunto: ${msg.subject}\nDe: ${msg.sender} <${msg.senderEmail}>\nData: ${msg.date}\nConteúdo: ${msg.snippet}`,
+                maxSnippetLength
+              ),
+              updatedAt: new Date().toISOString(),
+            });
+            if (collectedSources.length >= maxSources) break;
+          }
+        } catch {
+          // Outlook not connected or skipped
+        }
+
+        // Attempt live Gmail messages retrieval if still below maxSources
+        if (collectedSources.length < maxSources) {
+          try {
+            const gmailData = await listGmailMessages(organizationId, { maxResults: 3 });
+            for (const msg of gmailData.messages) {
+              collectedSources.push({
+                id: `email:gmail:${msg.id}`,
+                type: "file",
+                title: `[Gmail] ${msg.subject} (De: ${msg.from || "Desconhecido"})`,
+                snippet: this.sanitizeSnippet(
+                  `Assunto: ${msg.subject}\nDe: ${msg.from || ""}\nData: ${msg.date || ""}\nConteúdo: ${msg.snippet}`,
+                  maxSnippetLength
+                ),
+                updatedAt: new Date().toISOString(),
+              });
+              if (collectedSources.length >= maxSources) break;
+            }
+          } catch {
+            // Gmail not connected or skipped
+          }
+        }
+
+        if (collectedSources.length < maxSources) {
+          collectedSources.push({
+            id: "email:active_inbox_context",
+            type: "file",
+            title: "Emails & Comunicações Sincronizadas",
+            snippet: "Emails de fornecedores, confirmações de faturação e correspondência de clientes (recuperação sob demanda em memória, zero persistência na BD).",
+            updatedAt: new Date().toISOString(),
+          });
+        }
       } catch (emailErr) {
         logger.warn("Failed to retrieve in-memory emails context", { error: String(emailErr) });
       }

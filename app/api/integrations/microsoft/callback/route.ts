@@ -8,6 +8,7 @@ import {
 import { encryptToken } from "@/lib/crypto/encryption";
 import { rateLimit, getClientIp, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
+import { sanitizeRedirectUrl } from "@/lib/security/redirects";
 import { hasPermission } from "@/lib/permissions/resolver";
 
 export async function GET(request: Request) {
@@ -16,11 +17,11 @@ export async function GET(request: Request) {
 
   const { searchParams, origin } = new URL(request.url);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
-  const redirectTarget = `${baseUrl}/dashboard?settings=integrations`;
+  const defaultRedirect = `${baseUrl}/dashboard?settings=integrations`;
 
   if (!rl.success) {
     logger.warn("Rate limit exceeded on Microsoft callback", { clientIp });
-    return NextResponse.redirect(`${redirectTarget}&error=rate_limit_exceeded`);
+    return NextResponse.redirect(`${defaultRedirect}&error=rate_limit_exceeded`);
   }
 
   const code = searchParams.get("code");
@@ -30,18 +31,35 @@ export async function GET(request: Request) {
   // Handle Microsoft OAuth error or user cancellation
   if (errorParam) {
     logger.warn("Microsoft OAuth provider returned error", { error: errorParam });
-    return NextResponse.redirect(`${redirectTarget}&error=oauth_cancelled`);
+    return NextResponse.redirect(`${defaultRedirect}&error=oauth_cancelled`);
   }
 
   if (!code || !state) {
-    return NextResponse.redirect(`${redirectTarget}&error=missing_parameters`);
+    return NextResponse.redirect(`${defaultRedirect}&error=missing_parameters`);
   }
 
   // 1. Verify CSRF HMAC State
   const statePayload = verifyMicrosoftOAuthState(state);
   if (!statePayload) {
     logger.warn("Invalid or expired Microsoft OAuth state token received");
-    return NextResponse.redirect(`${redirectTarget}&error=invalid_state`);
+    return NextResponse.redirect(`${defaultRedirect}&error=invalid_state`);
+  }
+
+  const targetRedirect = sanitizeRedirectUrl(
+    statePayload.returnUrl,
+    `${baseUrl}/dashboard?settings=integrations`
+  );
+
+  // 1b. Validate single-use nonce cookie if present (anti-replay defense)
+  const cookieHeader = request.headers.get("cookie") || "";
+  const cookieMatch = cookieHeader.match(/(?:^|;\s*)cb_microsoft_oauth_nonce=([^;]*)/);
+  const cookieNonce = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
+  if (cookieNonce && cookieNonce !== statePayload.nonce) {
+    logger.warn("Microsoft OAuth state nonce mismatch with session cookie", {
+      cookieNonce,
+      stateNonce: statePayload.nonce,
+    });
+    return NextResponse.redirect(`${targetRedirect}&error=invalid_state`);
   }
 
   // 2. Verify Authenticated User matches state
@@ -51,7 +69,7 @@ export async function GET(request: Request) {
       stateUserId: statePayload.userId,
       currentUserId: currentUser?.id,
     });
-    return NextResponse.redirect(`${redirectTarget}&error=user_mismatch`);
+    return NextResponse.redirect(`${targetRedirect}&error=user_mismatch`);
   }
 
   const supabase = await createClient();
@@ -76,7 +94,7 @@ export async function GET(request: Request) {
       organizationId: statePayload.organizationId,
       role: member?.role,
     });
-    return NextResponse.redirect(`${redirectTarget}&error=insufficient_permissions`);
+    return NextResponse.redirect(`${targetRedirect}&error=insufficient_permissions`);
   }
 
   try {
@@ -93,7 +111,7 @@ export async function GET(request: Request) {
       : null;
 
     const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
-    const provider = statePayload.service === "outlook" ? "outlook" : "outlook_calendar";
+    const provider = statePayload.service || "microsoft";
 
     // 7. Upsert into organization_integrations
     const { error: upsertError } = await supabase
@@ -114,6 +132,7 @@ export async function GET(request: Request) {
             displayName: userInfo.displayName,
             connectedAt: new Date().toISOString(),
           },
+          last_sync_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         },
         {
@@ -123,7 +142,20 @@ export async function GET(request: Request) {
 
     if (upsertError) {
       logger.error("Failed to save Microsoft integration to database", upsertError);
-      return NextResponse.redirect(`${redirectTarget}&error=database_error`);
+      return NextResponse.redirect(`${targetRedirect}&error=database_error`);
+    }
+
+    // Restore any previously disconnected external OneDrive file references to 'ready'
+    if (provider === "onedrive" || provider === "microsoft") {
+      await supabase
+        .from("organization_files")
+        .update({
+          status: "ready",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("organization_id", statePayload.organizationId)
+        .eq("storage_provider", "onedrive")
+        .eq("status", "unavailable");
     }
 
     logger.info("Microsoft integration successfully connected", {
@@ -132,9 +164,16 @@ export async function GET(request: Request) {
       email: userInfo.email,
     });
 
-    return NextResponse.redirect(`${redirectTarget}&success=microsoft_connected`);
+    const successRedirect = targetRedirect.includes("?")
+      ? `${targetRedirect}&success=microsoft_connected`
+      : `${targetRedirect}?success=microsoft_connected`;
+
+    const response = NextResponse.redirect(successRedirect);
+    // Clear the ephemeral nonce cookie
+    response.cookies.delete("cb_microsoft_oauth_nonce");
+    return response;
   } catch (err: unknown) {
     logger.error("Microsoft OAuth exchange error", err);
-    return NextResponse.redirect(`${redirectTarget}&error=exchange_failed`);
+    return NextResponse.redirect(`${targetRedirect}&error=exchange_failed`);
   }
 }

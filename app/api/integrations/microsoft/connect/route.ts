@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { getActiveOrganization } from "@/lib/organizations/queries";
-import { generateMicrosoftAuthUrl } from "@/lib/integrations/microsoft/oauth";
+import {
+  generateMicrosoftAuthUrl,
+  verifyMicrosoftOAuthState,
+  MicrosoftServiceType,
+} from "@/lib/integrations/microsoft/oauth";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
-
+import { sanitizeRedirectUrl } from "@/lib/security/redirects";
 import { hasPermission } from "@/lib/permissions/resolver";
 
 export async function GET(request: Request) {
@@ -36,11 +40,19 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const serviceParam = searchParams.get("service");
+  const serviceParam = searchParams.get("service")?.toLowerCase();
+  const rawReturnUrl = searchParams.get("returnUrl");
+  const returnUrl = sanitizeRedirectUrl(rawReturnUrl, "/dashboard?settings=integrations");
 
-  let service: "outlook" | "outlook_calendar" = "outlook_calendar";
+  let service: MicrosoftServiceType = "outlook_calendar";
   if (serviceParam === "outlook" || serviceParam === "mail") {
     service = "outlook";
+  } else if (serviceParam === "onedrive" || serviceParam === "drive") {
+    service = "onedrive";
+  } else if (serviceParam === "teams") {
+    service = "teams";
+  } else if (serviceParam === "microsoft" || serviceParam === "all") {
+    service = "microsoft";
   }
 
   try {
@@ -48,10 +60,27 @@ export async function GET(request: Request) {
       organizationId: activeOrg.id,
       userId: user.id,
       service,
-      returnUrl: "/dashboard?settings=integrations",
+      returnUrl,
     });
 
-    return NextResponse.redirect(authUrl);
+    const response = NextResponse.redirect(authUrl);
+
+    // Set single-use ephemeral state nonce cookie to reject OAuth replay attacks
+    const stateParam = new URL(authUrl).searchParams.get("state");
+    if (stateParam) {
+      const statePayload = verifyMicrosoftOAuthState(stateParam);
+      if (statePayload?.nonce) {
+        response.cookies.set("cb_microsoft_oauth_nonce", statePayload.nonce, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: 900, // 15 minutes
+        });
+      }
+    }
+
+    return response;
   } catch (err: unknown) {
     logger.error("Failed to generate Microsoft auth URL", err, {
       organizationId: activeOrg.id,

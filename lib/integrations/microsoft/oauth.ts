@@ -4,13 +4,22 @@ import {
   DEFAULT_MICROSOFT_SCOPES,
   OUTLOOK_CALENDAR_SCOPES,
   OUTLOOK_MAIL_SCOPES,
+  ONEDRIVE_SCOPES,
+  TEAMS_SCOPES,
 } from "./config";
 import { signOAuthStatePayload, verifyOAuthStateSignature } from "@/lib/security/oauth-state";
+
+export type MicrosoftServiceType =
+  | "outlook"
+  | "outlook_calendar"
+  | "onedrive"
+  | "teams"
+  | "microsoft";
 
 export interface MicrosoftAuthStatePayload {
   organizationId: string;
   userId: string;
-  service?: "outlook" | "outlook_calendar";
+  service?: MicrosoftServiceType;
   returnUrl?: string;
   nonce: string;
   timestamp: number;
@@ -70,7 +79,7 @@ export function verifyMicrosoftOAuthState(state: string): MicrosoftAuthStatePayl
 export function generateMicrosoftAuthUrl(options: {
   organizationId: string;
   userId: string;
-  service?: "outlook" | "outlook_calendar";
+  service?: MicrosoftServiceType;
   returnUrl?: string;
   scopes?: string[];
 }): string {
@@ -89,13 +98,18 @@ export function generateMicrosoftAuthUrl(options: {
     returnUrl: options.returnUrl,
   });
 
-  const selectedScopes =
-    options.scopes ||
-    (options.service === "outlook_calendar"
-      ? OUTLOOK_CALENDAR_SCOPES
-      : options.service === "outlook"
-      ? OUTLOOK_MAIL_SCOPES
-      : DEFAULT_MICROSOFT_SCOPES);
+  let selectedScopes = DEFAULT_MICROSOFT_SCOPES;
+  if (options.scopes && options.scopes.length > 0) {
+    selectedScopes = options.scopes;
+  } else if (options.service === "outlook_calendar") {
+    selectedScopes = OUTLOOK_CALENDAR_SCOPES;
+  } else if (options.service === "outlook") {
+    selectedScopes = OUTLOOK_MAIL_SCOPES;
+  } else if (options.service === "onedrive") {
+    selectedScopes = ONEDRIVE_SCOPES;
+  } else if (options.service === "teams") {
+    selectedScopes = TEAMS_SCOPES;
+  }
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -185,6 +199,24 @@ export async function refreshMicrosoftAccessToken(
   }
 
   return (await response.json()) as MicrosoftTokenResponse;
+}
+
+/**
+ * Revokes / terminates active session tokens with Microsoft when disconnecting.
+ */
+export async function revokeMicrosoftToken(accessToken: string): Promise<void> {
+  try {
+    await fetch("https://graph.microsoft.com/v1.0/me/revokeSignInSessions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
+  } catch (err) {
+    // Non-fatal warning: external token revocation failure should not prevent local cleanup
+    console.warn("Failed to revoke Microsoft sign-in sessions with external provider:", err);
+  }
 }
 
 /**

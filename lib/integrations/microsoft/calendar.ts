@@ -96,6 +96,53 @@ export async function listOutlookCalendarEvents(
 }
 
 /**
+ * Retrieves a single calendar event from Microsoft Outlook.
+ */
+export async function getOutlookCalendarEvent(
+  organizationId: string,
+  eventId: string,
+  userId?: string
+): Promise<OutlookCalendarEvent> {
+  const { microsoftFetch } = await getAuthenticatedMicrosoftClient(organizationId, {
+    userId,
+    service: "outlook_calendar",
+  });
+
+  const response = await microsoftFetch(`/me/events/${encodeURIComponent(eventId)}`);
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Microsoft Graph Calendar get event failed (${response.status}): ${errorText}`);
+  }
+
+  const evt = (await response.json()) as {
+    id: string;
+    subject?: string;
+    bodyPreview?: string;
+    location?: { displayName?: string };
+    start?: { dateTime?: string; timeZone?: string };
+    end?: { dateTime?: string; timeZone?: string };
+    isAllDay?: boolean;
+    webLink?: string;
+    onlineMeeting?: { joinUrl?: string };
+    attendees?: Array<{ emailAddress?: { name?: string; address?: string } }>;
+  };
+
+  return {
+    id: evt.id,
+    summary: evt.subject || "(Sem Título)",
+    description: evt.bodyPreview,
+    location: evt.location?.displayName,
+    start: evt.start,
+    end: evt.end,
+    isAllDay: !!evt.isAllDay,
+    htmlLink: evt.webLink,
+    teamsLink: evt.onlineMeeting?.joinUrl,
+    attendees: evt.attendees?.map((a) => a.emailAddress?.address || a.emailAddress?.name).filter(Boolean) as string[] | undefined,
+  };
+}
+
+/**
  * Creates an event in Microsoft Outlook, optionally generating an automatic Microsoft Teams link.
  */
 export async function createOutlookCalendarEvent(

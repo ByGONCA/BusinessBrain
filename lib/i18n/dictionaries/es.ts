@@ -185,6 +185,14 @@ export const es: Dictionary = {
           name: "Outlook Calendar",
           description: "Sincroniza reuniones, invitaciones y eventos de calendario de Microsoft 365 Outlook.",
         },
+        onedrive: {
+          name: "OneDrive",
+          description: "Sincroniza documentos, hojas de cálculo y archivos de la empresa mediante Microsoft OneDrive.",
+        },
+        teams: {
+          name: "Microsoft Teams",
+          description: "Sincroniza reuniones virtuales de Teams, agendas y enlaces de videoconferencia en KogSync.",
+        },
         github: {
           name: "GitHub",
           description: "Vincula repositorios, pull requests, incidencias y eventos de versiones.",

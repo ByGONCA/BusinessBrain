@@ -14,7 +14,9 @@ export type IntegrationProvider =
   | "microsoft"
   | "slack"
   | "confluence"
-  | "notion";
+  | "notion"
+  | "onedrive"
+  | "teams";
 
 export type IntegrationStatus = "connected" | "disconnected" | "error" | "needs_reauth";
 

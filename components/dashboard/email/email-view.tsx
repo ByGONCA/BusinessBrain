@@ -624,8 +624,8 @@ export function EmailView({
       (i) =>
         (i.provider === "gmail" ||
           i.provider === "outlook" ||
-          (i.provider === "google" && i.scopes?.some((s) => s.includes("gmail"))) ||
-          (i.provider === "microsoft" && i.scopes?.some((s) => s.includes("mail")))) &&
+          (i.provider === "google" && i.scopes?.some((s) => s.toLowerCase().includes("gmail"))) ||
+          (i.provider === "microsoft" && i.scopes?.some((s) => s.toLowerCase().includes("mail")))) &&
         i.status === "connected"
     );
   }, [integrations]);
@@ -1237,12 +1237,17 @@ export function EmailView({
                   const isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(att.name);
                   const isLive = !!att.attachmentId;
 
+                  const isOutlook = selectedEmail.source === "Outlook";
+                  const attachmentEndpoint = isOutlook
+                    ? "/api/integrations/microsoft/mail/attachment"
+                    : "/api/integrations/google/gmail/attachment";
+
                   const previewUrl = isLive
-                    ? `/api/integrations/google/gmail/attachment?messageId=${selectedEmail.id}&attachmentId=${att.attachmentId}&filename=${encodeURIComponent(att.name)}&accountEmail=${encodeURIComponent(selectedEmail.accountEmail || "")}&inline=true`
+                    ? `${attachmentEndpoint}?messageId=${encodeURIComponent(selectedEmail.id)}&attachmentId=${encodeURIComponent(att.attachmentId || "")}&filename=${encodeURIComponent(att.name)}&accountEmail=${encodeURIComponent(selectedEmail.accountEmail || "")}&inline=true`
                     : null;
 
                   const downloadUrl = isLive
-                    ? `/api/integrations/google/gmail/attachment?messageId=${selectedEmail.id}&attachmentId=${att.attachmentId}&filename=${encodeURIComponent(att.name)}&accountEmail=${encodeURIComponent(selectedEmail.accountEmail || "")}&inline=false`
+                    ? `${attachmentEndpoint}?messageId=${encodeURIComponent(selectedEmail.id)}&attachmentId=${encodeURIComponent(att.attachmentId || "")}&filename=${encodeURIComponent(att.name)}&accountEmail=${encodeURIComponent(selectedEmail.accountEmail || "")}&inline=false`
                     : null;
 
                   return (

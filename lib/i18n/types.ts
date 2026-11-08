@@ -179,6 +179,8 @@ export interface Dictionary {
         googleCalendar: { name: string; description: string };
         outlook: { name: string; description: string };
         outlookCalendar: { name: string; description: string };
+        onedrive: { name: string; description: string };
+        teams: { name: string; description: string };
         github: { name: string; description: string };
         linear: { name: string; description: string };
         vercel: { name: string; description: string };

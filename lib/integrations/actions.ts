@@ -7,6 +7,7 @@ import { decryptToken } from "@/lib/crypto/encryption";
 import { revokeGoogleToken } from "./google/oauth";
 import { revokeGitHubToken } from "./github/oauth";
 import { revokeLinearToken } from "./linear/oauth";
+import { revokeMicrosoftToken } from "./microsoft/oauth";
 import { isValidUuid } from "@/lib/security/authorization";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
@@ -43,6 +44,13 @@ import {
   CreateOutlookCalendarEventInput,
   UpdateOutlookCalendarEventInput,
 } from "./microsoft/calendar";
+import {
+  listOutlookMessages,
+  getOutlookMessage,
+  isValidOutlookId,
+  createOutlookDraft,
+  sendOutlookDraft,
+} from "./microsoft/mail";
 import { getStripeClient } from "@/lib/stripe/client";
 import { getGitHubViewer } from "./github/client";
 import { getAuthenticatedGoogleClient } from "./google/client";
@@ -139,6 +147,17 @@ export async function disconnectIntegrationAction(integrationId: string) {
       if (integration.encrypted_access_token) {
         const accessToken = decryptToken(integration.encrypted_access_token);
         await revokeLinearToken(accessToken);
+      }
+    } else if (
+      integration.provider === "microsoft" ||
+      integration.provider === "outlook" ||
+      integration.provider === "outlook_calendar" ||
+      integration.provider === "onedrive" ||
+      integration.provider === "teams"
+    ) {
+      if (integration.encrypted_access_token) {
+        const accessToken = decryptToken(integration.encrypted_access_token);
+        await revokeMicrosoftToken(accessToken);
       }
     }
   } catch (err: unknown) {
@@ -344,6 +363,35 @@ export async function getEmailMessagesAction(params?: {
   }
 
   try {
+    const { data: emailIntegrations } = await supabase
+      .from("organization_integrations")
+      .select("id, provider, account_email")
+      .eq("organization_id", activeOrg.id)
+      .in("provider", ["gmail", "google", "outlook", "microsoft"])
+      .eq("status", "connected");
+
+    const activeIntegration = emailIntegrations?.find((i) =>
+      params?.accountEmail ? i.account_email === params.accountEmail : true
+    );
+
+    const isOutlookTarget =
+      activeIntegration?.provider === "outlook" || activeIntegration?.provider === "microsoft";
+
+    if (isOutlookTarget) {
+      const outlookResult = await listOutlookMessages(activeOrg.id, {
+        accountEmail: params?.accountEmail || activeIntegration?.account_email,
+        query: params?.search,
+        skipToken: params?.pageToken,
+        maxResults: 10,
+      });
+
+      return {
+        messages: outlookResult.messages,
+        nextPageToken: outlookResult.nextSkipToken,
+        isLive: true,
+      };
+    }
+
     const gmailResult = await listGmailMessages(activeOrg.id, {
       accountEmail: params?.accountEmail,
       query: params?.search,
@@ -499,7 +547,7 @@ export async function getEmailMessageContentAction(params: {
   }
 
   // Validate messageId format to prevent path traversal or injection
-  if (!params.messageId || !isValidGmailId(params.messageId)) {
+  if (!params.messageId || (!isValidGmailId(params.messageId) && !isValidOutlookId(params.messageId))) {
     logger.warn("Invalid messageId format provided to getEmailMessageContentAction", {
       messageId: params.messageId,
     });
@@ -514,6 +562,32 @@ export async function getEmailMessageContentAction(params: {
   }
 
   try {
+    const { data: emailIntegrations } = await supabase
+      .from("organization_integrations")
+      .select("id, provider, account_email")
+      .eq("organization_id", activeOrg.id)
+      .in("provider", ["gmail", "google", "outlook", "microsoft"])
+      .eq("status", "connected");
+
+    const isOutlook = emailIntegrations?.some(
+      (i) =>
+        (i.provider === "outlook" || i.provider === "microsoft") &&
+        (!params.accountEmail || i.account_email === params.accountEmail)
+    );
+
+    if (isOutlook) {
+      try {
+        const outlookMsg = await getOutlookMessage(activeOrg.id, params.messageId, params.accountEmail);
+        return {
+          body: outlookMsg.body,
+          htmlBody: outlookMsg.htmlBody,
+          attachments: outlookMsg.attachments,
+        };
+      } catch (outlookErr) {
+        logger.warn("Outlook message fetch exception, checking gmail fallback", { error: String(outlookErr) });
+      }
+    }
+
     const full = await getGmailMessage(activeOrg.id, params.messageId, params.accountEmail);
 
     const attachments: EmailAttachmentItem[] = (full.attachments || []).map((att) => ({
@@ -699,20 +773,41 @@ export async function sendApprovedEmailDraftAction(
     throw new Error(`Email approval validation failed: ${verification.error}`);
   }
 
-  // Send draft via Gmail API
-  const result = await sendGmailDraft(activeOrg.id, currentPayload.draftId, { userId: user.id });
+  // Send draft via Gmail or Outlook API depending on draft identifier
+  let messageId = "";
+  let threadId = "";
+
+  if (isValidGmailId(currentPayload.draftId)) {
+    try {
+      const result = await sendGmailDraft(activeOrg.id, currentPayload.draftId, { userId: user.id });
+      messageId = result.id;
+      threadId = result.threadId;
+    } catch (gmailErr) {
+      if (isValidOutlookId(currentPayload.draftId)) {
+        await sendOutlookDraft(activeOrg.id, currentPayload.draftId);
+        messageId = currentPayload.draftId;
+        threadId = currentPayload.draftId;
+      } else {
+        throw gmailErr;
+      }
+    }
+  } else {
+    await sendOutlookDraft(activeOrg.id, currentPayload.draftId);
+    messageId = currentPayload.draftId;
+    threadId = currentPayload.draftId;
+  }
 
   logger.info("Email draft successfully dispatched after verified human confirmation", {
     organizationId: activeOrg.id,
     userId: user.id,
     draftId: currentPayload.draftId,
-    messageId: result.id,
+    messageId,
   });
 
   revalidatePath("/dashboard/email");
   revalidatePath("/dashboard");
 
-  return { success: true, messageId: result.id, threadId: result.threadId };
+  return { success: true, messageId, threadId };
 }
 
 /**
@@ -1027,7 +1122,9 @@ export async function testIntegrationConnectionAction(
     if (
       integration.provider === "microsoft" ||
       integration.provider === "outlook" ||
-      integration.provider === "outlook_calendar"
+      integration.provider === "outlook_calendar" ||
+      integration.provider === "onedrive" ||
+      integration.provider === "teams"
     ) {
       const { microsoftFetch } = await getAuthenticatedMicrosoftClient(activeOrg.id, {
         accountEmail: integration.account_email,
