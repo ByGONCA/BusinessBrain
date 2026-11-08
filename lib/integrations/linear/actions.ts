@@ -7,6 +7,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveOrganization } from "@/lib/organizations/queries";
+import { getOrganizationEntitlement } from "@/lib/organizations/entitlements";
 import { isValidUuid } from "@/lib/security/authorization";
 import { logger } from "@/lib/security/logger";
 import { hasPermission } from "@/lib/permissions/resolver";
@@ -46,6 +47,12 @@ async function resolveAuthorizedOrgId(orgId?: string, requiredPermission?: Permi
     .maybeSingle();
 
   if (!member) throw new Error("Unauthorized to access workspace.");
+
+  // Verify entitlement: subscription or personal workspace access required
+  const entitlement = await getOrganizationEntitlement(targetId);
+  if (!entitlement.isEntitled && activeOrg.workspace_type !== "personal") {
+    throw new Error("Subscription required to access Linear intelligence services.");
+  }
 
   // If a specific permission is required, enforce it (Owners/admins bypass automatically)
   if (requiredPermission) {

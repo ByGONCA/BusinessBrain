@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Image from "next/image";
 import { getActiveOrganization } from "@/lib/organizations/queries";
+import { getOrganizationEntitlement } from "@/lib/organizations/entitlements";
 import {
   isLinearConnectedAction,
   getLinearIntelligenceSnapshotAction,
@@ -12,6 +13,11 @@ export default async function LinearIntegrationPage() {
   const activeOrg = await getActiveOrganization();
   if (!activeOrg) {
     redirect("/onboarding");
+  }
+
+  const entitlement = await getOrganizationEntitlement(activeOrg.id);
+  if (!entitlement.isEntitled && activeOrg.workspace_type !== "personal") {
+    redirect("/pricing?reason=subscription_required");
   }
 
   const isConnected = await isLinearConnectedAction(activeOrg.id);
