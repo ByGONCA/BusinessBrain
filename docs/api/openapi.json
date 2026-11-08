@@ -1,13 +1,13 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "BusinessBrain Enterprise Public API",
+    "title": "KogSync Enterprise Public API",
     "version": "1.0.0",
-    "description": "Enterprise API for BusinessBrain — The memory and intelligence layer for modern companies. Provides programmatic access to projects, documents, metrics, integrations, and synchronized discussions."
+    "description": "Enterprise API for KogSync — The memory and intelligence layer for modern companies. Provides programmatic access to projects, documents, metrics, integrations, and synchronized discussions."
   },
   "servers": [
     {
-      "url": "https://api.businessbrain.com/api/v1",
+      "url": "https://kogsync.com/api/v1",
       "description": "Production server"
     },
     {

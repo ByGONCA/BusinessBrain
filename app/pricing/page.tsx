@@ -9,7 +9,7 @@ import { LandingHeader } from "@/components/landing/landing-header";
 import { LandingFooter } from "@/components/landing/landing-footer";
 
 export const metadata: Metadata = {
-  title: "Pricing & Plans — BusinessBrain",
+  title: "Pricing & Plans — KogSync",
   description:
     "Predictable, transparent pricing for your company's memory and intelligence layer.",
 };
@@ -63,14 +63,14 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
         {/* Layer 1: Foreground Content */}
         <div className="relative z-10 mx-auto max-w-6xl text-center">
           {/* Accessible Semantic Title for Screen Readers & SEO */}
-          <h1 className="sr-only">Pricing &amp; Plans — BusinessBrain</h1>
+          <h1 className="sr-only">Pricing &amp; Plans — KogSync</h1>
 
           {/* Gating Notice Banner */}
           {isSubscriptionRequired && (
             <div className="mb-8 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-700 dark:text-amber-300 text-left sm:text-center max-w-2xl mx-auto backdrop-blur-md">
               <p className="font-semibold text-sm">Subscription Required</p>
               <p className="mt-1 text-amber-800/80 dark:text-amber-200/80">
-                BusinessBrain does not provide a permanent free tier. Select a plan below to activate your workspace.
+                KogSync does not provide a permanent free tier. Select a plan below to activate your workspace.
               </p>
             </div>
           )}

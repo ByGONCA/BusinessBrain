@@ -210,7 +210,7 @@ export function LandingGraphSection() {
             </div>
 
             <div className="mt-6 pt-4 border-t border-[#E5E5E0] dark:border-[#1E1E22] text-[11px] text-[#71717A] dark:text-[#A1A1AA] leading-relaxed">
-              Every document, pull request, or meeting created in BusinessBrain automatically updates this relationship graph.
+              Every document, pull request, or meeting created in KogSync automatically updates this relationship graph.
             </div>
           </div>
         </div>

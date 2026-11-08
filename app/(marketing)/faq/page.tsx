@@ -39,11 +39,11 @@ export default function FAQPage() {
     },
     {
       question: "Why is a payment method required upfront for the 3-day trial?",
-      answer: "BusinessBrain is an enterprise operating system built for active teams. Collecting a payment method upfront ensures uninterrupted workspace access for your team at the end of the trial, prevents bot abuse, and guarantees continuous synchronization with external integrations. You are never charged during the 3-day trial and can cancel with 1 click in workspace settings before Day 3.",
+      answer: "KogSync is an enterprise operating system built for active teams. Collecting a payment method upfront ensures uninterrupted workspace access for your team at the end of the trial, prevents bot abuse, and guarantees continuous synchronization with external integrations. You are never charged during the 3-day trial and can cancel with 1 click in workspace settings before Day 3.",
     },
     {
       question: "Are our proprietary documents used to train public AI models?",
-      answer: "No. Never. BusinessBrain enforces strict tenant data boundaries. Your documents, decisions, and integration metadata remain private to your organization and are never shared, sold, or used to fine-tune public foundation models.",
+      answer: "No. Never. KogSync enforces strict tenant data boundaries. Your documents, decisions, and integration metadata remain private to your organization and are never shared, sold, or used to fine-tune public foundation models.",
     },
   ];
 
@@ -127,7 +127,7 @@ export default function FAQPage() {
           <div className="mx-auto max-w-3xl">
             <ScrollReveal delay={0}>
               <h2 className="text-2xl sm:text-3xl font-semibold text-[#18181B] dark:text-[#F4F4F5]">
-                Still have questions about BusinessBrain?
+                Still have questions about KogSync?
               </h2>
             </ScrollReveal>
             <ScrollReveal delay={80}>

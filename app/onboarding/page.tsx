@@ -190,7 +190,7 @@ export default function OnboardingPage() {
             <Sparkles className="h-5 w-5 text-blue-400" />
           </div>
           <h1 className="mt-4 text-2xl font-bold tracking-tight text-foreground">
-            Welcome to Company Brain
+            Welcome to KogSync
           </h1>
           <p className="mt-1 text-xs text-muted-foreground">
             {mode === "create"

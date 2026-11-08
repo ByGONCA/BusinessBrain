@@ -15,7 +15,7 @@ export function BrandingTab({ activeOrg }: BrandingTabProps) {
 
   const [allowEmailDispatch, setAllowEmailDispatch] = React.useState(true);
   const [senderName, setSenderName] = React.useState(activeOrg?.name || "");
-  const [footerText, setFooterText] = React.useState("Sent from " + (activeOrg?.name || "Company Brain"));
+  const [footerText, setFooterText] = React.useState("Sent from " + (activeOrg?.name || "KogSync"));
   const [brandColor, setBrandColor] = React.useState("#2563eb");
   const [isSaving, setIsSaving] = React.useState(false);
   const [saveStatus, setSaveStatus] = React.useState<{ success?: boolean; message?: string } | null>(null);
@@ -93,7 +93,7 @@ export function BrandingTab({ activeOrg }: BrandingTabProps) {
             disabled={!isOwnerOrAdmin}
             value={senderName}
             onChange={(e) => setSenderName(e.target.value)}
-            placeholder="e.g. Acme Corp via Company Brain"
+            placeholder="e.g. Acme Corp via KogSync"
             className="w-full rounded-lg border border-zinc-200 dark:border-zinc-800 bg-surface-secondary text-foreground px-3 py-1.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:border-blue-500 transition-colors disabled:opacity-50"
           />
           <p className="text-[11px] text-zinc-500">The &apos;From&apos; name visible in recipients&apos; email clients.</p>
