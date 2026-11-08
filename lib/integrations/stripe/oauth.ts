@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { logger } from "@/lib/security/logger";
+import { getOAuthStateSecret } from "@/lib/security/oauth-state";
 
 const OAUTH_STATE_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes
 const STRIPE_CONNECT_AUTHORIZE_URL = "https://connect.stripe.com/oauth/authorize";
@@ -26,14 +27,7 @@ export interface StripeTokenResponse {
 }
 
 function getSigningSecret(): string {
-  const secret = process.env.SERVER_AUTH_SECRET || process.env.NEXTAUTH_SECRET;
-  if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("SERVER_AUTH_SECRET is required in production for Stripe OAuth signing.");
-    }
-    return "dev-stripe-connect-hmac-secret-fallback-key";
-  }
-  return secret;
+  return getOAuthStateSecret();
 }
 
 /**

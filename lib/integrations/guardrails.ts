@@ -91,11 +91,21 @@ export function computePayloadHash(actionType: GuardrailActionType, payload: unk
 }
 
 function getSigningSecret(): string {
-  return (
-    process.env.ENCRYPTION_KEY ||
-    process.env.SUPABASE_JWT_SECRET ||
-    "company-brain-guardrail-secret-fallback-key-32bytes"
-  );
+  const secret =
+    process.env.SUPABASE_JWT_SECRET?.trim() ||
+    process.env.INTEGRATION_TOKEN_ENCRYPTION_KEY?.trim() ||
+    process.env.ENCRYPTION_KEY?.trim();
+
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "CRITICAL SECURITY CONFIGURATION ERROR: SUPABASE_JWT_SECRET or INTEGRATION_TOKEN_ENCRYPTION_KEY must be configured in production for guardrail action signing. Fallback to hardcoded dev key is strictly prohibited."
+      );
+    }
+    return "company-brain-guardrail-secret-fallback-key-32bytes";
+  }
+
+  return secret;
 }
 
 /**

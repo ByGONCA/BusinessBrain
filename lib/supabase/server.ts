@@ -99,9 +99,15 @@ export const getCurrentUser = cache(async () => {
  */
 export function createServiceClient() {
   const { supabaseUrl, supabasePublishableKey } = getSupabaseCredentials();
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || supabasePublishableKey;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
 
-  return createJsClient(supabaseUrl, serviceKey, {
+  if (!serviceKey && process.env.NODE_ENV === "production") {
+    throw new Error(
+      "CRITICAL SECURITY ERROR: SUPABASE_SERVICE_ROLE_KEY must be configured in production for privileged service client operations. Fallback to publishable key is strictly prohibited."
+    );
+  }
+
+  return createJsClient(supabaseUrl, serviceKey || supabasePublishableKey, {
     global: {
       fetch: supabaseFetch,
     },

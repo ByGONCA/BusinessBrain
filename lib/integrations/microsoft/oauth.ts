@@ -5,6 +5,7 @@ import {
   OUTLOOK_CALENDAR_SCOPES,
   OUTLOOK_MAIL_SCOPES,
 } from "./config";
+import { signOAuthStatePayload, verifyOAuthStateSignature } from "@/lib/security/oauth-state";
 
 export interface MicrosoftAuthStatePayload {
   organizationId: string;
@@ -15,25 +16,9 @@ export interface MicrosoftAuthStatePayload {
   timestamp: number;
 }
 
-function getHmacSecret(): string {
-  const secret =
-    process.env.INTEGRATION_TOKEN_ENCRYPTION_KEY ||
-    process.env.STRIPE_SECRET_KEY;
-
-  if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error(
-        "INTEGRATION_TOKEN_ENCRYPTION_KEY or STRIPE_SECRET_KEY is required in production for OAuth state integrity."
-      );
-    }
-    return "company-brain-oauth-hmac-dev-key";
-  }
-
-  return secret;
-}
-
 /**
  * Creates an HMAC-signed state parameter to prevent CSRF attacks during the Microsoft OAuth flow.
+ * Signed strictly using the dedicated OAUTH_STATE_SECRET.
  */
 export function createMicrosoftOAuthState(
   payload: Omit<MicrosoftAuthStatePayload, "nonce" | "timestamp">
@@ -46,16 +31,14 @@ export function createMicrosoftOAuthState(
 
   const jsonStr = JSON.stringify(fullPayload);
   const base64Data = Buffer.from(jsonStr).toString("base64url");
-  const signature = crypto
-    .createHmac("sha256", getHmacSecret())
-    .update(base64Data)
-    .digest("base64url");
+  const signature = signOAuthStatePayload(base64Data);
 
   return `${base64Data}.${signature}`;
 }
 
 /**
  * Validates and unpacks an HMAC-signed Microsoft OAuth state parameter.
+ * Verified strictly using the dedicated OAUTH_STATE_SECRET.
  * Uses crypto.timingSafeEqual to prevent timing attacks.
  */
 export function verifyMicrosoftOAuthState(state: string): MicrosoftAuthStatePayload | null {
@@ -63,14 +46,9 @@ export function verifyMicrosoftOAuthState(state: string): MicrosoftAuthStatePayl
     const [base64Data, signature] = state.split(".");
     if (!base64Data || !signature) return null;
 
-    const expectedSignature = crypto
-      .createHmac("sha256", getHmacSecret())
-      .update(base64Data)
-      .digest("base64url");
-
-    const sigBuf = Buffer.from(signature, "base64url");
-    const expBuf = Buffer.from(expectedSignature, "base64url");
-    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null;
+    if (!verifyOAuthStateSignature(base64Data, signature)) {
+      return null;
+    }
 
     const jsonStr = Buffer.from(base64Data, "base64url").toString("utf8");
     const payload: MicrosoftAuthStatePayload = JSON.parse(jsonStr);

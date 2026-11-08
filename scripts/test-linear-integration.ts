@@ -572,8 +572,10 @@ async function runTestSuite() {
     const encrypted = encryptToken(sensitiveToken);
     const [ivHex, authTagHex, cipherHex] = encrypted.split(":");
 
-    // 1. Tamper with ciphertext payload
-    const tamperedCipher = `${ivHex}:${authTagHex}:${cipherHex.slice(0, -2)}ff`;
+    // 1. Tamper with ciphertext payload (guarantee different byte to avoid random collision)
+    const lastByte = cipherHex.slice(-2);
+    const flippedByte = lastByte === "ff" ? "00" : "ff";
+    const tamperedCipher = `${ivHex}:${authTagHex}:${cipherHex.slice(0, -2)}${flippedByte}`;
     assert.throws(
       () => decryptToken(tamperedCipher),
       /Unsupported state or unable to authenticate data/,

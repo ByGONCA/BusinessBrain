@@ -214,9 +214,9 @@ const SUITES: TestSuite[] = [
     description: "21 tests: GCM tamper detection, dual-key rotation recovery, fail-closed production config, org credential RLS, and pre-reservation safety",
   },
   {
-    name: "Dual-Key Encryption Rotation & Scope Isolation",
+    name: "Dual-Key Encryption & OAuth State Secret Rotation",
     file: "scripts/test-encryption-key-rotation.ts",
-    description: "13 tests: Zero-downtime dual-key decryption, scope isolation (AI vs OAuth), malformed format fast-reject, fingerprint rotation",
+    description: "34 tests: Zero-downtime dual-key decryption, scope isolation (AI vs OAuth), malformed format fast-reject, fingerprint rotation, and zero-downtime OAuth state secret rotation",
   },
   {
     name: "Universal Dashboard Builder & Widget Ecosystem",
@@ -232,6 +232,11 @@ const SUITES: TestSuite[] = [
     name: "Linear Intelligence Data Provider (25-Suite)",
     file: "scripts/test-linear-integration.ts",
     description: "25 tests: OAuth read scope, HMAC state, atomic nonce consumption, replay rejection, distributed lease collision, crash recovery, OCC lock, strict encryption keys, cipher tampering, normalized types, cycle completion, provider health, zero DB persistence",
+  },
+  {
+    name: "PostgreSQL Concurrency & OAuth Leases (PGlite Engine)",
+    file: "scripts/test-integration-concurrency-pglite.ts",
+    description: "21 tests: Real PostgreSQL 16 engine, Migration 00045, atomic nonce consumption, distributed refresh lease collision, OCC CAS commits, crash recovery",
   },
 ];
 
