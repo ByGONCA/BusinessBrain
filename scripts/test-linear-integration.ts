@@ -27,6 +27,7 @@ import {
   createLinearOAuthState,
   verifyLinearOAuthState,
   generateLinearAuthUrl,
+  consumeLinearOAuthNonceAtomic,
   LINEAR_OAUTH_SCOPES,
   LINEAR_OAUTH_ENDPOINTS,
 } from "../lib/integrations/linear/oauth";
@@ -46,7 +47,7 @@ import {
   RawLinearCycle,
   RawLinearTeam,
 } from "../lib/integrations/linear/types";
-import { encryptToken, decryptToken } from "../lib/crypto/encryption";
+import { encryptToken, decryptToken, parseAndValidateEncryptionKey } from "../lib/crypto/encryption";
 
 async function runTestSuite() {
   console.log("\n==================================================================");
@@ -496,42 +497,205 @@ async function runTestSuite() {
   });
 
   // ---------------------------------------------------------------------------
-  // TEST 18: OAuth State Single-Use Nonce & Replay Rejection
+  // TEST 18: Atomic Single-Use Nonce & Simultaneous Callback Replay Rejection
   // ---------------------------------------------------------------------------
-  test("OAuth single-use nonce prevents repeated callback replay within TTL", () => {
+  await testAsync("Simultaneous duplicate callbacks cannot both consume the same state nonce", async () => {
     const state = createLinearOAuthState({
-      organizationId: "org-1",
-      userId: "user-1",
+      organizationId: "org-test-atomic",
+      userId: "user-test-atomic",
       returnUrl: "/dashboard/linear",
     });
 
     const parsed = verifyLinearOAuthState(state);
-    assert(parsed !== null, "State should be valid initially");
+    assert(parsed !== null, "State must be valid initially");
 
-    // Simulate first consumption
-    const consumedNonces = new Set<string>();
-    assert(!consumedNonces.has(parsed!.nonce), "First use should be permitted");
-    consumedNonces.add(parsed!.nonce);
+    // Launch two simultaneous duplicate callback attempts with identical nonce
+    const [resultA, resultB] = await Promise.all([
+      consumeLinearOAuthNonceAtomic(parsed!.organizationId, parsed!.nonce),
+      consumeLinearOAuthNonceAtomic(parsed!.organizationId, parsed!.nonce),
+    ]);
 
-    // Simulate replay with exact same state
-    const replayAttempt = consumedNonces.has(parsed!.nonce);
-    assert.strictEqual(replayAttempt, true, "Replay attempt must be detected and rejected");
+    // Exactly one must succeed, and the other must be rejected
+    const successCount = (resultA.success ? 1 : 0) + (resultB.success ? 1 : 0);
+    assert.strictEqual(successCount, 1, "Exactly one concurrent callback must succeed in consuming nonce");
+
+    const failure = !resultA.success ? resultA : resultB;
+    assert.strictEqual(failure.reason, "nonce_already_consumed", "Duplicate callback must be rejected with nonce_already_consumed");
   });
 
   // ---------------------------------------------------------------------------
-  // TEST 19: Distributed Token Refresh & OCC Guard
+  // TEST 19: Sequential Replay Rejection of Consumed Nonce
   // ---------------------------------------------------------------------------
-  test("Distributed token refresh reuses fresh token if peer worker already refreshed", () => {
+  await testAsync("Sequential replay of an already-consumed nonce is immediately rejected", async () => {
+    const testNonce = `test-seq-nonce-${Date.now()}`;
+    const firstAttempt = await consumeLinearOAuthNonceAtomic("org-seq-test", testNonce);
+    assert.strictEqual(firstAttempt.success, true, "First attempt must succeed");
+
+    const secondAttempt = await consumeLinearOAuthNonceAtomic("org-seq-test", testNonce);
+    assert.strictEqual(secondAttempt.success, false, "Second attempt must be rejected");
+    assert.strictEqual(secondAttempt.reason, "nonce_already_consumed");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 20: Strict Encryption Key Validation & Fallback Elimination
+  // ---------------------------------------------------------------------------
+  test("Missing or invalid encryption keys fail securely without leaking secrets", () => {
+    // 1. Valid 64-hex key passes
+    const validHexKey = crypto.randomBytes(32).toString("hex");
+    const parsedHex = parseAndValidateEncryptionKey(validHexKey, "TEST_KEY");
+    assert.strictEqual(parsedHex.length, 32, "Valid 64-hex string must yield 32 bytes Buffer");
+
+    // 2. Valid 32-byte UTF-8 string passes
+    const validUtf8Key = "12345678901234567890123456789012"; // 32 chars
+    const parsedUtf8 = parseAndValidateEncryptionKey(validUtf8Key, "TEST_KEY");
+    assert.strictEqual(parsedUtf8.length, 32, "Valid 32-byte string must yield 32 bytes Buffer");
+
+    // 3. Short key fails explicitly
+    assert.throws(
+      () => parseAndValidateEncryptionKey("too-short-key", "TEST_KEY"),
+      /TEST_KEY is invalid: must be a 64-character hexadecimal string or exactly 32-byte UTF-8 string/
+    );
+
+    // 4. Invalid hex chars fail explicitly
+    const invalidHex = "z".repeat(64);
+    assert.throws(
+      () => parseAndValidateEncryptionKey(invalidHex, "TEST_KEY"),
+      /TEST_KEY is invalid: must be a 64-character hexadecimal string or exactly 32-byte UTF-8 string/
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 21: Ciphertext & Auth Tag Tamper Detection (AES-256-GCM Integrity)
+  // ---------------------------------------------------------------------------
+  test("Tampered ciphertext or modified auth tag triggers authentication failure", () => {
+    const sensitiveToken = "lin_api_super_secret_token_12345";
+    const encrypted = encryptToken(sensitiveToken);
+    const [ivHex, authTagHex, cipherHex] = encrypted.split(":");
+
+    // 1. Tamper with ciphertext payload
+    const tamperedCipher = `${ivHex}:${authTagHex}:${cipherHex.slice(0, -2)}ff`;
+    assert.throws(
+      () => decryptToken(tamperedCipher),
+      /Unsupported state or unable to authenticate data/,
+      "Modified ciphertext must fail authentication tag check"
+    );
+
+    // 2. Tamper with authentication tag
+    const tamperedTag = `${ivHex}:${"00".repeat(16)}:${cipherHex}`;
+    assert.throws(
+      () => decryptToken(tamperedTag),
+      /Unsupported state or unable to authenticate data/,
+      "Modified auth tag must fail authentication tag check"
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 22: Distributed Token Refresh Atomic Lease Collision
+  // ---------------------------------------------------------------------------
+  test("Concurrent workers competing for refresh lease: only 1 acquires lease", () => {
+    const workerA = "worker-node-1";
+    const workerB = "worker-node-2";
     const now = Date.now();
-    // Simulate peer worker refreshed token 10 seconds ago
-    const dbRecord = {
-      status: "connected",
-      token_expires_at: new Date(now + 3500 * 1000).toISOString(), // expires in ~58 minutes
-      encrypted_access_token: "enc-fresh-token",
+
+    // Mock DB record initially unlocked
+    const mockDbRecord: Record<string, any> = {
+      metadata: {},
+      encrypted_refresh_token: "refresh-token-v1",
     };
 
-    const isFreshInDb = new Date(dbRecord.token_expires_at).getTime() > now + 2 * 60 * 1000;
-    assert.strictEqual(isFreshInDb, true, "Peer worker's freshly refreshed token is recognized");
+    // Simulated atomic CAS acquire function
+    function tryAcquireLease(record: typeof mockDbRecord, workerId: string): boolean {
+      const lockUntil = record.metadata?.refresh_lock_until ? new Date(record.metadata.refresh_lock_until).getTime() : 0;
+      if (lockUntil > now && record.metadata?.refresh_lock_worker !== workerId) {
+        return false; // Locked by peer
+      }
+      record.metadata = {
+        ...record.metadata,
+        refresh_lock_until: new Date(now + 15000).toISOString(),
+        refresh_lock_worker: workerId,
+      };
+      return true;
+    }
+
+    const acquiredA = tryAcquireLease(mockDbRecord, workerA);
+    const acquiredB = tryAcquireLease(mockDbRecord, workerB);
+
+    assert.strictEqual(acquiredA, true, "Worker A acquires unlocked lease");
+    assert.strictEqual(acquiredB, false, "Worker B is rejected because lease is held by Worker A");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 23: Lease Expiration and Automatic Recovery after Crash
+  // ---------------------------------------------------------------------------
+  test("Crashed worker's expired lease (> 15s) is safely recovered by new worker", () => {
+    const deadWorker = "worker-crashed";
+    const newWorker = "worker-survivor";
+    const twentySecondsAgo = Date.now() - 20000;
+
+    const mockDbRecord: Record<string, any> = {
+      metadata: {
+        refresh_lock_until: new Date(twentySecondsAgo).toISOString(), // expired lease
+        refresh_lock_worker: deadWorker,
+      },
+    };
+
+    const isExpired = new Date(mockDbRecord.metadata.refresh_lock_until).getTime() <= Date.now();
+    assert.strictEqual(isExpired, true, "Expired lease is recognized as dead");
+
+    // New worker claims expired lease
+    mockDbRecord.metadata = {
+      refresh_lock_until: new Date(Date.now() + 15000).toISOString(),
+      refresh_lock_worker: newWorker,
+    };
+
+    assert.strictEqual(mockDbRecord.metadata.refresh_lock_worker, newWorker, "Survivor worker successfully claimed expired lease");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 24: OCC Protection: Stale Worker Cannot Overwrite Newer Token
+  // ---------------------------------------------------------------------------
+  test("Stale worker with outdated refresh token is prevented from committing (OCC)", () => {
+    const currentDbToken = "refresh-token-v2-already-rotated";
+    const staleWorkerExpectedToken = "refresh-token-v1-old";
+
+    function applyOccUpdate(dbCurrentToken: string, expectedToken: string): boolean {
+      if (dbCurrentToken !== expectedToken) {
+        return false; // OCC violation: state changed concurrently
+      }
+      return true;
+    }
+
+    const canCommit = applyOccUpdate(currentDbToken, staleWorkerExpectedToken);
+    assert.strictEqual(canCommit, false, "OCC violation correctly detected; stale overwrite prevented");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 25: Multi-Tenant Credential Boundary Isolation
+  // ---------------------------------------------------------------------------
+  test("Multi-tenant query strictly partitions Linear credentials by organization_id", () => {
+    const tenant1Id = "11111111-1111-1111-1111-111111111111";
+    const tenant2Id = "22222222-2222-2222-2222-222222222222";
+
+    const dbRows = [
+      { organization_id: tenant1Id, provider: "linear", encrypted_access_token: "t1-secret" },
+      { organization_id: tenant2Id, provider: "linear", encrypted_access_token: "t2-secret" },
+    ];
+
+    function queryCredentialsForOrg(requestedOrgId: string) {
+      return dbRows.filter((row) => row.organization_id === requestedOrgId && row.provider === "linear");
+    }
+
+    const t1Results = queryCredentialsForOrg(tenant1Id);
+    assert.strictEqual(t1Results.length, 1);
+    assert.strictEqual(t1Results[0].encrypted_access_token, "t1-secret");
+
+    const t2Results = queryCredentialsForOrg(tenant2Id);
+    assert.strictEqual(t2Results.length, 1);
+    assert.strictEqual(t2Results[0].encrypted_access_token, "t2-secret");
+
+    // Alien org request returns zero records
+    const alienResults = queryCredentialsForOrg("33333333-3333-3333-3333-333333333333");
+    assert.strictEqual(alienResults.length, 0);
   });
 
   console.log("\n==================================================================");

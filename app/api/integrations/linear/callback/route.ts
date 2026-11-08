@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import {
   verifyLinearOAuthState,
+  consumeLinearOAuthNonceAtomic,
   exchangeLinearCodeForToken,
 } from "@/lib/integrations/linear/oauth";
 import { encryptToken } from "@/lib/crypto/encryption";
@@ -72,21 +73,21 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
 
-  // 2b. Replay Protection: reject if this nonce was already consumed in PostgreSQL
-  const { data: existingIntegration } = await supabase
-    .from("organization_integrations")
-    .select("metadata")
-    .eq("organization_id", statePayload.organizationId)
-    .eq("provider", "linear")
-    .maybeSingle();
+  // 2b. Atomic Replay Protection: reject if this nonce was already consumed or is being processed concurrently
+  const nonceConsumption = await consumeLinearOAuthNonceAtomic(
+    statePayload.organizationId,
+    statePayload.nonce
+  );
 
-  const consumedNonce = (existingIntegration?.metadata as Record<string, unknown>)?.last_oauth_nonce;
-  if (consumedNonce && consumedNonce === statePayload.nonce) {
+  if (!nonceConsumption.success) {
     logger.warn("Linear OAuth state replay detected: nonce already consumed", {
       nonce: statePayload.nonce,
       organizationId: statePayload.organizationId,
+      reason: nonceConsumption.reason,
     });
-    return NextResponse.redirect(`${defaultRedirect}?error=state_already_used`);
+    const errRes = NextResponse.redirect(`${defaultRedirect}?error=state_already_used`);
+    errRes.cookies.delete("cb_linear_oauth_nonce");
+    return errRes;
   }
 
   // 3. Verify user has owner/admin membership or manage permission

@@ -5,28 +5,49 @@ const IV_LENGTH = 12; // 96 bits for GCM
 const AUTH_TAG_LENGTH = 16; // 128 bits
 
 /**
- * Returns a 32-byte Buffer key for AES-256-GCM.
- * Uses process.env.AI_CREDENTIALS_ENCRYPTION_KEY or process.env.INTEGRATION_TOKEN_ENCRYPTION_KEY.
- * In development without an explicit key, falls back to a deterministic development key.
+ * Validates and converts an encryption key string into a strict 32-byte Buffer.
+ * Strictly requires 64-hex chars (32 bytes) or exactly 32-byte UTF-8 string.
+ * Rejects invalid lengths and formats to fail securely.
  */
-function getEncryptionKey(keyEnvVar: string = "INTEGRATION_TOKEN_ENCRYPTION_KEY"): Buffer {
-  const envKey = process.env[keyEnvVar] || process.env.INTEGRATION_TOKEN_ENCRYPTION_KEY;
-
-  if (envKey) {
-    if (envKey.length === 64) {
-      return Buffer.from(envKey, "hex");
-    }
-    if (Buffer.byteLength(envKey, "utf8") === 32) {
-      return Buffer.from(envKey, "utf8");
-    }
-    // If key has custom length, hash it with SHA-256 to produce exactly 32 bytes
-    return crypto.createHash("sha256").update(envKey).digest();
+export function parseAndValidateEncryptionKey(keyStr: string, envVarName: string): Buffer {
+  if (!keyStr || typeof keyStr !== "string") {
+    throw new Error(`${envVarName} must be a non-empty string.`);
   }
 
-  // Development fallback key (warn in production)
+  const trimmed = keyStr.trim();
+  if (trimmed.length === 64 && /^[0-9a-fA-F]{64}$/.test(trimmed)) {
+    return Buffer.from(trimmed, "hex");
+  }
+
+  if (Buffer.byteLength(trimmed, "utf8") === 32) {
+    return Buffer.from(trimmed, "utf8");
+  }
+
+  throw new Error(
+    `${envVarName} is invalid: must be a 64-character hexadecimal string or exactly 32-byte UTF-8 string.`
+  );
+}
+
+/**
+ * Returns a 32-byte Buffer key for AES-256-GCM.
+ * Uses process.env[keyEnvVar].
+ * AI credentials may inherit INTEGRATION_TOKEN_ENCRYPTION_KEY if AI key is not independently configured.
+ * Mandatory in production; deterministic fallback in development/test.
+ * Never falls back to Stripe or unrelated secrets.
+ */
+function getEncryptionKey(keyEnvVar: string = "INTEGRATION_TOKEN_ENCRYPTION_KEY"): Buffer {
+  const envKey =
+    process.env[keyEnvVar] ||
+    (keyEnvVar === "AI_CREDENTIALS_ENCRYPTION_KEY" ? process.env.INTEGRATION_TOKEN_ENCRYPTION_KEY : undefined);
+
+  if (envKey) {
+    return parseAndValidateEncryptionKey(envKey, keyEnvVar);
+  }
+
+  // Development fallback key (strictly required in production)
   if (process.env.NODE_ENV === "production") {
     throw new Error(
-      `${keyEnvVar} (or INTEGRATION_TOKEN_ENCRYPTION_KEY) is required in production for credential encryption.`
+      `${keyEnvVar} is required in production for credential encryption.`
     );
   }
 
@@ -42,16 +63,14 @@ function getEncryptionKey(keyEnvVar: string = "INTEGRATION_TOKEN_ENCRYPTION_KEY"
  * Returns null if no previous key is configured.
  */
 function getPreviousEncryptionKey(keyEnvVar: string): Buffer | null {
-  const envKey = process.env[keyEnvVar];
-  if (!envKey) return null;
+  const envKey =
+    process.env[keyEnvVar] ||
+    (keyEnvVar === "AI_CREDENTIALS_ENCRYPTION_KEY_PREVIOUS"
+      ? process.env.INTEGRATION_TOKEN_ENCRYPTION_KEY_PREVIOUS
+      : undefined);
 
-  if (envKey.length === 64) {
-    return Buffer.from(envKey, "hex");
-  }
-  if (Buffer.byteLength(envKey, "utf8") === 32) {
-    return Buffer.from(envKey, "utf8");
-  }
-  return crypto.createHash("sha256").update(envKey).digest();
+  if (!envKey) return null;
+  return parseAndValidateEncryptionKey(envKey, keyEnvVar);
 }
 
 /**

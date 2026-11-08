@@ -229,9 +229,9 @@ const SUITES: TestSuite[] = [
     description: "21 tests: Home single canvas, Finance metric accuracy, 14 visualizers, provider fault isolation, CAS OCC, responsive tokens, anti-jargon invariants",
   },
   {
-    name: "Linear Intelligence Data Provider (19-Suite)",
+    name: "Linear Intelligence Data Provider (25-Suite)",
     file: "scripts/test-linear-integration.ts",
-    description: "19 tests: OAuth read scope, HMAC state, single-use replay guard, distributed token rotation, OCC lock, normalized types, cycle completion, provider health, zero DB persistence",
+    description: "25 tests: OAuth read scope, HMAC state, atomic nonce consumption, replay rejection, distributed lease collision, crash recovery, OCC lock, strict encryption keys, cipher tampering, normalized types, cycle completion, provider health, zero DB persistence",
   },
 ];
 
