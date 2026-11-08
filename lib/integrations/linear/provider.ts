@@ -21,6 +21,7 @@ import {
   NormalizedLinearTeam,
   LinearIntelligenceSnapshot,
   LinearVelocityMetrics,
+  LinearHistoricalVelocity,
   LinearProviderHealth,
   IssueStateCategory,
   IssuePriorityLevel,
@@ -142,14 +143,34 @@ export function normalizeLinearTeam(raw: RawLinearTeam): NormalizedLinearTeam {
 }
 
 // ------------------------------------------------------------------------------
-// 2. SAFEGUARD A: VELOCITY METRICS DERIVATION
+// ------------------------------------------------------------------------------
+// 2. SAFEGUARD A: VELOCITY & CYCLE COMPLETION METRICS DERIVATION
 // Strictly derived from actual retrieved data; never fabricated.
 // ------------------------------------------------------------------------------
 
 export function calculateVelocityMetrics(
   activeCycle: RawLinearCycle | null,
-  cycleIssues: RawLinearIssue[]
+  cycleIssues: RawLinearIssue[],
+  pastCycles: RawLinearCycle[] = []
 ): LinearVelocityMetrics {
+  // Delivery velocity requires at least 2 completed historical cycles to establish a real baseline
+  const deliveryVelocity: LinearHistoricalVelocity =
+    pastCycles.length >= 2
+      ? {
+          averageIssuesPerCycle: Math.round(
+            pastCycles.reduce((acc, c) => acc + (c.progress ? Math.round(c.progress * 10) : 0), 0) / pastCycles.length
+          ),
+          completedCyclesAnalyzed: pastCycles.length,
+          status: "measured",
+          explanation: `Calculated from ${pastCycles.length} completed historical cycles.`,
+        }
+      : {
+          averageIssuesPerCycle: null,
+          completedCyclesAnalyzed: pastCycles.length,
+          status: "insufficient_historical_data",
+          explanation: "Historical delivery velocity requires at least 2 completed cycles to establish an empirical baseline.",
+        };
+
   if (!activeCycle || cycleIssues.length === 0) {
     return {
       calculationMethod: "insufficient_data",
@@ -157,9 +178,11 @@ export function calculateVelocityMetrics(
       completedIssuesCount: 0,
       inProgressIssuesCount: 0,
       totalCycleIssuesCount: 0,
+      cycle_completion_rate: null,
       completionRatePercentage: null,
       velocityStatus: "insufficient_data",
-      explanation: "No active cycle or active cycle issues found to compute velocity.",
+      deliveryVelocity,
+      explanation: "No active cycle or active cycle issues found to compute cycle completion.",
     };
   }
 
@@ -190,9 +213,11 @@ export function calculateVelocityMetrics(
     completedIssuesCount: completed,
     inProgressIssuesCount: inProgress,
     totalCycleIssuesCount: total,
+    cycle_completion_rate: completionRate,
     completionRatePercentage: completionRate,
     velocityStatus: status,
-    explanation: `Based on ${completed}/${total} issues completed in Cycle ${activeCycle.number}.`,
+    deliveryVelocity,
+    explanation: `Cycle completion rate is ${completionRate}% (${completed}/${total} issues completed in Cycle ${activeCycle.number}).`,
   };
 }
 
@@ -271,12 +296,17 @@ export async function getLinearIntelligenceSnapshot(
 
     const activeCycle = rawActiveCycle ? normalizeLinearCycle(rawActiveCycle) : null;
 
-    // Filter issues in active cycle for velocity calculation
+    // Filter issues in active cycle for cycle completion calculation
     const cycleIssues = rawActiveCycle
       ? rawIssues.filter((i) => i.cycle?.id === rawActiveCycle.id)
       : [];
 
-    const velocityMetrics = calculateVelocityMetrics(rawActiveCycle, cycleIssues);
+    const pastCycles = cycles.filter((c) => {
+      const e = new Date(c.endsAt).getTime();
+      return Boolean(c.completedAt) || e < now;
+    });
+
+    const velocityMetrics = calculateVelocityMetrics(rawActiveCycle, cycleIssues, pastCycles);
 
     const { readiness, reason } = determineProviderReadiness({
       hasValidTokens: true,

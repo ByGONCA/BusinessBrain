@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/supabase/server";
 import { getActiveOrganization } from "@/lib/organizations/queries";
-import { generateLinearAuthUrl } from "@/lib/integrations/linear/oauth";
+import {
+  generateLinearAuthUrl,
+  verifyLinearOAuthState,
+} from "@/lib/integrations/linear/oauth";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
 import { sanitizeRedirectUrl } from "@/lib/security/redirects";
@@ -49,7 +52,24 @@ export async function GET(request: Request) {
       returnUrl,
     });
 
-    return NextResponse.redirect(authUrl);
+    const response = NextResponse.redirect(authUrl);
+
+    // Set single-use ephemeral state nonce cookie to reject OAuth replay attacks
+    const stateParam = new URL(authUrl).searchParams.get("state");
+    if (stateParam) {
+      const statePayload = verifyLinearOAuthState(stateParam);
+      if (statePayload?.nonce) {
+        response.cookies.set("cb_linear_oauth_nonce", statePayload.nonce, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          path: "/",
+          maxAge: 900, // 15 minutes
+        });
+      }
+    }
+
+    return response;
   } catch (err: unknown) {
     logger.error("Failed to generate Linear auth URL", err, {
       userId: user.id,

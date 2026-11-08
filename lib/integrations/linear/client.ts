@@ -107,7 +107,7 @@ const PROJECTS_QUERY = /* GraphQL */ `
 
 const CYCLES_QUERY = /* GraphQL */ `
   query GetLinearCycles($first: Int) {
-    cycles(first: $first, orderBy: startsAt) {
+    cycles(first: $first) {
       nodes {
         id
         number

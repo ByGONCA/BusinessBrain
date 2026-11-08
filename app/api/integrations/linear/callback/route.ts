@@ -44,6 +44,18 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${defaultRedirect}?error=invalid_state`);
   }
 
+  // 1b. Validate single-use nonce cookie if present (prevents cross-session replay)
+  const cookieHeader = request.headers.get("cookie") || "";
+  const cookieMatch = cookieHeader.match(/(?:^|;\s*)cb_linear_oauth_nonce=([^;]*)/);
+  const cookieNonce = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
+  if (cookieNonce && cookieNonce !== statePayload.nonce) {
+    logger.warn("Linear OAuth state nonce mismatch with session cookie", {
+      cookieNonce,
+      stateNonce: statePayload.nonce,
+    });
+    return NextResponse.redirect(`${defaultRedirect}?error=invalid_state`);
+  }
+
   const safePath = sanitizeRedirectUrl(statePayload.returnUrl, "/dashboard/linear");
   const redirectTarget = `${baseUrl}${safePath}`;
 
@@ -59,6 +71,23 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createClient();
+
+  // 2b. Replay Protection: reject if this nonce was already consumed in PostgreSQL
+  const { data: existingIntegration } = await supabase
+    .from("organization_integrations")
+    .select("metadata")
+    .eq("organization_id", statePayload.organizationId)
+    .eq("provider", "linear")
+    .maybeSingle();
+
+  const consumedNonce = (existingIntegration?.metadata as Record<string, unknown>)?.last_oauth_nonce;
+  if (consumedNonce && consumedNonce === statePayload.nonce) {
+    logger.warn("Linear OAuth state replay detected: nonce already consumed", {
+      nonce: statePayload.nonce,
+      organizationId: statePayload.organizationId,
+    });
+    return NextResponse.redirect(`${defaultRedirect}?error=state_already_used`);
+  }
 
   // 3. Verify user has owner/admin membership or manage permission
   const { data: member } = await supabase
@@ -152,6 +181,7 @@ export async function GET(request: Request) {
             workspace_url_key: viewer.organization?.urlKey,
             user_name: viewer.name,
             user_avatar: viewer.avatarUrl,
+            last_oauth_nonce: statePayload.nonce,
           },
           last_sync_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -166,7 +196,9 @@ export async function GET(request: Request) {
         organizationId: statePayload.organizationId,
       });
       const sep = redirectTarget.includes("?") ? "&" : "?";
-      return NextResponse.redirect(`${redirectTarget}${sep}error=database_error`);
+      const errRes = NextResponse.redirect(`${redirectTarget}${sep}error=database_error`);
+      errRes.cookies.delete("cb_linear_oauth_nonce");
+      return errRes;
     }
 
     revalidatePath("/dashboard", "layout");
@@ -178,13 +210,17 @@ export async function GET(request: Request) {
     });
 
     const sep = redirectTarget.includes("?") ? "&" : "?";
-    return NextResponse.redirect(`${redirectTarget}${sep}status=connected&provider=linear`);
+    const successRes = NextResponse.redirect(`${redirectTarget}${sep}status=connected&provider=linear`);
+    successRes.cookies.delete("cb_linear_oauth_nonce");
+    return successRes;
   } catch (err: unknown) {
     logger.error("Linear OAuth callback exception", err, {
       organizationId: statePayload.organizationId,
       userId: currentUser.id,
     });
     const sep = redirectTarget.includes("?") ? "&" : "?";
-    return NextResponse.redirect(`${redirectTarget}${sep}error=exchange_failed`);
+    const failRes = NextResponse.redirect(`${redirectTarget}${sep}error=exchange_failed`);
+    failRes.cookies.delete("cb_linear_oauth_nonce");
+    return failRes;
   }
 }

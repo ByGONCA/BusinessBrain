@@ -246,13 +246,13 @@ export function LinearIntegrationView({
         </div>
       </div>
 
-      {/* Velocity & Sprint Intelligence Card */}
+      {/* Cycle Completion & Delivery Velocity Card */}
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Activity className="h-4 w-4 text-emerald-400" />
             <h2 className="text-sm font-semibold text-foreground">
-              Sprint Velocity & Execution Insights
+              Cycle Completion & Delivery Velocity Insights
             </h2>
           </div>
           {velocityMetrics.periodReference && (
@@ -264,7 +264,7 @@ export function LinearIntegrationView({
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1.5">
-            <span className="text-xs text-muted-foreground">Velocity Status</span>
+            <span className="text-xs text-muted-foreground">Cycle Execution Status</span>
             <div className="flex items-center gap-2">
               <span
                 className={cn(
@@ -286,25 +286,31 @@ export function LinearIntegrationView({
           </div>
 
           <div className="space-y-1.5">
-            <span className="text-xs text-muted-foreground">Completed in Cycle</span>
+            <span className="text-xs text-muted-foreground">Cycle Completion Rate</span>
             <div className="text-xl font-bold text-foreground">
-              {velocityMetrics.completedIssuesCount}
+              {velocityMetrics.cycle_completion_rate !== null ? `${velocityMetrics.cycle_completion_rate}%` : "—"}
               <span className="text-xs font-normal text-muted-foreground ml-1.5">
-                / {velocityMetrics.totalCycleIssuesCount} issues
+                ({velocityMetrics.completedIssuesCount} / {velocityMetrics.totalCycleIssuesCount} issues)
               </span>
             </div>
             <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
               <div
                 className="bg-emerald-500 h-1.5 rounded-full"
-                style={{ width: `${Math.min(100, velocityMetrics.completionRatePercentage || 0)}%` }}
+                style={{ width: `${Math.min(100, velocityMetrics.cycle_completion_rate || 0)}%` }}
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <span className="text-xs text-muted-foreground">Calculation Methodology</span>
+            <span className="text-xs text-muted-foreground">Historical Delivery Velocity</span>
+            <div className="text-sm font-semibold text-foreground">
+              {velocityMetrics.deliveryVelocity?.status === "measured"
+                ? `${velocityMetrics.deliveryVelocity.averageIssuesPerCycle} issues / cycle`
+                : "Insufficient Historical Data"}
+            </div>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Strictly derived from live Linear cycle issues. No predictive estimation or fabricated metrics are injected.
+              {velocityMetrics.deliveryVelocity?.explanation ||
+                "Strictly derived from live Linear cycle issues. No predictive estimation or fabricated metrics are injected."}
             </p>
           </div>
         </div>

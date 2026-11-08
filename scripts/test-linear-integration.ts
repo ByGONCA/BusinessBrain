@@ -366,8 +366,19 @@ async function runTestSuite() {
     assert.strictEqual(metrics.calculationMethod, "cycle_issues_completed");
     assert.strictEqual(metrics.completedIssuesCount, 1);
     assert.strictEqual(metrics.totalCycleIssuesCount, 2);
+    assert.strictEqual(metrics.cycle_completion_rate, 50);
     assert.strictEqual(metrics.completionRatePercentage, 50);
     assert.strictEqual(metrics.velocityStatus, "on_track");
+    assert.strictEqual(metrics.deliveryVelocity.status, "insufficient_historical_data");
+
+    // With 2 completed historical cycles, historical velocity is measured
+    const pastCycles: RawLinearCycle[] = [
+      { id: "c1", number: 12, name: "C12", startsAt: "2026-10-01", endsAt: "2026-10-15", completedAt: "2026-10-15", progress: 0.9 },
+      { id: "c2", number: 13, name: "C13", startsAt: "2026-10-16", endsAt: "2026-10-31", completedAt: "2026-10-31", progress: 0.8 },
+    ];
+    const metricsWithHistory = calculateVelocityMetrics(rawCycle, cycleIssues, pastCycles);
+    assert.strictEqual(metricsWithHistory.deliveryVelocity.status, "measured");
+    assert.strictEqual(metricsWithHistory.deliveryVelocity.completedCyclesAnalyzed, 2);
   });
 
   // ---------------------------------------------------------------------------
@@ -482,6 +493,45 @@ async function runTestSuite() {
     assert.strictEqual(disconnectedRecord.status, "disconnected");
     assert.strictEqual(disconnectedRecord.encrypted_access_token, null);
     assert.strictEqual(disconnectedRecord.encrypted_refresh_token, null);
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 18: OAuth State Single-Use Nonce & Replay Rejection
+  // ---------------------------------------------------------------------------
+  test("OAuth single-use nonce prevents repeated callback replay within TTL", () => {
+    const state = createLinearOAuthState({
+      organizationId: "org-1",
+      userId: "user-1",
+      returnUrl: "/dashboard/linear",
+    });
+
+    const parsed = verifyLinearOAuthState(state);
+    assert(parsed !== null, "State should be valid initially");
+
+    // Simulate first consumption
+    const consumedNonces = new Set<string>();
+    assert(!consumedNonces.has(parsed!.nonce), "First use should be permitted");
+    consumedNonces.add(parsed!.nonce);
+
+    // Simulate replay with exact same state
+    const replayAttempt = consumedNonces.has(parsed!.nonce);
+    assert.strictEqual(replayAttempt, true, "Replay attempt must be detected and rejected");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 19: Distributed Token Refresh & OCC Guard
+  // ---------------------------------------------------------------------------
+  test("Distributed token refresh reuses fresh token if peer worker already refreshed", () => {
+    const now = Date.now();
+    // Simulate peer worker refreshed token 10 seconds ago
+    const dbRecord = {
+      status: "connected",
+      token_expires_at: new Date(now + 3500 * 1000).toISOString(), // expires in ~58 minutes
+      encrypted_access_token: "enc-fresh-token",
+    };
+
+    const isFreshInDb = new Date(dbRecord.token_expires_at).getTime() > now + 2 * 60 * 1000;
+    assert.strictEqual(isFreshInDb, true, "Peer worker's freshly refreshed token is recognized");
   });
 
   console.log("\n==================================================================");

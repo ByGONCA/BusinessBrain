@@ -198,13 +198,16 @@ export async function exchangeLinearCodeForToken(code: string): Promise<LinearTo
   };
 }
 
-// In-process lock map to prevent concurrent refresh races across multiple incoming requests
+// In-process lock map to prevent concurrent refresh races within the same node process
 const activeRefreshLocks = new Map<string, Promise<LinearTokenExchangeResult>>();
 
 /**
- * Performs atomic Linear refresh token rotation with concurrency protection.
- * If multiple requests trigger refresh concurrently for the same organization,
- * only ONE network call is executed; all other requests await the active promise.
+ * Performs distributed-safe Linear refresh token rotation with concurrency protection.
+ * 1. Checks in-process lock map (local optimization).
+ * 2. Checks database for recently refreshed tokens (if another distributed worker already refreshed).
+ * 3. Coordinates distributed workers via short-lived lease in metadata.
+ * 4. Guards against false `needs_reauth` if a concurrent worker refreshed successfully.
+ * 5. Guarantees atomic rotation so stale tokens cannot overwrite newer credentials.
  */
 export async function refreshLinearTokenWithLock(
   organizationId: string,
@@ -216,6 +219,75 @@ export async function refreshLinearTokenWithLock(
   }
 
   const refreshPromise = (async () => {
+    const supabase = await createClient();
+
+    // 1. Check if another distributed worker already refreshed this token
+    const { data: current } = await supabase
+      .from("organization_integrations")
+      .select("encrypted_access_token, encrypted_refresh_token, token_expires_at, metadata, status")
+      .eq("organization_id", organizationId)
+      .eq("provider", "linear")
+      .maybeSingle();
+
+    const expiresAtMs = current?.token_expires_at ? new Date(current.token_expires_at).getTime() : 0;
+    // If the database token was refreshed and has at least 2 minutes of lifetime remaining, use it!
+    if (current && current.status === "connected" && expiresAtMs > Date.now() + 2 * 60 * 1000 && current.encrypted_access_token) {
+      try {
+        const freshAccessToken = decryptToken(current.encrypted_access_token);
+        const freshRefreshToken = current.encrypted_refresh_token
+          ? decryptToken(current.encrypted_refresh_token)
+          : undefined;
+
+        return {
+          access_token: freshAccessToken,
+          token_type: "Bearer",
+          expires_in: Math.max(60, Math.floor((expiresAtMs - Date.now()) / 1000)),
+          refresh_token: freshRefreshToken,
+          scope: ["read"],
+        };
+      } catch {
+        // If decryption fails, proceed with network refresh
+      }
+    }
+
+    // 2. Check if another worker holds an active distributed refresh lease (< 15 seconds old)
+    const existingMetadata = (current?.metadata as Record<string, unknown>) || {};
+    const lockUntilStr = existingMetadata.refresh_lock_until as string | undefined;
+    const lockUntilMs = lockUntilStr ? new Date(lockUntilStr).getTime() : 0;
+
+    if (lockUntilMs > Date.now()) {
+      // Another worker is currently refreshing. Wait briefly and re-inspect DB
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const { data: rechecked } = await supabase
+        .from("organization_integrations")
+        .select("encrypted_access_token, encrypted_refresh_token, token_expires_at, status")
+        .eq("organization_id", organizationId)
+        .eq("provider", "linear")
+        .maybeSingle();
+
+      const recheckedExpiresMs = rechecked?.token_expires_at ? new Date(rechecked.token_expires_at).getTime() : 0;
+      if (rechecked && rechecked.status === "connected" && recheckedExpiresMs > Date.now() + 2 * 60 * 1000 && rechecked.encrypted_access_token) {
+        return {
+          access_token: decryptToken(rechecked.encrypted_access_token),
+          token_type: "Bearer",
+          expires_in: Math.max(60, Math.floor((recheckedExpiresMs - Date.now()) / 1000)),
+          refresh_token: rechecked.encrypted_refresh_token ? decryptToken(rechecked.encrypted_refresh_token) : undefined,
+          scope: ["read"],
+        };
+      }
+    }
+
+    // 3. Acquire distributed lease before making the external network call
+    const leaseMetadata = {
+      ...existingMetadata,
+      refresh_lock_until: new Date(Date.now() + 15000).toISOString(),
+    };
+    await supabase
+      .from("organization_integrations")
+      .update({ metadata: leaseMetadata })
+      .eq("organization_id", organizationId)
+      .eq("provider", "linear");
+
     const { clientId, clientSecret } = getLinearConfig();
     if (!clientId || !clientSecret) {
       throw new Error("LINEAR_CLIENT_ID or LINEAR_CLIENT_SECRET is missing.");
@@ -239,8 +311,28 @@ export async function refreshLinearTokenWithLock(
 
     if (!response.ok) {
       const errorText = await response.text();
-      // If refresh token was revoked or invalid, update organization_integrations status
-      const supabase = await createClient();
+
+      // Check whether another concurrent worker succeeded while we were calling Linear
+      const { data: latestCheck } = await supabase
+        .from("organization_integrations")
+        .select("encrypted_access_token, encrypted_refresh_token, token_expires_at, status")
+        .eq("organization_id", organizationId)
+        .eq("provider", "linear")
+        .maybeSingle();
+
+      const latestExpiresMs = latestCheck?.token_expires_at ? new Date(latestCheck.token_expires_at).getTime() : 0;
+      if (latestCheck && latestCheck.status === "connected" && latestExpiresMs > Date.now() + 2 * 60 * 1000 && latestCheck.encrypted_access_token) {
+        // Concurrency race resolved by peer worker: return peer's valid token!
+        return {
+          access_token: decryptToken(latestCheck.encrypted_access_token),
+          token_type: "Bearer",
+          expires_in: Math.max(60, Math.floor((latestExpiresMs - Date.now()) / 1000)),
+          refresh_token: latestCheck.encrypted_refresh_token ? decryptToken(latestCheck.encrypted_refresh_token) : undefined,
+          scope: ["read"],
+        };
+      }
+
+      // No peer worker refreshed: legitimate failure, mark needs_reauth
       await supabase
         .from("organization_integrations")
         .update({
@@ -266,15 +358,18 @@ export async function refreshLinearTokenWithLock(
       scope: data.scope ? (Array.isArray(data.scope) ? data.scope : [data.scope]) : ["read"],
     };
 
-    // Atomically persist newly rotated tokens
-    const supabase = await createClient();
+    // Atomically persist newly rotated tokens and clear distributed lease
     const newEncryptedAccess = encryptToken(result.access_token);
     const newEncryptedRefresh = result.refresh_token ? encryptToken(result.refresh_token) : undefined;
     const tokenExpiresAt = new Date(Date.now() + result.expires_in * 1000).toISOString();
 
+    const finalizedMetadata = { ...existingMetadata };
+    delete finalizedMetadata.refresh_lock_until;
+
     const updatePayload: Record<string, unknown> = {
       encrypted_access_token: newEncryptedAccess,
       token_expires_at: tokenExpiresAt,
+      metadata: finalizedMetadata,
       status: "connected",
       updated_at: new Date().toISOString(),
     };
@@ -283,11 +378,18 @@ export async function refreshLinearTokenWithLock(
       updatePayload.encrypted_refresh_token = newEncryptedRefresh;
     }
 
-    await supabase
+    // Conditional update matching the previous encrypted_refresh_token if available (OCC)
+    let query = supabase
       .from("organization_integrations")
       .update(updatePayload)
       .eq("organization_id", organizationId)
       .eq("provider", "linear");
+
+    if (current?.encrypted_refresh_token) {
+      query = query.eq("encrypted_refresh_token", current.encrypted_refresh_token);
+    }
+
+    await query;
 
     return result;
   })();

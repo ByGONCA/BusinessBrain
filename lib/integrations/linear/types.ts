@@ -198,14 +198,23 @@ export interface NormalizedLinearTeam {
 // Strictly calculated from actual data; never fabricated or guessed.
 // ------------------------------------------------------------------------------
 
+export interface LinearHistoricalVelocity {
+  averageIssuesPerCycle: number | null;
+  completedCyclesAnalyzed: number;
+  status: "measured" | "insufficient_historical_data";
+  explanation: string;
+}
+
 export interface LinearVelocityMetrics {
   calculationMethod: "cycle_issues_completed" | "insufficient_data";
   periodReference: string | null; // e.g. "Cycle 14 (Nov 1 - Nov 15)"
   completedIssuesCount: number;
   inProgressIssuesCount: number;
   totalCycleIssuesCount: number;
-  completionRatePercentage: number | null; // null if 0 total issues
+  cycle_completion_rate: number | null; // e.g. 75 (%)
+  completionRatePercentage: number | null; // backward compatibility alias
   velocityStatus: "on_track" | "behind" | "insufficient_data";
+  deliveryVelocity: LinearHistoricalVelocity;
   explanation: string;
 }
 
