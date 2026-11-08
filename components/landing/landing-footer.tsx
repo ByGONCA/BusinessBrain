@@ -63,7 +63,7 @@ export function LandingFooter() {
                     </svg>
                   </div>
                   <span className="font-semibold text-base tracking-tight text-[#18181B] dark:text-[#F4F4F5]">
-                    BusinessBrain
+                    KogSync
                   </span>
                 </Link>
               </div>
@@ -250,7 +250,7 @@ export function LandingFooter() {
             isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
           }`}
         >
-          <p>© {new Date().getFullYear()} BusinessBrain. {t.landing.footer.rights}</p>
+          <p>© {new Date().getFullYear()} KogSync. {t.landing.footer.rights}</p>
           <p className="text-[11px]">{t.landing.footer.builtForTeams}</p>
         </div>
       </div>

@@ -126,7 +126,7 @@ export function WindowsVersionSelector() {
 
   const handleCopyWinget = () => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText("winget install BusinessBrain.Desktop");
+      navigator.clipboard.writeText("winget install KogSync.Desktop");
       setCopiedWinget(true);
       setTimeout(() => setCopiedWinget(false), 2000);
     }
@@ -164,7 +164,7 @@ export function WindowsVersionSelector() {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 rounded-lg border border-[#E5E5E0] dark:border-[#1E1E22] bg-[#F4F3EE] dark:bg-[#121215] px-3 py-1.5 font-mono text-xs text-[#18181B] dark:text-[#F4F4F5]">
             <Terminal className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-            <span className="select-all">winget install BusinessBrain.Desktop</span>
+            <span className="select-all">winget install KogSync.Desktop</span>
             <button
               type="button"
               onClick={handleCopyWinget}

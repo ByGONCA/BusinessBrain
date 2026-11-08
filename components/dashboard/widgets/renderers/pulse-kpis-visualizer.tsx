@@ -88,12 +88,14 @@ export function PulseKpisVisualizer({
             {demoMode ? "12" : projectsCount}
           </span>
           {projectsCount > 0 ? (
-            <span className="inline-flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
               <TrendingUp className="h-3 w-3" />
               Active
             </span>
           ) : (
-            <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-surface-secondary text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-zinc-500" />
               0 active
             </span>
           )}
@@ -123,12 +125,14 @@ export function PulseKpisVisualizer({
             {demoMode ? "8" : decisionsCount}
           </span>
           {decisionsCount > 0 ? (
-            <span className="inline-flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-sky-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
               <CheckCircle2 className="h-3 w-3" />
               Logged
             </span>
           ) : (
-            <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-surface-secondary text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-zinc-500" />
               0 records
             </span>
           )}
@@ -158,11 +162,13 @@ export function PulseKpisVisualizer({
             {demoMode ? "24" : pagesCount}
           </span>
           {pagesCount > 0 ? (
-            <span className="inline-flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-400" />
               Published
             </span>
           ) : (
-            <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-surface-secondary text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-zinc-500" />
               Empty
             </span>
           )}
@@ -192,11 +198,13 @@ export function PulseKpisVisualizer({
             {demoMode ? "48" : totalConnectionsDisplay}
           </span>
           {totalConnectionsDisplay > 0 ? (
-            <span className="inline-flex items-center gap-0.5 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-400" />
               Mapped
             </span>
           ) : (
-            <span className="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-surface-secondary text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-zinc-500" />
               0 links
             </span>
           )}

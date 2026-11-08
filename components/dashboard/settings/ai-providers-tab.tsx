@@ -225,14 +225,14 @@ export function AIProvidersTab({ entitlement, activeOrg }: AIProvidersTabProps) 
           <div className="flex items-center justify-between">
             <h3 className="text-base font-semibold text-white flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-emerald-400" />
-              <span>IA Incluída no BusinessBrain</span>
+              <span>IA Incluída no KogSync</span>
             </h3>
             <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium capitalize">
               Plano {currentPlanConfig.name}
             </span>
           </div>
           <p className="text-xs text-zinc-400">
-            O BusinessBrain disponibiliza os modelos suportados utilizando as credenciais centralizadas da própria plataforma.
+            O KogSync disponibiliza os modelos suportados utilizando as credenciais centralizadas da própria plataforma.
             Não precisa de criar contas externas na OpenAI, Anthropic ou Google para utilizar estes modelos.
           </p>
         </div>
@@ -298,7 +298,7 @@ export function AIProvidersTab({ entitlement, activeOrg }: AIProvidersTabProps) 
             )}
           </div>
           <p className="text-xs text-zinc-400">
-            Ligue as suas próprias chaves de API para utilizar quota externa dos provedores. O consumo BYOK é faturado diretamente pelo provedor externo e não desconta dos créditos da sua subscrição BusinessBrain.
+            Ligue as suas próprias chaves de API para utilizar quota externa dos provedores. O consumo BYOK é faturado diretamente pelo provedor externo e não desconta dos créditos da sua subscrição KogSync.
           </p>
         </div>
 
@@ -372,7 +372,7 @@ export function AIProvidersTab({ entitlement, activeOrg }: AIProvidersTabProps) 
                 <div className="space-y-1">
                   <span className="font-medium text-amber-200">Faturação Externa das Chaves BYOK:</span>
                   <p className="text-zinc-300">
-                    Ao utilizar as suas chaves próprias, as chamadas são debitadas na sua conta externa com o provedor (OpenAI, Anthropic, Google, etc.). O BusinessBrain não debita créditos da plataforma em chamadas BYOK e nunca faz fallback silencioso para a chave da plataforma se a sua chave falhar.
+                    Ao utilizar as suas chaves próprias, as chamadas são debitadas na sua conta externa com o provedor (OpenAI, Anthropic, Google, etc.). O KogSync não debita créditos da plataforma em chamadas BYOK e nunca faz fallback silencioso para a chave da plataforma se a sua chave falhar.
                   </p>
                 </div>
               </div>

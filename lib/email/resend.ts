@@ -42,7 +42,7 @@ export async function sendTransactionalEmail(options: SendEmailOptions): Promise
     };
   }
 
-  const from = options.from || process.env.EMAIL_FROM || "Company Brain <onboarding@resend.dev>";
+  const from = options.from || process.env.EMAIL_FROM || "KogSync <onboarding@resend.dev>";
   const toList = Array.isArray(options.to) ? options.to : [options.to];
 
   // Basic recipient validation

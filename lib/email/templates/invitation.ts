@@ -49,7 +49,7 @@ export function renderInvitationEmail(data: InvitationEmailData): {
   html: string;
   text: string;
 } {
-  const safeOrgName = escapeHtml(data.organizationName || "Company Brain Workspace");
+  const safeOrgName = escapeHtml(data.organizationName || "KogSync Workspace");
   const safeInviterName = escapeHtml(data.inviterName || "A team member");
   const safeInviterEmail = data.inviterEmail ? escapeHtml(data.inviterEmail) : null;
   const roleDisplay = (data.role || "member").toLowerCase() === "admin" ? "Administrator" : "Member";
@@ -57,7 +57,7 @@ export function renderInvitationEmail(data: InvitationEmailData): {
   const rawUrl = data.inviteUrl.trim();
   const safeInviteUrl = escapeHtml(rawUrl);
 
-  const subject = `You've been invited to join ${safeOrgName} on Company Brain`;
+  const subject = `You've been invited to join ${safeOrgName} on KogSync`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -186,8 +186,8 @@ export function renderInvitationEmail(data: InvitationEmailData): {
     <table class="main" cellpadding="0" cellspacing="0" role="presentation">
       <tr>
         <td class="header">
-          <div class="logo-badge">CB</div>
-          <p class="brand-name">Company Brain</p>
+          <div class="logo-badge">KS</div>
+          <p class="brand-name">KogSync</p>
         </td>
       </tr>
       <tr>
@@ -197,7 +197,7 @@ export function renderInvitationEmail(data: InvitationEmailData): {
             <strong>${safeInviterName}</strong>${safeInviterEmail ? ` (${safeInviterEmail})` : ""} has invited you to join the <strong>${safeOrgName}</strong> workspace as a <span class="badge">${roleDisplay}</span>.
           </p>
           <p class="text">
-            Company Brain centralizes company knowledge, decisions, documentation, and operations in a unified workspace.
+            KogSync centralizes company knowledge, decisions, documentation, and operations in a unified workspace.
           </p>
           <div class="cta-container">
             <a href="${safeInviteUrl}" class="button" target="_blank" rel="noopener noreferrer">Accept Invitation</a>
@@ -218,7 +218,7 @@ export function renderInvitationEmail(data: InvitationEmailData): {
             If you were not expecting this invitation, you can safely ignore this email. Only someone with access to this link can join the workspace.
           </p>
           <p style="margin: 0;">
-            &copy; ${new Date().getFullYear()} Company Brain Inc. All rights reserved.
+            &copy; ${new Date().getFullYear()} KogSync. All rights reserved.
           </p>
         </td>
       </tr>
@@ -227,7 +227,7 @@ export function renderInvitationEmail(data: InvitationEmailData): {
 </body>
 </html>`;
 
-  const text = `Join ${data.organizationName} on Company Brain
+  const text = `Join ${data.organizationName} on KogSync
 
 ${data.inviterName || "A team member"}${data.inviterEmail ? ` (${data.inviterEmail})` : ""} has invited you to join the ${data.organizationName} workspace as a ${roleDisplay}.
 
@@ -238,7 +238,7 @@ This single-use link expires on ${expirationText}.
 
 ---
 If you were not expecting this invitation, you can safely ignore this email.
-(c) ${new Date().getFullYear()} Company Brain Inc.`;
+(c) ${new Date().getFullYear()} KogSync.`;
 
   return { subject, html, text };
 }

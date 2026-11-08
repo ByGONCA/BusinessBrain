@@ -17,9 +17,9 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "BusinessBrain for Windows — Native Enterprise Workstation",
+  title: "KogSync for Windows — Native Enterprise Workstation",
   description:
-    "BusinessBrain is coming natively to Windows. Ultra-low latency memory, global hotkey summons (Ctrl+Shift+Space), offline local cache, and seamless team synchronization.",
+    "KogSync is coming natively to Windows. Ultra-low latency memory, global hotkey summons (Ctrl+Shift+Space), offline local cache, and seamless team synchronization.",
 };
 
 export default function ProductPage() {
@@ -194,7 +194,7 @@ export default function ProductPage() {
                     <span className="font-mono text-xs text-[#71717A]">Under 90MB RAM</span>
                   </div>
                   <div className="md:col-span-8 text-sm text-[#52525B] dark:text-[#A1A1AA] leading-relaxed">
-                    Render large 5,000-node company graphs at 120 FPS. Designed with strict memory budgets so BusinessBrain stays completely unnoticeable during heavy compiler and Docker runs.
+                    Render large 5,000-node company graphs at 120 FPS. Designed with strict memory budgets so KogSync stays completely unnoticeable during heavy compiler and Docker runs.
                   </div>
                 </div>
               </ScrollRevealItem>

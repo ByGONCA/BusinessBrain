@@ -4,8 +4,8 @@ import { LandingHeader } from "@/components/landing/landing-header";
 import { LandingFooter } from "@/components/landing/landing-footer";
 
 export const metadata = {
-  title: "Cookie Policy | BusinessBrain",
-  description: "Information regarding cookie classification, session storage, and ePrivacy compliance on BusinessBrain.",
+  title: "Cookie Policy | KogSync",
+  description: "Information regarding cookie classification, session storage, and ePrivacy compliance on KogSync.",
 };
 
 export default function CookiePolicyPage() {
@@ -29,7 +29,7 @@ export default function CookiePolicyPage() {
         <div className="mt-6 p-4 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
           <p className="font-semibold mb-1">Pre-Launch Regulatory Draft & Transparency Notice</p>
           <p>
-            This cookie and tracking disclosure outlines the operational cookies used on BusinessBrain. Formal corporate legal entity details and representative appointments are subject to final executive confirmation prior to public commercial billing.
+            This cookie and tracking disclosure outlines the operational cookies used on KogSync. Formal corporate legal entity details and representative appointments are subject to final executive confirmation prior to public commercial billing.
           </p>
         </div>
         <div className="prose prose-zinc dark:prose-invert max-w-none pt-8 space-y-8 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
@@ -41,7 +41,7 @@ export default function CookiePolicyPage() {
           </section>
 
           <section className="space-y-3">
-            <h2 className="text-lg font-bold text-zinc-900 dark:text-white">2. Cookie Classification on BusinessBrain</h2>
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-white">2. Cookie Classification on KogSync</h2>
             <p>
               Under the ePrivacy Directive and GDPR, cookies are categorized into strictly necessary and optional categories:
             </p>
@@ -89,7 +89,7 @@ export default function CookiePolicyPage() {
           <section className="space-y-3">
             <h2 className="text-lg font-bold text-zinc-900 dark:text-white">3. Third-Party Tracking & Advertising</h2>
             <p>
-              BusinessBrain does <strong>not</strong> employ cross-site tracking cookies, behavioral advertising beacons, or third-party data broker scripts. We prioritize zero tracking pixels and strict tenant confidentiality.
+              KogSync does <strong>not</strong> employ cross-site tracking cookies, behavioral advertising beacons, or third-party data broker scripts. We prioritize zero tracking pixels and strict tenant confidentiality.
             </p>
           </section>
 

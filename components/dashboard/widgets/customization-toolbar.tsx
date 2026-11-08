@@ -58,7 +58,7 @@ export function CustomizationToolbar({
       aria-label="Customization Toolbar"
       className={cn(
         "sticky top-2 z-30 mb-6 rounded-2xl border shadow-md transition-all duration-200",
-        "border-blue-500/30 bg-white/95 dark:bg-card/95 backdrop-blur-md p-3 sm:p-4",
+        "border-blue-500/30 bg-white/95 dark:bg-[#17181D]/95 backdrop-blur-md p-3 sm:p-4",
         className
       )}
     >

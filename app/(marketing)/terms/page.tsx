@@ -4,8 +4,8 @@ import { LandingHeader } from "@/components/landing/landing-header";
 import { LandingFooter } from "@/components/landing/landing-footer";
 
 export const metadata = {
-  title: "Terms of Service | BusinessBrain",
-  description: "Terms and conditions governing the use of BusinessBrain enterprise workspace platform.",
+  title: "Terms of Service | KogSync",
+  description: "Terms and conditions governing the use of KogSync enterprise workspace platform.",
 };
 
 export default function TermsOfServicePage() {
@@ -29,14 +29,14 @@ export default function TermsOfServicePage() {
         <div className="mt-6 p-4 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-amber-50/60 dark:bg-amber-950/20 text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
           <p className="font-semibold mb-1">Pre-Launch Regulatory Draft & Transparency Notice</p>
           <p>
-            This document outlines the standard operational and multi-tenant terms for BusinessBrain. Formal corporate legal entity registration numbers, registered fiscal addresses, and statutory representative appointments are subject to final executive confirmation prior to public commercial billing.
+            This document outlines the standard operational and multi-tenant terms for KogSync. Formal corporate legal entity registration numbers, registered fiscal addresses, and statutory representative appointments are subject to final executive confirmation prior to public commercial billing.
           </p>
         </div>
         <div className="prose prose-zinc dark:prose-invert max-w-none pt-8 space-y-8 text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
           <section className="space-y-3">
             <h2 className="text-lg font-bold text-zinc-900 dark:text-white">1. Contractual Relationship & Scope</h2>
             <p>
-              These Terms of Service (&quot;Terms&quot;) govern the access and use of the BusinessBrain software-as-a-service platform, APIs, tools, and documentation (collectively, the &quot;Service&quot;) provided by BusinessBrain (&quot;Company&quot;, &quot;we&quot;, &quot;us&quot;, or &quot;our&quot;).
+              These Terms of Service (&quot;Terms&quot;) govern the access and use of the KogSync software-as-a-service platform, APIs, tools, and documentation (collectively, the &quot;Service&quot;) provided by KogSync (&quot;Company&quot;, &quot;we&quot;, &quot;us&quot;, or &quot;our&quot;).
             </p>
             <p>
               By creating an account, registering an organization workspace, or accessing the Service, you represent that you have the legal capacity to enter into a binding agreement and agree to be bound by these Terms on behalf of yourself or the entity you represent.
@@ -46,7 +46,7 @@ export default function TermsOfServicePage() {
           <section className="space-y-3">
             <h2 className="text-lg font-bold text-zinc-900 dark:text-white">2. Multi-Tenant Workspaces & Account Security</h2>
             <p>
-              BusinessBrain operates on a multi-tenant workspace architecture. Each organization workspace is logically isolated. You are responsible for maintaining the confidentiality of access credentials and all activities occurring within your tenant environment.
+              KogSync operates on a multi-tenant workspace architecture. Each organization workspace is logically isolated. You are responsible for maintaining the confidentiality of access credentials and all activities occurring within your tenant environment.
             </p>
             <p>
               Workspace Owners and Administrators retain administrative control over organization members, role assignments, billing settings, and data retention policies.
@@ -56,7 +56,7 @@ export default function TermsOfServicePage() {
           <section className="space-y-3">
             <h2 className="text-lg font-bold text-zinc-900 dark:text-white">3. Subscriptions, Trials & Billing Terms</h2>
             <p>
-              BusinessBrain offers tiered subscription plans (Starter, Pro, Enterprise) and an upfront 3-day evaluation trial. A valid payment method is required to activate trial access to verify legitimate corporate identity and maintain uninterrupted continuity.
+              KogSync offers tiered subscription plans (Starter, Pro, Enterprise) and an upfront 3-day evaluation trial. A valid payment method is required to activate trial access to verify legitimate corporate identity and maintain uninterrupted continuity.
             </p>
             <ul className="list-disc pl-5 space-y-1">
               <li><strong>Trial Period:</strong> You will not be charged during the trial period. You may cancel your subscription anytime prior to trial expiration with one click in Workspace Settings.</li>
@@ -71,7 +71,7 @@ export default function TermsOfServicePage() {
               You retain all ownership, intellectual property rights, and title to all documents, tasks, notes, and records submitted by your workspace members (&quot;Customer Data&quot;).
             </p>
             <p>
-              BusinessBrain does not sell Customer Data or use proprietary corporate content to train public foundation machine learning models without express contractual consent.
+              KogSync does not sell Customer Data or use proprietary corporate content to train public foundation machine learning models without express contractual consent.
             </p>
           </section>
 
@@ -97,7 +97,7 @@ export default function TermsOfServicePage() {
           </section>
 
           <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400">
-            Questions regarding these Terms? Contact us at legal@businessbrain.io or consult our{" "}
+            Questions regarding these Terms? Contact us at legal@kogsync.com or consult our{" "}
             <Link href="/privacy" className="underline hover:text-zinc-900 dark:hover:text-white">
               Privacy Policy
             </Link>.
