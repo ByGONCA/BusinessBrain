@@ -1,6 +1,6 @@
 # AGENTS.md — Rules & Architecture Guidelines for AI Coding Agents
 
-> **Project**: Company Brain (BusinessBrain)  
+> **Project**: KogSync (canonical domain: kogsync.com)  
 > **Mission**: The memory and intelligence layer for modern companies.  
 > **Reference Docs**: Roadmap: [`docs/ROADMAP.md`](./docs/ROADMAP.md) | Architecture: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Codebase Map: [`docs/CODEBASE_MAP.md`](./docs/CODEBASE_MAP.md) | AI Context: [`docs/AI_CONTEXT.md`](./docs/AI_CONTEXT.md) | Investigation & Token Protocol: [`.agents/rules/investigation-protocol.md`](./.agents/rules/investigation-protocol.md) | Graphify: [`.agents/rules/graphify.md`](./.agents/rules/graphify.md) | Ponytail: [`.agents/rules/ponytail.md`](./.agents/rules/ponytail.md) | Environment & Tooling Policy: [`docs/ENVIRONMENT_POLICY.md`](./docs/ENVIRONMENT_POLICY.md) & [`.agents/rules/tooling-and-environment.md`](./.agents/rules/tooling-and-environment.md) | Subagents Protocol: [`.agents/rules/subagents-protocol.md`](./.agents/rules/subagents-protocol.md)
 
@@ -214,6 +214,110 @@ To prevent context bloat and astronomical token compounding:
    - Backups must be non-destructive and timestamped; never overwrite earlier backups.
    - All unrelated configurations, foreign project settings, and active secrets must be rigorously preserved.
    - Pre- and post-modification JSON integrity must always be parsed and validated.
+
+---
+
+## 9. Multi-Agent Worktree Architecture & Git Isolation
+
+The BusinessBrain repository is orchestrated across 7 dedicated workspaces:
+- `main` (`C:/Users/gonca/OneDrive/Documents/Projects/BusinessBrain/BusinessBrain`): Central Integration & Architecture Workspace.
+- `agent/design` (`C:/Users/gonca/orca/workspaces/BusinessBrain/design`): UI/UX, Design System, Layouts, A11y.
+- `agent/security` (`C:/Users/gonca/orca/workspaces/BusinessBrain/security`): Auth, RLS, Crypto, Security Audit, Perimeter.
+- `agent/backend` (`C:/Users/gonca/orca/workspaces/BusinessBrain/backend`): APIs, Domain Services, Edge Functions, Queries.
+- `agent/billing` (`C:/Users/gonca/orca/workspaces/BusinessBrain/billing`): Stripe, Subscriptions, Webhooks, Invoices, Entitlements.
+- `agent/qa` (`C:/Users/gonca/orca/workspaces/BusinessBrain/qa`): Test Suites, Regression, Bug Reproduction, Quality Gates.
+- `agent/product` (`C:/Users/gonca/orca/workspaces/BusinessBrain/product`): Feature Specs, User Journeys, PRDs, Onboarding.
+
+### The 10 Mandatory Git Isolation Rules:
+1. **Exclusive Worktree Scope**: Every agent works exclusively inside its assigned worktree and branch.
+2. **Main Branch Protection**: No agent directly commits to, edits, or pushes to `main`. `main` is modified only during formal integration.
+3. **Branch Non-Interference**: No agent commits to or edits another agent's branch.
+4. **No Peer Merging**: No agent merges another agent's branch or attempts cross-branch rebases.
+5. **No Force Pushes**: `git push --force` and `--force-with-lease` are strictly forbidden across all branches.
+6. **No Destructive Commands**: Never execute `git reset --hard`, `git clean -fd`, or discard uncommitted changes in any workspace.
+7. **Preserve User Changes**: Existing user modifications and untracked files must remain intact.
+8. **Zero Automatic Merges**: All integrations into `main` require explicit review through the 7-Step Pre-Integration Gate.
+9. **Mandatory File Summaries**: Every completed task or handoff must include a detailed summary of modified and created files.
+10. **Pre-Flight Shared File Notice**: Modifications to shared files must follow the coordination protocol before execution.
+
+---
+
+## 10. Database, Migration & Remote Infrastructure Protection
+
+Strict safety barriers are enforced for all agents:
+1. **Zero Remote Database Mutations**: Never connect to or execute SQL against production or remote Supabase instances.
+2. **Zero Remote Migrations**: Never execute Supabase migrations against remote environments without explicit manual authorization.
+3. **Zero Production Stripe Calls**: Never execute real charges, update live Stripe settings, or manipulate live customer accounts.
+4. **Isolated Local Dev Only**: All database testing must run against local mocked environments, local schemas, or in-memory fixtures.
+5. **Never Disable RLS**: Row Level Security must remain enabled on all tables. Never create wildcard policies (`using (true)`).
+6. **No Secret Mutation**: Never rotate credentials, re-generate API tokens, or modify production environment variables.
+
+---
+
+## 11. Deployment Restrictions
+
+1. **Zero Unauthorized Deployments**: No agent may trigger or execute deployments to Vercel, production hosting, or staging environments without explicit authorization.
+2. **Pre-Deployment Gate Mandatory**: A deployment can only be scheduled after all component tasks are marked `INTEGRATED` in `main` and all 25 test suites pass (`npm test`).
+3. **No Preview Build Overrides**: Never modify Vercel project configurations or routing headers without Lead Architect review.
+
+---
+
+## 12. Rules for Shared Files & Conflict Areas
+
+High-conflict files require strict ownership:
+- `package.json` / `package-lock.json`: Owned by Lead / QA. Dependencies must follow Ponytail (no unneeded libraries).
+- `app/layout.tsx`: Owned by Design. Other agents coordinate via handoff.
+- `middleware.ts` / `proxy.ts`: Owned by Security. Guard logic is centralized.
+- `database/migrations/`: Owned by Backend, reviewed by Security. Never modify historic migrations.
+- `lib/supabase/*`: Owned by Security. Maintains strict SSR cookie scoping; no service role key leakage.
+- `lib/i18n/dictionaries/*`: Owned by Product. All 4 locales (`en`, `pt`, `es`, `fr`) must remain in lockstep.
+- Full details in [`docs/agent-coordination/CONFLICTS.md`](./docs/agent-coordination/CONFLICTS.md).
+
+---
+
+## 13. Agent Communication & Live Coordination Hub
+
+Because Orca runs isolated agent processes in separate Git worktrees without direct IPC or automatic filesystem sharing:
+1. **Live External Coordination Hub**:
+   - The canonical real-time coordination directory is located at `C:/Users/gonca/orca/workspaces/BusinessBrain/coordination` (accessible as `../coordination` from any agent worktree).
+   - Contains: `REGISTRY.json`, `TASK_INDEX.md`, `COMMUNICATION_RULES.md`, `tasks/`, `status/`, and `handoffs/`.
+2. **Single-Writer Collision Prevention**:
+   - Domain agents **never** edit a monolithic shared task board directly.
+   - When claiming or transitioning a task, write to your dedicated heartbeat file: `status/STATUS-<agent>-<task_id>.json`.
+   - When completing work, write an immutable handoff ticket to: `handoffs/HANDOFF-<TASK_ID>-<AGENT>-to-LEAD.md`.
+   - The Lead Architect consolidates all statuses into `REGISTRY.json` and `TASK_INDEX.md`.
+3. **Immediate Cross-Worktree Visibility**:
+   - Files written to the external coordination hub are **instantly visible** across `main` and all six agent worktrees without git commits, pushes, or merges.
+4. **Handoff Ticket Contents**:
+   - Task ID, Source Branch, and Target Agent.
+   - Summary of changes and exact modified file paths.
+   - Interface / Contract changes (TypeScript types, API payloads).
+   - Verification command results and test evidence.
+   - Concrete next actions for the recipient and unresolved risks.
+5. **Unblocking & Escalation**:
+   - If blocked by another agent, update your status file (`"status": "BLOCKED"`, `"blockedBy": "<task_id>"`) and notify the Lead via `handoffs/`.
+
+---
+
+## 14. Definition of Done (DoD)
+
+### For Domain Agents (in their respective worktree):
+- [ ] Task scope fully implemented according to acceptance criteria in `coordination/tasks/TASK-<ID>.md`.
+- [ ] Strictly within the agent's authorized boundary; no forbidden files touched.
+- [ ] `npm run typecheck` passes with zero errors.
+- [ ] `npm run lint` passes with zero warnings/errors.
+- [ ] Targeted domain test script passes deterministically.
+- [ ] Handoff ticket filed in `coordination/handoffs/HANDOFF-<TASK_ID>-<AGENT>-to-LEAD.md` with modified files summary, test results, and unresolved risks.
+- [ ] Dedicated status file `coordination/status/STATUS-<agent>-<task_id>.json` updated to `"status": "REVIEW"`.
+
+### For Integration into `main` (Lead Architect):
+- [ ] Full diff reviewed against `main` (`git diff main...agent/<role>`).
+- [ ] All 7 steps of the Pre-Integration Gate in [`docs/agent-coordination/INTEGRATION.md`](./docs/agent-coordination/INTEGRATION.md) completed.
+- [ ] Multi-tenant isolation and RLS verified.
+- [ ] Unified 25-suite regression test passes (`npm test`).
+- [ ] Clean non-fast-forward merge or rebase-merge applied to `main`.
+- [ ] Knowledge graph updated via `graphify update .`.
+- [ ] Canonical `REGISTRY.json` and `TASK_INDEX.md` updated to mark task `INTEGRATED`.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
