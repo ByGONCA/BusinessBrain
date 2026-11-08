@@ -151,41 +151,31 @@ export function WidgetContainer({
     widget.options?.customWidthPercent ||
     (widget.size === "sm" ? 25 : widget.size === "md" ? 50 : widget.size === "lg" ? 75 : 100);
 
-  const baseOffset = widget.options?.offsetXPercent || 0;
-  const align = widget.options?.align || "left";
-
   const [liveWidthPercent, setLiveWidthPercent] = React.useState<number | null>(null);
   const [liveHeightPx, setLiveHeightPx] = React.useState<number | null>(null);
-  const [liveOffsetX, setLiveOffsetX] = React.useState<number | null>(null);
 
   const currentWidth = liveWidthPercent ?? baseWidth;
   const currentHeight = liveHeightPx ?? baseHeight;
-  const currentOffset = liveOffsetX ?? baseOffset;
 
-  // Margin styles for horizontal positioning
-  const marginStyle = React.useMemo(() => {
-    if (align === "center") {
-      return { marginLeft: "auto", marginRight: "auto" };
+  // Exact fluid width calculation: calc(W% - (1 - W / 100) * 1.25rem)
+  const fluidWidthStyle = React.useMemo(() => {
+    if (widget.options?.rowBreak || currentWidth >= 100) {
+      return "100%";
     }
-    if (align === "right") {
-      return { marginLeft: "auto", marginRight: "0" };
-    }
-    if (currentOffset > 0) {
-      return { marginLeft: `${currentOffset}%`, marginRight: "auto" };
-    }
-    return {};
-  }, [align, currentOffset]);
+    const gapAdj = (1 - currentWidth / 100) * 1.25;
+    return `calc(${currentWidth}% - ${gapAdj.toFixed(4)}rem)`;
+  }, [currentWidth, widget.options?.rowBreak]);
 
   if (widget.visualization === "pulse_kpis" && !isEditing) {
     return (
       <div
         ref={containerRef}
         style={{
-          width: widget.options?.customWidthPercent || liveWidthPercent ? `${currentWidth}%` : undefined,
+          width: "100%",
+          flex: "0 0 100%",
           maxWidth: "100%",
-          ...marginStyle,
         }}
-        className={cn("w-full col-span-full", className)}
+        className={cn("w-full", className)}
       >
         {children}
       </div>
@@ -201,15 +191,15 @@ export function WidgetContainer({
       onDrop={isEditing && !isResizing ? onDrop : undefined}
       onDragEnd={isEditing && !isResizing ? onDragEnd : undefined}
       style={{
+        width: fluidWidthStyle,
+        flex: `0 0 ${fluidWidthStyle}`,
         minHeight: `${currentHeight}px`,
-        width: widget.options?.customWidthPercent || liveWidthPercent ? `${currentWidth}%` : undefined,
         maxWidth: "100%",
-        ...marginStyle,
       }}
       className={cn(
-        "group relative flex flex-col rounded-2xl",
+        "group relative flex flex-col rounded-2xl w-full sm:w-auto",
         isResizing
-          ? "transition-none select-none shadow-xl ring-2 ring-blue-500/80 border-blue-500"
+          ? "transition-none select-none shadow-xl ring-2 ring-blue-500/80 border-blue-500 z-30"
           : "transition-all duration-150 bg-card text-card-foreground shadow-xs",
         isEditing && !isResizing && "ring-1 ring-blue-500/40 border-blue-500/30 hover:shadow-md cursor-grab active:cursor-grabbing",
         isDragging && "opacity-40 scale-[0.99] border-dashed border-blue-400 dark:border-blue-500",
@@ -218,16 +208,11 @@ export function WidgetContainer({
       )}
     >
       {/* Live Dimension Floating Pill while dragging resize */}
-      {(liveHeightPx !== null || liveWidthPercent !== null || liveOffsetX !== null) && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-40 bg-blue-600 text-white text-[11px] font-mono font-bold px-3 py-1 rounded-full shadow-lg pointer-events-none flex items-center gap-2 animate-in fade-in">
-          {liveOffsetX !== null && <span>Pos: {currentOffset}%</span>}
-          {(liveWidthPercent !== null || liveHeightPx !== null) && (
-            <>
-              <span>{currentWidth}%</span>
-              <span className="opacity-60">×</span>
-              <span>{currentHeight}px</span>
-            </>
-          )}
+      {(liveHeightPx !== null || liveWidthPercent !== null) && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-40 bg-blue-600 text-white text-[11px] font-mono font-bold px-3 py-1 rounded-full shadow-lg pointer-events-none flex items-center gap-1.5 animate-in fade-in">
+          <span>{Math.round(currentWidth * 10) / 10}%</span>
+          <span className="opacity-60">×</span>
+          <span>{currentHeight}px</span>
         </div>
       )}
 
@@ -349,7 +334,7 @@ export function WidgetContainer({
         </div>
       )}
 
-      {/* 100% Fluid Position Handle: Left Edge (Horizontal Offset) */}
+      {/* Fluid Resize Handle: Right Edge (Width) */}
       {isEditing && (
         <div
           draggable={false}
@@ -358,74 +343,27 @@ export function WidgetContainer({
             e.preventDefault();
             setIsResizing(true);
             const startX = e.clientX;
-            const initialOffset = currentOffset;
             const gridContainer = containerRef.current?.closest("[data-grid-container]") as HTMLElement | null;
             const totalGridWidth = gridContainer?.clientWidth || window.innerWidth;
+            const startWidthPx = containerRef.current?.getBoundingClientRect().width || (currentWidth / 100) * totalGridWidth;
 
-            let currentOff = initialOffset;
+            let finalW = currentWidth;
 
             const handleMouseMove = (moveEvt: MouseEvent) => {
               moveEvt.preventDefault();
               const deltaX = moveEvt.clientX - startX;
-              const deltaPercent = (deltaX / totalGridWidth) * 100;
-              const maxOffset = Math.max(0, 100 - currentWidth);
-              currentOff = Math.round(Math.max(0, Math.min(maxOffset, initialOffset + deltaPercent)));
+              const newWidthPx = Math.max(220, Math.min(totalGridWidth, startWidthPx + deltaX));
+              const newPercent = (newWidthPx / totalGridWidth) * 100;
+              finalW = Math.max(15, Math.min(100, Math.round(newPercent * 10) / 10));
 
               if (containerRef.current) {
                 containerRef.current.style.transition = "none";
-                containerRef.current.style.marginLeft = `${currentOff}%`;
+                const gapAdj = (1 - finalW / 100) * 1.25;
+                const wStr = finalW >= 100 ? "100%" : `calc(${finalW}% - ${gapAdj.toFixed(4)}rem)`;
+                containerRef.current.style.width = wStr;
+                containerRef.current.style.flex = `0 0 ${wStr}`;
               }
-              setLiveOffsetX(currentOff);
-            };
-
-            const handleMouseUp = () => {
-              window.removeEventListener("mousemove", handleMouseMove);
-              window.removeEventListener("mouseup", handleMouseUp);
-              setIsResizing(false);
-              if (containerRef.current) {
-                containerRef.current.style.transition = "";
-              }
-              setLiveOffsetX(null);
-              onResizeCustom?.(currentWidth, currentHeight, "left", currentOff);
-            };
-
-            window.addEventListener("mousemove", handleMouseMove, { passive: false });
-            window.addEventListener("mouseup", handleMouseUp);
-          }}
-          title="Arrastar borda esquerda para mover posição livremente"
-          className="absolute -left-1.5 top-6 bottom-6 w-3 cursor-ew-resize rounded-full bg-transparent hover:bg-blue-500/30 active:bg-blue-500/60 transition-all z-20 flex items-center justify-center group/resize-left"
-        >
-          <div className="w-1 h-8 rounded-full bg-zinc-300 dark:bg-zinc-700 group-hover/resize-left:bg-blue-500 transition-colors" />
-        </div>
-      )}
-
-      {/* 100% Fluid Resize Handle: Right Edge (Width) */}
-      {isEditing && (
-        <div
-          draggable={false}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            setIsResizing(true);
-            const startX = e.clientX;
-            const initialWidth = currentWidth;
-            const gridContainer = containerRef.current?.closest("[data-grid-container]") as HTMLElement | null;
-            const totalGridWidth = gridContainer?.clientWidth || window.innerWidth;
-
-            let currentW = initialWidth;
-
-            const handleMouseMove = (moveEvt: MouseEvent) => {
-              moveEvt.preventDefault();
-              const deltaX = moveEvt.clientX - startX;
-              const deltaPercent = (deltaX / totalGridWidth) * 100;
-              const maxW = Math.max(20, 100 - currentOffset);
-              currentW = Math.round(Math.max(20, Math.min(maxW, initialWidth + deltaPercent)));
-
-              if (containerRef.current) {
-                containerRef.current.style.transition = "none";
-                containerRef.current.style.width = `${currentW}%`;
-              }
-              setLiveWidthPercent(currentW);
+              setLiveWidthPercent(finalW);
             };
 
             const handleMouseUp = () => {
@@ -436,7 +374,7 @@ export function WidgetContainer({
                 containerRef.current.style.transition = "";
               }
               setLiveWidthPercent(null);
-              onResizeCustom?.(currentW, currentHeight, align, currentOffset);
+              onResizeCustom?.(finalW, currentHeight);
             };
 
             window.addEventListener("mousemove", handleMouseMove, { passive: false });
@@ -449,7 +387,7 @@ export function WidgetContainer({
         </div>
       )}
 
-      {/* 100% Fluid Resize Handle: Bottom Edge (Height) */}
+      {/* Fluid Resize Handle: Bottom Edge (Height) */}
       {isEditing && (
         <div
           draggable={false}
@@ -458,20 +396,20 @@ export function WidgetContainer({
             e.preventDefault();
             setIsResizing(true);
             const startY = e.clientY;
-            const initialHeight = currentHeight;
+            const startHeightPx = containerRef.current?.getBoundingClientRect().height || currentHeight;
 
-            let currentH = initialHeight;
+            let finalH = currentHeight;
 
             const handleMouseMove = (moveEvt: MouseEvent) => {
               moveEvt.preventDefault();
               const deltaY = moveEvt.clientY - startY;
-              currentH = Math.round(Math.max(160, Math.min(1200, initialHeight + deltaY)));
+              finalH = Math.round(Math.max(160, Math.min(1200, startHeightPx + deltaY)));
 
               if (containerRef.current) {
                 containerRef.current.style.transition = "none";
-                containerRef.current.style.minHeight = `${currentH}px`;
+                containerRef.current.style.minHeight = `${finalH}px`;
               }
-              setLiveHeightPx(currentH);
+              setLiveHeightPx(finalH);
             };
 
             const handleMouseUp = () => {
@@ -482,7 +420,7 @@ export function WidgetContainer({
                 containerRef.current.style.transition = "";
               }
               setLiveHeightPx(null);
-              onResizeCustom?.(currentWidth, currentH, align, currentOffset);
+              onResizeCustom?.(currentWidth, finalH);
             };
 
             window.addEventListener("mousemove", handleMouseMove, { passive: false });
@@ -495,7 +433,7 @@ export function WidgetContainer({
         </div>
       )}
 
-      {/* 100% Fluid Resize Handle: Bottom-Right Corner (Both Width & Height) */}
+      {/* Fluid Resize Handle: Bottom-Right Corner (Both Width & Height) */}
       {isEditing && (
         <div
           draggable={false}
@@ -505,30 +443,34 @@ export function WidgetContainer({
             setIsResizing(true);
             const startX = e.clientX;
             const startY = e.clientY;
-            const initialWidth = currentWidth;
-            const initialHeight = currentHeight;
             const gridContainer = containerRef.current?.closest("[data-grid-container]") as HTMLElement | null;
             const totalGridWidth = gridContainer?.clientWidth || window.innerWidth;
+            const startWidthPx = containerRef.current?.getBoundingClientRect().width || (currentWidth / 100) * totalGridWidth;
+            const startHeightPx = containerRef.current?.getBoundingClientRect().height || currentHeight;
 
-            let currentW = initialWidth;
-            let currentH = initialHeight;
+            let finalW = currentWidth;
+            let finalH = currentHeight;
 
             const handleMouseMove = (moveEvt: MouseEvent) => {
               moveEvt.preventDefault();
               const deltaX = moveEvt.clientX - startX;
               const deltaY = moveEvt.clientY - startY;
-              const deltaPercent = (deltaX / totalGridWidth) * 100;
-              const maxW = Math.max(20, 100 - currentOffset);
-              currentW = Math.round(Math.max(20, Math.min(maxW, initialWidth + deltaPercent)));
-              currentH = Math.round(Math.max(160, Math.min(1200, initialHeight + deltaY)));
+
+              const newWidthPx = Math.max(220, Math.min(totalGridWidth, startWidthPx + deltaX));
+              const newPercent = (newWidthPx / totalGridWidth) * 100;
+              finalW = Math.max(15, Math.min(100, Math.round(newPercent * 10) / 10));
+              finalH = Math.round(Math.max(160, Math.min(1200, startHeightPx + deltaY)));
 
               if (containerRef.current) {
                 containerRef.current.style.transition = "none";
-                containerRef.current.style.width = `${currentW}%`;
-                containerRef.current.style.minHeight = `${currentH}px`;
+                const gapAdj = (1 - finalW / 100) * 1.25;
+                const wStr = finalW >= 100 ? "100%" : `calc(${finalW}% - ${gapAdj.toFixed(4)}rem)`;
+                containerRef.current.style.width = wStr;
+                containerRef.current.style.flex = `0 0 ${wStr}`;
+                containerRef.current.style.minHeight = `${finalH}px`;
               }
-              setLiveWidthPercent(currentW);
-              setLiveHeightPx(currentH);
+              setLiveWidthPercent(finalW);
+              setLiveHeightPx(finalH);
             };
 
             const handleMouseUp = () => {
@@ -540,7 +482,7 @@ export function WidgetContainer({
               }
               setLiveWidthPercent(null);
               setLiveHeightPx(null);
-              onResizeCustom?.(currentW, currentH, align, currentOffset);
+              onResizeCustom?.(finalW, finalH);
             };
 
             window.addEventListener("mousemove", handleMouseMove, { passive: false });

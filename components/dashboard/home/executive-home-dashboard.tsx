@@ -659,11 +659,6 @@ export function ExecutiveHomeDashboard({
             <h3 className="text-base font-bold text-foreground">
               {locale === "pt" ? "Criar Novo Dashboard" : "Create New Dashboard"}
             </h3>
-            <p className="text-xs text-muted-foreground">
-              {locale === "pt"
-                ? "Dê um nome ao seu novo dashboard personalizado para começar a compor os seus widgets."
-                : "Give your new custom dashboard a title to begin adding your tailored widgets."}
-            </p>
             <input
               type="text"
               autoFocus
@@ -732,11 +727,6 @@ export function ExecutiveHomeDashboard({
             <h3 className="text-sm font-semibold text-foreground">
               {locale === "pt" ? "Nenhum widget configurado" : "No widgets added yet"}
             </h3>
-            <p className="text-xs text-muted-foreground max-w-sm">
-              {locale === "pt"
-                ? "Adicione métricas, gráficos ou tabelas para personalizar este dashboard analítico."
-                : "Add metrics, charts, or tables to tailor this analytical dashboard."}
-            </p>
             <button
               type="button"
               onClick={() => {

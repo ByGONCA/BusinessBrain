@@ -24,7 +24,7 @@ export function renderOperationalEmail(data: OperationalNotificationData): {
   html: string;
   text: string;
 } {
-  const safeOrgName = escapeHtml(data.organizationName || "Company Brain");
+  const safeOrgName = escapeHtml(data.organizationName || "KogSync");
   const safeTitle = escapeHtml(data.title);
   const safeMessage = escapeHtml(data.message).replace(/\n/g, "<br>");
   const safeRecipient = escapeHtml(data.recipientName || "there");
@@ -111,7 +111,7 @@ export function renderOperationalEmail(data: OperationalNotificationData): {
     <table class="main" cellpadding="0" cellspacing="0" role="presentation">
       <tr>
         <td class="header">
-          <p class="brand-name">Company Brain &bull; ${safeOrgName}</p>
+          <p class="brand-name">KogSync &bull; ${safeOrgName}</p>
         </td>
       </tr>
       <tr>
@@ -149,7 +149,7 @@ Hi ${data.recipientName || "there"},
 ${data.message}
 ${data.actionUrl ? `\nView here: ${data.actionUrl}\n` : ""}
 ---
-Operational notification from ${data.organizationName} via Company Brain.`;
+Operational notification from ${data.organizationName} via KogSync.`;
 
   return { subject, html, text };
 }

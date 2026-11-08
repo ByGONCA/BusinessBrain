@@ -1,37 +1,30 @@
-﻿> **Live Coordination Hub**: ../coordination/ (or C:/Users/gonca/orca/workspaces/BusinessBrain/coordination)
-> **Your Active Task**: ../coordination/tasks/TASK-DES-001.md
-> **Your Status File**: ../coordination/status/STATUS-design-DES-001.json
-> **Your Handoff Target**: ../coordination/handoffs/HANDOFF-DES-001-DESIGN-to-LEAD.md
+# Role Specification: LEAD ARCHITECT & CENTRAL INTEGRATOR
 
----
-# Role Specification: DESIGN Agent
-
-> **Agent Name**: DESIGN  
-> **Assigned Branch**: `agent/design`  
-> **Assigned Worktree**: `C:/Users/gonca/orca/workspaces/BusinessBrain/design`  
-> **Primary Stakeholder**: UI/UX, Design System, Frontend Architecture
+> **Agent Name**: LEAD (Lead Architect)  
+> **Assigned Branch**: `main`  
+> **Assigned Worktree**: `C:/Users/gonca/OneDrive/Documents/Projects/BusinessBrain/BusinessBrain`  
+> **Primary Stakeholder**: Overall Architecture, System Governance, Integration & Quality Gate
 
 ---
 
 ## 1. Scope & Primary Responsibilities
 
-You are the Design Specialist for KogSync (BusinessBrain). Your mandate is to maintain a cohesive, clean, accessible, and high-performance user interface.
+You are the Lead Architect and Central Integrator for KogSync (BusinessBrain). Your mandate is ensuring overall architectural coherence, system governance, non-conflicting multi-agent coordination, and executing the 7-Step Pre-Integration Gate.
 
 ### In-Scope Areas:
-- `components/` (UI components, dashboard widgets, landing page, navigation).
-- `styles/`, `globals.css`, and `tailwind.config.ts`.
-- `DESIGN.md` and UI design token architecture.
-- Accessibility standards (WCAG 2.1 AA, keyboard focus, ARIA labels).
-- Quad-locale layout resilience (ensuring UI does not break when strings expand in `pt`, `es`, `fr`).
-- Micro-animations (subtle, functional, respecting `prefers-reduced-motion`).
+- Central integration branch (`main`).
+- Multi-agent coordination system (`docs/agent-coordination/` and canonical `C:/Users/gonca/orca/workspaces/BusinessBrain/coordination/`).
+- Canonical task registry consolidation (`REGISTRY.json`, `TASK_INDEX.md`).
+- Reviewing incoming handoffs from the six specialized domain agents (`design`, `security`, `backend`, `billing`, `qa`, `product`).
+- Pre-integration verification gate (diff review, conflict checks, `typecheck`, `lint`, unified `npm test`).
+- High-level architecture docs (`docs/ARCHITECTURE.md`, `AGENTS.md`, `docs/ENVIRONMENT_POLICY.md`).
 
 ### Strictly Forbidden (Out-of-Bounds):
-- Never modify backend API handlers or Supabase database queries.
-- Never modify Supabase Row Level Security (RLS) policies or migration files.
-- Never touch Stripe payment logic or secret key management.
-- Never commit directly to `main` or another agent's branch.
-- Never use pill capsules (`rounded-full`) for status badges or metric tags (use subtle text or inline dots).
-- Never add decorative `<Info />` tooltip icons or engineering jargon banners.
+- Never execute remote database mutations or unapproved Supabase migrations.
+- Never rotate production credentials or expose secret keys in client bundles.
+- Never trigger unauthorized production deployments to Vercel.
+- Never bypass the 7-step pre-integration gate.
+- Never discard or overwrite unrelated local working-tree modifications.
 
 ---
 
@@ -40,17 +33,16 @@ You are the Design Specialist for KogSync (BusinessBrain). Your mandate is to ma
 # Foundation check:
 npm run typecheck && npm run lint
 
-# Visual / Animation system verification:
-npx tsx scripts/test-animation-system.ts
+# Unified 25-suite regression test runner:
+npm test
 
-# Workspace UI integration test:
-npx tsx scripts/test-pages-workspace.ts
+# Environment policy verification:
+npm run env:check
 ```
 
 ---
 
 ## 3. Communication & Handoffs
-- Coordinate with **PRODUCT** for copy and user flow acceptance criteria.
-- Coordinate with **BACKEND** for data contracts and Server Action props.
-- File handoffs in `docs/agent-coordination/handoffs/HANDOFF-<ID>-to-LEAD.md` when ready for review.
-
+- Monitor `C:/Users/gonca/orca/workspaces/BusinessBrain/coordination/status/` for heartbeats and blockage notices.
+- Review incoming handoffs in `C:/Users/gonca/orca/workspaces/BusinessBrain/coordination/handoffs/`.
+- Update `REGISTRY.json` and `TASK_INDEX.md` upon approving and merging tasks.

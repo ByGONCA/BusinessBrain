@@ -623,13 +623,13 @@ export function Sidebar({
                 href="/"
                 onClick={(e) => handleNavClick("/dashboard", e)}
                 className="flex items-center gap-2.5 rounded-md p-1 hover:bg-hover transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600 group"
-                title="BusinessBrain"
+                title="KogSync"
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs shrink-0 ring-1 ring-blue-500/20 group-hover:bg-blue-500 transition-colors">
                   <Sparkles className="h-3.5 w-3.5" />
                 </div>
                 <span className="font-bold text-sm tracking-tight text-foreground">
-                  BusinessBrain
+                  KogSync
                 </span>
               </Link>
 

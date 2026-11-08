@@ -509,9 +509,6 @@ export function WidgetDrawer({
                 <h2 className="text-sm sm:text-base font-bold text-zinc-900 dark:text-zinc-100">
                   {editingWidget ? t.widgets.drawerTitleEdit : t.widgets.drawerTitleAdd}
                 </h2>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Selecione a métrica desejada e configure a apresentação visual em tempo real.
-                </p>
               </div>
             </div>
 
@@ -529,7 +526,7 @@ export function WidgetDrawer({
           <form id="widget-modal-form" onSubmit={handleSubmit} className="flex-1 overflow-hidden flex flex-col">
             <div className="flex-1 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[460px]">
               {/* Left Panel: Metrics Library (5 cols) */}
-              <div className="lg:col-span-5 border-b lg:border-b-0 lg:border-r border-zinc-200 dark:border-border flex flex-col h-full bg-zinc-50/40 dark:bg-card/50">
+              <div className="lg:col-span-5 border-b lg:border-b-0 lg:border-r border-zinc-200 dark:border-border flex flex-col h-full bg-zinc-50/40 dark:bg-[#17181D]/50">
                 {/* Search & Categories */}
                 <div className="p-4 border-b border-zinc-200 dark:border-border space-y-3 shrink-0">
                   <div className="relative">
@@ -638,19 +635,9 @@ export function WidgetDrawer({
                 {/* 1. Live Interactive Preview Canvas */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider font-mono flex items-center gap-1.5 shrink-0">
-                        <Sparkles className="h-3.5 w-3.5 text-blue-500" />
-                        {t.widgets.livePreview}
-                      </span>
-                      <span className="text-[11px] px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-300 font-semibold border border-blue-500/20 truncate max-w-[200px]">
-                        {currentCapability?.labelKey
-                          ? resolveTranslationKey(t, currentCapability.labelKey)
-                          : selectedMetricId}
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-zinc-400 shrink-0">
-                      Atualiza em tempo real
+                    <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider font-mono flex items-center gap-1.5 shrink-0">
+                      <Sparkles className="h-3.5 w-3.5 text-blue-500" />
+                      {t.widgets.livePreview}
                     </span>
                   </div>
                   <div className="rounded-2xl border border-zinc-200 dark:border-border bg-zinc-50/60 dark:bg-card p-1.5 shadow-inner">
@@ -668,11 +655,8 @@ export function WidgetDrawer({
 
                 {/* 2. Custom Title Input */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
-                    <span>{t.widgets.customTitle}</span>
-                    <span className="text-[10px] text-zinc-400 font-normal">
-                      {customTitle ? `${customTitle.length}/60` : "Nome personalizado (opcional)"}
-                    </span>
+                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                    {t.widgets.customTitle}
                   </label>
                   <input
                     type="text"
@@ -691,11 +675,8 @@ export function WidgetDrawer({
                 {/* 3. Visualization Formats */}
                 {currentCapability && (
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center justify-between">
-                      <span>{t.widgets.visualizationType}</span>
-                      <span className="text-[11px] text-zinc-400 font-normal">
-                        {currentCapability.supportedVisualizers.length} {t.widgets.availableFormats}
-                      </span>
+                    <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                      {t.widgets.visualizationType}
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                       {currentCapability.supportedVisualizers.map((vis) => {
@@ -707,7 +688,7 @@ export function WidgetDrawer({
                             type="button"
                             onClick={() => setSelectedVisualization(vis)}
                             className={cn(
-                              "p-3 rounded-xl border text-xs text-left transition-all cursor-pointer flex flex-col justify-between gap-3 min-h-[84px]",
+                              "p-3 rounded-xl border text-xs text-left transition-all cursor-pointer flex flex-col justify-between gap-2.5 min-h-[74px]",
                               isSelected
                                 ? "border-blue-500 bg-blue-50/60 dark:bg-blue-950/30 text-blue-600 dark:text-blue-300 shadow-2xs ring-1 ring-blue-500"
                                 : "border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700 bg-white dark:bg-card"
@@ -723,9 +704,6 @@ export function WidgetDrawer({
                             <div className="w-full">
                               <span className="font-semibold tracking-tight text-[11px] block truncate">
                                 {getVisualizationLabel(vis)}
-                              </span>
-                              <span className="text-[10px] text-zinc-400 block truncate mt-0.5 font-normal">
-                                {getVisualizationDescription(vis)}
                               </span>
                             </div>
                           </button>
