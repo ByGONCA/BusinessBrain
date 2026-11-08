@@ -228,6 +228,11 @@ const SUITES: TestSuite[] = [
     file: "scripts/test-e2e-universal-dashboard.ts",
     description: "21 tests: Home single canvas, Finance metric accuracy, 14 visualizers, provider fault isolation, CAS OCC, responsive tokens, anti-jargon invariants",
   },
+  {
+    name: "Linear Intelligence Data Provider (17-Suite)",
+    file: "scripts/test-linear-integration.ts",
+    description: "17 tests: OAuth read scope, HMAC state, token rotation, concurrency lock, normalized types, velocity metrics, provider health, zero DB persistence",
+  },
 ];
 
 async function runSuite(suite: TestSuite): Promise<{ success: boolean; durationMs: number; output: string }> {
