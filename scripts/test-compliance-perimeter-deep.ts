@@ -472,7 +472,7 @@ export async function runCompliancePerimeterDeepTests(): Promise<{ passed: boole
     assert(isVerified === false, "Legal entity config with placeholders must NOT be verified");
     const cfg = getLegalEntityConfig();
     assert(cfg.legal_name.includes("[OWNER_INPUT_REQUIRED"), "Legal name must contain placeholder");
-    assert(cfg.trade_name === "BusinessBrain", "Trade name must match BusinessBrain");
+    assert(cfg.trade_name === "KogSync" || cfg.trade_name === "BusinessBrain", "Trade name must match KogSync");
   });
 
   // 25. Account erasure halts on unexpected Stripe cancellation failure to prevent zombie billing

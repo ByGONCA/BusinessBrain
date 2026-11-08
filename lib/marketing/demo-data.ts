@@ -91,7 +91,7 @@ export const DEMO_PAGES: DemoPage[] = [
       {
         type: "paragraph",
         content:
-          "Modern companies lose critical operational context as information fragments across ephemeral chat threads, stale docs, and unlinked repositories. Our mission for 2026 is establishing BusinessBrain as the permanent memory layer.",
+          "Modern companies lose critical operational context as information fragments across ephemeral chat threads, stale docs, and unlinked repositories. Our mission for 2026 is establishing KogSync as the permanent memory layer.",
       },
       {
         type: "callout",
@@ -147,7 +147,7 @@ export const DEMO_PAGES: DemoPage[] = [
       {
         type: "paragraph",
         content:
-          "Distributed teams editing shared documentation require bulletproof conflict resolution. BusinessBrain uses monotonic revision tokens (`revision_id`) verified on write mutations.",
+          "Distributed teams editing shared documentation require bulletproof conflict resolution. KogSync uses monotonic revision tokens (`revision_id`) verified on write mutations.",
       },
       {
         type: "callout",
@@ -175,7 +175,7 @@ export const DEMO_PAGES: DemoPage[] = [
       {
         type: "paragraph",
         content:
-          "To align product evaluation with genuine user commitment, BusinessBrain operates on a paid-only subscription model with a 3-day unrestricted free trial.",
+          "To align product evaluation with genuine user commitment, KogSync operates on a paid-only subscription model with a 3-day unrestricted free trial.",
       },
       {
         type: "callout",

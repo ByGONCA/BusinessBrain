@@ -247,7 +247,7 @@ export function LandingHeader({ initialUser }: LandingHeaderProps = {}) {
           <Link
             href="/"
             className="group flex items-center gap-2.5 rounded-lg p-1 transition-transform duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-            aria-label="BusinessBrain Homepage"
+            aria-label="KogSync Homepage"
           >
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#18181B] dark:bg-[#F4F4F5] text-[#FAF9F5] dark:text-[#18181B] transition-transform duration-200 group-hover:scale-105">
               <svg
@@ -268,7 +268,7 @@ export function LandingHeader({ initialUser }: LandingHeaderProps = {}) {
               </svg>
             </div>
             <span className="font-semibold text-sm tracking-tight text-[#18181B] dark:text-[#F4F4F5]">
-              BusinessBrain
+              KogSync
             </span>
           </Link>
 

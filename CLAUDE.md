@@ -1,22 +1,22 @@
-﻿# Claude Instructions Bridge — BACKEND Specialist
+# Claude Instructions Bridge — LEAD ARCHITECT & CENTRAL INTEGRATOR
 
-You are the **BACKEND Specialist** operating on branch $(System.Collections.Hashtable.branch).
-Your dedicated role instructions are located at [AGENT_ROLE.md](./AGENT_ROLE.md) and [docs/agent-coordination/roles/BACKEND.md](./docs/agent-coordination/roles/BACKEND.md).
+You are operating as the **LEAD ARCHITECT & CENTRAL INTEGRATOR** on branch `main`.
+Your role specification is defined in [AGENT_ROLE.md](./AGENT_ROLE.md).
+Live Canonical Coordination Hub: `C:/Users/gonca/orca/workspaces/BusinessBrain/coordination`
 
-### Live Shared Coordination Hub (Instantly Visible across all Worktrees):
-- **Directory**: ../coordination/ (or C:/Users/gonca/orca/workspaces/BusinessBrain/coordination/)
-- **Canonical Task Index**: ../coordination/TASK_INDEX.md
-- **Your Current Task Spec**: ../coordination/tasks/TASK-BE-001.md
-- **Your Status Heartbeat**: ../coordination/status/STATUS-backend-BE-001.json
-- **Your Handoff Destination**: ../coordination/handoffs/HANDOFF-BE-001-BACKEND-to-LEAD.md
+See [AGENTS.md](./AGENTS.md) for canonical commands, multi-tenant rules, security architecture, and coding agreements.
+See [docs/AI_CONTEXT.md](./docs/AI_CONTEXT.md) for compact AI context, Graphify intelligence, and Ponytail simplicity guidelines.
 
-### Core Rules:
-1. **Single-Writer Safety**: Never edit another agent's status file or a shared task board. Write only to your own status JSON and handoff ticket.
-2. **Strict Worktree Scope**: Work exclusively inside your own worktree ($(System.Collections.Hashtable.branch)). Do not push, commit to main, or merge peer branches.
-3. **Reference Docs**:
-   - Master Rules & Safety: [AGENTS.md](./AGENTS.md)
-   - Role Responsibilities: [AGENT_ROLE.md](./AGENT_ROLE.md)
-   - Coordination Rules: ../coordination/COMMUNICATION_RULES.md
-   - Shared Files & Conflict Matrix: [docs/agent-coordination/CONFLICTS.md](./docs/agent-coordination/CONFLICTS.md)
-   - Token & Investigation Protocol: [.agents/rules/investigation-protocol.md](./.agents/rules/investigation-protocol.md)
-   - Ponytail Simplicity: [.agents/rules/ponytail.md](./.agents/rules/ponytail.md)
+Detailed documentation:
+- Your Role Instructions: [AGENT_ROLE.md](./AGENT_ROLE.md)
+- Multi-Agent Coordination Hub: [docs/agent-coordination/README.md](./docs/agent-coordination/README.md)
+- Product and MVP scope: [docs/PRODUCT.md](./docs/PRODUCT.md)
+- System Architecture: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+- Database & RLS: [docs/DATABASE.md](./docs/DATABASE.md)
+- Quality and Verification: [docs/quality.md](./docs/quality.md)
+- Setup and Evidence: [docs/setup.md](./docs/setup.md)
+- Design and Accessibility: [docs/design.md](./docs/design.md) & [DESIGN.md](./DESIGN.md)
+- Developer Onboarding: [docs/onboarding.md](./docs/onboarding.md)
+- Multi-Agent Coordination Hub: [docs/agent-coordination/README.md](./docs/agent-coordination/README.md)
+- Graphify Rules: [.agents/rules/graphify.md](./.agents/rules/graphify.md)
+- Ponytail Rules: [.agents/rules/ponytail.md](./.agents/rules/ponytail.md)

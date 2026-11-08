@@ -1,7 +1,8 @@
 // ==============================================================================
-// Company Brain: API Key Issuance, Hashing & Lifecycle Service
-// Raw secret keys: cb_live_<32 hex chars> (Returned ONCE, never persisted)
-// Database stores only: key_prefix (cb_live_xxxxxxxx) and key_hash (SHA-256)
+// KogSync: API Key Issuance, Hashing & Lifecycle Service
+// Raw secret keys: ks_live_<32 hex chars> (Returned ONCE, never persisted)
+// Database stores only: key_prefix (ks_live_xxxxxxxx) and key_hash (SHA-256)
+// Legacy support: cb_live_<32 hex chars> remains validated for backward compatibility
 // ==============================================================================
 
 import crypto from "crypto";
@@ -14,6 +15,21 @@ import { logger } from "@/lib/security/logger";
  */
 export function hashApiKey(secretKey: string): string {
   return crypto.createHash("sha256").update(secretKey.trim(), "utf8").digest("hex");
+}
+
+/**
+ * Constant-time comparison between two SHA-256 digests to mitigate timing attacks.
+ */
+export function verifyApiKeyHash(providedHash: string, storedHash: string): boolean {
+  if (typeof providedHash !== "string" || typeof storedHash !== "string") {
+    return false;
+  }
+  const bufA = Buffer.from(providedHash, "utf8");
+  const bufB = Buffer.from(storedHash, "utf8");
+  if (bufA.length !== bufB.length) {
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
 }
 
 /**
@@ -33,8 +49,8 @@ export async function generateApiKey(
 
   // Generate 32 bytes (64 hex characters) of randomness
   const randomHex = crypto.randomBytes(32).toString("hex");
-  const secretKey = `cb_live_${randomHex}`;
-  const keyPrefix = secretKey.slice(0, 16); // e.g. cb_live_a1b2c3d4
+  const secretKey = `ks_live_${randomHex}`;
+  const keyPrefix = secretKey.slice(0, 16); // e.g. ks_live_a1b2c3d4
   const keyHash = hashApiKey(secretKey);
 
   let expiresAt: string | null = null;

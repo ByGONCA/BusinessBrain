@@ -6,7 +6,8 @@ import { isValidUuid } from "@/lib/security/authorization";
 import { logger } from "@/lib/security/logger";
 import { ensurePersonalWorkspace } from "./personal";
 
-export const ACTIVE_ORG_COOKIE_NAME = "cb_active_org_id";
+export const ACTIVE_ORG_COOKIE_NAME = "ks_active_org_id";
+export const LEGACY_ACTIVE_ORG_COOKIE_NAME = "cb_active_org_id";
 export const ORG_HEADER_NAME = "x-organization-id";
 
 interface OrgMemberQueryResult {
@@ -93,7 +94,9 @@ export const getActiveOrganization = cache(async (): Promise<OrganizationWithRol
   const orgHeader = headerList.get(ORG_HEADER_NAME);
 
   const cookieStore = await cookies();
-  const orgCookie = cookieStore.get(ACTIVE_ORG_COOKIE_NAME)?.value;
+  const orgCookie =
+    cookieStore.get(ACTIVE_ORG_COOKIE_NAME)?.value ||
+    cookieStore.get(LEGACY_ACTIVE_ORG_COOKIE_NAME)?.value;
 
   const candidateId = orgHeader || orgCookie;
 

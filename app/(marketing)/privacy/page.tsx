@@ -4,8 +4,8 @@ import { LandingHeader } from "@/components/landing/landing-header";
 import { LandingFooter } from "@/components/landing/landing-footer";
 
 export const metadata = {
-  title: "Privacy Policy | BusinessBrain",
-  description: "Comprehensive privacy notice, data processing standards, and GDPR compliance policies of BusinessBrain.",
+  title: "Privacy Policy | KogSync",
+  description: "Comprehensive privacy notice, data processing standards, and GDPR compliance policies of KogSync.",
 };
 
 export default function PrivacyPolicyPage() {
@@ -36,10 +36,10 @@ export default function PrivacyPolicyPage() {
           <section className="space-y-3">
             <h2 className="text-lg font-bold text-zinc-900 dark:text-white">1. Data Controller & Overview</h2>
             <p>
-              This Privacy Policy explains how BusinessBrain (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) collects, processes, stores, and protects personal data when you interact with our website, application platform, and services.
+              This Privacy Policy explains how KogSync (&quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) collects, processes, stores, and protects personal data when you interact with our website, application platform, and services.
             </p>
             <p>
-              For personal data processed when managing user accounts and billing relationships, BusinessBrain acts as the <strong>Data Controller</strong>. For Customer Data stored within individual organization workspaces (such as internal company documents, meeting summaries, and team task graphs), your organization acts as the <strong>Data Controller</strong>, and BusinessBrain acts as the <strong>Data Processor</strong> under a Data Processing Agreement (DPA).
+              For personal data processed when managing user accounts and billing relationships, KogSync acts as the <strong>Data Controller</strong>. For Customer Data stored within individual organization workspaces (such as internal company documents, meeting summaries, and team task graphs), your organization acts as the <strong>Data Controller</strong>, and KogSync acts as the <strong>Data Processor</strong> under a Data Processing Agreement (DPA).
             </p>
           </section>
 
@@ -124,12 +124,12 @@ export default function PrivacyPolicyPage() {
           <section className="space-y-3">
             <h2 className="text-lg font-bold text-zinc-900 dark:text-white">6. Security Measures</h2>
             <p>
-              BusinessBrain maintains defense-in-depth technical and organizational measures (TOMs), including PostgreSQL Row-Level Security, TLS 1.3 in-transit encryption, AES-256 at-rest encryption for sensitive secrets, rate limiting, and automated security scanning.
+              KogSync maintains defense-in-depth technical and organizational measures (TOMs), including PostgreSQL Row-Level Security, TLS 1.3 in-transit encryption, AES-256 at-rest encryption for sensitive secrets, rate limiting, and automated security scanning.
             </p>
           </section>
 
           <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400">
-            For privacy inquiries or to exercise your statutory rights, contact our Data Protection Officer at dpo@businessbrain.io or privacy@businessbrain.io.
+            For privacy inquiries or to exercise your statutory rights, contact our Data Protection Officer at dpo@kogsync.com or privacy@kogsync.com.
           </div>
         </div>
       </main>

@@ -5,9 +5,9 @@ import { ArrowLeft, ArrowRight, Sparkles, ShieldCheck } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-selector";
 
 export const metadata: Metadata = {
-  title: "Interactive Product Demonstration — BusinessBrain",
+  title: "Interactive Product Demonstration — KogSync",
   description:
-    "Experience the actual BusinessBrain application UI directly in your browser. Live force-directed company graph, block editor, and real-time financial telemetry in safe demo mode.",
+    "Experience the actual KogSync application UI directly in your browser. Live force-directed company graph, block editor, and real-time financial telemetry in safe demo mode.",
 };
 
 export default function DemoPage() {
@@ -25,7 +25,7 @@ export default function DemoPage() {
           </Link>
           <span className="text-zinc-700">|</span>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold tracking-tight text-white">BusinessBrain Workstation</span>
+            <span className="text-xs font-semibold tracking-tight text-white">KogSync Workstation</span>
             <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20">
               Interactive Demo
             </span>

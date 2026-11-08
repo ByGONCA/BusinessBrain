@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "version": "1.1.0",
-  "legal_name": "[OWNER_INPUT_REQUIRED: Legal Entity Name, e.g. BusinessBrain, Lda.]",
-  "trade_name": "BusinessBrain",
+  "legal_name": "[OWNER_INPUT_REQUIRED: Legal Entity Name, e.g. KogSync, Lda.]",
+  "trade_name": "KogSync",
   "registration_number": "[OWNER_INPUT_REQUIRED: NIPC / Company Registration Number]",
   "tax_id": "[OWNER_INPUT_REQUIRED: Corporate Tax ID (NIF / VAT ID)]",
   "registered_office_address": {
@@ -11,9 +11,9 @@
     "city": "[OWNER_INPUT_REQUIRED: City]",
     "country": "Portugal"
   },
-  "official_contact_email": "legal@businessbrain.io",
-  "dpo_contact_email": "dpo@businessbrain.io",
-  "support_email": "support@businessbrain.io",
+  "official_contact_email": "legal@kogsync.com",
+  "dpo_contact_email": "dpo@kogsync.com",
+  "support_email": "support@kogsync.com",
   "statutory_representative": "[OWNER_INPUT_REQUIRED: Name of Legal Representative / Manager]",
   "verification_status": "UNVERIFIED_PENDING_OWNER",
   "verification_evidence": null,

@@ -7,7 +7,7 @@ import { MARKETING_INTEGRATIONS } from "@/lib/marketing/config";
 import { Blocks, ArrowRight, CheckCircle2 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Ecosystem Integrations — BusinessBrain",
+  title: "Ecosystem Integrations — KogSync",
   description:
     "Connect GitHub, Stripe, Google Drive, Google Calendar, and Slack to your central company memory with live telemetry and unified search.",
 };
@@ -46,7 +46,7 @@ export default function IntegrationsPage() {
 
             <ScrollReveal delay={160}>
               <p className="mt-5 text-base sm:text-lg text-[#52525B] dark:text-[#A1A1AA] max-w-2xl mx-auto leading-relaxed">
-                BusinessBrain doesn&apos;t replace your specialized tools — it bridges them. Pull request metadata, revenue telemetry, meeting agendas, and shared drives automatically link to your institutional documents.
+                KogSync doesn&apos;t replace your specialized tools — it bridges them. Pull request metadata, revenue telemetry, meeting agendas, and shared drives automatically link to your institutional documents.
               </p>
             </ScrollReveal>
           </div>

@@ -7,18 +7,51 @@ import { TypographyProvider } from "@/components/theme/typography-provider";
 import { LanguageProvider } from "@/lib/i18n/context";
 
 export const metadata: Metadata = {
-  title: "BusinessBrain — Where your company remembers everything",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://kogsync.com"),
+  title: {
+    default: "KogSync — The Memory & Intelligence Platform for Modern Companies",
+    template: "%s | KogSync",
+  },
   description:
-    "A clean, scalable operating system that brings company knowledge, decisions, projects, meetings, and context together.",
+    "The memory and intelligence layer for modern companies. Unified knowledge, institutional decisions, automated workflows, and context in one executive platform.",
+  applicationName: "KogSync",
+  authors: [{ name: "KogSync Team" }],
+  keywords: [
+    "knowledge management",
+    "company brain",
+    "institutional memory",
+    "decision log",
+    "enterprise intelligence",
+    "kogsync",
+  ],
+  openGraph: {
+    title: "KogSync — The Memory & Intelligence Platform for Modern Companies",
+    description:
+      "The memory and intelligence layer for modern companies. Unified knowledge, decisions, and context in one platform.",
+    url: "https://kogsync.com",
+    siteName: "KogSync",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "KogSync — The Memory & Intelligence Platform for Modern Companies",
+    description:
+      "The memory and intelligence layer for modern companies. Unified knowledge, decisions, and context in one platform.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 const themeScript = `
   (function() {
     try {
-      var saved = localStorage.getItem('cb_theme_mode');
-      var contrast = localStorage.getItem('cb_contrast_mode');
-      var locale = localStorage.getItem('cb_locale');
-      var typo = localStorage.getItem('cb_typography_settings');
+      var saved = localStorage.getItem('ks_theme_mode') || localStorage.getItem('cb_theme_mode');
+      var contrast = localStorage.getItem('ks_contrast_mode') || localStorage.getItem('cb_contrast_mode');
+      var locale = localStorage.getItem('ks_locale') || localStorage.getItem('cb_locale');
+      var typo = localStorage.getItem('ks_typography_settings') || localStorage.getItem('cb_typography_settings');
       var root = document.documentElement;
 
       var isDark = false;

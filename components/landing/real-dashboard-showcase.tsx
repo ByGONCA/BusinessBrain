@@ -175,7 +175,7 @@ const PRODUCTION_GRAPH_DATA: CompanyGraphData = {
 // Convert financial metrics to production StripeFinancialSnapshot
 const PRODUCTION_STRIPE_SNAPSHOT: StripeFinancialSnapshot = {
   organizationId: MOCK_ORG.id,
-  connectedAccountId: "acct_demo_businessbrain",
+  connectedAccountId: "acct_demo_kogsync",
   livemode: false,
   computedAt: new Date().toISOString(),
   expiresAt: new Date(Date.now() + 86400000).toISOString(),
@@ -970,7 +970,7 @@ export function RealDashboardShowcase({
                         <div>
                           <h2 className="text-base font-semibold text-white">Section: {activePath}</h2>
                           <p className="text-xs text-zinc-400 max-w-sm mt-1">
-                            This workspace module is fully functional in your authenticated BusinessBrain account.
+                            This workspace module is fully functional in your authenticated KogSync account.
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
