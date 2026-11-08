@@ -5,6 +5,7 @@
 import crypto from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { encryptToken, decryptToken } from "@/lib/crypto/encryption";
+import { signOAuthStatePayload, verifyOAuthStateSignature } from "@/lib/security/oauth-state";
 import { logger } from "@/lib/security/logger";
 
 export const LINEAR_OAUTH_SCOPES = ["read"] as const;
@@ -46,23 +47,9 @@ export function getLinearConfig() {
   };
 }
 
-function getHmacSecret(): string {
-  const secret = process.env.INTEGRATION_TOKEN_ENCRYPTION_KEY;
-
-  if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error(
-        "INTEGRATION_TOKEN_ENCRYPTION_KEY is required in production for OAuth state integrity."
-      );
-    }
-    return "kogsync-linear-oauth-dev-secret-key-32b";
-  }
-
-  return secret;
-}
-
 /**
  * Creates an HMAC-signed state parameter with nonce and timestamp to prevent CSRF attacks.
+ * Signed strictly using the dedicated OAUTH_STATE_SECRET.
  */
 export function createLinearOAuthState(
   payload: Omit<LinearAuthStatePayload, "nonce" | "timestamp">
@@ -75,16 +62,14 @@ export function createLinearOAuthState(
 
   const jsonStr = JSON.stringify(fullPayload);
   const base64Data = Buffer.from(jsonStr).toString("base64url");
-  const signature = crypto
-    .createHmac("sha256", getHmacSecret())
-    .update(base64Data)
-    .digest("base64url");
+  const signature = signOAuthStatePayload(base64Data);
 
   return `${base64Data}.${signature}`;
 }
 
 /**
  * Validates and unpacks an HMAC-signed OAuth state parameter using timing-safe comparison.
+ * Verified strictly using the dedicated OAUTH_STATE_SECRET.
  * Strictly rejects states older than 15 minutes to prevent replay attacks.
  */
 export function verifyLinearOAuthState(state: string): LinearAuthStatePayload | null {
@@ -93,15 +78,7 @@ export function verifyLinearOAuthState(state: string): LinearAuthStatePayload | 
     if (parts.length !== 2) return null;
 
     const [base64Data, signature] = parts;
-    const expectedSig = crypto
-      .createHmac("sha256", getHmacSecret())
-      .update(base64Data)
-      .digest("base64url");
-
-    const sigBuf = Buffer.from(signature);
-    const expBuf = Buffer.from(expectedSig);
-
-    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+    if (!verifyOAuthStateSignature(base64Data, signature)) {
       return null;
     }
 
@@ -216,6 +193,8 @@ export async function consumeLinearOAuthNonceAtomic(
     return { success: false, reason: "invalid_nonce" };
   }
 
+  const isProduction = process.env.NODE_ENV === "production";
+
   try {
     const supabase = await createClient();
 
@@ -232,6 +211,10 @@ export async function consumeLinearOAuthNonceAtomic(
         return { success: true };
       }
       return { success: false, reason: "nonce_already_consumed" };
+    }
+
+    if (isProduction && rpcError && rpcError.code !== "PGRST202") {
+      throw new Error(`Production OAuth security error: consume_oauth_nonce_atomic RPC failed (${rpcError.message})`);
     }
 
     // 2. Direct insert fallback into public.oauth_state_nonces if RPC function not created yet
@@ -252,11 +235,20 @@ export async function consumeLinearOAuthNonceAtomic(
     if (insertError.code === "23505") {
       return { success: false, reason: "nonce_already_consumed" };
     }
-  } catch {
-    // Fall through to in-memory atomic ledger
+
+    if (isProduction) {
+      throw new Error(
+        `Production OAuth state security failure: oauth_state_nonces table is missing or inaccessible (${insertError.message}). Migration 00045 is required.`
+      );
+    }
+  } catch (err: any) {
+    if (isProduction) {
+      throw err;
+    }
+    // Fall through to in-memory atomic ledger in development/test only
   }
 
-  // 3. In-memory atomic CAS ledger fallback (unit test runners & local mock DBs)
+  // 3. In-memory atomic CAS ledger fallback (strictly for development and test runners)
   if (localConsumedNonceLedger.has(nonce)) {
     return { success: false, reason: "nonce_already_consumed" };
   }
@@ -323,7 +315,7 @@ export async function refreshLinearTokenWithLock(
 
       currentEncryptedRefresh = current?.encrypted_refresh_token || null;
 
-      // Step B: Attempt atomic lease acquisition
+      // Step B: Attempt atomic lease acquisition via PostgreSQL RPC
       try {
         const { data: rpcLease, error: rpcError } = await supabase.rpc("acquire_linear_refresh_lease", {
           p_org_id: organizationId,
@@ -347,13 +339,20 @@ export async function refreshLinearTokenWithLock(
             leaseAcquired = true;
             break;
           }
+        } else if (process.env.NODE_ENV === "production" && rpcError) {
+          throw new Error(
+            `Production distributed refresh error: acquire_linear_refresh_lease RPC failed (${rpcError.message}). Migration 00045 must be applied.`
+          );
         }
-      } catch {
-        // Fallback to conditional update if RPC not present
+      } catch (err: any) {
+        if (process.env.NODE_ENV === "production") {
+          throw err;
+        }
+        // Fallback to conditional update if RPC not present in development/test only
       }
 
-      // Fallback: conditional metadata update if RPC is unavailable
-      if (!leaseAcquired) {
+      // Non-production fallback: conditional metadata update if RPC is unavailable
+      if (!leaseAcquired && process.env.NODE_ENV !== "production") {
         const meta = (current?.metadata as Record<string, unknown>) || {};
         const lockUntil = meta.refresh_lock_until ? new Date(meta.refresh_lock_until as string).getTime() : 0;
         const lockWorker = meta.refresh_lock_worker as string | undefined;
@@ -491,27 +490,39 @@ export async function refreshLinearTokenWithLock(
           p_token_expires_at: tokenExpiresAt,
         });
 
-        if (!casError && (casData as any)?.code === "STALE_OVERWRITE_PREVENTED") {
-          // Another worker updated newer credentials in the meantime; retrieve and return peer's token
-          const { data: latest } = await supabase
-            .from("organization_integrations")
-            .select("encrypted_access_token, encrypted_refresh_token, token_expires_at")
-            .eq("organization_id", organizationId)
-            .eq("provider", "linear")
-            .single();
+        if (!casError && casData) {
+          if ((casData as any)?.code === "STALE_OVERWRITE_PREVENTED") {
+            // Another worker updated newer credentials in the meantime; retrieve and return peer's token
+            const { data: latest } = await supabase
+              .from("organization_integrations")
+              .select("encrypted_access_token, encrypted_refresh_token, token_expires_at")
+              .eq("organization_id", organizationId)
+              .eq("provider", "linear")
+              .single();
 
-          if (latest?.encrypted_access_token) {
-            return {
-              access_token: decryptToken(latest.encrypted_access_token),
-              token_type: "Bearer",
-              expires_in: 3600,
-              refresh_token: latest.encrypted_refresh_token ? decryptToken(latest.encrypted_refresh_token) : undefined,
-              scope: ["read"],
-            };
+            if (latest?.encrypted_access_token) {
+              return {
+                access_token: decryptToken(latest.encrypted_access_token),
+                token_type: "Bearer",
+                expires_in: 3600,
+                refresh_token: latest.encrypted_refresh_token ? decryptToken(latest.encrypted_refresh_token) : undefined,
+                scope: ["read"],
+              };
+            }
           }
+          return result;
         }
-      } catch {
-        // Fallback conditional update
+
+        if (process.env.NODE_ENV === "production" && casError) {
+          throw new Error(
+            `Production token persistence error: save_linear_refreshed_tokens_cas RPC failed (${casError.message}). Migration 00045 must be applied.`
+          );
+        }
+      } catch (err: any) {
+        if (process.env.NODE_ENV === "production") {
+          throw err;
+        }
+        // Fallback conditional update in development/test only
       }
 
       // Direct fallback conditional update if RPC not present

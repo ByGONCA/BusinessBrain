@@ -7,6 +7,7 @@ import { getSlackConfig } from "./config";
 import { createServiceClient } from "@/lib/supabase/server";
 import { encryptToken } from "@/lib/crypto/encryption";
 import { logger } from "@/lib/security/logger";
+import { signOAuthStatePayload, verifyOAuthStateSignature } from "@/lib/security/oauth-state";
 
 export interface SlackAuthStatePayload {
   organizationId: string;
@@ -16,16 +17,9 @@ export interface SlackAuthStatePayload {
   timestamp: number;
 }
 
-function getHmacSecret(): string {
-  return (
-    process.env.INTEGRATION_TOKEN_ENCRYPTION_KEY ||
-    process.env.STRIPE_SECRET_KEY ||
-    "company-brain-slack-hmac-dev-key"
-  );
-}
-
 /**
  * Creates an HMAC-signed state parameter to prevent CSRF during Slack OAuth flow.
+ * Signed strictly using the dedicated OAUTH_STATE_SECRET.
  */
 export function createSlackOAuthState(
   payload: Omit<SlackAuthStatePayload, "nonce" | "timestamp">
@@ -38,16 +32,14 @@ export function createSlackOAuthState(
 
   const jsonStr = JSON.stringify(fullPayload);
   const base64Data = Buffer.from(jsonStr).toString("base64url");
-  const signature = crypto
-    .createHmac("sha256", getHmacSecret())
-    .update(base64Data)
-    .digest("base64url");
+  const signature = signOAuthStatePayload(base64Data);
 
   return `${base64Data}.${signature}`;
 }
 
 /**
  * Validates and unpacks an HMAC-signed OAuth state parameter using timing-safe comparison.
+ * Verified strictly using the dedicated OAUTH_STATE_SECRET.
  */
 export function verifySlackOAuthState(state: string): SlackAuthStatePayload | null {
   try {
@@ -55,17 +47,7 @@ export function verifySlackOAuthState(state: string): SlackAuthStatePayload | nu
     if (parts.length !== 2) return null;
 
     const [base64Data, signature] = parts;
-    const expectedSignature = crypto
-      .createHmac("sha256", getHmacSecret())
-      .update(base64Data)
-      .digest("base64url");
-
-    if (
-      !crypto.timingSafeEqual(
-        Buffer.from(signature, "utf-8"),
-        Buffer.from(expectedSignature, "utf-8")
-      )
-    ) {
+    if (!verifyOAuthStateSignature(base64Data, signature)) {
       return null;
     }
 
