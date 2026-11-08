@@ -118,16 +118,25 @@ export function Sidebar({
   const [activeFlyoutGroup, setActiveFlyoutGroup] = React.useState<string | null>(null);
   const flyoutTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  // Dynamic integration state: GitHub appears under ORGANIZATION when connected
+  // Dynamic integration state: GitHub and Linear appear under ORGANIZATION when connected
   const initialGitHub = initialIntegrations.some(
     (i) => i.provider === "github" && i.status === "connected"
   );
+  const initialLinear = initialIntegrations.some(
+    (i) => i.provider === "linear" && i.status === "connected"
+  );
   const [isGitHubConnected, setIsGitHubConnected] = React.useState(initialGitHub);
+  const [isLinearConnected, setIsLinearConnected] = React.useState(initialLinear);
 
   React.useEffect(() => {
     setIsGitHubConnected(
       initialIntegrations.some(
         (i) => i.provider === "github" && i.status === "connected"
+      )
+    );
+    setIsLinearConnected(
+      initialIntegrations.some(
+        (i) => i.provider === "linear" && i.status === "connected"
       )
     );
   }, [initialIntegrations]);
@@ -137,6 +146,9 @@ export function Sidebar({
       const customEvent = e as CustomEvent<{ provider: string; status: string }>;
       if (customEvent.detail?.provider === "github") {
         setIsGitHubConnected(customEvent.detail.status === "connected");
+      }
+      if (customEvent.detail?.provider === "linear") {
+        setIsLinearConnected(customEvent.detail.status === "connected");
       }
     }
     window.addEventListener("cb-integration-changed", handleIntegrationChange);
@@ -179,7 +191,8 @@ export function Sidebar({
     } else if (
       effectivePath.startsWith("/dashboard/people") ||
       effectivePath.startsWith("/dashboard/teams") ||
-      effectivePath.startsWith("/dashboard/github")
+      effectivePath.startsWith("/dashboard/github") ||
+      effectivePath.startsWith("/dashboard/linear")
     ) {
       if (!isGroupExpanded("company")) toggleGroup("company");
     }
@@ -325,6 +338,17 @@ export function Sidebar({
             href: "/dashboard/github",
             icon: PhosphorGithubLogo,
             isActive: effectivePath.startsWith("/dashboard/github"),
+          },
+        ]
+      : []),
+    ...(isLinearConnected
+      ? [
+          {
+            id: "linear",
+            name: "Linear",
+            href: "/dashboard/linear",
+            icon: Layers,
+            isActive: effectivePath.startsWith("/dashboard/linear"),
           },
         ]
       : []),
@@ -623,13 +647,13 @@ export function Sidebar({
                 href="/"
                 onClick={(e) => handleNavClick("/dashboard", e)}
                 className="flex items-center gap-2.5 rounded-md p-1 hover:bg-hover transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600 group"
-                title="BusinessBrain"
+                title="KogSync"
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs shrink-0 ring-1 ring-blue-500/20 group-hover:bg-blue-500 transition-colors">
                   <Sparkles className="h-3.5 w-3.5" />
                 </div>
                 <span className="font-bold text-sm tracking-tight text-foreground">
-                  BusinessBrain
+                  KogSync
                 </span>
               </Link>
 

@@ -1,10 +1,12 @@
 "use client";
 
 import * as React from "react";
+import { TrendingUp, TrendingDown } from "lucide-react";
 import { WidgetInstanceConfig } from "@/lib/widgets/types";
 import { StripeFinancialSnapshot, FilteredPeriodChartPoint } from "@/lib/integrations/stripe/types";
 import { filterFinancialMetricsByPeriod } from "@/lib/integrations/stripe/types";
 import { useLanguage } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 
 export interface ChartVisualizerProps {
   widget: WidgetInstanceConfig;
@@ -26,6 +28,14 @@ export function ChartVisualizer({
   const granularity = widget.granularity || "monthly";
 
   const [hoveredPointIdx, setHoveredPointIdx] = React.useState<number | null>(null);
+
+  // Distinct visualization styles:
+  // "chart": Trend Chart (Trajectory & momentum, sparkline curve, no area fill, start & end highlight dots)
+  // "line": Line Chart (Data precision, vertex nodes on every point, average benchmark guideline, no area fill)
+  // "area": Area Chart (Volume representation, rich gradient fill beneath the curve, glowing top stroke)
+  const isLineChart = widget.visualization === "line";
+  const isAreaChart = widget.visualization === "area";
+  const isTrendChart = !isLineChart && !isAreaChart; // Default to trend chart
 
   // Compute filtered points
   const filteredMetrics = React.useMemo(() => {
@@ -58,6 +68,22 @@ export function ChartVisualizer({
     [locale, activeCurrency]
   );
 
+  // Trajectory Delta calculation for Trend Chart
+  const trendDelta = React.useMemo(() => {
+    if (points.length < 2) return 0;
+    const firstVal = points[0].revenue;
+    const lastVal = points[points.length - 1].revenue;
+    if (firstVal === 0) return lastVal > 0 ? 100 : 0;
+    return ((lastVal - firstVal) / Math.abs(firstVal)) * 100;
+  }, [points]);
+
+  // Average revenue calculation for Line Chart reference guideline
+  const avgRevenue = React.useMemo(() => {
+    if (points.length === 0) return 0;
+    const sum = points.reduce((acc, curr) => acc + curr.revenue, 0);
+    return sum / points.length;
+  }, [points]);
+
   // Empty state if no data or integration not connected
   if (!financialSnapshot || points.length === 0) {
     return (
@@ -73,7 +99,7 @@ export function ChartVisualizer({
   const chartHeight = 160;
   const chartWidth = 600;
   const paddingX = 16;
-  const paddingY = 20;
+  const paddingY = 22;
 
   const maxVal = Math.max(...points.map((p) => p.revenue), 1) * 1.15;
   const minVal = 0;
@@ -88,6 +114,10 @@ export function ChartVisualizer({
     return { x, y, pt, idx };
   });
 
+  // Calculate average line Y position for Line Chart
+  const avgNormalizedY = (avgRevenue - minVal) / rangeY;
+  const avgY = chartHeight - paddingY - avgNormalizedY * (chartHeight - paddingY * 2);
+
   // Smooth Bézier path
   const pathD = svgCoords.reduce((acc, curr, idx) => {
     if (idx === 0) return `M ${curr.x} ${curr.y}`;
@@ -96,7 +126,7 @@ export function ChartVisualizer({
     return `${acc} C ${midX} ${prev.y}, ${midX} ${curr.y}, ${curr.x} ${curr.y}`;
   }, "");
 
-  // Closed area path for gradient
+  // Closed area path for gradient in Area Chart
   const areaD =
     svgCoords.length > 0 && pathD
       ? `${pathD} L ${svgCoords[svgCoords.length - 1].x} ${chartHeight - paddingY} L ${svgCoords[0].x} ${chartHeight - paddingY} Z`
@@ -109,7 +139,7 @@ export function ChartVisualizer({
 
   return (
     <div className={`space-y-3 ${className || ""}`}>
-      {/* Dynamic Scrubber / Active Metric Header */}
+      {/* Dynamic Header: Tailored to Chart Type */}
       <div className="flex items-center justify-between text-xs pb-1">
         <div>
           <span className="text-[11px] text-muted-foreground">
@@ -120,11 +150,41 @@ export function ChartVisualizer({
           </div>
         </div>
 
-        {granularity === "daily" && (
-          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/40 px-2 py-0.5 rounded-md">
-            {locale === "pt" ? "Média diária estimada" : "Estimated daily pacing"}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Trend Chart: Trajectory Momentum Pill */}
+          {isTrendChart && (
+            <div
+              className={cn(
+                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold",
+                trendDelta >= 0
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                  : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+              )}
+            >
+              {trendDelta >= 0 ? (
+                <TrendingUp className="h-3.5 w-3.5" />
+              ) : (
+                <TrendingDown className="h-3.5 w-3.5" />
+              )}
+              <span>{trendDelta >= 0 ? `+${trendDelta.toFixed(1)}%` : `${trendDelta.toFixed(1)}%`}</span>
+            </div>
+          )}
+
+          {/* Line Chart: Average Guideline Badge */}
+          {isLineChart && (
+            <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-[11px] font-mono text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700/60">
+              <span className="text-zinc-400">Média:</span>
+              <span className="font-semibold">{formatMoney(avgRevenue)}</span>
+            </div>
+          )}
+
+          {/* Area Chart: Volume Badge */}
+          {isAreaChart && (
+            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[11px] font-mono border border-blue-500/20">
+              <span>Volume</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Interactive SVG Canvas */}
@@ -135,13 +195,18 @@ export function ChartVisualizer({
           onMouseLeave={() => setHoveredPointIdx(null)}
         >
           <defs>
-            <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
+            <linearGradient id="chartGradientArea" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.35" />
+              <stop offset="60%" stopColor="#3b82f6" stopOpacity="0.10" />
               <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
+            </linearGradient>
+            <linearGradient id="chartStrokeTrend" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#3B82F6" />
+              <stop offset="100%" stopColor={trendDelta >= 0 ? "#10B981" : "#F43F5E"} />
             </linearGradient>
           </defs>
 
-          {/* Background Grid Ticks */}
+          {/* Background Grid Baseline */}
           <line
             x1={paddingX}
             y1={chartHeight - paddingY}
@@ -150,50 +215,124 @@ export function ChartVisualizer({
             className="stroke-zinc-200 dark:stroke-white/[0.06]"
             strokeWidth="1"
           />
-          <line
-            x1={paddingX}
-            y1={chartHeight / 2}
-            x2={chartWidth - paddingX}
-            y2={chartHeight / 2}
-            className="stroke-zinc-200/60 dark:stroke-white/[0.03]"
-            strokeDasharray="3 3"
-            strokeWidth="1"
-          />
 
-          {/* Area Fill */}
-          {areaD && <path d={areaD} fill="url(#chartGradient)" />}
+          {/* Line Chart: Horizontal Benchmark Average Guideline */}
+          {isLineChart && (
+            <g>
+              <line
+                x1={paddingX}
+                y1={avgY}
+                x2={chartWidth - paddingX}
+                y2={avgY}
+                stroke="#3B82F6"
+                strokeOpacity="0.4"
+                strokeDasharray="4 4"
+                strokeWidth="1.2"
+              />
+            </g>
+          )}
 
-          {/* Line Stroke */}
+          {/* Trend Chart: Subtle Mid Guidance Ticks */}
+          {isTrendChart && (
+            <line
+              x1={paddingX}
+              y1={chartHeight / 2}
+              x2={chartWidth - paddingX}
+              y2={chartHeight / 2}
+              className="stroke-zinc-200/50 dark:stroke-white/[0.03]"
+              strokeDasharray="2 4"
+              strokeWidth="1"
+            />
+          )}
+
+          {/* Area Chart ONLY: Rich Gradient Volume Fill */}
+          {isAreaChart && areaD && (
+            <path d={areaD} fill="url(#chartGradientArea)" />
+          )}
+
+          {/* Line / Path Stroke */}
           {pathD && (
             <path
               d={pathD}
               fill="none"
-              stroke="#3b82f6"
-              strokeWidth="2"
+              stroke={isTrendChart ? "url(#chartStrokeTrend)" : "#3b82f6"}
+              strokeWidth={isAreaChart ? "2.5" : isTrendChart ? "2.5" : "2"}
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           )}
 
-          {/* Interactive Points and Hover Circles */}
+          {/* Line Chart ONLY: Precision Nodes on EVERY Single Data Point */}
+          {isLineChart &&
+            svgCoords.map((coord) => (
+              <circle
+                key={`node-${coord.idx}`}
+                cx={coord.x}
+                cy={coord.y}
+                r={activePoint?.idx === coord.idx ? 5 : 3}
+                className="fill-white dark:fill-zinc-900 stroke-blue-600 dark:stroke-blue-400 stroke-2 transition-all"
+              />
+            ))}
+
+          {/* Trend Chart ONLY: Prominent Start & End Momentum Anchor Nodes */}
+          {isTrendChart && svgCoords.length > 0 && (
+            <g>
+              {/* Start anchor */}
+              <circle
+                cx={svgCoords[0].x}
+                cy={svgCoords[0].y}
+                r="3"
+                className="fill-blue-500/80 stroke-white dark:stroke-[#15171C] stroke-1"
+              />
+              {/* End anchor with accent ring */}
+              <circle
+                cx={svgCoords[svgCoords.length - 1].x}
+                cy={svgCoords[svgCoords.length - 1].y}
+                r="6"
+                className={trendDelta >= 0 ? "fill-emerald-500/20" : "fill-rose-500/20"}
+              />
+              <circle
+                cx={svgCoords[svgCoords.length - 1].x}
+                cy={svgCoords[svgCoords.length - 1].y}
+                r="3.5"
+                className={cn(
+                  "stroke-white dark:stroke-[#15171C] stroke-1.5",
+                  trendDelta >= 0 ? "fill-emerald-500" : "fill-rose-500"
+                )}
+              />
+            </g>
+          )}
+
+          {/* Hover Crosshair Vertical Guide Line */}
+          {hoveredPointIdx !== null && activePoint && (
+            <line
+              x1={activePoint.x}
+              y1={paddingY}
+              x2={activePoint.x}
+              y2={chartHeight - paddingY}
+              stroke="#3B82F6"
+              strokeOpacity="0.5"
+              strokeDasharray="2 2"
+              strokeWidth="1"
+            />
+          )}
+
+          {/* Interactive Scrubbing Hit Targets */}
           {svgCoords.map((coord) => (
-            <g key={coord.idx}>
-              {/* Invisible wide hit area for mouse scrubbing */}
+            <g key={`hit-${coord.idx}`}>
               <circle
                 cx={coord.x}
                 cy={coord.y}
-                r="14"
+                r="16"
                 fill="transparent"
                 className="cursor-pointer"
                 onMouseEnter={() => setHoveredPointIdx(coord.idx)}
               />
-
-              {/* Highlight active point */}
-              {activePoint.idx === coord.idx && (
+              {activePoint?.idx === coord.idx && (
                 <circle
                   cx={coord.x}
                   cy={coord.y}
-                  r="4"
+                  r="5"
                   className="fill-white dark:fill-blue-500 stroke-blue-600 stroke-2"
                 />
               )}

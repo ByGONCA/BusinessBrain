@@ -122,8 +122,12 @@ export function GuidedTour({
       setCurrentStepIndex(0);
       setIsActive(true);
     };
+    window.addEventListener("kogsync:restart-tour", handleRestart);
     window.addEventListener("businessbrain:restart-tour", handleRestart);
-    return () => window.removeEventListener("businessbrain:restart-tour", handleRestart);
+    return () => {
+      window.removeEventListener("kogsync:restart-tour", handleRestart);
+      window.removeEventListener("businessbrain:restart-tour", handleRestart);
+    };
   }, []);
 
   // If sidebar is compact, expand it so sidebar targets are visible

@@ -122,7 +122,7 @@ function LoginContent() {
             <Sparkles className="h-5 w-5 text-blue-400" />
           </Link>
           <h2 className="mt-4 text-xl font-bold tracking-tight text-[#18181B] dark:text-[#F5F5F5]">
-            Welcome back to BusinessBrain
+            Welcome back to KogSync
           </h2>
           <p className="mt-1 text-xs text-[#71717A] dark:text-[#A1A1AA]">
             Sign in to access your company workspace and memory layer

@@ -12,9 +12,9 @@ import { LandingFinalCTA } from "@/components/landing/landing-final-cta";
 import { LandingFooter } from "@/components/landing/landing-footer";
 
 export const metadata: Metadata = {
-  title: "BusinessBrain — Where your company remembers everything",
+  title: "KogSync — The Memory & Intelligence Platform for Modern Companies",
   description:
-    "BusinessBrain brings company pages, strategic decisions, connected graphs, and system context into one coherent operating system for modern teams.",
+    "KogSync brings company pages, strategic decisions, connected graphs, and system context into one coherent operating system for modern teams.",
 };
 
 export default function MarketingLandingPage() {

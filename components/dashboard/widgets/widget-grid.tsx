@@ -174,7 +174,7 @@ export function WidgetGrid({
     onReorderWidgets(nextWidgets);
   };
 
-  // 100% custom width, height and position resizing
+  // 100% proportional custom width and height resizing
   const handleResizeCustom = (
     widgetId: string,
     widthPercent?: number,
@@ -190,13 +190,11 @@ export function WidgetGrid({
         w.options?.customWidthPercent ??
         (w.size === "sm" ? 25 : w.size === "md" ? 50 : w.size === "lg" ? 75 : 100);
       const targetHeight = heightPx ?? w.options?.customHeightPx ?? 300;
-      const targetAlign = align ?? w.options?.align ?? "left";
-      const targetOffset = offsetXPercent ?? w.options?.offsetXPercent ?? 0;
 
       let newSize: WidgetSize = w.size;
-      if (targetWidth <= 35) newSize = "sm";
-      else if (targetWidth <= 60) newSize = "md";
-      else if (targetWidth <= 85) newSize = "lg";
+      if (targetWidth <= 30) newSize = "sm";
+      else if (targetWidth <= 55) newSize = "md";
+      else if (targetWidth <= 80) newSize = "lg";
       else newSize = "full";
 
       return {
@@ -206,8 +204,6 @@ export function WidgetGrid({
           ...w.options,
           customWidthPercent: targetWidth,
           customHeightPx: targetHeight,
-          align: targetAlign,
-          offsetXPercent: targetOffset,
         },
       };
     });
@@ -310,32 +306,11 @@ export function WidgetGrid({
     <div
       data-grid-container="true"
       className={cn(
-        "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 transition-all dashboard-grid-container",
+        "flex flex-wrap gap-4 sm:gap-5 transition-all dashboard-grid-container items-start w-full grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
         className
       )}
     >
       {widgets.map((widget, index) => {
-        const isRowBreak = widget.options?.rowBreak;
-        const hasCustomWidth = typeof widget.options?.customWidthPercent === "number";
-        const hasCustomOffset =
-          typeof widget.options?.offsetXPercent === "number" && widget.options.offsetXPercent > 0;
-        const isCentered = widget.options?.align === "center";
-        const isRight = widget.options?.align === "right";
-
-        const needsFullRow =
-          isRowBreak ||
-          hasCustomOffset ||
-          isCentered ||
-          isRight ||
-          (hasCustomWidth && (widget.options?.customWidthPercent || 0) > 50);
-
-        const spanClass = cn(
-          needsFullRow
-            ? "col-span-1 sm:col-span-2 lg:col-span-4"
-            : (SIZE_COLUMN_CLASSES[widget.size] || "col-span-1 sm:col-span-2"),
-          isRowBreak && "col-start-1 clear-left"
-        );
-
         // Dynamic Tab resolution
         const currentActiveTabId = activeTabs[widget.id];
         const activeTabConfig = widget.options?.tabs?.find((t) => t.id === currentActiveTabId);
@@ -345,32 +320,32 @@ export function WidgetGrid({
           : widget;
 
         return (
-          <div key={widget.id} className={cn("transition-all duration-200", spanClass)}>
-            <WidgetContainer
-              widget={widget}
-              isEditing={isEditing}
-              canMoveLeft={index > 0}
-              canMoveRight={index < widgets.length - 1}
-              onMoveLeft={() => handleMoveLeft(index)}
-              onMoveRight={() => handleMoveRight(index)}
-              onResize={(newSize) => onResizeWidget?.(widget.id, newSize)}
-              onResizeCustom={(wP, hP, al, offX) => handleResizeCustom(widget.id, wP, hP, al, offX)}
-              onToggleRowBreak={() => handleToggleRowBreak(widget.id)}
-              onSplitInHalf={() => handleSplitInHalf(widget.id)}
-              onChangeHeight={(newHeight) => handleChangeHeight(widget.id, newHeight)}
-              onAddTab={() => handleAddTab(widget.id)}
-              onSelectTab={(tabId) => handleSelectTab(widget.id, tabId)}
-              activeTabId={currentActiveTabId}
-              onEdit={() => onEditWidget?.(widget)}
-              onRemove={() => onRemoveWidget?.(widget.id)}
-              draggable={isEditing}
-              onDragStart={(e) => handleDragStart(index, e)}
-              onDragOver={(e) => handleDragOver(index, e)}
-              onDrop={(e) => handleDrop(index, e)}
-              onDragEnd={handleDragEnd}
-              isDragging={draggedIndex === index}
-              isDragOver={dragOverIndex === index && draggedIndex !== index}
-            >
+          <WidgetContainer
+            key={widget.id}
+            widget={widget}
+            isEditing={isEditing}
+            canMoveLeft={index > 0}
+            canMoveRight={index < widgets.length - 1}
+            onMoveLeft={() => handleMoveLeft(index)}
+            onMoveRight={() => handleMoveRight(index)}
+            onResize={(newSize) => onResizeWidget?.(widget.id, newSize)}
+            onResizeCustom={(wP, hP) => handleResizeCustom(widget.id, wP, hP)}
+            onToggleRowBreak={() => handleToggleRowBreak(widget.id)}
+            onSplitInHalf={() => handleSplitInHalf(widget.id)}
+            onChangeHeight={(newHeight) => handleChangeHeight(widget.id, newHeight)}
+            onAddTab={() => handleAddTab(widget.id)}
+            onSelectTab={(tabId) => handleSelectTab(widget.id, tabId)}
+            activeTabId={currentActiveTabId}
+            onEdit={() => onEditWidget?.(widget)}
+            onRemove={() => onRemoveWidget?.(widget.id)}
+            draggable={isEditing}
+            onDragStart={(e) => handleDragStart(index, e)}
+            onDragOver={(e) => handleDragOver(index, e)}
+            onDrop={(e) => handleDrop(index, e)}
+            onDragEnd={handleDragEnd}
+            isDragging={draggedIndex === index}
+            isDragOver={dragOverIndex === index && draggedIndex !== index}
+          >
               {/* Dynamic Visualizer Resolution */}
               {resolvedVisualization === "kpi" && (
                 <KpiVisualizer
@@ -632,7 +607,6 @@ export function WidgetGrid({
                 </div>
               )}
             </WidgetContainer>
-          </div>
         );
       })}
     </div>

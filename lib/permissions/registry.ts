@@ -15,6 +15,7 @@ export type PermissionCategory =
   | "files"
   | "integrations"
   | "github"
+  | "linear"
   | "company"
   | "billing";
 
@@ -37,6 +38,7 @@ export const PERMISSION_CATEGORIES: { id: PermissionCategory; label: string; ico
   { id: "files", label: "Files & Storage", icon: "File" },
   { id: "integrations", label: "Integrations", icon: "Layers" },
   { id: "github", label: "GitHub Workspace", icon: "Github" },
+  { id: "linear", label: "Linear Workspace", icon: "Layers" },
   { id: "company", label: "Company Settings", icon: "Building2" },
   { id: "billing", label: "Billing & Plans", icon: "CreditCard" },
 ];
@@ -356,6 +358,20 @@ export const PERMISSIONS_REGISTRY: PermissionDefinition[] = [
     category: "github",
     name: "View GitHub Activity",
     description: "Access contributor statistics and live timeline activity.",
+  },
+
+  // Linear Intelligence Data Provider
+  {
+    key: "linear.view",
+    category: "linear",
+    name: "View Linear Data & Intelligence",
+    description: "Access normalized Linear issues, projects, cycles, and velocity data in KogSync.",
+  },
+  {
+    key: "linear.manage_connection",
+    category: "linear",
+    name: "Manage Linear Connection",
+    description: "Authorize, re-authenticate, or disconnect the workspace Linear integration.",
   },
 
   // Company Settings

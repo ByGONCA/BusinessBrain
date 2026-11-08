@@ -6,6 +6,7 @@ import { getActiveOrganization } from "@/lib/organizations/queries";
 import { decryptToken } from "@/lib/crypto/encryption";
 import { revokeGoogleToken } from "./google/oauth";
 import { revokeGitHubToken } from "./github/oauth";
+import { revokeLinearToken } from "./linear/oauth";
 import { isValidUuid } from "@/lib/security/authorization";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
@@ -93,10 +94,14 @@ export async function disconnectIntegrationAction(integrationId: string) {
     return;
   }
 
-  // Verify permission: requires integrations.disconnect or github.manage_connection
+  // Verify permission: requires integrations.disconnect, github.manage_connection, or linear.manage_connection
   const isGitHub = integration.provider === "github";
+  const isLinear = integration.provider === "linear";
   const canDisconnect = isGitHub
     ? (await hasPermission(user.id, activeOrg.id, "github.manage_connection")) ||
+      (await hasPermission(user.id, activeOrg.id, "integrations.disconnect"))
+    : isLinear
+    ? (await hasPermission(user.id, activeOrg.id, "linear.manage_connection")) ||
       (await hasPermission(user.id, activeOrg.id, "integrations.disconnect"))
     : await hasPermission(user.id, activeOrg.id, "integrations.disconnect");
 
@@ -129,6 +134,11 @@ export async function disconnectIntegrationAction(integrationId: string) {
       if (integration.encrypted_access_token) {
         const accessToken = decryptToken(integration.encrypted_access_token);
         await revokeGitHubToken(accessToken);
+      }
+    } else if (integration.provider === "linear") {
+      if (integration.encrypted_access_token) {
+        const accessToken = decryptToken(integration.encrypted_access_token);
+        await revokeLinearToken(accessToken);
       }
     }
   } catch (err: unknown) {
