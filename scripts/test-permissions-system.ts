@@ -308,13 +308,15 @@ async function runPart1AutomatedLogicTests() {
   const blockedBilling = simulateServerAction("user-editor", "org-1", "billing.manage", memberActionState);
   testAssert(blockedBilling.success === false, "Server Action without billing.manage is rejected");
 
-  // Test 1.11: Registry Integrity (All 57 permissions including AI suite)
-  testAssert(PERMISSION_KEYS.length === 57, `Registry contains exactly 57 registered canonical permissions (Found ${PERMISSION_KEYS.length})`);
-  testAssert(new Set(PERMISSION_KEYS).size === 57, "All 57 permission keys are strictly unique");
+  // Test 1.11: Registry Integrity (All 59 permissions including AI and Linear suites)
+  testAssert(PERMISSION_KEYS.length === 59, `Registry contains exactly 59 registered canonical permissions (Found ${PERMISSION_KEYS.length})`);
+  testAssert(new Set(PERMISSION_KEYS).size === 59, "All 59 permission keys are strictly unique");
   testAssert(PERMISSIONS_REGISTRY.every((p) => p.name && p.description && p.category), "All permissions have valid name, description, and category");
   testAssert(isValidPermissionKey("teams.manage_permissions"), "teams.manage_permissions is a valid key");
   testAssert(isValidPermissionKey("people.manage_permissions"), "people.manage_permissions is a valid key");
   testAssert(isValidPermissionKey("github.manage_connection"), "github.manage_connection is a valid key");
+  testAssert(isValidPermissionKey("linear.view"), "linear.view is a valid key");
+  testAssert(isValidPermissionKey("linear.manage_connection"), "linear.manage_connection is a valid key");
   testAssert(isValidPermissionKey("ai.chat"), "ai.chat is a valid key");
   testAssert(isValidPermissionKey("ai.manage_keys"), "ai.manage_keys is a valid key");
   testAssert(isValidPermissionKey("non_existent.key") === false, "Non-existent permission key is rejected");
