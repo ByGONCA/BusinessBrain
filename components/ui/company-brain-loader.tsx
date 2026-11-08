@@ -86,5 +86,7 @@ export function BusinessBrainLoader({
   );
 }
 
-// Backward-compatible alias for existing imports
+// Backward-compatible aliases
 export const CompanyBrainLoader = BusinessBrainLoader;
+export const KogSyncLoader = BusinessBrainLoader;
+export type KogSyncLoaderProps = BusinessBrainLoaderProps;

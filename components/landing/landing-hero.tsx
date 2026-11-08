@@ -98,7 +98,7 @@ export function LandingHero() {
         >
           <div className="inline-flex flex-col sm:flex-row items-center gap-3">
             <span className="text-xs sm:text-sm text-[#52525B] dark:text-[#A1A1AA]">
-              Ready to see your team&apos;s real context in BusinessBrain?
+              Ready to see your team&apos;s real context in KogSync?
             </span>
             <Link
               href="/signup"

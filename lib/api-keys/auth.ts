@@ -48,7 +48,7 @@ export async function authenticateApiKey(
       response: NextResponse.json(
         {
           error: "Unauthorized",
-          message: "Missing or malformed Authorization header. Expected 'Bearer cb_live_...'",
+          message: "Missing or malformed Authorization header. Expected 'Bearer ks_live_...'",
         },
         { status: 401 }
       ),
@@ -56,14 +56,15 @@ export async function authenticateApiKey(
   }
 
   const rawKey = authHeader.slice(7).trim();
+  const hasValidPrefix = rawKey.startsWith("ks_live_") || rawKey.startsWith("cb_live_");
 
-  if (!rawKey.startsWith("cb_live_") || rawKey.length < 24) {
+  if (!hasValidPrefix || rawKey.length < 24) {
     return {
       authenticated: false,
       response: NextResponse.json(
         {
           error: "Unauthorized",
-          message: "Invalid API key format. Expected 'cb_live_<key>'",
+          message: "Invalid API key format. Expected 'ks_live_<key>' (or legacy 'cb_live_<key>')",
         },
         { status: 401 }
       ),

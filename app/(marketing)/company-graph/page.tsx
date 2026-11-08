@@ -7,9 +7,9 @@ import { ScrollReveal, ScrollRevealGroup, ScrollRevealItem } from "@/components/
 import { Network, Sparkles, GitBranch, ArrowRight, Share2, Compass, Shield } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Company Connections Graph — BusinessBrain",
+  title: "Company Connections Graph — KogSync",
   description:
-    "Explore how BusinessBrain links decisions, documentation, code repositories, and teams into a living, queryable knowledge graph.",
+    "Explore how KogSync links decisions, documentation, code repositories, and teams into a living, queryable knowledge graph.",
 };
 
 export default function CompanyGraphPage() {

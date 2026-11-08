@@ -11,7 +11,7 @@ export function getTrialDays(): number {
 }
 
 /**
- * Enterprise Plan Definitions (No permanent free tier in Company Brain).
+ * Enterprise Plan Definitions (No permanent free tier in KogSync).
  * Every plan starts with a configurable free trial.
  */
 export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, PlanConfig> = {
@@ -50,7 +50,7 @@ export const SUBSCRIPTION_PLANS: Record<SubscriptionTier, PlanConfig> = {
       "Knowledge Base wikis & SOP docs",
       "5,000 monthly AI credits included (Platform models)",
       "Bring Your Own Key (BYOK) for OpenAI, Claude, Gemini & DeepSeek",
-      "AI Company Brain Assistant",
+      "AI KogSync Assistant",
       "Priority customer support",
     ],
     limits: {
