@@ -69,6 +69,8 @@ import {
 } from "@/lib/integrations/actions";
 import { disconnectStripeIntegrationAction } from "@/lib/integrations/stripe/actions";
 import { SentryIntegrationView } from "../sentry/sentry-integration-view";
+import { ShopifyIntegrationView } from "../shopify/shopify-integration-view";
+import { ShopifyConnectDialog } from "../shopify/shopify-connect-dialog";
 import {
   getGitHubRepositoriesAction,
   setDefaultGitHubRepositoryAction,
@@ -194,6 +196,8 @@ export function SettingsModal({
   const [configStatus, setConfigStatus] = React.useState<Record<string, ProviderConfigStatus>>({});
   const [testingIntegrationId, setTestingIntegrationId] = React.useState<string | null>(null);
   const [isSentryModalOpen, setIsSentryModalOpen] = React.useState(false);
+  const [isShopifyModalOpen, setIsShopifyModalOpen] = React.useState(false);
+  const [isShopifyConnectOpen, setIsShopifyConnectOpen] = React.useState(false);
   const [testResults, setTestResults] = React.useState<Record<string, TestConnectionResult>>({});
 
   React.useEffect(() => {
@@ -743,6 +747,12 @@ export function SettingsModal({
                         } else {
                           window.location.href = "/api/integrations/sentry/connect";
                         }
+                      } else if (item.id === "shopify") {
+                        if (connectedAccounts.length > 0) {
+                          setIsShopifyModalOpen(true);
+                        } else {
+                          setIsShopifyConnectOpen(true);
+                        }
                       } else {
                         setInfoModalItem(item);
                       }
@@ -999,6 +1009,33 @@ export function SettingsModal({
                                 </button>
                               )}
                             </div>
+                          ) : item.id === "shopify" && connectedAccounts.length > 0 ? (
+                            <div className="shrink-0 flex items-center gap-2">
+                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs">
+                                <span
+                                  className={cn(
+                                    "h-1.5 w-1.5 rounded-full shrink-0",
+                                    connectedAccounts[0].status === "needs_reauth"
+                                      ? "bg-amber-400"
+                                      : connectedAccounts[0].status === "error"
+                                      ? "bg-rose-500"
+                                      : "bg-emerald-500"
+                                  )}
+                                />
+                                <span className="font-mono text-[11px] font-medium text-zinc-800 dark:text-zinc-200">
+                                  {(connectedAccounts[0].metadata as any)?.shop_domain || connectedAccounts[0].providerAccountId}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setIsShopifyModalOpen(true)}
+                                className="px-2 py-1 text-[11px] font-medium rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition-colors flex items-center gap-1 cursor-pointer"
+                                title="Ver Loja & Encomendas"
+                              >
+                                <span>Ver Loja</span>
+                                <ExternalLink className="h-3 w-3 text-zinc-400" />
+                              </button>
+                            </div>
                           ) : !isConfigured ? (
                             <div className="shrink-0 flex items-center gap-1.5">
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] font-medium text-amber-500">
@@ -1021,7 +1058,7 @@ export function SettingsModal({
                                 onClick={handleConfigureClick}
                                 className="shrink-0 flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 px-2.5 py-1 text-xs font-medium text-zinc-800 dark:text-zinc-200 transition-colors shadow-2xs"
                               >
-                                <span>{item.id === "github" || item.id === "stripe" || item.id === "sentry" ? "Conectar" : (t.settings.integrationsTab.configure || "Configure")}</span>
+                                <span>{item.id === "github" || item.id === "stripe" || item.id === "sentry" || item.id === "shopify" ? "Conectar" : (t.settings.integrationsTab.configure || "Configure")}</span>
                                 <ExternalLink className="h-3 w-3 text-zinc-400" />
                               </button>
                             ) : null)
@@ -1463,6 +1500,38 @@ export function SettingsModal({
               organizationId={activeOrg?.id}
               onClose={() => {
                 setIsSentryModalOpen(false);
+                loadIntegrations();
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Shopify Store Domain Dialog */}
+      {isShopifyConnectOpen && (
+        <ShopifyConnectDialog
+          isOpen={isShopifyConnectOpen}
+          onClose={() => setIsShopifyConnectOpen(false)}
+        />
+      )}
+
+      {/* Shopify Integration View Dialog */}
+      {isShopifyModalOpen && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+          onClick={() => {
+            setIsShopifyModalOpen(false);
+            loadIntegrations();
+          }}
+        >
+          <div
+            className="w-full max-w-4xl max-h-[85vh] rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121316] p-6 shadow-2xl text-zinc-900 dark:text-zinc-100 animate-in fade-in zoom-in-95 overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ShopifyIntegrationView
+              organizationId={activeOrg?.id}
+              onClose={() => {
+                setIsShopifyModalOpen(false);
                 loadIntegrations();
               }}
             />
