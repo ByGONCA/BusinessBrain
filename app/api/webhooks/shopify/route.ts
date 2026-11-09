@@ -13,6 +13,7 @@ export async function POST(req: Request) {
   const topic = headerList.get("x-shopify-topic");
   const shopDomain = headerList.get("x-shopify-shop-domain");
   const webhookId = headerList.get("x-shopify-webhook-id") || undefined;
+  const apiVersion = headerList.get("x-shopify-api-version") || undefined;
 
   const webhookSecret = process.env.SHOPIFY_WEBHOOK_SECRET || process.env.SHOPIFY_API_SECRET;
 
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
       payload = JSON.parse(bodyText);
     }
 
-    const result = await processShopifyWebhookEvent(topic, shopDomain, payload, webhookId);
+    const result = await processShopifyWebhookEvent(topic, shopDomain, payload, webhookId, apiVersion);
 
     return NextResponse.json({
       success: true,

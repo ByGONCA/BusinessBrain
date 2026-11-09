@@ -9,6 +9,7 @@ import {
 } from "@/lib/integrations/shopify/oauth";
 import { getShopifyOAuthConfig, sanitizeShopDomain } from "@/lib/integrations/shopify/config";
 import { ShopifyClient } from "@/lib/integrations/shopify/client";
+import { syncShopifyOrganizationData } from "@/lib/integrations/shopify/sync-engine";
 import { encryptToken } from "@/lib/crypto/encryption";
 import { rateLimit, getClientIp, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
@@ -240,6 +241,14 @@ export async function GET(request: Request) {
     }
 
     revalidatePath("/dashboard");
+
+    // Asynchronously kick off initial import without blocking merchant's redirect
+    syncShopifyOrganizationData(statePayload.organizationId, { forceFull: true }).catch((syncErr) => {
+      logger.warn("Initial background Shopify synchronization reported warning", {
+        organizationId: statePayload.organizationId,
+        error: String(syncErr),
+      });
+    });
 
     const sep = redirectTarget.includes("?") ? "&" : "?";
     const res = NextResponse.redirect(`${redirectTarget}${sep}status=connected&provider=shopify`);

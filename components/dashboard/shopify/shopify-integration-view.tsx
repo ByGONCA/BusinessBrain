@@ -2,19 +2,20 @@
 
 // ==============================================================================
 // KogSync: Shopify Integration View (Catalog, Orders & Commerce Intelligence)
+// Directly backs UI from PostgreSQL local tables with real-time sync control
 // ==============================================================================
 
 import * as React from "react";
 import {
-  ExternalLink,
   RefreshCw,
   LogOut,
   ShoppingBag,
   Package,
   Layers,
   Clock,
-  ShieldCheck,
-  ChevronRight,
+  Boxes,
+  Database,
+  CheckCircle2,
   X,
   AlertTriangle,
 } from "lucide-react";
@@ -26,6 +27,7 @@ import {
 } from "@/lib/integrations/shopify/types";
 import {
   getShopifyWorkspaceSnapshotAction,
+  triggerShopifySyncAction,
   disconnectShopifyAction,
 } from "@/lib/integrations/shopify/actions";
 
@@ -46,12 +48,15 @@ export function ShopifyIntegrationView({
       products: [],
       recentOrders: [],
       totalProductsCount: 0,
+      totalVariantsCount: 0,
       totalOrdersCount: 0,
+      totalInventoryCount: 0,
+      syncStatus: "idle",
     }
   );
   const [activeTab, setActiveTab] = React.useState<"products" | "orders">("products");
   const [isLoading, setIsLoading] = React.useState(!initialSnapshot);
-  const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [isSyncing, setIsSyncing] = React.useState(false);
   const [isDisconnecting, setIsDisconnecting] = React.useState(false);
   const [showConfirmDisconnect, setShowConfirmDisconnect] = React.useState(false);
   const [feedback, setFeedback] = React.useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -66,7 +71,7 @@ export function ShopifyIntegrationView({
         setFeedback({ type: "error", text: res.error });
       }
     } catch {
-      setFeedback({ type: "error", text: "Falha ao contactar a Shopify." });
+      setFeedback({ type: "error", text: "Falha ao carregar dados do KogSync." });
     } finally {
       setIsLoading(false);
     }
@@ -78,20 +83,28 @@ export function ShopifyIntegrationView({
     }
   }, [initialSnapshot, loadSnapshot]);
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
+  const handleSyncNow = async () => {
+    setIsSyncing(true);
     setFeedback(null);
     try {
-      const res = await getShopifyWorkspaceSnapshotAction(organizationId);
-      if (res.success && res.data) {
-        setSnapshot(res.data);
-        setFeedback({ type: "success", text: "Catálogo e encomendas sincronizados." });
+      const res = await triggerShopifySyncAction(organizationId, false);
+      if (res.success && res.result) {
+        setFeedback({
+          type: "success",
+          text: `Sincronização concluída com sucesso (${res.result.itemsSynced} itens importados/atualizados).`,
+        });
+        await loadSnapshot();
       } else {
-        setFeedback({ type: "error", text: res.error || "Falha ao sincronizar." });
+        setFeedback({
+          type: "error",
+          text: res.error || "Falha ao executar sincronização com a loja.",
+        });
       }
+    } catch {
+      setFeedback({ type: "error", text: "Erro ao comunicar com o servidor de sincronização." });
     } finally {
-      setIsRefreshing(false);
-      setTimeout(() => setFeedback(null), 3500);
+      setIsSyncing(false);
+      setTimeout(() => setFeedback(null), 5000);
     }
   };
 
@@ -105,7 +118,10 @@ export function ShopifyIntegrationView({
           products: [],
           recentOrders: [],
           totalProductsCount: 0,
+          totalVariantsCount: 0,
           totalOrdersCount: 0,
+          totalInventoryCount: 0,
+          syncStatus: "idle",
         });
         setFeedback({ type: "success", text: "Shopify desligada com sucesso." });
         setShowConfirmDisconnect(false);
@@ -123,6 +139,13 @@ export function ShopifyIntegrationView({
       setIsDisconnecting(false);
     }
   };
+
+  const formattedLastSync = snapshot.lastSyncAt
+    ? new Date(snapshot.lastSyncAt).toLocaleString(undefined, {
+        dateStyle: "short",
+        timeStyle: "short",
+      })
+    : "Nunca";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -144,6 +167,12 @@ export function ShopifyIntegrationView({
                     Ligada
                   </span>
                 )}
+                {snapshot.syncStatus === "in_progress" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 rounded-md border border-blue-200 dark:border-blue-900/40">
+                    <RefreshCw className="h-2.5 w-2.5 animate-spin" />
+                    A Sincronizar
+                  </span>
+                )}
                 {snapshot.status === "needs_reauth" && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 rounded-md border border-amber-200 dark:border-amber-900/40">
                     Reautenticação Necessária
@@ -155,18 +184,20 @@ export function ShopifyIntegrationView({
                 {snapshot.connectedAccount?.currency && (
                   <span>• Moeda: {snapshot.connectedAccount.currency}</span>
                 )}
+                <span>• Última sincronização: {formattedLastSync}</span>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={handleRefresh}
-              disabled={isRefreshing || isLoading}
-              className="p-2 text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
-              title="Sincronizar dados"
+              onClick={handleSyncNow}
+              disabled={isSyncing || isLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-200 hover:text-zinc-900 dark:hover:text-white bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-xl transition-colors disabled:opacity-50"
+              title="Executar sincronização de dados agora"
             >
-              <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+              <RefreshCw className={cn("h-3.5 w-3.5", isSyncing && "animate-spin text-[#95BF47]")} />
+              <span>{isSyncing ? "A Sincronizar..." : "Sincronizar Agora"}</span>
             </button>
             <button
               onClick={() => setShowConfirmDisconnect(true)}
@@ -199,6 +230,54 @@ export function ShopifyIntegrationView({
             {feedback.text}
           </div>
         )}
+
+        {/* Sync Error Banner if applicable */}
+        {snapshot.lastSyncError && (
+          <div className="mx-6 mt-4 p-3 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-900/40 text-amber-800 dark:text-amber-200 text-xs flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-500" />
+            <span>Aviso de sincronização: {snapshot.lastSyncError}</span>
+          </div>
+        )}
+
+        {/* Persistence Metrics Bar */}
+        <div className="grid grid-cols-4 gap-3 px-6 py-3 border-b border-zinc-100 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-900/30 text-xs">
+          <div className="flex items-center gap-2">
+            <Package className="h-4 w-4 text-zinc-400" />
+            <div>
+              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Produtos no KogSync</div>
+              <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                {snapshot.totalProductsCount}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Boxes className="h-4 w-4 text-zinc-400" />
+            <div>
+              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Variantes / SKUs</div>
+              <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                {snapshot.totalVariantsCount ?? 0}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Layers className="h-4 w-4 text-zinc-400" />
+            <div>
+              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Encomendas Armazenadas</div>
+              <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                {snapshot.totalOrdersCount}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Database className="h-4 w-4 text-zinc-400" />
+            <div>
+              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Níveis de Inventário</div>
+              <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                {snapshot.totalInventoryCount ?? 0}
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Tab Selection */}
         <div className="flex items-center gap-4 px-6 pt-3 border-b border-zinc-200 dark:border-zinc-800">
@@ -233,13 +312,13 @@ export function ShopifyIntegrationView({
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-16 text-zinc-400">
               <RefreshCw className="h-6 w-6 animate-spin mb-3 text-[#95BF47]" />
-              <p className="text-xs">A carregar telemetria da loja Shopify...</p>
+              <p className="text-xs">A carregar dados persistidos da loja Shopify...</p>
             </div>
           ) : activeTab === "products" ? (
             <div className="space-y-3">
               {snapshot.products.length === 0 ? (
                 <div className="text-center py-12 text-zinc-400 text-xs">
-                  Nenhum produto encontrado nesta loja.
+                  Nenhum produto persistido no momento. Clique em &quot;Sincronizar Agora&quot; para importar o catálogo.
                 </div>
               ) : (
                 snapshot.products.map((product) => (
@@ -254,20 +333,26 @@ export function ShopifyIntegrationView({
                       <div className="flex items-center gap-2 mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                         <span className="capitalize">{product.vendor || "Geral"}</span>
                         <span>•</span>
-                        <span>{product.variants.length} variante(s)</span>
-                        <span>•</span>
                         <span>Estado: {product.status}</span>
+                        {product.tags && (
+                          <>
+                            <span>•</span>
+                            <span className="truncate max-w-[200px]">Tags: {product.tags}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">
-                      {product.variants[0] && (
+                      {product.variants[0] ? (
                         <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                           {product.variants[0].price} {snapshot.connectedAccount?.currency || "USD"}
                         </div>
+                      ) : (
+                        <div className="text-xs text-zinc-400">Sincronizado</div>
                       )}
-                      {product.variants[0]?.sku && (
+                      {product.handle && (
                         <div className="text-[11px] text-zinc-400 font-mono">
-                          SKU: {product.variants[0].sku}
+                          /{product.handle}
                         </div>
                       )}
                     </div>
@@ -279,7 +364,7 @@ export function ShopifyIntegrationView({
             <div className="space-y-3">
               {snapshot.recentOrders.length === 0 ? (
                 <div className="text-center py-12 text-zinc-400 text-xs">
-                  Nenhuma encomenda recente registada.
+                  Nenhuma encomenda importada ainda. Clique em &quot;Sincronizar Agora&quot; para importar dados de vendas.
                 </div>
               ) : (
                 snapshot.recentOrders.map((order) => (
@@ -305,7 +390,7 @@ export function ShopifyIntegrationView({
                       </div>
                       <div className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">
                         {order.line_items.length} artigo(s) •{" "}
-                        {new Date(order.created_at).toLocaleDateString()}
+                        {order.created_at ? new Date(order.created_at).toLocaleDateString() : ""}
                       </div>
                     </div>
                     <div className="text-right">
@@ -332,7 +417,7 @@ export function ShopifyIntegrationView({
                 <h4 className="text-sm font-semibold">Desligar Loja Shopify?</h4>
               </div>
               <p className="text-xs text-zinc-600 dark:text-zinc-400">
-                Esta ação revogará o acesso à loja e eliminará as credenciais de sincronização deste espaço de trabalho.
+                Esta ação revogará o acesso à loja e eliminará as credenciais de sincronização deste espaço de trabalho. Os dados já sincronizados serão mantidos em segurança.
               </p>
               <div className="flex items-center justify-end gap-2.5 pt-2">
                 <button

@@ -203,16 +203,22 @@ export class ShopifyClient {
   public async getProducts(params?: {
     limit?: number;
     status?: "active" | "archived" | "draft";
+    updatedAtMin?: string;
     pageInfo?: string;
   }): Promise<{ products: ShopifyProduct[]; nextCursor?: string }> {
     const limit = Math.min(Math.max(params?.limit || 25, 1), 50);
     const searchParams = new URLSearchParams({ limit: limit.toString() });
 
-    if (params?.status) {
-      searchParams.set("status", params.status);
-    }
     if (params?.pageInfo) {
+      // Shopify invariant: When following cursor page_info, ONLY limit and page_info are allowed
       searchParams.set("page_info", params.pageInfo);
+    } else {
+      if (params?.status) {
+        searchParams.set("status", params.status);
+      }
+      if (params?.updatedAtMin) {
+        searchParams.set("updated_at_min", params.updatedAtMin);
+      }
     }
 
     const res = await this.request<{ products: ShopifyProduct[] }>(`/products.json?${searchParams.toString()}`);
@@ -237,16 +243,20 @@ export class ShopifyClient {
   public async getOrders(params?: {
     limit?: number;
     status?: "open" | "closed" | "cancelled" | "any";
+    updatedAtMin?: string;
     pageInfo?: string;
   }): Promise<{ orders: ShopifyOrder[]; nextCursor?: string }> {
     const limit = Math.min(Math.max(params?.limit || 20, 1), 50);
-    const searchParams = new URLSearchParams({
-      limit: limit.toString(),
-      status: params?.status || "any",
-    });
+    const searchParams = new URLSearchParams({ limit: limit.toString() });
 
     if (params?.pageInfo) {
+      // Shopify invariant: When following cursor page_info, ONLY limit and page_info are allowed
       searchParams.set("page_info", params.pageInfo);
+    } else {
+      searchParams.set("status", params?.status || "any");
+      if (params?.updatedAtMin) {
+        searchParams.set("updated_at_min", params.updatedAtMin);
+      }
     }
 
     const res = await this.request<{ orders: ShopifyOrder[] }>(`/orders.json?${searchParams.toString()}`);

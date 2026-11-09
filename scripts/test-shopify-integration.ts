@@ -30,6 +30,7 @@ import {
   getShopifyOAuthConfig,
   SHOPIFY_DEFAULT_SCOPES,
   SHOPIFY_DOMAIN_REGEX,
+  SHOPIFY_DEFAULT_API_VERSION,
 } from "../lib/integrations/shopify/config";
 import {
   createShopifyOAuthState,
@@ -101,6 +102,7 @@ async function runTestSuite() {
   // TEST 2: OAuth URL Generation with Strict Parameters
   // ---------------------------------------------------------------------------
   test("OAuth authorization URL generation with strict parameters", () => {
+    assert.strictEqual(SHOPIFY_DEFAULT_API_VERSION, "2026-10", "Shopify API default version must be 2026-10");
     process.env.SHOPIFY_API_KEY = "test-shopify-api-key-123";
     process.env.SHOPIFY_API_SECRET = "test-shopify-api-secret-456";
     process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
@@ -259,8 +261,8 @@ async function runTestSuite() {
   // ---------------------------------------------------------------------------
   test("Strict SSRF protection: only *.myshopify.com is accepted", () => {
     // Valid hosts
-    assert(isAllowedShopifyHost("https://nordic-store.myshopify.com/admin/api/2025-01/shop.json"));
-    assert(isAllowedShopifyHost("https://brand-store-12.myshopify.com/admin/api/2025-01/products.json"));
+    assert(isAllowedShopifyHost("https://nordic-store.myshopify.com/admin/api/2026-10/shop.json"));
+    assert(isAllowedShopifyHost("https://brand-store-12.myshopify.com/admin/api/2026-10/products.json"));
 
     // Malicious SSRF hosts must be blocked
     assert(!isAllowedShopifyHost("http://nordic-store.myshopify.com"), "HTTP protocol blocked");
@@ -278,7 +280,7 @@ async function runTestSuite() {
   // ---------------------------------------------------------------------------
   test("Cursor pagination header parser extracting next & previous page_info", () => {
     const sampleLinkHeader =
-      '<https://my-store.myshopify.com/admin/api/2025-01/products.json?limit=50&page_info=eyJsYXN0X2lkIjoxfQ>; rel="next", <https://my-store.myshopify.com/admin/api/2025-01/products.json?limit=50&page_info=eyJsYXN0X2lkIjowfQ>; rel="previous"';
+      '<https://my-store.myshopify.com/admin/api/2026-10/products.json?limit=50&page_info=eyJsYXN0X2lkIjoxfQ>; rel="next", <https://my-store.myshopify.com/admin/api/2026-10/products.json?limit=50&page_info=eyJsYXN0X2lkIjowfQ>; rel="previous"';
 
     const { next, previous } = ShopifyClient.parsePaginationLink(sampleLinkHeader);
     assert.strictEqual(next, "eyJsYXN0X2lkIjoxfQ", "Next cursor must match Link header value");

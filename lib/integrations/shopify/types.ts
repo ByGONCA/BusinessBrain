@@ -146,8 +146,35 @@ export interface ShopifyWorkspaceSnapshot {
   products: ShopifyProduct[];
   recentOrders: ShopifyOrder[];
   totalProductsCount: number;
+  totalVariantsCount?: number;
   totalOrdersCount: number;
+  totalInventoryCount?: number;
   lastSyncAt?: string;
+  syncStatus?: "idle" | "in_progress" | "completed" | "failed";
+  lastSyncError?: string;
+}
+
+export interface ShopifySyncJobResult {
+  success: boolean;
+  syncType: "initial_import" | "reconciliation" | "webhook" | "manual";
+  itemsSynced: number;
+  itemsFailed: number;
+  durationMs: number;
+  details: {
+    products?: number;
+    variants?: number;
+    locations?: number;
+    inventoryLevels?: number;
+    orders?: number;
+    errors?: string[];
+  };
+  errorMessage?: string;
+}
+
+export interface ShopifyDataSyncOptions {
+  updatedAtMin?: string;
+  forceFull?: boolean;
+  limit?: number;
 }
 
 export interface ShopifyTokenExchangeResult {

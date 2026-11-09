@@ -4,7 +4,7 @@
 
 import { getOAuthCallbackUrl } from "@/lib/security/redirects";
 
-export const SHOPIFY_DEFAULT_API_VERSION = "2025-01";
+export const SHOPIFY_DEFAULT_API_VERSION = "2026-10";
 
 /**
  * Least-privilege read-only scopes strictly required for executive catalog,
