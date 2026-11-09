@@ -210,3 +210,4 @@ export class TenantMemoryCache<TDefault = unknown> {
 // Global singletons for API-First integrations
 export const shopifyCache = new TenantMemoryCache({ ttlMs: 60 * 1000, maxEntries: 500 });
 export const sentryCache = new TenantMemoryCache({ ttlMs: 60 * 1000, maxEntries: 500 });
+export const linearCache = new TenantMemoryCache({ ttlMs: 60 * 1000, maxEntries: 500 });

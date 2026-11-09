@@ -1,5 +1,5 @@
 // ==============================================================================
-// KogSync: Multi-Tenant Sentry API Client (SSRF-Protected, Auto-Refresh, Retry-After)
+// KogSync: Multi-Tenant Sentry API Client (SSRF-Protected, Auto-Refresh, Rate-Limit Safe)
 // ==============================================================================
 
 import { createClient } from "@/lib/supabase/server";
@@ -14,6 +14,12 @@ import {
   SentryIntegrationMetadata,
 } from "./types";
 import { logger } from "@/lib/security/logger";
+import {
+  executeWithRateLimitRetry,
+  parseRetryAfterHeader,
+  ProviderRateLimitError,
+  RateLimitMetadata,
+} from "../rate-limiting";
 
 const ALLOWED_HOSTS = new Set([
   "sentry.io",
@@ -34,11 +40,59 @@ export function isAllowedSentryHost(urlStr: string): boolean {
   }
 }
 
+/**
+ * Parses Sentry rate limit headers.
+ */
+export function parseSentryRateLimitHeaders(headers: Headers): {
+  retryAfterSeconds: number;
+  remaining?: number;
+  resetEpochSeconds?: number;
+  categories?: string;
+} {
+  const retryAfterHeader = headers.get("Retry-After");
+  const remainingHeader = headers.get("X-Sentry-Rate-Limit-Remaining");
+  const resetHeader = headers.get("X-Sentry-Rate-Limit-Reset");
+  const categories = headers.get("X-Sentry-Rate-Limit-Categories") || undefined;
+
+  let retryAfterSeconds = parseRetryAfterHeader(retryAfterHeader, 2);
+
+  let resetEpochSeconds: number | undefined;
+  if (resetHeader) {
+    const parsedReset = parseInt(resetHeader, 10);
+    if (!Number.isNaN(parsedReset)) {
+      if (parsedReset > 1000000000) {
+        // Unix epoch timestamp
+        resetEpochSeconds = parsedReset;
+        const diff = Math.ceil(parsedReset - Date.now() / 1000);
+        if (!retryAfterHeader && diff > 0) {
+          retryAfterSeconds = diff;
+        }
+      } else {
+        // Delta seconds
+        if (!retryAfterHeader && parsedReset > 0) {
+          retryAfterSeconds = parsedReset;
+        }
+      }
+    }
+  }
+
+  const remaining = remainingHeader ? parseInt(remainingHeader, 10) : undefined;
+
+  return {
+    retryAfterSeconds,
+    remaining: Number.isNaN(remaining) ? undefined : remaining,
+    resetEpochSeconds,
+    categories,
+  };
+}
+
 export class SentryApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
-    public readonly retryAfterSeconds?: number
+    public readonly retryAfterSeconds?: number,
+    public readonly category?: string,
+    public readonly remaining?: number
   ) {
     super(message);
     this.name = "SentryApiError";
@@ -51,6 +105,10 @@ export class SentryClient {
     private accessToken: string,
     private readonly regionUrl: string = SENTRY_DEFAULT_API_BASE
   ) {}
+
+  public getOrganizationId(): string {
+    return this.organizationId;
+  }
 
   /**
    * Factory method: constructs an authenticated SentryClient for a given KogSync organization.
@@ -111,7 +169,8 @@ export class SentryClient {
   }
 
   /**
-   * SSRF-safe authenticated HTTP fetch with timeout and rate-limit handling.
+   * SSRF-safe authenticated HTTP fetch with exponential backoff, full jitter,
+   * rate-limit header parsing, and serverless budget protection.
    */
   private async request<T>(path: string, options: RequestInit = {}): Promise<{ data: T; nextCursor?: string }> {
     const fullUrl = path.startsWith("http") ? path : `${this.regionUrl}${path.startsWith("/") ? path : `/${path}`}`;
@@ -120,48 +179,81 @@ export class SentryClient {
       throw new SentryApiError("Forbidden: Target URL is not an authorized Sentry endpoint.", 403);
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000); // 12-second timeout
+    const method = (options.method || "GET").toUpperCase();
+    const isIdempotent = method === "GET" || method === "HEAD";
 
     try {
-      const response = await fetch(fullUrl, {
-        ...options,
-        signal: controller.signal,
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.accessToken}`,
-          "User-Agent": "KogSync-Enterprise/1.0",
-          ...(options.headers || {}),
+      const { data, response } = await executeWithRateLimitRetry<T>({
+        provider: "sentry",
+        organizationId: this.organizationId,
+        operationName: path.split("?")[0],
+        isIdempotent,
+        execute: async (signal) => {
+          const response = await fetch(fullUrl, {
+            ...options,
+            signal,
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${this.accessToken}`,
+              "User-Agent": "KogSync-Enterprise/1.0",
+              ...(options.headers || {}),
+            },
+          });
+
+          // Handle HTTP 401 Unauthorized (response.status === 401)
+          if (response.status === 401) {
+            throw new SentryApiError("Sentry authorization token expired or revoked.", 401);
+          }
+
+          return response;
+        },
+        parseRateLimit: (response: Response): RateLimitMetadata => {
+          // Handle HTTP 429 Rate Limiting (response.status === 429)
+          const retryAfterHeader = response.headers.get("Retry-After");
+          const parsed = parseSentryRateLimitHeaders(response.headers);
+          return {
+            provider: "sentry",
+            retryAfterSeconds: parsed.retryAfterSeconds,
+            remaining: parsed.remaining,
+            resetEpochSeconds: parsed.resetEpochSeconds,
+            category: parsed.categories,
+          };
         },
       });
-
-      // Handle 429 Rate Limiting
-      if (response.status === 429) {
-        const retryAfterHeader = response.headers.get("Retry-After");
-        const retryAfter = retryAfterHeader ? parseInt(retryAfterHeader, 10) : 60;
-        throw new SentryApiError(`Sentry API rate limit exceeded. Retry after ${retryAfter}s.`, 429, retryAfter);
-      }
-
-      // Handle 401 Unauthorized (expired token)
-      if (response.status === 401) {
-        throw new SentryApiError("Sentry authorization token expired or revoked.", 401);
-      }
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new SentryApiError(`Sentry API request failed (${response.status}): ${errorText}`, response.status);
-      }
 
       // Extract pagination cursor from Sentry Link header if present:
       // Link: <url>; rel="next"; results="true"; cursor="100:0:0"
       const linkHeader = response.headers.get("Link");
       const nextCursor = SentryClient.parseNextCursor(linkHeader) || undefined;
 
-      const data = (await response.json()) as T;
       return { data, nextCursor };
-    } finally {
-      clearTimeout(timeout);
+    } catch (err: unknown) {
+      if (err instanceof ProviderRateLimitError) {
+        throw new SentryApiError(
+          `Sentry API rate limit exceeded. Retry after ${err.retryAfterSeconds}s.`,
+          429,
+          err.retryAfterSeconds,
+          err.remaining !== undefined ? String(err.remaining) : undefined,
+          err.remaining
+        );
+      }
+      if (err instanceof SentryApiError) {
+        throw err;
+      }
+
+      const msg = (err as Error)?.message || String(err);
+      if (msg.includes("401")) {
+        throw new SentryApiError("Sentry authorization token expired or revoked.", 401);
+      }
+      if (msg.includes("404")) {
+        throw new SentryApiError("Sentry resource not found.", 404);
+      }
+      if (msg.includes("403")) {
+        throw new SentryApiError("Sentry access forbidden or insufficient permissions.", 403);
+      }
+
+      throw new SentryApiError(msg, 500);
     }
   }
 
@@ -201,32 +293,24 @@ export class SentryClient {
 
     if (options.query) {
       params.set("query", options.query);
-    } else {
-      // Default query: unresolved issues sorted by last seen
-      params.set("query", "is:unresolved");
     }
-
     if (options.cursor) {
       params.set("cursor", options.cursor);
     }
 
-    let endpoint: string;
-    if (options.projectSlug) {
-      const cleanProject = encodeURIComponent(options.projectSlug.trim());
-      endpoint = `/projects/${cleanOrg}/${cleanProject}/issues/?${params.toString()}`;
-    } else {
-      endpoint = `/organizations/${cleanOrg}/issues/?${params.toString()}`;
-    }
+    const endpoint = options.projectSlug
+      ? `/projects/${cleanOrg}/${encodeURIComponent(options.projectSlug.trim())}/issues/?${params.toString()}`
+      : `/organizations/${cleanOrg}/issues/?${params.toString()}`;
 
     const res = await this.request<SentryIssue[]>(endpoint);
     return {
-      issues: res.data,
+      issues: res.data || [],
       nextCursor: res.nextCursor,
     };
   }
 
   /**
-   * Retrieves single issue details.
+   * Retrieves single issue details with latest events and tags.
    */
   public async getIssue(issueId: string): Promise<SentryIssue> {
     const cleanId = encodeURIComponent(issueId.trim());
@@ -248,5 +332,15 @@ export class SentryClient {
       }
       throw err;
     }
+  }
+
+  /**
+   * Retrieves full details for an individual event within an issue.
+   */
+  public async getEventDetail(issueId: string, eventId: string): Promise<SentryEventDetail> {
+    const cleanIssue = encodeURIComponent(issueId.trim());
+    const cleanEvent = encodeURIComponent(eventId.trim());
+    const res = await this.request<SentryEventDetail>(`/issues/${cleanIssue}/events/${cleanEvent}/`);
+    return res.data;
   }
 }

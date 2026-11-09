@@ -14,6 +14,12 @@ import {
   ShopifyIntegrationMetadata,
 } from "./types";
 import { logger } from "@/lib/security/logger";
+import {
+  executeWithRateLimitRetry,
+  parseRetryAfterHeader,
+  ProviderRateLimitError,
+  RateLimitMetadata,
+} from "../rate-limiting";
 
 /**
  * Validates target endpoint host to prevent Server-Side Request Forgery (SSRF).
@@ -33,15 +39,58 @@ export function isAllowedShopifyHost(urlStr: string): boolean {
   }
 }
 
+/**
+ * Parses Shopify leak bucket header: `X-Shopify-Shop-Api-Call-Limit`
+ * Format: "38/40" -> { current: 38, max: 40 }
+ */
+export function parseShopifyCallLimit(header: string | null | undefined): { current: number; max: number } | null {
+  if (!header) return null;
+  const parts = header.trim().split("/");
+  if (parts.length === 2) {
+    const current = parseInt(parts[0], 10);
+    const max = parseInt(parts[1], 10);
+    if (!Number.isNaN(current) && !Number.isNaN(max)) {
+      return { current, max };
+    }
+  }
+  return null;
+}
+
 export class ShopifyApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
-    public readonly retryAfterSeconds?: number
+    public readonly retryAfterSeconds?: number,
+    public readonly callLimit?: { current: number; max: number } | null
   ) {
     super(message);
     this.name = "ShopifyApiError";
   }
+}
+
+export interface ShopifyGraphQLThrottleStatus {
+  maximumAvailable: number;
+  currentlyAvailable: number;
+  restoreRate: number;
+}
+
+export interface ShopifyGraphQLResponse<T> {
+  data?: T;
+  errors?: Array<{
+    message: string;
+    locations?: Array<{ line: number; column: number }>;
+    extensions?: {
+      code?: string;
+      [key: string]: unknown;
+    };
+  }>;
+  extensions?: {
+    cost?: {
+      requestedQueryCost: number;
+      actualQueryCost: number;
+      throttleStatus: ShopifyGraphQLThrottleStatus;
+    };
+  };
 }
 
 export class ShopifyClient {
@@ -51,6 +100,14 @@ export class ShopifyClient {
     private readonly accessToken: string,
     private readonly apiVersion: string = SHOPIFY_DEFAULT_API_VERSION
   ) {}
+
+  public getShopDomain(): string {
+    return this.shopDomain;
+  }
+
+  public getOrganizationId(): string {
+    return this.organizationId;
+  }
 
   /**
    * Factory method: constructs an authenticated ShopifyClient for a given KogSync organization.
@@ -128,7 +185,8 @@ export class ShopifyClient {
   }
 
   /**
-   * SSRF-safe authenticated HTTP fetch with timeout and rate-limit handling.
+   * SSRF-safe authenticated HTTP fetch with exponential backoff, full jitter,
+   * call-limit parsing, and serverless budget protection.
    */
   private async request<T>(
     path: string,
@@ -142,50 +200,170 @@ export class ShopifyClient {
       throw new ShopifyApiError("Forbidden: Target URL is not an authorized Shopify endpoint.", 403);
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000); // 12-second timeout
+    const method = (options.method || "GET").toUpperCase();
+    const isIdempotent = method === "GET" || method === "HEAD";
 
     try {
-      const response = await fetch(fullUrl, {
-        ...options,
-        signal: controller.signal,
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": this.accessToken,
-          "User-Agent": "KogSync-Enterprise/1.0",
-          ...(options.headers || {}),
+      const { data, response } = await executeWithRateLimitRetry<T>({
+        provider: "shopify",
+        organizationId: this.organizationId,
+        operationName: path.split("?")[0],
+        isIdempotent,
+        execute: async (signal) => {
+          const response = await fetch(fullUrl, {
+            ...options,
+            signal,
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              "X-Shopify-Access-Token": this.accessToken,
+              "User-Agent": "KogSync-Enterprise/1.0",
+              ...(options.headers || {}),
+            },
+          });
+
+          // Handle 401 Unauthorized (response.status === 401)
+          if (response.status === 401) {
+            throw new ShopifyApiError("Shopify authorization token expired or revoked.", 401);
+          }
+
+          return response;
+        },
+        parseRateLimit: (response: Response): RateLimitMetadata => {
+          // Handle 429 Rate Limiting (response.status === 429)
+          const retryAfterSeconds = parseRetryAfterHeader(response.headers.get("Retry-After"), 2);
+          const callLimit = parseShopifyCallLimit(response.headers.get("X-Shopify-Shop-Api-Call-Limit"));
+          return {
+            provider: "shopify",
+            retryAfterSeconds,
+            remaining: callLimit ? callLimit.max - callLimit.current : undefined,
+            limit: callLimit?.max,
+          };
+        },
+        onSuccess: async (res) => {
+          // Monitor call limit usage for proactive observability
+          const callLimit = parseShopifyCallLimit(res.headers.get("X-Shopify-Shop-Api-Call-Limit"));
+          if (callLimit && callLimit.current >= callLimit.max - 2) {
+            logger.warn("Shopify API call limit near exhaustion", {
+              shop: this.shopDomain,
+              organizationId: this.organizationId,
+              callLimit,
+            });
+          }
+          return (await res.json()) as T;
         },
       });
-
-      // Handle 429 Rate Limiting
-      if (response.status === 429) {
-        const retryAfterHeader = response.headers.get("Retry-After");
-        const retryAfter = retryAfterHeader ? parseInt(retryAfterHeader, 10) : 2;
-        throw new ShopifyApiError(
-          `Shopify API rate limit exceeded. Retry after ${retryAfter}s.`,
-          429,
-          retryAfter
-        );
-      }
-
-      // Handle 401 Unauthorized (token revoked or uninstalled)
-      if (response.status === 401) {
-        throw new ShopifyApiError("Shopify authorization token expired or revoked.", 401);
-      }
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new ShopifyApiError(`Shopify API request failed (${response.status}): ${errorText}`, response.status);
-      }
 
       const linkHeader = response.headers.get("Link");
       const { next, previous } = ShopifyClient.parsePaginationLink(linkHeader);
 
-      const data = (await response.json()) as T;
       return { data, nextCursor: next, prevCursor: previous };
-    } finally {
-      clearTimeout(timeout);
+    } catch (err: unknown) {
+      if (err instanceof ProviderRateLimitError) {
+        throw new ShopifyApiError(
+          `Shopify API rate limit exceeded. Retry after ${err.retryAfterSeconds}s.`,
+          429,
+          err.retryAfterSeconds
+        );
+      }
+      if (err instanceof ShopifyApiError) {
+        throw err;
+      }
+
+      const msg = (err as Error)?.message || String(err);
+      if (msg.includes("401")) {
+        throw new ShopifyApiError("Shopify authorization token expired or revoked.", 401);
+      }
+      if (msg.includes("404")) {
+        throw new ShopifyApiError("Shopify resource not found.", 404);
+      }
+      if (msg.includes("403")) {
+        throw new ShopifyApiError("Shopify access forbidden or insufficient permissions.", 403);
+      }
+
+      throw new ShopifyApiError(msg, 500);
+    }
+  }
+
+  /**
+   * Executes a GraphQL Admin API query with cost analysis and throttling recovery.
+   */
+  public async graphql<T>(
+    query: string,
+    variables?: Record<string, unknown>
+  ): Promise<ShopifyGraphQLResponse<T>> {
+    const fullUrl = `https://${this.shopDomain}/admin/api/${this.apiVersion}/graphql.json`;
+
+    if (!isAllowedShopifyHost(fullUrl)) {
+      throw new ShopifyApiError("Forbidden: Target URL is not an authorized Shopify endpoint.", 403);
+    }
+
+    const isMutation = query.trim().startsWith("mutation");
+
+    try {
+      const { data } = await executeWithRateLimitRetry<ShopifyGraphQLResponse<T>>({
+        provider: "shopify",
+        organizationId: this.organizationId,
+        operationName: "graphql",
+        isIdempotent: !isMutation,
+        execute: async (signal) => {
+          return await fetch(fullUrl, {
+            method: "POST",
+            signal,
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              "X-Shopify-Access-Token": this.accessToken,
+              "User-Agent": "KogSync-Enterprise/1.0",
+            },
+            body: JSON.stringify({ query, variables }),
+          });
+        },
+        parseRateLimit: (res: Response): RateLimitMetadata => {
+          const retryAfterSeconds = parseRetryAfterHeader(res.headers.get("Retry-After"), 2);
+          return {
+            provider: "shopify",
+            retryAfterSeconds,
+            isGraphQL: true,
+          };
+        },
+        onSuccess: async (res) => {
+          const json = (await res.json()) as ShopifyGraphQLResponse<T>;
+
+          // Check for GraphQL-level throttling in errors
+          const isThrottled = json.errors?.some(
+            (e) => e.extensions?.code === "THROTTLED" || e.message.toLowerCase().includes("throttled")
+          );
+
+          if (isThrottled) {
+            const throttleStatus = json.extensions?.cost?.throttleStatus;
+            const restoreRate = throttleStatus?.restoreRate || 50;
+            const requestedCost = json.extensions?.cost?.requestedQueryCost || 100;
+            const available = throttleStatus?.currentlyAvailable || 0;
+            const retryAfter = Math.max(Math.ceil((requestedCost - available) / restoreRate), 2);
+
+            throw new ProviderRateLimitError({
+              provider: "shopify",
+              retryAfterSeconds: retryAfter,
+              isGraphQL: true,
+              throttleStatus,
+            });
+          }
+
+          return json;
+        },
+      });
+
+      return data;
+    } catch (err: unknown) {
+      if (err instanceof ProviderRateLimitError) {
+        throw new ShopifyApiError(
+          `Shopify GraphQL rate limit exceeded. Retry after ${err.retryAfterSeconds}s.`,
+          429,
+          err.retryAfterSeconds
+        );
+      }
+      throw err;
     }
   }
 

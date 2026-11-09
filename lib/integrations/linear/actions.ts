@@ -12,9 +12,10 @@ import { isValidUuid } from "@/lib/security/authorization";
 import { logger } from "@/lib/security/logger";
 import { hasPermission } from "@/lib/permissions/resolver";
 import { PermissionKey } from "@/lib/permissions/registry";
-import { getDecryptedLinearTokens, LinearAuthExpiredError } from "./graphql-client";
+import { getDecryptedLinearTokens, LinearAuthExpiredError, LinearRateLimitError } from "./graphql-client";
 import { getLinearIntelligenceSnapshot, getNormalizedLinearIssues } from "./provider";
 import { revokeLinearToken } from "./oauth";
+import { linearCache } from "@/lib/integrations/cache";
 import {
   LinearIntelligenceSnapshot,
   NormalizedLinearIssue,
@@ -99,6 +100,13 @@ export async function getLinearIntelligenceSnapshotAction(
 
     return { success: true, data: snapshot };
   } catch (err: any) {
+    if (err instanceof LinearRateLimitError) {
+      return {
+        success: false,
+        error: `Linear API rate limit reached. Please retry in ${err.retryAfterSeconds || 2}s.`,
+      };
+    }
+
     if (err instanceof LinearAuthExpiredError || err?.message?.includes("401")) {
       logger.warn("Linear session expired during intelligence snapshot", { error: err.message });
       return {
@@ -138,6 +146,13 @@ export async function getLinearDataPreviewAction(
       endCursor: result.endCursor,
     };
   } catch (err: any) {
+    if (err instanceof LinearRateLimitError) {
+      return {
+        success: false,
+        error: `Linear API rate limit reached. Please retry in ${err.retryAfterSeconds || 2}s.`,
+      };
+    }
+
     if (err instanceof LinearAuthExpiredError || err?.message?.includes("401")) {
       return { success: false, authExpired: true, error: "Linear authentication expired." };
     }
@@ -172,6 +187,7 @@ export async function disconnectLinearAction(
       .eq("organization_id", targetOrgId)
       .eq("provider", "linear");
 
+    linearCache.invalidateTenant(targetOrgId, "linear");
     revalidatePath("/dashboard/linear");
     return { success: true };
   } catch (err: any) {

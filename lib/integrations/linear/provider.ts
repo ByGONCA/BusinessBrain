@@ -28,6 +28,7 @@ import {
   ProviderReadinessLevel,
 } from "./types";
 import { getDecryptedLinearTokens } from "./graphql-client";
+import { linearCache } from "@/lib/integrations/cache";
 import { logger } from "@/lib/security/logger";
 
 // ------------------------------------------------------------------------------
@@ -269,89 +270,98 @@ export async function getLinearIntelligenceSnapshot(
     return null;
   }
 
-  const timestamp = new Date().toISOString();
+  return await linearCache.coalesce<LinearIntelligenceSnapshot>(
+    organizationId,
+    "linear",
+    "snapshot",
+    "main",
+    async () => {
+      const timestamp = new Date().toISOString();
 
-  try {
-    const [viewer, issuesRes, projects, cycles, teams] = await Promise.all([
-      fetchLinearViewer(organizationId),
-      fetchLinearIssues(organizationId, { first: 50 }),
-      fetchLinearProjects(organizationId, 20),
-      fetchLinearCycles(organizationId, 10),
-      fetchLinearTeams(organizationId, 20),
-    ]);
+      try {
+        const [viewer, issuesRes, projects, cycles, teams] = await Promise.all([
+          fetchLinearViewer(organizationId),
+          fetchLinearIssues(organizationId, { first: 50 }),
+          fetchLinearProjects(organizationId, 20),
+          fetchLinearCycles(organizationId, 10),
+          fetchLinearTeams(organizationId, 20),
+        ]);
 
-    const rawIssues = issuesRes.nodes;
-    const normalizedIssues = rawIssues.map(normalizeLinearIssue);
-    const normalizedProjects = projects.map(normalizeLinearProject);
-    const normalizedCycles = cycles.map(normalizeLinearCycle);
+        const rawIssues = issuesRes.nodes;
+        const normalizedIssues = rawIssues.map(normalizeLinearIssue);
+        const normalizedProjects = projects.map(normalizeLinearProject);
+        const normalizedCycles = cycles.map(normalizeLinearCycle);
 
-    // Identify active cycle
-    const now = Date.now();
-    const rawActiveCycle =
-      cycles.find((c) => {
-        const s = new Date(c.startsAt).getTime();
-        const e = new Date(c.endsAt).getTime();
-        return now >= s && now <= e;
-      }) || null;
+        // Identify active cycle
+        const now = Date.now();
+        const rawActiveCycle =
+          cycles.find((c) => {
+            const s = new Date(c.startsAt).getTime();
+            const e = new Date(c.endsAt).getTime();
+            return now >= s && now <= e;
+          }) || null;
 
-    const activeCycle = rawActiveCycle ? normalizeLinearCycle(rawActiveCycle) : null;
+        const activeCycle = rawActiveCycle ? normalizeLinearCycle(rawActiveCycle) : null;
 
-    // Filter issues in active cycle for cycle completion calculation
-    const cycleIssues = rawActiveCycle
-      ? rawIssues.filter((i) => i.cycle?.id === rawActiveCycle.id)
-      : [];
+        // Filter issues in active cycle for cycle completion calculation
+        const cycleIssues = rawActiveCycle
+          ? rawIssues.filter((i) => i.cycle?.id === rawActiveCycle.id)
+          : [];
 
-    const pastCycles = cycles.filter((c) => {
-      const e = new Date(c.endsAt).getTime();
-      return Boolean(c.completedAt) || e < now;
-    });
+        const pastCycles = cycles.filter((c) => {
+          const e = new Date(c.endsAt).getTime();
+          return Boolean(c.completedAt) || e < now;
+        });
 
-    const velocityMetrics = calculateVelocityMetrics(rawActiveCycle, cycleIssues, pastCycles);
+        const velocityMetrics = calculateVelocityMetrics(rawActiveCycle, cycleIssues, pastCycles);
 
-    const { readiness, reason } = determineProviderReadiness({
-      hasValidTokens: true,
-      apiAccessible: true,
-      issuesCount: normalizedIssues.length,
-      teamsCount: teams.length,
-    });
+        const { readiness, reason } = determineProviderReadiness({
+          hasValidTokens: true,
+          apiAccessible: true,
+          issuesCount: normalizedIssues.length,
+          teamsCount: teams.length,
+        });
 
-    const providerHealth: LinearProviderHealth = {
-      connected: true,
-      apiAccessible: true,
-      dataRetrieved: true,
-      readiness,
-      readinessReason: reason,
-      lastRetrievedAt: timestamp,
-      itemCounts: {
-        issues: normalizedIssues.length,
-        projects: normalizedProjects.length,
-        cycles: normalizedCycles.length,
-        teams: teams.length,
-      },
-    };
+        const providerHealth: LinearProviderHealth = {
+          connected: true,
+          apiAccessible: true,
+          dataRetrieved: true,
+          readiness,
+          readinessReason: reason,
+          lastRetrievedAt: timestamp,
+          itemCounts: {
+            issues: normalizedIssues.length,
+            projects: normalizedProjects.length,
+            cycles: normalizedCycles.length,
+            teams: teams.length,
+          },
+        };
 
-    return {
-      providerHealth,
-      velocityMetrics,
-      workspace: {
-        id: viewer.organization.id,
-        name: viewer.organization.name,
-        urlKey: viewer.organization.urlKey,
-      },
-      connectedAccount: {
-        id: viewer.id,
-        name: viewer.name,
-        email: viewer.email,
-        avatarUrl: viewer.avatarUrl,
-      },
-      activeCycle,
-      activeProjects: normalizedProjects.filter((p) => p.state === "started" || p.state === "planned"),
-      recentIssuesSample: normalizedIssues.slice(0, 5),
-    };
-  } catch (err) {
-    logger.error("Failed to generate Linear intelligence snapshot", err, { organizationId });
-    throw err;
-  }
+        return {
+          providerHealth,
+          velocityMetrics,
+          workspace: {
+            id: viewer.organization.id,
+            name: viewer.organization.name,
+            urlKey: viewer.organization.urlKey,
+          },
+          connectedAccount: {
+            id: viewer.id,
+            name: viewer.name,
+            email: viewer.email,
+            avatarUrl: viewer.avatarUrl,
+          },
+          activeCycle,
+          activeProjects: normalizedProjects.filter((p) => p.state === "started" || p.state === "planned"),
+          recentIssuesSample: normalizedIssues.slice(0, 5),
+        };
+      } catch (err) {
+        logger.error("Failed to generate Linear intelligence snapshot", err, { organizationId });
+        throw err;
+      }
+    },
+    60 * 1000 // 60s in-memory TTL
+  );
 }
 
 /**

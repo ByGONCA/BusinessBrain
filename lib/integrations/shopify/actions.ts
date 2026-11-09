@@ -127,9 +127,18 @@ export async function getShopifyWorkspaceSnapshotAction(
           const client = await ShopifyClient.forOrganization(organizationId);
 
           const [shop, productsRes, ordersRes] = await Promise.all([
-            client.getShop().catch(() => null),
-            client.getProducts({ limit: 15 }).catch(() => ({ products: [] })),
-            client.getOrders({ limit: 10 }).catch(() => ({ orders: [] })),
+            client.getShop().catch((e) => {
+              if (e instanceof ShopifyApiError && e.status === 429) throw e;
+              return null;
+            }),
+            client.getProducts({ limit: 15 }).catch((e) => {
+              if (e instanceof ShopifyApiError && e.status === 429) throw e;
+              return { products: [] };
+            }),
+            client.getOrders({ limit: 10 }).catch((e) => {
+              if (e instanceof ShopifyApiError && e.status === 429) throw e;
+              return { orders: [] };
+            }),
           ]);
 
           const products = productsRes.products || [];
@@ -157,6 +166,13 @@ export async function getShopifyWorkspaceSnapshotAction(
 
       return { success: true, data: snapshot };
     } catch (err: unknown) {
+      if (err instanceof ShopifyApiError && err.status === 429) {
+        return {
+          success: false,
+          error: `Shopify API rate limit reached. Please retry in ${err.retryAfterSeconds || 2}s.`,
+        };
+      }
+
       if (err instanceof ShopifyApiError && (err.status === 401 || err.status === 403)) {
         await supabase
           .from("organization_integrations")

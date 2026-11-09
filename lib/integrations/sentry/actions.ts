@@ -167,6 +167,13 @@ export async function getSentryWorkspaceSnapshotAction(
 
       return { success: true, data: snapshot };
     } catch (err: unknown) {
+      if (err instanceof SentryApiError && err.status === 429) {
+        return {
+          success: false,
+          error: `Sentry API rate limit reached. Please retry in ${err.retryAfterSeconds || 2}s.`,
+        };
+      }
+
       if (err instanceof SentryApiError && (err.status === 401 || err.status === 403)) {
         await supabase
           .from("organization_integrations")
