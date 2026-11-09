@@ -1,7 +1,9 @@
 "use server";
 
 // ==============================================================================
-// KogSync: Shopify Integration Server Actions (Multi-Tenant DB-Backed & UI)
+// KogSync: Shopify Integration Server Actions (API-First, In-Memory Cached)
+// Directly queries Shopify Admin API on demand with multi-tenant caching & coalescing
+// Zero permanent database replication of external catalog, inventory or order data
 // ==============================================================================
 
 import { revalidatePath } from "next/cache";
@@ -10,13 +12,12 @@ import { getActiveOrganization } from "@/lib/organizations/queries";
 import { hasPermission } from "@/lib/permissions/resolver";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { ShopifyClient, ShopifyApiError } from "./client";
-import { syncShopifyOrganizationData } from "./sync-engine";
+import { shopifyCache } from "../cache";
 import {
   ShopifyWorkspaceSnapshot,
   ShopifyProduct,
   ShopifyOrder,
   ShopifyIntegrationMetadata,
-  ShopifySyncJobResult,
 } from "./types";
 import { logger } from "@/lib/security/logger";
 
@@ -59,8 +60,9 @@ async function resolveAuthorizedShopifyOrg(
 }
 
 /**
- * Retrieves the operational snapshot for Shopify in the active workspace.
- * Queries KogSync local PostgreSQL tables for instantaneous, resilient access (ZERO tokens).
+ * Retrieves the operational snapshot directly from the Shopify Admin API.
+ * Uses tenant-isolated in-memory caching with single-flight request coalescing.
+ * Guarantees ZERO tokens returned to client and ZERO permanent DB duplication.
  */
 export async function getShopifyWorkspaceSnapshotAction(
   targetOrgId?: string
@@ -85,10 +87,7 @@ export async function getShopifyWorkspaceSnapshotAction(
           products: [],
           recentOrders: [],
           totalProductsCount: 0,
-          totalVariantsCount: 0,
           totalOrdersCount: 0,
-          totalInventoryCount: 0,
-          syncStatus: "idle",
         },
       };
     }
@@ -111,137 +110,95 @@ export async function getShopifyWorkspaceSnapshotAction(
           products: [],
           recentOrders: [],
           totalProductsCount: 0,
-          totalVariantsCount: 0,
           totalOrdersCount: 0,
-          totalInventoryCount: 0,
-          syncStatus: "failed",
-          lastSyncError: "Store credentials expired or revoked. Please reconnect.",
         },
       };
     }
 
-    // 2. Fetch local persisted data in parallel
-    const [
-      productsRes,
-      variantsCountRes,
-      ordersRes,
-      inventoryCountRes,
-      latestSyncLogRes,
-    ] = await Promise.all([
-      // Products from shopify_products table
-      supabase
-        .from("shopify_products")
-        .select("id, shopify_product_id, title, handle, body_html, vendor, product_type, status, tags, images, shopify_created_at, shopify_updated_at", { count: "exact" })
-        .eq("organization_id", organizationId)
-        .order("shopify_updated_at", { ascending: false })
-        .limit(15),
+    // 2. Coalesce and query directly from Shopify Admin API with 60s in-memory TTL
+    try {
+      const shopDomain = metadata.shop_domain || "main";
+      const snapshot = await shopifyCache.coalesce<ShopifyWorkspaceSnapshot>(
+        organizationId,
+        "shopify",
+        "snapshot",
+        shopDomain,
+        async () => {
+          const client = await ShopifyClient.forOrganization(organizationId);
 
-      // Count variants
-      supabase
-        .from("shopify_product_variants")
-        .select("id", { count: "exact", head: true })
-        .eq("organization_id", organizationId),
+          const [shop, productsRes, ordersRes] = await Promise.all([
+            client.getShop().catch(() => null),
+            client.getProducts({ limit: 15 }).catch(() => ({ products: [] })),
+            client.getOrders({ limit: 10 }).catch(() => ({ orders: [] })),
+          ]);
 
-      // Orders from shopify_orders table
-      supabase
-        .from("shopify_orders")
-        .select("id, shopify_order_id, order_number, name, currency, financial_status, fulfillment_status, subtotal_price, total_tax, total_price, line_items, shopify_created_at, shopify_updated_at", { count: "exact" })
-        .eq("organization_id", organizationId)
-        .order("shopify_created_at", { ascending: false })
-        .limit(10),
+          const products = productsRes.products || [];
+          const orders = ordersRes.orders || [];
 
-      // Count inventory levels
-      supabase
-        .from("shopify_inventory_levels")
-        .select("id", { count: "exact", head: true })
-        .eq("organization_id", organizationId),
-
-      // Latest sync log from integration_sync_logs
-      supabase
-        .from("integration_sync_logs")
-        .select("id, status, error_message, started_at, completed_at")
-        .eq("organization_id", organizationId)
-        .eq("provider", "shopify")
-        .order("started_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
-
-    const localProducts = (productsRes.data || []).map((p) => ({
-      id: Number(p.shopify_product_id) || 0,
-      title: p.title,
-      body_html: p.body_html,
-      vendor: p.vendor || "",
-      product_type: p.product_type || "",
-      created_at: p.shopify_created_at || "",
-      handle: p.handle || "",
-      updated_at: p.shopify_updated_at || "",
-      published_at: null,
-      status: (p.status as any) || "active",
-      variants: [],
-      images: Array.isArray(p.images) ? p.images : [],
-      tags: Array.isArray(p.tags) ? p.tags.join(", ") : "",
-    })) as ShopifyProduct[];
-
-    const localOrders = (ordersRes.data || []).map((o) => ({
-      id: Number(o.shopify_order_id) || 0,
-      name: o.name,
-      order_number: o.order_number || 0,
-      created_at: o.shopify_created_at,
-      updated_at: o.shopify_updated_at,
-      cancelled_at: null,
-      financial_status: (o.financial_status as any) || "pending",
-      fulfillment_status: (o.fulfillment_status as any) || "unfulfilled",
-      currency: o.currency || "USD",
-      current_total_price: String(o.total_price),
-      subtotal_price: String(o.subtotal_price),
-      total_tax: String(o.total_tax),
-      line_items: Array.isArray(o.line_items) ? o.line_items : [],
-    })) as ShopifyOrder[];
-
-    const latestSync = latestSyncLogRes.data;
-    let syncStatus: "idle" | "in_progress" | "completed" | "failed" = "idle";
-    let lastSyncError: string | undefined = undefined;
-
-    if (latestSync) {
-      if (latestSync.status === "in_progress") {
-        syncStatus = "in_progress";
-      } else if (latestSync.status === "failed") {
-        syncStatus = "failed";
-        lastSyncError = latestSync.error_message || "Last sync failed";
-      } else {
-        syncStatus = "completed";
-      }
-    }
-
-    const totalProductsCount = productsRes.count ?? localProducts.length;
-    const totalVariantsCount = variantsCountRes.count ?? 0;
-    const totalOrdersCount = ordersRes.count ?? localOrders.length;
-    const totalInventoryCount = inventoryCountRes.count ?? 0;
-
-    return {
-      success: true,
-      data: {
-        status: "connected",
-        connectedAccount: {
-          shopDomain: metadata.shop_domain,
-          shopName: metadata.shop_name || metadata.shop_domain,
-          email: metadata.connected_user_email || integration.account_email || undefined,
-          currency: metadata.currency || "USD",
-          country: metadata.country_code,
-          connectedAt: integration.created_at,
+          return {
+            status: "connected",
+            connectedAccount: {
+              shopDomain: metadata.shop_domain,
+              shopName: shop?.name || metadata.shop_name || metadata.shop_domain,
+              email: shop?.email || integration.account_email || undefined,
+              currency: shop?.currency || metadata.currency || "USD",
+              country: shop?.country_name || metadata.country_code,
+              connectedAt: integration.created_at,
+            },
+            products,
+            recentOrders: orders,
+            totalProductsCount: products.length,
+            totalOrdersCount: orders.length,
+            lastSyncAt: new Date().toISOString(),
+          };
         },
-        products: localProducts,
-        recentOrders: localOrders,
-        totalProductsCount,
-        totalVariantsCount,
-        totalOrdersCount,
-        totalInventoryCount,
-        lastSyncAt: integration.last_sync_at || undefined,
-        syncStatus,
-        lastSyncError,
-      },
-    };
+        60 * 1000 // 60-second TTL
+      );
+
+      return { success: true, data: snapshot };
+    } catch (err: unknown) {
+      if (err instanceof ShopifyApiError && (err.status === 401 || err.status === 403)) {
+        await supabase
+          .from("organization_integrations")
+          .update({ status: "needs_reauth", updated_at: new Date().toISOString() })
+          .eq("id", integration.id);
+
+        shopifyCache.invalidateTenant(organizationId, "shopify");
+
+        return {
+          success: true,
+          data: {
+            status: "needs_reauth",
+            connectedAccount: {
+              shopDomain: metadata.shop_domain,
+              shopName: metadata.shop_name,
+              connectedAt: integration.created_at,
+            },
+            products: [],
+            recentOrders: [],
+            totalProductsCount: 0,
+            totalOrdersCount: 0,
+          },
+        };
+      }
+
+      logger.warn("Shopify snapshot fetch API warning", { error: String(err) });
+      return {
+        success: true,
+        data: {
+          status: "connected",
+          connectedAccount: {
+            shopDomain: metadata.shop_domain,
+            shopName: metadata.shop_name || metadata.shop_domain,
+            connectedAt: integration.created_at,
+          },
+          products: [],
+          recentOrders: [],
+          totalProductsCount: 0,
+          totalOrdersCount: 0,
+        },
+      };
+    }
   } catch (err: unknown) {
     logger.error("Failed to load Shopify workspace snapshot", err);
     return { success: false, error: "Failed to load Shopify snapshot." };
@@ -249,36 +206,32 @@ export async function getShopifyWorkspaceSnapshotAction(
 }
 
 /**
- * Triggers a real data synchronization on demand for the connected Shopify store.
+ * Manually flushes the tenant cache and requests fresh live data from the Shopify API.
  */
-export async function triggerShopifySyncAction(
-  targetOrgId?: string,
-  forceFull?: boolean
-): Promise<{ success: boolean; result?: ShopifySyncJobResult; error?: string }> {
+export async function refreshShopifyDataAction(
+  targetOrgId?: string
+): Promise<{ success: boolean; data?: ShopifyWorkspaceSnapshot; error?: string }> {
   try {
-    const { organizationId } = await resolveAuthorizedShopifyOrg(targetOrgId, "integrations.connect");
+    const { organizationId } = await resolveAuthorizedShopifyOrg(targetOrgId);
 
-    const rl = await rateLimit("trigger-shopify-sync", organizationId, RATE_LIMIT_PRESETS.MUTATIONS);
+    const rl = await rateLimit("refresh-shopify", organizationId, RATE_LIMIT_PRESETS.INTEGRATIONS);
     if (!rl.success) {
-      return { success: false, error: "Rate limit reached. Please wait a moment before syncing again." };
+      return { success: false, error: "Rate limit reached. Please wait a moment before refreshing." };
     }
 
-    const syncResult = await syncShopifyOrganizationData(organizationId, { forceFull: Boolean(forceFull) });
-    revalidatePath("/dashboard");
+    // Invalidate in-memory cache for this tenant
+    shopifyCache.invalidateTenant(organizationId, "shopify");
 
-    return {
-      success: syncResult.success,
-      result: syncResult,
-      error: syncResult.errorMessage,
-    };
+    // Re-fetch fresh snapshot
+    return await getShopifyWorkspaceSnapshotAction(targetOrgId);
   } catch (err: unknown) {
-    logger.error("Failed to trigger Shopify synchronization", err);
+    logger.error("Failed to refresh Shopify data", err);
     return { success: false, error: String(err) };
   }
 }
 
 /**
- * Queries products from local KogSync database or Shopify API with pagination.
+ * Queries products directly from the Shopify Admin API with cursor pagination.
  */
 export async function getShopifyProductsAction(params?: {
   limit?: number;
@@ -288,39 +241,15 @@ export async function getShopifyProductsAction(params?: {
 }): Promise<{ success: boolean; data?: { products: ShopifyProduct[]; nextCursor?: string }; error?: string }> {
   try {
     const { organizationId } = await resolveAuthorizedShopifyOrg(params?.targetOrgId);
-    const supabase = await createClient();
+    const client = await ShopifyClient.forOrganization(organizationId);
 
-    let query = supabase
-      .from("shopify_products")
-      .select("shopify_product_id, title, handle, body_html, vendor, product_type, status, tags, images, shopify_created_at, shopify_updated_at")
-      .eq("organization_id", organizationId)
-      .order("shopify_updated_at", { ascending: false })
-      .limit(params?.limit || 25);
+    const result = await client.getProducts({
+      limit: params?.limit,
+      status: params?.status,
+      pageInfo: params?.pageInfo,
+    });
 
-    if (params?.status) {
-      query = query.eq("status", params.status);
-    }
-
-    const { data: prods, error } = await query;
-    if (error) throw error;
-
-    const products = (prods || []).map((p) => ({
-      id: Number(p.shopify_product_id) || 0,
-      title: p.title,
-      body_html: p.body_html,
-      vendor: p.vendor || "",
-      product_type: p.product_type || "",
-      created_at: p.shopify_created_at || "",
-      handle: p.handle || "",
-      updated_at: p.shopify_updated_at || "",
-      published_at: null,
-      status: (p.status as any) || "active",
-      variants: [],
-      images: Array.isArray(p.images) ? p.images : [],
-      tags: Array.isArray(p.tags) ? p.tags.join(", ") : "",
-    })) as ShopifyProduct[];
-
-    return { success: true, data: { products } };
+    return { success: true, data: result };
   } catch (err: unknown) {
     logger.error("Failed to fetch Shopify products", err);
     return { success: false, error: String(err) };
@@ -328,7 +257,7 @@ export async function getShopifyProductsAction(params?: {
 }
 
 /**
- * Queries orders from local KogSync database with pagination.
+ * Queries orders directly from the Shopify Admin API with cursor pagination.
  */
 export async function getShopifyOrdersAction(params?: {
   limit?: number;
@@ -338,34 +267,15 @@ export async function getShopifyOrdersAction(params?: {
 }): Promise<{ success: boolean; data?: { orders: ShopifyOrder[]; nextCursor?: string }; error?: string }> {
   try {
     const { organizationId } = await resolveAuthorizedShopifyOrg(params?.targetOrgId);
-    const supabase = await createClient();
+    const client = await ShopifyClient.forOrganization(organizationId);
 
-    const { data: ords, error } = await supabase
-      .from("shopify_orders")
-      .select("shopify_order_id, order_number, name, currency, financial_status, fulfillment_status, subtotal_price, total_tax, total_price, line_items, shopify_created_at, shopify_updated_at")
-      .eq("organization_id", organizationId)
-      .order("shopify_created_at", { ascending: false })
-      .limit(params?.limit || 20);
+    const result = await client.getOrders({
+      limit: params?.limit,
+      status: params?.status,
+      pageInfo: params?.pageInfo,
+    });
 
-    if (error) throw error;
-
-    const orders = (ords || []).map((o) => ({
-      id: Number(o.shopify_order_id) || 0,
-      name: o.name,
-      order_number: o.order_number || 0,
-      created_at: o.shopify_created_at,
-      updated_at: o.shopify_updated_at,
-      cancelled_at: null,
-      financial_status: (o.financial_status as any) || "pending",
-      fulfillment_status: (o.fulfillment_status as any) || "unfulfilled",
-      currency: o.currency || "USD",
-      current_total_price: String(o.total_price),
-      subtotal_price: String(o.subtotal_price),
-      total_tax: String(o.total_tax),
-      line_items: Array.isArray(o.line_items) ? o.line_items : [],
-    })) as ShopifyOrder[];
-
-    return { success: true, data: { orders } };
+    return { success: true, data: result };
   } catch (err: unknown) {
     logger.error("Failed to fetch Shopify orders", err);
     return { success: false, error: String(err) };
@@ -373,7 +283,7 @@ export async function getShopifyOrdersAction(params?: {
 }
 
 /**
- * Disconnects the Shopify store: clears tokens and marks status as 'disconnected'.
+ * Disconnects the Shopify store: clears tokens, busts cache, and sets status to 'disconnected'.
  */
 export async function disconnectShopifyAction(
   targetOrgId?: string
@@ -385,6 +295,9 @@ export async function disconnectShopifyAction(
     if (!rl.success) {
       return { success: false, error: "Too many mutation attempts. Please try again shortly." };
     }
+
+    // Invalidate in-memory cache immediately
+    shopifyCache.invalidateTenant(organizationId, "shopify");
 
     const supabase = await createClient();
     const { data: integration } = await supabase

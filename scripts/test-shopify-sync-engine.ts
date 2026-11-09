@@ -1,23 +1,29 @@
 /**
- * KogSync — Shopify Data Synchronization, Webhooks, Reconciliation & Multi-Tenant Persistence Suite
+ * KogSync — Shopify API-First Architecture, In-Memory Caching & Database Minimization Test Suite
  *
  * Verifies:
- * 1. Shopify API version configuration is locked to 2026-10
- * 2. Database migration 00048 schema integrity: 6 tables, unique constraints, updated_at triggers, and RLS policies
- * 3. Initial sync engine data normalization (Products, Variants, Locations, Inventory, Orders)
- * 4. Idempotency guarantees: unique composite constraints prevent duplicate records on re-sync
- * 5. Out-of-order webhook protection: stale timestamps are safely discarded
- * 6. Webhook delivery deduplication via shopify_webhook_events
- * 7. Real-time product lifecycle webhooks (create, update, delete/archive)
- * 8. Real-time order lifecycle webhooks (create, update, cancelled, fulfilled, paid)
- * 9. Real-time inventory level webhooks (connect, update, disconnect)
- * 10. Mandatory GDPR/Privacy compliance webhooks (customers/data_request, customers/redact, shop/redact)
- * 11. Zero Customer PII enforcement: customer emails and physical addresses are scrubbed from orders
- * 12. Watermark overlap calculation for delta reconciliation (last_sync_at - 60s)
- * 13. Multi-tenant isolation: strict organization_id scoping across all queries and operations
- * 14. Rate-limit 429 backoff & Retry-After handling during sync
- * 15. Periodic reconciliation route authentication (CRON_SECRET / INTERNAL_MAINTENANCE_SECRET)
- * 16. Integration sync log ledger tracking (in_progress, completed, failed states)
+ * 1. Shopify API version configuration is locked to 2026-10 stable release
+ * 2. Database migration 00049 schema minimization: drops 5 replication tables, retains shopify_webhook_events
+ * 3. In-memory TenantMemoryCache multi-tenant key isolation
+ * 4. Single-flight request coalescing (thundering herd protection)
+ * 5. TTL expiration and eviction logic
+ * 6. LRU cache size bounding (500 entry limit)
+ * 7. Targeted multi-tenant cache invalidation
+ * 8. Malicious domain rejection in webhooks
+ * 9. Webhook delivery deduplication via shopify_webhook_events
+ * 10. Webhooks as real-time cache invalidation triggers (products/create, update, delete)
+ * 11. Webhooks as real-time cache invalidation triggers (orders/updated, inventory_levels/update)
+ * 12. App uninstallation transitions status to disconnected and wipes tenant cache
+ * 13. Mandatory GDPR/Privacy compliance webhooks (customers/data_request, customers/redact, shop/redact)
+ * 14. Zero Customer PII storage guarantee
+ * 15. ShopifyClient cursor Link header pagination isolation
+ * 16. Server action getShopifyWorkspaceSnapshotAction queries Shopify Admin API directly via cache (zero DB product tables)
+ * 17. Sentry integration uses sentryCache for API-first queries
+ * 18. Zero background cron sync / reconciliation route bloat
+ * 19. Multi-tenant isolation: Tenant A queries cannot access Tenant B cached or remote data
+ * 20. Webhook reprocessability via reprocessShopifyWebhookEvent
+ * 21. Webhook subscription catalog exports official sync and GDPR compliance topics
+ * 22. OAuth callback performs instant cache invalidation without serverless background worker leaks
  */
 
 import assert from "assert";
@@ -35,7 +41,11 @@ import {
   processShopifyWebhookEvent,
   reprocessShopifyWebhookEvent,
 } from "../lib/integrations/shopify/sync";
-import { ShopifyClient, ShopifyApiError } from "../lib/integrations/shopify/client";
+import {
+  TenantMemoryCache,
+  shopifyCache,
+  sentryCache,
+} from "../lib/integrations/cache";
 
 let totalTests = 0;
 let passedTests = 0;
@@ -68,7 +78,7 @@ function test(name: string, fn: () => void | Promise<void>) {
 
 async function runAll() {
   console.log("\n==================================================================");
-  console.log("KOGSYNC: SHOPIFY DATA SYNCHRONIZATION & PERSISTENCE VERIFICATION");
+  console.log("KOGSYNC: SHOPIFY API-FIRST ARCHITECTURE & MINIMIZATION SUITE");
   console.log("==================================================================\n");
 
   // ---------------------------------------------------------------------------
@@ -86,81 +96,332 @@ async function runAll() {
   });
 
   // ---------------------------------------------------------------------------
-  // TEST 2: Migration 00048 Database Schema Integrity
+  // TEST 2: Migration 00049 Database Minimization (5 Dropped Tables)
   // ---------------------------------------------------------------------------
-  test("Migration 00048 defines all 6 Shopify tables with multi-tenant RLS", () => {
-    const migrationPath = path.resolve(__dirname, "../database/migrations/00048_shopify_data_sync_and_persistence.sql");
-    assert(fs.existsSync(migrationPath), "Migration 00048 file must exist on disk");
+  test("Migration 00049 drops 5 replication tables and retains shopify_webhook_events", () => {
+    const migrationPath = path.resolve(__dirname, "../database/migrations/00049_shopify_api_first_minimization.sql");
+    assert(fs.existsSync(migrationPath), "Migration 00049 file must exist on disk");
 
     const sql = fs.readFileSync(migrationPath, "utf-8");
 
-    // Tables
-    assert(sql.includes("CREATE TABLE IF NOT EXISTS public.shopify_products"), "Must create shopify_products");
-    assert(sql.includes("CREATE TABLE IF NOT EXISTS public.shopify_product_variants"), "Must create shopify_product_variants");
-    assert(sql.includes("CREATE TABLE IF NOT EXISTS public.shopify_locations"), "Must create shopify_locations");
-    assert(sql.includes("CREATE TABLE IF NOT EXISTS public.shopify_inventory_levels"), "Must create shopify_inventory_levels");
-    assert(sql.includes("CREATE TABLE IF NOT EXISTS public.shopify_orders"), "Must create shopify_orders");
-    assert(sql.includes("CREATE TABLE IF NOT EXISTS public.shopify_webhook_events"), "Must create shopify_webhook_events");
+    // Dropped tables
+    assert(sql.includes("DROP TABLE IF EXISTS public.shopify_product_variants CASCADE;"), "Must drop shopify_product_variants");
+    assert(sql.includes("DROP TABLE IF EXISTS public.shopify_inventory_levels CASCADE;"), "Must drop shopify_inventory_levels");
+    assert(sql.includes("DROP TABLE IF EXISTS public.shopify_products CASCADE;"), "Must drop shopify_products");
+    assert(sql.includes("DROP TABLE IF EXISTS public.shopify_orders CASCADE;"), "Must drop shopify_orders");
+    assert(sql.includes("DROP TABLE IF EXISTS public.shopify_locations CASCADE;"), "Must drop shopify_locations");
 
-    // Idempotency Unique Constraints
-    assert(sql.includes("CONSTRAINT uq_shopify_products_org_product UNIQUE (organization_id, shopify_product_id)"));
-    assert(sql.includes("CONSTRAINT uq_shopify_variants_org_variant UNIQUE (organization_id, shopify_variant_id)"));
-    assert(sql.includes("CONSTRAINT uq_shopify_locations_org_location UNIQUE (organization_id, shopify_location_id)"));
-    assert(sql.includes("CONSTRAINT uq_shopify_inventory_item_location UNIQUE (organization_id, shopify_inventory_item_id, shopify_location_id)"));
-    assert(sql.includes("CONSTRAINT uq_shopify_orders_org_order UNIQUE (organization_id, shopify_order_id)"));
-    assert(sql.includes("CONSTRAINT uq_shopify_webhooks_delivery UNIQUE (delivery_id)"));
-
-    // RLS Enforcement
-    assert(sql.includes("ALTER TABLE public.shopify_products ENABLE ROW LEVEL SECURITY;"));
-    assert(sql.includes("ALTER TABLE public.shopify_product_variants ENABLE ROW LEVEL SECURITY;"));
-    assert(sql.includes("ALTER TABLE public.shopify_locations ENABLE ROW LEVEL SECURITY;"));
-    assert(sql.includes("ALTER TABLE public.shopify_inventory_levels ENABLE ROW LEVEL SECURITY;"));
-    assert(sql.includes("ALTER TABLE public.shopify_orders ENABLE ROW LEVEL SECURITY;"));
-    assert(sql.includes("ALTER TABLE public.shopify_webhook_events ENABLE ROW LEVEL SECURITY;"));
-
-    // Canonical Helper Function Usage
-    assert(sql.includes("public.is_org_member(organization_id)"), "Must use public.is_org_member for SELECT");
-    assert(sql.includes("public.has_org_role(organization_id, array['owner', 'admin'])"), "Must use public.has_org_role for mutations");
+    // Retained audit log table and indexing
+    assert(sql.includes("shopify_webhook_events"), "Must preserve shopify_webhook_events table");
+    assert(sql.includes("idx_shopify_webhooks_created_at"), "Must maintain created_at index for audit event cleanup");
   });
 
   // ---------------------------------------------------------------------------
-  // TEST 3: Webhook Delivery Deduplication & Malicious Domain Rejection
+  // TEST 3: TenantMemoryCache Multi-Tenant Key Isolation
+  // ---------------------------------------------------------------------------
+  test("TenantMemoryCache strictly partitions keys by organizationId", () => {
+    const cache = new TenantMemoryCache<string>({ defaultTtlMs: 60000 });
+
+    cache.set("org-alpha", "shopify", "snapshot", "main", "Alpha Data");
+    cache.set("org-beta", "shopify", "snapshot", "main", "Beta Data");
+
+    assert.strictEqual(cache.get("org-alpha", "shopify", "snapshot", "main"), "Alpha Data");
+    assert.strictEqual(cache.get("org-beta", "shopify", "snapshot", "main"), "Beta Data");
+    assert.strictEqual(cache.get("org-gamma", "shopify", "snapshot", "main"), null);
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 4: Single-Flight Request Coalescing (Thundering Herd Defense)
+  // ---------------------------------------------------------------------------
+  await test("Single-flight coalescing merges concurrent requests into 1 execution", async () => {
+    const cache = new TenantMemoryCache<{ value: number }>({ defaultTtlMs: 5000 });
+    let executionCount = 0;
+
+    const fetcher = async () => {
+      executionCount++;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return { value: 42 };
+    };
+
+    // Trigger 10 parallel requests for the same tenant key
+    const promises = Array.from({ length: 10 }, () =>
+      cache.coalesce("org-test", "shopify", "data", "key-1", fetcher)
+    );
+
+    const results = await Promise.all(promises);
+
+    assert.strictEqual(executionCount, 1, "Fetcher must execute exactly ONCE for concurrent requests");
+    assert.strictEqual(results.length, 10);
+    assert.strictEqual(results[0].value, 42);
+    assert.strictEqual(cache.get("org-test", "shopify", "data", "key-1")?.value, 42);
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 5: TTL Expiration Logic
+  // ---------------------------------------------------------------------------
+  await test("TenantMemoryCache respects TTL and expires stale entries", async () => {
+    const cache = new TenantMemoryCache<string>({ defaultTtlMs: 50 }); // 50ms TTL
+
+    cache.set("org-ttl", "shopify", "temp", "id1", "fresh");
+    assert.strictEqual(cache.get("org-ttl", "shopify", "temp", "id1"), "fresh");
+
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    assert.strictEqual(cache.get("org-ttl", "shopify", "temp", "id1"), null, "Expired entry must return null");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 6: LRU Eviction Bounded Size (500 Entry Limit)
+  // ---------------------------------------------------------------------------
+  test("TenantMemoryCache bounds memory footprint by evicting oldest entries", () => {
+    const cache = new TenantMemoryCache<number>({ maxEntries: 50 });
+
+    for (let i = 0; i < 60; i++) {
+      cache.set(`org-${i}`, "shopify", "metric", "count", i);
+    }
+
+    assert.strictEqual(cache.size, 50, "Cache size must be capped at 50");
+    // Earliest entries (0..9) should have been evicted
+    assert.strictEqual(cache.get("org-0", "shopify", "metric", "count"), null);
+    assert.strictEqual(cache.get("org-59", "shopify", "metric", "count"), 59);
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 7: Targeted Multi-Tenant Cache Invalidation
+  // ---------------------------------------------------------------------------
+  test("invalidateTenant wipes ONLY the target organization's cache", () => {
+    const cache = new TenantMemoryCache<string>({ defaultTtlMs: 60000 });
+
+    cache.set("org-1", "shopify", "products", "all", "Org 1 Products");
+    cache.set("org-1", "shopify", "orders", "recent", "Org 1 Orders");
+    cache.set("org-2", "shopify", "products", "all", "Org 2 Products");
+
+    const purged = cache.invalidateTenant("org-1", "shopify");
+    assert.strictEqual(purged, 2, "Must invalidate exactly 2 entries for org-1");
+
+    assert.strictEqual(cache.get("org-1", "shopify", "products", "all"), null);
+    assert.strictEqual(cache.get("org-1", "shopify", "orders", "recent"), null);
+    assert.strictEqual(cache.get("org-2", "shopify", "products", "all"), "Org 2 Products", "Org 2 cache must remain intact");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 8: Malicious Domain Rejection in Webhooks
   // ---------------------------------------------------------------------------
   await test("Webhook rejects invalid or malicious shop domains immediately", async () => {
     const deliveryId1 = "d87a6d89-9b93-4a67-b50e-744db606ff10";
     const topic = "products/update";
 
-    // Non-myshopify domain rejected
     const res = await processShopifyWebhookEvent(topic, "attacker.com", {}, deliveryId1);
     assert.strictEqual(res.processed, false, "attacker.com must be rejected immediately");
     assert.strictEqual(res.reason, "invalid_shop_domain");
 
-    // XSS injection domain rejected
     const res2 = await processShopifyWebhookEvent(topic, "<script>alert(1)</script>", {}, deliveryId1);
     assert.strictEqual(res2.processed, false, "XSS injection domain must be rejected immediately");
     assert.strictEqual(res2.reason, "invalid_shop_domain");
   });
 
   // ---------------------------------------------------------------------------
-  // TEST 4: Out-of-Order Timestamp Guard
+  // TEST 9: Webhook Delivery Deduplication via shopify_webhook_events
   // ---------------------------------------------------------------------------
-  test("Out-of-order timestamp logic prevents stale updates from overwriting newer records", () => {
-    const existingUpdatedAt = "2026-11-09T14:30:00.000Z";
-    const incomingStaleUpdatedAt = "2026-11-09T14:25:00.000Z";
-    const incomingFreshUpdatedAt = "2026-11-09T14:35:00.000Z";
+  await test("Webhook processor deduplicates redelivered events via delivery_id", async () => {
+    let duplicateChecked = false;
 
-    const isStale = new Date(incomingStaleUpdatedAt).getTime() < new Date(existingUpdatedAt).getTime();
-    const isFresh = new Date(incomingFreshUpdatedAt).getTime() > new Date(existingUpdatedAt).getTime();
+    const mockSupabase: any = {
+      from: (table: string) => {
+        if (table === "organization_integrations") {
+          return {
+            select: () => ({
+              eq: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({
+                    data: { id: "int-dedup", organization_id: "org-dedup", status: "connected", metadata: {} },
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+            update: () => ({ eq: async () => ({ error: null }) }),
+          };
+        }
+        if (table === "shopify_webhook_events") {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => {
+                  if (duplicateChecked) {
+                    return { data: { id: "evt-1", status: "processed" }, error: null };
+                  }
+                  duplicateChecked = true;
+                  return { data: null, error: null };
+                },
+              }),
+            }),
+            insert: async () => ({ error: null }),
+            update: () => ({ eq: async () => ({ error: null }) }),
+          };
+        }
+        throw new Error(`Unexpected table ${table}`);
+      },
+    };
 
-    assert.strictEqual(isStale, true, "Stale timestamp must be identified as older than current state");
-    assert.strictEqual(isFresh, true, "Fresh timestamp must be identified as newer than current state");
+    // First attempt processes event
+    const res1 = await processShopifyWebhookEvent(
+      "products/update",
+      "mystore.myshopify.com",
+      { id: 123 },
+      "dedup-delivery-1",
+      "2026-10",
+      mockSupabase
+    );
+    assert.strictEqual(res1.processed, true);
+    assert.strictEqual(res1.action, "synced");
+
+    // Second attempt detects duplicate delivery_id
+    const res2 = await processShopifyWebhookEvent(
+      "products/update",
+      "mystore.myshopify.com",
+      { id: 123 },
+      "dedup-delivery-1",
+      "2026-10",
+      mockSupabase
+    );
+
+    assert.strictEqual(res2.processed, true);
+    assert.strictEqual(res2.action, "duplicate_skipped");
   });
 
   // ---------------------------------------------------------------------------
-  // TEST 5: Mandatory Privacy & Compliance Webhooks (GDPR)
+  // TEST 10: Webhooks as Real-Time Cache Invalidation (Catalog Lifecycle)
+  // ---------------------------------------------------------------------------
+  await test("Catalog webhooks (products/create, update, delete) trigger real-time cache invalidation", async () => {
+    shopifyCache.set("org-cat", "shopify", "snapshot", "main", { dummy: true });
+    assert(shopifyCache.get("org-cat", "shopify", "snapshot", "main") !== null);
+
+    const mockSupabase: any = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: "int-cat", organization_id: "org-cat", status: "connected", metadata: {} },
+                error: null,
+              }),
+            }),
+            maybeSingle: async () => ({ data: null, error: null }),
+          }),
+        }),
+        insert: async () => ({ error: null }),
+        update: () => ({ eq: async () => ({ error: null }) }),
+      }),
+    };
+
+    const res = await processShopifyWebhookEvent(
+      "products/update",
+      "catalog-store.myshopify.com",
+      { id: 888 },
+      "deliv-cat-1",
+      "2026-10",
+      mockSupabase
+    );
+
+    assert.strictEqual(res.processed, true);
+    assert.strictEqual(res.action, "synced");
+    assert.strictEqual(
+      shopifyCache.get("org-cat", "shopify", "snapshot", "main"),
+      null,
+      "Cache must be invalidated for target organization"
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 11: Webhooks as Real-Time Cache Invalidation (Orders & Inventory)
+  // ---------------------------------------------------------------------------
+  await test("Order and inventory webhooks trigger real-time cache invalidation", async () => {
+    shopifyCache.set("org-orders", "shopify", "orders", "recent", { orders: [1, 2] });
+
+    const mockSupabase: any = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: "int-ord", organization_id: "org-orders", status: "connected", metadata: {} },
+                error: null,
+              }),
+            }),
+            maybeSingle: async () => ({ data: null, error: null }),
+          }),
+        }),
+        insert: async () => ({ error: null }),
+        update: () => ({ eq: async () => ({ error: null }) }),
+      }),
+    };
+
+    const res = await processShopifyWebhookEvent(
+      "orders/updated",
+      "orders-store.myshopify.com",
+      { id: 999 },
+      "deliv-ord-1",
+      "2026-10",
+      mockSupabase
+    );
+
+    assert.strictEqual(res.processed, true);
+    assert.strictEqual(res.action, "synced");
+    assert.strictEqual(shopifyCache.get("org-orders", "shopify", "orders", "recent"), null);
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 12: App Uninstallation Transitions Status and Purges Cache
+  // ---------------------------------------------------------------------------
+  await test("app/uninstalled webhook transitions status to disconnected and purges cache", async () => {
+    shopifyCache.set("org-uninst", "shopify", "snapshot", "main", { ok: true });
+    let statusUpdated = false;
+
+    const mockSupabase: any = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: "int-uninst", organization_id: "org-uninst", status: "connected", metadata: {} },
+                error: null,
+              }),
+            }),
+            maybeSingle: async () => ({ data: null, error: null }),
+          }),
+        }),
+        insert: async () => ({ error: null }),
+        update: (payload: any) => ({
+          eq: async () => {
+            if (payload.status === "disconnected") {
+              statusUpdated = true;
+            }
+            return { error: null };
+          },
+        }),
+      }),
+    };
+
+    const res = await processShopifyWebhookEvent(
+      "app/uninstalled",
+      "uninst-store.myshopify.com",
+      {},
+      "deliv-uninst-1",
+      "2026-10",
+      mockSupabase
+    );
+
+    assert.strictEqual(res.processed, true);
+    assert.strictEqual(res.action, "disconnected");
+    assert.strictEqual(statusUpdated, true);
+    assert.strictEqual(shopifyCache.get("org-uninst", "shopify", "snapshot", "main"), null);
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 13: Mandatory GDPR / Compliance Webhooks
   // ---------------------------------------------------------------------------
   await test("Mandatory Shopify compliance webhooks (customers/data_request, customers/redact, shop/redact)", async () => {
-    // 1. customers/data_request
     const secret = "test_webhook_secret_key_123";
     const payload = JSON.stringify({
       shop_id: 123456,
@@ -172,17 +433,65 @@ async function runAll() {
     const hmac = crypto.createHmac("sha256", secret).update(payload, "utf8").digest("base64");
     assert(verifyShopifyWebhookHmac(payload, hmac, secret), "HMAC verification must pass for compliance payload");
 
-    // 2. shop/redact 48h purge topic is supported in sync engine
-    const syncSource = fs.readFileSync(path.resolve(__dirname, "../lib/integrations/shopify/sync.ts"), "utf-8");
-    assert(syncSource.includes('topic === "customers/data_request"'), "Sync engine must handle customers/data_request");
-    assert(syncSource.includes('topic === "customers/redact"'), "Sync engine must handle customers/redact");
-    assert(syncSource.includes('topic === "shop/redact"'), "Sync engine must handle shop/redact");
+    const mockSupabase: any = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: "int-comp", organization_id: "org-comp", status: "connected", metadata: {} },
+                error: null,
+              }),
+            }),
+            maybeSingle: async () => ({ data: null, error: null }),
+          }),
+        }),
+        insert: async () => ({ error: null }),
+        update: () => ({ eq: async () => ({ error: null }) }),
+      }),
+    };
+
+    // customers/data_request
+    const resReq = await processShopifyWebhookEvent(
+      "customers/data_request",
+      "merchant-sample.myshopify.com",
+      JSON.parse(payload),
+      "deliv-gdpr-1",
+      "2026-10",
+      mockSupabase
+    );
+    assert.strictEqual(resReq.processed, true);
+    assert.strictEqual(resReq.action, "compliance_data_request_acknowledged");
+
+    // customers/redact
+    const resCustRedact = await processShopifyWebhookEvent(
+      "customers/redact",
+      "merchant-sample.myshopify.com",
+      { shop_id: 123456, customer: { id: 789 } },
+      "deliv-gdpr-2",
+      "2026-10",
+      mockSupabase
+    );
+    assert.strictEqual(resCustRedact.processed, true);
+    assert.strictEqual(resCustRedact.action, "compliance_customer_redacted");
+
+    // shop/redact
+    const resShopRedact = await processShopifyWebhookEvent(
+      "shop/redact",
+      "merchant-sample.myshopify.com",
+      { shop_id: 123456 },
+      "deliv-gdpr-3",
+      "2026-10",
+      mockSupabase
+    );
+    assert.strictEqual(resShopRedact.processed, true);
+    assert.strictEqual(resShopRedact.action, "compliance_shop_redacted");
   });
 
   // ---------------------------------------------------------------------------
-  // TEST 6: Zero Customer PII in Order Persistence Model
+  // TEST 14: Zero Customer PII in Order Payload Handling
   // ---------------------------------------------------------------------------
-  test("Orders storage strictly sanitizes customer personal data (Zero PII)", () => {
+  test("Order representation contains operational business metrics and zero customer PII", () => {
     const rawShopifyOrderPayload = {
       id: 5544332211,
       order_number: 1042,
@@ -210,480 +519,80 @@ async function runAll() {
       updated_at: "2026-11-09T10:05:00Z",
     };
 
-    // Scrubbed KogSync record: contains operational financial metrics and line items, ZERO personal customer identity
     const sanitizedOrder = {
-      shopify_order_id: String(rawShopifyOrderPayload.id),
-      order_number: rawShopifyOrderPayload.order_number,
+      id: String(rawShopifyOrderPayload.id),
+      orderNumber: rawShopifyOrderPayload.order_number,
       name: rawShopifyOrderPayload.name,
       currency: rawShopifyOrderPayload.currency,
-      subtotal_price: parseFloat(rawShopifyOrderPayload.subtotal_price),
-      total_tax: parseFloat(rawShopifyOrderPayload.total_tax),
-      total_price: parseFloat(rawShopifyOrderPayload.current_total_price),
-      line_items_count: rawShopifyOrderPayload.line_items.length,
-      line_items: rawShopifyOrderPayload.line_items.map((li) => ({
-        id: li.id,
-        title: li.title,
-        quantity: li.quantity,
-        price: li.price,
-        sku: li.sku,
-      })),
+      totalPrice: parseFloat(rawShopifyOrderPayload.current_total_price),
+      lineItemsCount: rawShopifyOrderPayload.line_items.length,
+      createdAt: rawShopifyOrderPayload.created_at,
     };
 
     const sanitizedStr = JSON.stringify(sanitizedOrder);
     assert(!sanitizedStr.includes("private_shopper@victim.com"), "Customer email must NOT be stored");
     assert(!sanitizedStr.includes("Rua das Flores"), "Customer address must NOT be stored");
     assert(!sanitizedStr.includes("+351912345678"), "Customer phone must NOT be stored");
-    assert.strictEqual(sanitizedOrder.line_items_count, 1);
-    assert.strictEqual(sanitizedOrder.total_price, 149.99);
+    assert.strictEqual(sanitizedOrder.lineItemsCount, 1);
+    assert.strictEqual(sanitizedOrder.totalPrice, 149.99);
   });
 
   // ---------------------------------------------------------------------------
-  // TEST 7: Watermark Overlap for Delta Reconciliation
-  // ---------------------------------------------------------------------------
-  test("Watermark overlap calculation correctly sets updatedAtMin 60 seconds prior", () => {
-    const lastSyncAt = "2026-11-09T12:00:00.000Z";
-    const watermarkDate = new Date(new Date(lastSyncAt).getTime() - 60 * 1000);
-    const expectedWatermark = "2026-11-09T11:59:00.000Z";
-
-    assert.strictEqual(
-      watermarkDate.toISOString(),
-      expectedWatermark,
-      "Watermark buffer must be exactly 60 seconds before last_sync_at to guarantee zero dropped boundary events"
-    );
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST 8: Pagination Cursor Parameter Isolation Rule
+  // TEST 15: Client Isolates page_info Without Mixing Query Parameters
   // ---------------------------------------------------------------------------
   test("Client strictly isolates page_info without query mixing per Shopify 2026-10 spec", () => {
     const clientCode = fs.readFileSync(path.resolve(__dirname, "../lib/integrations/shopify/client.ts"), "utf-8");
 
-    // Both getProducts and getOrders must branch when pageInfo is present
     assert(clientCode.includes("if (params?.pageInfo) {"));
     assert(clientCode.includes('searchParams.set("page_info", params.pageInfo);'));
   });
 
   // ---------------------------------------------------------------------------
-  // TEST 9: Periodic Reconciliation Route Security
+  // TEST 16: Zero Database Tables Queried in Actions (Direct API-First Model)
   // ---------------------------------------------------------------------------
-  test("Periodic reconciliation endpoint validates CRON_SECRET authorization", () => {
-    const reconcileRoute = fs.readFileSync(
-      path.resolve(__dirname, "../app/api/maintenance/shopify-reconcile/route.ts"),
-      "utf-8"
-    );
-
-    assert(reconcileRoute.includes("isAuthorized(authHeader)"), "Must gate reconciliation with authorization check");
-    assert(reconcileRoute.includes("CRON_SECRET"), "Must support CRON_SECRET");
-    assert(reconcileRoute.includes("INTERNAL_MAINTENANCE_SECRET"), "Must support INTERNAL_MAINTENANCE_SECRET");
-    assert(reconcileRoute.includes("crypto.timingSafeEqual"), "Must verify secrets with timingSafeEqual");
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST 10: Sync Engine Failure Recovery & Log Ledger
-  // ---------------------------------------------------------------------------
-  test("Sync engine correctly manages canonical integration_sync_logs transitions", () => {
-    const engineCode = fs.readFileSync(
-      path.resolve(__dirname, "../lib/integrations/shopify/sync-engine.ts"),
-      "utf-8"
-    );
-
-    assert(engineCode.includes('.from("integration_sync_logs")'), "Must interact with canonical integration_sync_logs");
-    assert(engineCode.includes('status: "in_progress"'), "Must write in_progress status at start");
-    assert(engineCode.includes('"completed"'), "Must transition to completed status upon success");
-    assert(engineCode.includes('status: "failed"'), "Must transition to failed status upon exception");
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST 11: Multi-Tenant RLS & Foreign Key Cascades
-  // ---------------------------------------------------------------------------
-  test("All Shopify tables cascade on organization_id deletion", () => {
-    const migrationPath = path.resolve(__dirname, "../database/migrations/00048_shopify_data_sync_and_persistence.sql");
-    const sql = fs.readFileSync(migrationPath, "utf-8");
-
-    const cascadeMatches = (sql.match(/organization_id uuid NOT NULL REFERENCES public\.organizations\(id\) ON DELETE CASCADE/g) || []).length;
-    assert.strictEqual(
-      cascadeMatches,
-      6,
-      "All 6 Shopify tables must strictly cascade on public.organizations(id) deletion"
-    );
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST 12: Actions DB Backing (Zero Live API Dependency for Dashboard Views)
-  // ---------------------------------------------------------------------------
-  test("getShopifyWorkspaceSnapshotAction queries local PostgreSQL tables", () => {
+  test("getShopifyWorkspaceSnapshotAction queries Shopify API directly with cache coalescing", () => {
     const actionsCode = fs.readFileSync(
       path.resolve(__dirname, "../lib/integrations/shopify/actions.ts"),
       "utf-8"
     );
 
-    assert(actionsCode.includes('.from("shopify_products")'), "Must read products from local shopify_products table");
-    assert(actionsCode.includes('.from("shopify_orders")'), "Must read orders from local shopify_orders table");
-    assert(actionsCode.includes('.from("shopify_inventory_levels")'), "Must count inventory from local table");
-    assert(actionsCode.includes('.from("integration_sync_logs")'), "Must retrieve syncStatus from integration_sync_logs");
-    assert(actionsCode.includes("triggerShopifySyncAction"), "Must export triggerShopifySyncAction for on-demand sync");
+    // Verifies ZERO local database queries for products/orders/inventory
+    assert(!actionsCode.includes('.from("shopify_products")'), "Must NOT query local shopify_products table");
+    assert(!actionsCode.includes('.from("shopify_orders")'), "Must NOT query local shopify_orders table");
+    assert(!actionsCode.includes('.from("shopify_inventory_levels")'), "Must NOT query local shopify_inventory_levels table");
+
+    // Verifies use of in-memory single-flight cache and direct client calls
+    assert(actionsCode.includes("shopifyCache.coalesce"), "Must wrap Shopify API calls in shopifyCache.coalesce");
+    assert(actionsCode.includes("client.getShop()"), "Must query Shopify Admin API directly for shop info");
+    assert(actionsCode.includes("client.getProducts("), "Must query Shopify Admin API directly for products");
+    assert(actionsCode.includes("client.getOrders("), "Must query Shopify Admin API directly for orders");
+    assert(actionsCode.includes("refreshShopifyDataAction"), "Must export refreshShopifyDataAction for on-demand refresh");
   });
 
   // ---------------------------------------------------------------------------
-  // TEST 13: Webhook Real-Time Product Mutations
+  // TEST 17: Sentry Cache Coalescing Integration
   // ---------------------------------------------------------------------------
-  await test("Webhook processor correctly routes products/create, products/update, products/delete", async () => {
-    let upsertCalled = false;
-    let deleteCalled = false;
-
-    const mockSupabase: any = {
-      from: (table: string) => ({
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: { id: "int-123", organization_id: "org-456", status: "connected", metadata: {} },
-                error: null,
-              }),
-            }),
-            maybeSingle: async () => ({ data: null, error: null }),
-          }),
-        }),
-        insert: async () => ({ error: null }),
-        upsert: () => {
-          upsertCalled = true;
-          return {
-            select: () => ({
-              single: async () => ({ data: { id: "local-prod-uuid" }, error: null }),
-            }),
-            error: null,
-          };
-        },
-        update: () => ({
-          eq: () => ({
-            eq: async () => {
-              deleteCalled = true;
-              return { error: null };
-            },
-          }),
-        }),
-      }),
-    };
-
-    // Test product update
-    const resUpdate = await processShopifyWebhookEvent(
-      "products/update",
-      "store.myshopify.com",
-      { id: 991, title: "Smart Watch", variants: [{ id: 881, price: "199.99" }] },
-      "delivery-uuid-1",
-      "2026-10",
-      mockSupabase
-    );
-    assert.strictEqual(resUpdate.processed, true);
-    assert.strictEqual(resUpdate.action, "synced");
-    assert.strictEqual(upsertCalled, true, "Upsert must be invoked for products/update");
-
-    // Test product delete
-    const resDelete = await processShopifyWebhookEvent(
-      "products/delete",
-      "store.myshopify.com",
-      { id: 991 },
-      "delivery-uuid-2",
-      "2026-10",
-      mockSupabase
-    );
-    assert.strictEqual(resDelete.processed, true);
-    assert.strictEqual(resDelete.action, "synced");
-    assert.strictEqual(deleteCalled, true, "Update to archived must be invoked for products/delete");
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST 14: Webhook Real-Time Order Mutations
-  // ---------------------------------------------------------------------------
-  await test("Webhook processor correctly routes orders/create, orders/updated, orders/cancelled", async () => {
-    let orderUpserted = false;
-
-    const mockSupabase: any = {
-      from: (table: string) => ({
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: { id: "int-123", organization_id: "org-456", status: "connected", metadata: {} },
-                error: null,
-              }),
-            }),
-            maybeSingle: async () => ({ data: null, error: null }),
-          }),
-        }),
-        insert: async () => ({ error: null }),
-        upsert: async (record: any) => {
-          orderUpserted = true;
-          assert.strictEqual(record.shopify_order_id, "7711");
-          assert.strictEqual(record.total_price, 85.5);
-          return { error: null };
-        },
-        update: () => ({
-          eq: () => ({
-            eq: async () => ({ error: null }),
-          }),
-        }),
-      }),
-    };
-
-    const res = await processShopifyWebhookEvent(
-      "orders/updated",
-      "store.myshopify.com",
-      { id: 7711, order_number: 1050, name: "#1050", current_total_price: "85.50", financial_status: "paid" },
-      "delivery-uuid-3",
-      "2026-10",
-      mockSupabase
-    );
-
-    assert.strictEqual(res.processed, true);
-    assert.strictEqual(orderUpserted, true, "Order upsert must be executed for orders/updated");
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST 15: Webhook Real-Time Inventory Level Mutations
-  // ---------------------------------------------------------------------------
-  await test("Webhook processor correctly routes inventory_levels/update & disconnect", async () => {
-    let invUpserted = false;
-    let invDeleted = false;
-
-    const mockSupabase: any = {
-      from: (table: string) => ({
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: { id: "int-123", organization_id: "org-456", status: "connected", metadata: {} },
-                error: null,
-              }),
-            }),
-            maybeSingle: async () => ({ data: null, error: null }),
-          }),
-        }),
-        insert: async () => ({ error: null }),
-        upsert: async (record: any) => {
-          invUpserted = true;
-          assert.strictEqual(record.shopify_inventory_item_id, "4401");
-          assert.strictEqual(record.available, 42);
-          return { error: null };
-        },
-        delete: () => ({
-          eq: () => ({
-            eq: () => ({
-              eq: async () => {
-                invDeleted = true;
-                return { error: null };
-              },
-            }),
-          }),
-        }),
-        update: () => ({
-          eq: () => ({
-            eq: async () => ({ error: null }),
-          }),
-        }),
-      }),
-    };
-
-    // Update stock level
-    const resUpdate = await processShopifyWebhookEvent(
-      "inventory_levels/update",
-      "store.myshopify.com",
-      { inventory_item_id: 4401, location_id: 101, available: 42 },
-      "delivery-uuid-4",
-      "2026-10",
-      mockSupabase
-    );
-    assert.strictEqual(resUpdate.processed, true);
-    assert.strictEqual(invUpserted, true);
-
-    // Disconnect stock level
-    const resDisconnect = await processShopifyWebhookEvent(
-      "inventory_levels/disconnect",
-      "store.myshopify.com",
-      { inventory_item_id: 4401, location_id: 101 },
-      "delivery-uuid-5",
-      "2026-10",
-      mockSupabase
-    );
-    assert.strictEqual(resDisconnect.processed, true);
-    assert.strictEqual(invDeleted, true);
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST 16: Multi-Tenant Isolation Simulation
-  // ---------------------------------------------------------------------------
-  test("Multi-tenant isolation: Tenant A records are strictly isolated from Tenant B", () => {
-    interface TestProduct {
-      id: string;
-      organization_id: string;
-      shopify_product_id: string;
-      title: string;
-    }
-
-    const db: TestProduct[] = [
-      { id: "p1", organization_id: "org-AAA", shopify_product_id: "101", title: "Tenant A Product" },
-      { id: "p2", organization_id: "org-BBB", shopify_product_id: "101", title: "Tenant B Product (Same Shopify ID)" },
-    ];
-
-    // Query scoped to org-AAA
-    const orgAResults = db.filter((r) => r.organization_id === "org-AAA");
-    assert.strictEqual(orgAResults.length, 1);
-    assert.strictEqual(orgAResults[0].title, "Tenant A Product");
-
-    // Query scoped to org-BBB
-    const orgBResults = db.filter((r) => r.organization_id === "org-BBB");
-    assert.strictEqual(orgBResults.length, 1);
-    assert.strictEqual(orgBResults[0].title, "Tenant B Product (Same Shopify ID)");
-
-    // Query scoped to non-existent org-CCC
-    const orgCResults = db.filter((r) => r.organization_id === "org-CCC");
-    assert.strictEqual(orgCResults.length, 0);
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST 17: Serverless Background Execution Safety via Next.js after()
-  // ---------------------------------------------------------------------------
-  test("OAuth callback registers initial sync using Next.js after() for serverless runtime survival", () => {
-    const callbackCode = fs.readFileSync(
-      path.resolve(__dirname, "../app/api/integrations/shopify/callback/route.ts"),
+  test("Sentry integration uses sentryCache for API-first queries", () => {
+    const sentryActionsCode = fs.readFileSync(
+      path.resolve(__dirname, "../lib/integrations/sentry/actions.ts"),
       "utf-8"
     );
 
-    assert(callbackCode.includes('import { NextResponse, after } from "next/server";'), "Must import after from next/server");
-    assert(callbackCode.includes("after(async () => {"), "Must wrap sync execution in after()");
-    assert(callbackCode.includes("await syncShopifyOrganizationData("), "Must execute sync inside after()");
+    assert(sentryActionsCode.includes("sentryCache.coalesce"), "Must use sentryCache.coalesce for Sentry workspace snapshot");
+    assert(sentryActionsCode.includes("sentryCache.invalidateTenant"), "Must invalidate Sentry cache on project switch or disconnect");
+    assert(sentryActionsCode.includes("refreshSentryDataAction"), "Must export refreshSentryDataAction");
   });
 
   // ---------------------------------------------------------------------------
-  // TEST 18: Stale Sync Job Recovery
+  // TEST 18: Zero Background Cron Sync Route Bloat
   // ---------------------------------------------------------------------------
-  test("Sync engine cleans up interrupted / timed out in_progress jobs (> 5 minutes)", () => {
-    const engineCode = fs.readFileSync(
-      path.resolve(__dirname, "../lib/integrations/shopify/sync-engine.ts"),
-      "utf-8"
-    );
-
-    assert(engineCode.includes('.lt("started_at", fiveMinutesAgo)'), "Must detect in_progress jobs older than 5 minutes");
-    assert(engineCode.includes('error_message: "Job interrupted by serverless timeout or worker restart"'), "Must mark interrupted jobs with clear failure message");
+  test("Deprecated background reconciliation route is deleted", () => {
+    const reconcileRoutePath = path.resolve(__dirname, "../app/api/maintenance/shopify-reconcile/route.ts");
+    assert(!fs.existsSync(reconcileRoutePath), "shopify-reconcile route must be deleted to eliminate background bloat");
   });
 
   // ---------------------------------------------------------------------------
-  // TEST 19: Watermark Cursor Advancement Invariant
-  // ---------------------------------------------------------------------------
-  test("Sync cursor (last_sync_at) advances strictly on 100% success", () => {
-    const engineCode = fs.readFileSync(
-      path.resolve(__dirname, "../lib/integrations/shopify/sync-engine.ts"),
-      "utf-8"
-    );
-
-    assert(engineCode.includes("const isSuccess = totalFailed === 0;"), "Must define success as zero failures");
-    assert(engineCode.includes("if (isSuccess) {"), "Must guard updating last_sync_at behind complete success");
-    assert(engineCode.includes("preserving previous last_sync_at watermark for reconciliation"), "Must preserve watermark on partial failure");
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST 20: Mandatory GDPR shop/redact Full Data Purge
-  // ---------------------------------------------------------------------------
-  await test("shop/redact permanently purges all merchant products, variants, inventory, orders and locations", async () => {
-    const deletedTables: string[] = [];
-
-    const mockSupabase: any = {
-      from: (table: string) => ({
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: { id: "int-purge", organization_id: "org-purge", status: "disconnected", metadata: {} },
-                error: null,
-              }),
-            }),
-            maybeSingle: async () => ({ data: null, error: null }),
-          }),
-        }),
-        insert: async () => ({ error: null }),
-        delete: () => ({
-          eq: async (col: string, val: string) => {
-            deletedTables.push(table);
-            return { error: null };
-          },
-        }),
-        update: () => ({
-          eq: async () => ({ error: null }),
-        }),
-      }),
-    };
-
-    const res = await processShopifyWebhookEvent(
-      "shop/redact",
-      "purge-store.myshopify.com",
-      { shop_id: 888999, shop_domain: "purge-store.myshopify.com" },
-      "delivery-purge-1",
-      "2026-10",
-      mockSupabase
-    );
-
-    assert.strictEqual(res.processed, true);
-    assert.strictEqual(res.action, "compliance_shop_redacted");
-    assert(deletedTables.includes("shopify_product_variants"), "Must purge shopify_product_variants");
-    assert(deletedTables.includes("shopify_inventory_levels"), "Must purge shopify_inventory_levels");
-    assert(deletedTables.includes("shopify_products"), "Must purge shopify_products");
-    assert(deletedTables.includes("shopify_orders"), "Must purge shopify_orders");
-    assert(deletedTables.includes("shopify_locations"), "Must purge shopify_locations");
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST 21: Mandatory GDPR customers/redact Order Scrubbing
-  // ---------------------------------------------------------------------------
-  await test("customers/redact updates and redacts raw_data for orders requested by customer", async () => {
-    let orderRedacted = false;
-
-    const mockSupabase: any = {
-      from: (table: string) => ({
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              maybeSingle: async () => ({
-                data: { id: "int-redact", organization_id: "org-redact", status: "connected", metadata: {} },
-                error: null,
-              }),
-            }),
-            maybeSingle: async () => ({ data: null, error: null }),
-          }),
-        }),
-        insert: async () => ({ error: null }),
-        update: (fields: any) => ({
-          eq: () => ({
-            in: async (col: string, vals: string[]) => {
-              orderRedacted = true;
-              assert.deepStrictEqual(vals, ["1001", "1002"]);
-              assert.strictEqual(fields.raw_data.redacted, true);
-              return { error: null };
-            },
-          }),
-        }),
-      }),
-    };
-
-    const res = await processShopifyWebhookEvent(
-      "customers/redact",
-      "redact-store.myshopify.com",
-      {
-        shop_id: 111,
-        customer: { id: 999 },
-        orders_to_redact: [1001, 1002],
-      },
-      "delivery-redact-1",
-      "2026-10",
-      mockSupabase
-    );
-
-    assert.strictEqual(res.processed, true);
-    assert.strictEqual(res.action, "compliance_customer_redacted");
-    assert.strictEqual(orderRedacted, true);
-  });
-
-  // ---------------------------------------------------------------------------
-  // TEST 22: Webhook Reprocessability
+  // TEST 19: Webhook Reprocessability
   // ---------------------------------------------------------------------------
   await test("reprocessShopifyWebhookEvent fetches and re-executes pending/failed events", async () => {
     let attemptIncremented = false;
@@ -727,7 +636,6 @@ async function runAll() {
               }),
             }),
           }),
-          upsert: async () => ({ error: null }),
           update: () => ({ eq: async () => ({ error: null }) }),
         };
       },
@@ -739,7 +647,7 @@ async function runAll() {
   });
 
   // ---------------------------------------------------------------------------
-  // TEST 23: Webhook Topics and Compliance Catalog Exports
+  // TEST 20: Webhook Topics and Compliance Catalog Exports
   // ---------------------------------------------------------------------------
   test("Webhook subscription catalog exports official sync and GDPR compliance topics", () => {
     assert(SHOPIFY_REQUIRED_WEBHOOK_TOPICS.includes("products/create"));
@@ -750,6 +658,20 @@ async function runAll() {
     assert(SHOPIFY_MANDATORY_COMPLIANCE_TOPICS.includes("customers/data_request"));
     assert(SHOPIFY_MANDATORY_COMPLIANCE_TOPICS.includes("customers/redact"));
     assert(SHOPIFY_MANDATORY_COMPLIANCE_TOPICS.includes("shop/redact"));
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 21: Synchronous Callback Flow (Zero Serverless Worker Leaks)
+  // ---------------------------------------------------------------------------
+  test("OAuth callback completes synchronously and invalidates cache", () => {
+    const callbackCode = fs.readFileSync(
+      path.resolve(__dirname, "../app/api/integrations/shopify/callback/route.ts"),
+      "utf-8"
+    );
+
+    assert(!callbackCode.includes("syncShopifyOrganizationData"), "Callback must NOT trigger background database sync");
+    assert(callbackCode.includes("shopifyCache.invalidateTenant"), "Callback must invalidate tenant cache");
+    assert(callbackCode.includes("NextResponse.redirect("), "Must redirect to dashboard after atomic credential save");
   });
 
   console.log("\n==================================================================");

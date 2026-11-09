@@ -1,4 +1,4 @@
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import {
@@ -9,7 +9,7 @@ import {
 } from "@/lib/integrations/shopify/oauth";
 import { getShopifyOAuthConfig, sanitizeShopDomain } from "@/lib/integrations/shopify/config";
 import { ShopifyClient } from "@/lib/integrations/shopify/client";
-import { syncShopifyOrganizationData } from "@/lib/integrations/shopify/sync-engine";
+import { shopifyCache } from "@/lib/integrations/cache";
 import { encryptToken } from "@/lib/crypto/encryption";
 import { rateLimit, getClientIp, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
@@ -242,17 +242,8 @@ export async function GET(request: Request) {
 
     revalidatePath("/dashboard");
 
-    // Serverless-safe background execution: keeps runtime context alive until initial sync completes
-    after(async () => {
-      try {
-        await syncShopifyOrganizationData(statePayload.organizationId, { forceFull: true });
-      } catch (syncErr) {
-        logger.warn("Initial background Shopify synchronization reported warning", {
-          organizationId: statePayload.organizationId,
-          error: String(syncErr),
-        });
-      }
-    });
+    // Invalidate any stale in-memory cache for this tenant upon reconnection
+    shopifyCache.invalidateTenant(statePayload.organizationId, "shopify");
 
     const sep = redirectTarget.includes("?") ? "&" : "?";
     const res = NextResponse.redirect(`${redirectTarget}${sep}status=connected&provider=shopify`);

@@ -12,6 +12,7 @@ import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { decryptToken } from "@/lib/crypto/encryption";
 import { SentryClient, SentryApiError } from "./client";
 import { revokeSentryToken } from "./oauth";
+import { sentryCache } from "../cache";
 import {
   SentryWorkspaceSnapshot,
   SentryProject,
@@ -124,39 +125,47 @@ export async function getSentryWorkspaceSnapshotAction(
     }
 
     try {
-      const client = await SentryClient.forOrganization(organizationId);
-      const projects = await client.getProjects(orgSlug);
+      const snapshot = await sentryCache.coalesce<SentryWorkspaceSnapshot>(
+        organizationId,
+        "sentry",
+        "snapshot",
+        orgSlug || "main",
+        async () => {
+          const client = await SentryClient.forOrganization(organizationId);
+          const projects = await client.getProjects(orgSlug);
 
-      const selectedProjectSlug = metadata.selected_project_slug || projects[0]?.slug;
+          const selectedProjectSlug = metadata.selected_project_slug || projects[0]?.slug;
 
-      let recentIssues: SentryIssue[] = [];
-      if (selectedProjectSlug) {
-        const issuesRes = await client.getIssues({
-          orgSlug,
-          projectSlug: selectedProjectSlug,
-          query: "is:unresolved",
-          limit: 15,
-        });
-        recentIssues = issuesRes.issues;
-      }
+          let recentIssues: SentryIssue[] = [];
+          if (selectedProjectSlug) {
+            const issuesRes = await client.getIssues({
+              orgSlug,
+              projectSlug: selectedProjectSlug,
+              query: "is:unresolved",
+              limit: 15,
+            });
+            recentIssues = issuesRes.issues;
+          }
 
-      return {
-        success: true,
-        data: {
-          status: "connected",
-          connectedAccount: {
-            email: integration.account_email || undefined,
-            organizationSlug: orgSlug,
-            organizationName: metadata.sentry_org_name || orgSlug,
-            connectedAt: integration.created_at,
-          },
-          projects,
-          recentIssues,
-          selectedProjectSlug,
-          totalUnresolvedCount: recentIssues.length,
-          lastSyncAt: new Date().toISOString(),
+          return {
+            status: "connected",
+            connectedAccount: {
+              email: integration.account_email || undefined,
+              organizationSlug: orgSlug,
+              organizationName: metadata.sentry_org_name || orgSlug,
+              connectedAt: integration.created_at,
+            },
+            projects,
+            recentIssues,
+            selectedProjectSlug,
+            totalUnresolvedCount: recentIssues.length,
+            lastSyncAt: new Date().toISOString(),
+          };
         },
-      };
+        60 * 1000 // 60s in-memory TTL
+      );
+
+      return { success: true, data: snapshot };
     } catch (err: unknown) {
       if (err instanceof SentryApiError && (err.status === 401 || err.status === 403)) {
         await supabase
@@ -200,6 +209,22 @@ export async function getSentryWorkspaceSnapshotAction(
   } catch (err: unknown) {
     logger.error("Failed to load Sentry workspace snapshot", err);
     return { success: false, error: "Failed to load Sentry snapshot." };
+  }
+}
+
+/**
+ * Manually flushes the tenant cache and requests fresh live data from the Sentry API.
+ */
+export async function refreshSentryDataAction(
+  targetOrgId?: string
+): Promise<{ success: boolean; data?: SentryWorkspaceSnapshot; error?: string }> {
+  try {
+    const { organizationId } = await resolveAuthorizedSentryOrg(targetOrgId);
+    sentryCache.invalidateTenant(organizationId, "sentry");
+    return await getSentryWorkspaceSnapshotAction(targetOrgId);
+  } catch (err: unknown) {
+    logger.error("Failed to refresh Sentry data", err);
+    return { success: false, error: String(err) };
   }
 }
 
@@ -300,6 +325,9 @@ export async function setSelectedSentryProjectAction(
       .update({ metadata: updatedMetadata, updated_at: new Date().toISOString() })
       .eq("id", integration.id);
 
+    // Invalidate cached snapshot for this tenant
+    sentryCache.invalidateTenant(organizationId, "sentry");
+
     revalidatePath("/dashboard");
     return { success: true };
   } catch (err: unknown) {
@@ -321,6 +349,9 @@ export async function disconnectSentryAction(
     if (!rl.success) {
       return { success: false, error: "Too many mutation attempts. Please try again shortly." };
     }
+
+    // Invalidate in-memory cache immediately
+    sentryCache.invalidateTenant(organizationId, "sentry");
 
     const supabase = await createClient();
     const { data: integration } = await supabase
