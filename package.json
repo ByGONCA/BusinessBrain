@@ -25,6 +25,7 @@
     "@types/prismjs": "^1.26.6",
     "@types/sharp": "^0.31.1",
     "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.1.0",
     "clsx": "^2.1.1",
     "geist": "^1.8.1",
     "lucide-react": "^0.473.0",
