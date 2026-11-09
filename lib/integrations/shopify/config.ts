@@ -17,6 +17,33 @@ export const SHOPIFY_DEFAULT_SCOPES = [
 ] as const;
 
 /**
+ * Mandatory compliance topics required for public distributed Shopify Apps (GDPR/CCPA).
+ */
+export const SHOPIFY_MANDATORY_COMPLIANCE_TOPICS = [
+  "customers/data_request",
+  "customers/redact",
+  "shop/redact",
+] as const;
+
+/**
+ * Real-time event subscription topics required for catalog, inventory, order telemetry and lifecycle.
+ */
+export const SHOPIFY_REQUIRED_WEBHOOK_TOPICS = [
+  "app/uninstalled",
+  "products/create",
+  "products/update",
+  "products/delete",
+  "orders/create",
+  "orders/updated",
+  "orders/cancelled",
+  "orders/fulfilled",
+  "orders/paid",
+  "inventory_levels/connect",
+  "inventory_levels/update",
+  "inventory_levels/disconnect",
+] as const;
+
+/**
  * Canonical regex strictly matching valid Shopify store domains.
  * Format: {subdomain}.myshopify.com
  * Requirements:

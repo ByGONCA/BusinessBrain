@@ -24,10 +24,16 @@ import assert from "assert";
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
-import { SHOPIFY_DEFAULT_API_VERSION, getShopifyOAuthConfig } from "../lib/integrations/shopify/config";
+import {
+  SHOPIFY_DEFAULT_API_VERSION,
+  getShopifyOAuthConfig,
+  SHOPIFY_REQUIRED_WEBHOOK_TOPICS,
+  SHOPIFY_MANDATORY_COMPLIANCE_TOPICS,
+} from "../lib/integrations/shopify/config";
 import {
   verifyShopifyWebhookHmac,
   processShopifyWebhookEvent,
+  reprocessShopifyWebhookEvent,
 } from "../lib/integrations/shopify/sync";
 import { ShopifyClient, ShopifyApiError } from "../lib/integrations/shopify/client";
 
@@ -532,6 +538,218 @@ async function runAll() {
     // Query scoped to non-existent org-CCC
     const orgCResults = db.filter((r) => r.organization_id === "org-CCC");
     assert.strictEqual(orgCResults.length, 0);
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 17: Serverless Background Execution Safety via Next.js after()
+  // ---------------------------------------------------------------------------
+  test("OAuth callback registers initial sync using Next.js after() for serverless runtime survival", () => {
+    const callbackCode = fs.readFileSync(
+      path.resolve(__dirname, "../app/api/integrations/shopify/callback/route.ts"),
+      "utf-8"
+    );
+
+    assert(callbackCode.includes('import { NextResponse, after } from "next/server";'), "Must import after from next/server");
+    assert(callbackCode.includes("after(async () => {"), "Must wrap sync execution in after()");
+    assert(callbackCode.includes("await syncShopifyOrganizationData("), "Must execute sync inside after()");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 18: Stale Sync Job Recovery
+  // ---------------------------------------------------------------------------
+  test("Sync engine cleans up interrupted / timed out in_progress jobs (> 5 minutes)", () => {
+    const engineCode = fs.readFileSync(
+      path.resolve(__dirname, "../lib/integrations/shopify/sync-engine.ts"),
+      "utf-8"
+    );
+
+    assert(engineCode.includes('.lt("started_at", fiveMinutesAgo)'), "Must detect in_progress jobs older than 5 minutes");
+    assert(engineCode.includes('error_message: "Job interrupted by serverless timeout or worker restart"'), "Must mark interrupted jobs with clear failure message");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 19: Watermark Cursor Advancement Invariant
+  // ---------------------------------------------------------------------------
+  test("Sync cursor (last_sync_at) advances strictly on 100% success", () => {
+    const engineCode = fs.readFileSync(
+      path.resolve(__dirname, "../lib/integrations/shopify/sync-engine.ts"),
+      "utf-8"
+    );
+
+    assert(engineCode.includes("const isSuccess = totalFailed === 0;"), "Must define success as zero failures");
+    assert(engineCode.includes("if (isSuccess) {"), "Must guard updating last_sync_at behind complete success");
+    assert(engineCode.includes("preserving previous last_sync_at watermark for reconciliation"), "Must preserve watermark on partial failure");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 20: Mandatory GDPR shop/redact Full Data Purge
+  // ---------------------------------------------------------------------------
+  await test("shop/redact permanently purges all merchant products, variants, inventory, orders and locations", async () => {
+    const deletedTables: string[] = [];
+
+    const mockSupabase: any = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: "int-purge", organization_id: "org-purge", status: "disconnected", metadata: {} },
+                error: null,
+              }),
+            }),
+            maybeSingle: async () => ({ data: null, error: null }),
+          }),
+        }),
+        insert: async () => ({ error: null }),
+        delete: () => ({
+          eq: async (col: string, val: string) => {
+            deletedTables.push(table);
+            return { error: null };
+          },
+        }),
+        update: () => ({
+          eq: async () => ({ error: null }),
+        }),
+      }),
+    };
+
+    const res = await processShopifyWebhookEvent(
+      "shop/redact",
+      "purge-store.myshopify.com",
+      { shop_id: 888999, shop_domain: "purge-store.myshopify.com" },
+      "delivery-purge-1",
+      "2026-10",
+      mockSupabase
+    );
+
+    assert.strictEqual(res.processed, true);
+    assert.strictEqual(res.action, "compliance_shop_redacted");
+    assert(deletedTables.includes("shopify_product_variants"), "Must purge shopify_product_variants");
+    assert(deletedTables.includes("shopify_inventory_levels"), "Must purge shopify_inventory_levels");
+    assert(deletedTables.includes("shopify_products"), "Must purge shopify_products");
+    assert(deletedTables.includes("shopify_orders"), "Must purge shopify_orders");
+    assert(deletedTables.includes("shopify_locations"), "Must purge shopify_locations");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 21: Mandatory GDPR customers/redact Order Scrubbing
+  // ---------------------------------------------------------------------------
+  await test("customers/redact updates and redacts raw_data for orders requested by customer", async () => {
+    let orderRedacted = false;
+
+    const mockSupabase: any = {
+      from: (table: string) => ({
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: "int-redact", organization_id: "org-redact", status: "connected", metadata: {} },
+                error: null,
+              }),
+            }),
+            maybeSingle: async () => ({ data: null, error: null }),
+          }),
+        }),
+        insert: async () => ({ error: null }),
+        update: (fields: any) => ({
+          eq: () => ({
+            in: async (col: string, vals: string[]) => {
+              orderRedacted = true;
+              assert.deepStrictEqual(vals, ["1001", "1002"]);
+              assert.strictEqual(fields.raw_data.redacted, true);
+              return { error: null };
+            },
+          }),
+        }),
+      }),
+    };
+
+    const res = await processShopifyWebhookEvent(
+      "customers/redact",
+      "redact-store.myshopify.com",
+      {
+        shop_id: 111,
+        customer: { id: 999 },
+        orders_to_redact: [1001, 1002],
+      },
+      "delivery-redact-1",
+      "2026-10",
+      mockSupabase
+    );
+
+    assert.strictEqual(res.processed, true);
+    assert.strictEqual(res.action, "compliance_customer_redacted");
+    assert.strictEqual(orderRedacted, true);
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 22: Webhook Reprocessability
+  // ---------------------------------------------------------------------------
+  await test("reprocessShopifyWebhookEvent fetches and re-executes pending/failed events", async () => {
+    let attemptIncremented = false;
+
+    const mockSupabase: any = {
+      from: (table: string) => {
+        if (table === "shopify_webhook_events") {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: {
+                    id: "evt-123",
+                    delivery_id: "delivery-failed-1",
+                    topic: "inventory_levels/update",
+                    shop_domain: "retry-store.myshopify.com",
+                    payload: { inventory_item_id: 12, location_id: 34, available: 5 },
+                    attempts: 1,
+                    api_version: "2026-10",
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+            update: () => ({
+              eq: async () => {
+                attemptIncremented = true;
+                return { error: null };
+              },
+            }),
+          };
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: { id: "int-retry", organization_id: "org-retry", status: "connected", metadata: {} },
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+          upsert: async () => ({ error: null }),
+          update: () => ({ eq: async () => ({ error: null }) }),
+        };
+      },
+    };
+
+    const res = await reprocessShopifyWebhookEvent("delivery-failed-1", mockSupabase);
+    assert.strictEqual(res.processed, true);
+    assert.strictEqual(attemptIncremented, true, "Attempts counter must be incremented on retry");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 23: Webhook Topics and Compliance Catalog Exports
+  // ---------------------------------------------------------------------------
+  test("Webhook subscription catalog exports official sync and GDPR compliance topics", () => {
+    assert(SHOPIFY_REQUIRED_WEBHOOK_TOPICS.includes("products/create"));
+    assert(SHOPIFY_REQUIRED_WEBHOOK_TOPICS.includes("orders/create"));
+    assert(SHOPIFY_REQUIRED_WEBHOOK_TOPICS.includes("inventory_levels/update"));
+    assert(SHOPIFY_REQUIRED_WEBHOOK_TOPICS.includes("app/uninstalled"));
+
+    assert(SHOPIFY_MANDATORY_COMPLIANCE_TOPICS.includes("customers/data_request"));
+    assert(SHOPIFY_MANDATORY_COMPLIANCE_TOPICS.includes("customers/redact"));
+    assert(SHOPIFY_MANDATORY_COMPLIANCE_TOPICS.includes("shop/redact"));
   });
 
   console.log("\n==================================================================");

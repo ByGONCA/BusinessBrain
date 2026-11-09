@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import {
@@ -242,12 +242,16 @@ export async function GET(request: Request) {
 
     revalidatePath("/dashboard");
 
-    // Asynchronously kick off initial import without blocking merchant's redirect
-    syncShopifyOrganizationData(statePayload.organizationId, { forceFull: true }).catch((syncErr) => {
-      logger.warn("Initial background Shopify synchronization reported warning", {
-        organizationId: statePayload.organizationId,
-        error: String(syncErr),
-      });
+    // Serverless-safe background execution: keeps runtime context alive until initial sync completes
+    after(async () => {
+      try {
+        await syncShopifyOrganizationData(statePayload.organizationId, { forceFull: true });
+      } catch (syncErr) {
+        logger.warn("Initial background Shopify synchronization reported warning", {
+          organizationId: statePayload.organizationId,
+          error: String(syncErr),
+        });
+      }
     });
 
     const sep = redirectTarget.includes("?") ? "&" : "?";

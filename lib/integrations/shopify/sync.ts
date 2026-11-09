@@ -121,9 +121,21 @@ export async function processShopifyWebhookEvent(
   if (topic === "customers/redact") {
     // Redact any customer references if present in orders or logs
     const customerId = payload?.customer?.id;
-    if (customerId) {
-      logger.info("Executing Shopify customers/redact", { customerId, cleanShop });
+    const ordersToRedact = Array.isArray(payload?.orders_to_redact) ? payload.orders_to_redact : [];
+    logger.info("Executing Shopify customers/redact", { customerId, ordersCount: ordersToRedact.length, cleanShop });
+
+    if (ordersToRedact.length > 0) {
+      const orderIdStrings = ordersToRedact.map((id: any) => String(id));
+      await supabase
+        .from("shopify_orders")
+        .update({
+          raw_data: { redacted: true, redacted_at: nowIso },
+          updated_at: nowIso,
+        })
+        .eq("organization_id", organizationId)
+        .in("shopify_order_id", orderIdStrings);
     }
+
     if (deliveryId) {
       await supabase
         .from("shopify_webhook_events")
@@ -136,6 +148,20 @@ export async function processShopifyWebhookEvent(
   if (topic === "shop/redact") {
     // Fired 48 hours after uninstallation to purge all remaining merchant data
     logger.info("Executing Shopify shop/redact 48h purge", { cleanShop, organizationId });
+
+    // 1. Permanently delete all catalog, inventory, order, and location data for this shop
+    await Promise.all([
+      supabase.from("shopify_product_variants").delete().eq("organization_id", organizationId),
+      supabase.from("shopify_inventory_levels").delete().eq("organization_id", organizationId),
+    ]);
+
+    await Promise.all([
+      supabase.from("shopify_products").delete().eq("organization_id", organizationId),
+      supabase.from("shopify_orders").delete().eq("organization_id", organizationId),
+      supabase.from("shopify_locations").delete().eq("organization_id", organizationId),
+    ]);
+
+    // 2. Mark integration record as permanently purged and remove all tokens and credentials
     await supabase
       .from("organization_integrations")
       .update({
@@ -143,9 +169,11 @@ export async function processShopifyWebhookEvent(
         encrypted_refresh_token: null,
         status: "disconnected",
         metadata: {
-          ...((integration.metadata || {}) as Record<string, any>),
+          shop_domain: cleanShop,
           purged_at: nowIso,
+          redacted: true,
         },
+        last_sync_at: null,
         updated_at: nowIso,
       })
       .eq("id", integrationId);
@@ -419,4 +447,39 @@ export async function processShopifyWebhookEvent(
   }
 
   return { processed: true, action: "synced", organizationId };
+}
+
+/**
+ * Reprocesses a previously failed or pending webhook event from shopify_webhook_events.
+ */
+export async function reprocessShopifyWebhookEvent(
+  deliveryId: string,
+  customSupabaseClient?: any
+): Promise<WebhookProcessResult> {
+  const supabase = customSupabaseClient || createServiceClient();
+
+  const { data: event, error } = await supabase
+    .from("shopify_webhook_events")
+    .select("*")
+    .eq("delivery_id", deliveryId)
+    .maybeSingle();
+
+  if (error || !event) {
+    return { processed: false, reason: "event_not_found" };
+  }
+
+  // Increment attempts counter
+  await supabase
+    .from("shopify_webhook_events")
+    .update({ attempts: (event.attempts || 1) + 1, updated_at: new Date().toISOString() })
+    .eq("delivery_id", deliveryId);
+
+  return processShopifyWebhookEvent(
+    event.topic,
+    event.shop_domain,
+    event.payload,
+    undefined, // Do not duplicate delivery check
+    event.api_version,
+    supabase
+  );
 }

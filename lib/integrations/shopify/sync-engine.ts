@@ -57,14 +57,28 @@ export async function syncShopifyOrganizationData(
     };
   }
 
-  // 2. Prevent overlapping concurrent syncs for the same organization
+  // 2. Auto-recover and mark interrupted / timed-out sync jobs (> 5 minutes) as failed
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  await supabase
+    .from("integration_sync_logs")
+    .update({
+      status: "failed",
+      error_message: "Job interrupted by serverless timeout or worker restart",
+      completed_at: new Date().toISOString(),
+    })
+    .eq("organization_id", organizationId)
+    .eq("provider", "shopify")
+    .eq("status", "in_progress")
+    .lt("started_at", fiveMinutesAgo);
+
+  // 2b. Prevent overlapping concurrent syncs for the same organization
   const { data: activeSync } = await supabase
     .from("integration_sync_logs")
     .select("id, started_at")
     .eq("organization_id", organizationId)
     .eq("provider", "shopify")
     .eq("status", "in_progress")
-    .gt("started_at", new Date(Date.now() - 5 * 60 * 1000).toISOString())
+    .gt("started_at", fiveMinutesAgo)
     .maybeSingle();
 
   if (activeSync) {
@@ -391,11 +405,14 @@ export async function syncShopifyOrganizationData(
     const durationMs = Date.now() - startTime;
     const completedAt = new Date().toISOString();
 
+    const isSuccess = totalFailed === 0;
+    const finalStatus = isSuccess ? "completed" : totalSynced > 0 ? "partial" : "failed";
+
     if (syncLogId) {
       await supabase
         .from("integration_sync_logs")
         .update({
-          status: totalFailed > 0 && totalSynced === 0 ? "failed" : totalFailed > 0 ? "partial" : "completed",
+          status: finalStatus,
           items_synced: totalSynced,
           items_failed: totalFailed,
           details: counters,
@@ -405,23 +422,30 @@ export async function syncShopifyOrganizationData(
         .eq("id", syncLogId);
     }
 
-    // Update integration metadata & last_sync_at
-    const existingMeta = (integration.metadata || {}) as Record<string, any>;
-    const updatedMeta = {
-      ...existingMeta,
-      product_count: counters.products,
-      orders_count: counters.orders,
-      last_synced_at: completedAt,
-    };
+    // Advance sync cursor / watermark ONLY on complete success to guarantee reconciliation captures failed deltas
+    if (isSuccess) {
+      const existingMeta = (integration.metadata || {}) as Record<string, any>;
+      const updatedMeta = {
+        ...existingMeta,
+        product_count: counters.products,
+        orders_count: counters.orders,
+        last_synced_at: completedAt,
+      };
 
-    await supabase
-      .from("organization_integrations")
-      .update({
-        last_sync_at: completedAt,
-        metadata: updatedMeta,
-        updated_at: completedAt,
-      })
-      .eq("id", integration.id);
+      await supabase
+        .from("organization_integrations")
+        .update({
+          last_sync_at: completedAt,
+          metadata: updatedMeta,
+          updated_at: completedAt,
+        })
+        .eq("id", integration.id);
+    } else {
+      logger.warn("Shopify sync had partial failures; preserving previous last_sync_at watermark for reconciliation", {
+        organizationId,
+        totalFailed,
+      });
+    }
 
     logger.info("Shopify sync completed successfully", {
       organizationId,
