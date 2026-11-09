@@ -68,6 +68,7 @@ import {
   TestConnectionResult,
 } from "@/lib/integrations/actions";
 import { disconnectStripeIntegrationAction } from "@/lib/integrations/stripe/actions";
+import { SentryIntegrationView } from "../sentry/sentry-integration-view";
 import {
   getGitHubRepositoriesAction,
   setDefaultGitHubRepositoryAction,
@@ -192,6 +193,7 @@ export function SettingsModal({
   const [infoModalItem, setInfoModalItem] = React.useState<IntegrationDefinition | null>(null);
   const [configStatus, setConfigStatus] = React.useState<Record<string, ProviderConfigStatus>>({});
   const [testingIntegrationId, setTestingIntegrationId] = React.useState<string | null>(null);
+  const [isSentryModalOpen, setIsSentryModalOpen] = React.useState(false);
   const [testResults, setTestResults] = React.useState<Record<string, TestConnectionResult>>({});
 
   React.useEffect(() => {
@@ -735,6 +737,12 @@ export function SettingsModal({
                         window.location.href = "/api/integrations/github/connect";
                       } else if (item.id === "stripe") {
                         window.location.href = "/api/integrations/stripe/connect";
+                      } else if (item.id === "sentry") {
+                        if (connectedAccounts.length > 0) {
+                          setIsSentryModalOpen(true);
+                        } else {
+                          window.location.href = "/api/integrations/sentry/connect";
+                        }
                       } else {
                         setInfoModalItem(item);
                       }
@@ -918,6 +926,79 @@ export function SettingsModal({
                                 </button>
                               )}
                             </div>
+                          ) : item.id === "sentry" && connectedAccounts.length > 0 ? (
+                            <div className="shrink-0 flex items-center gap-2">
+                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs">
+                                <span
+                                  className={cn(
+                                    "h-1.5 w-1.5 rounded-full shrink-0",
+                                    connectedAccounts[0].status === "needs_reauth"
+                                      ? "bg-amber-400"
+                                      : connectedAccounts[0].status === "error"
+                                      ? "bg-rose-500"
+                                      : "bg-emerald-500"
+                                  )}
+                                />
+                                <span className="font-mono text-[11px] font-medium text-zinc-800 dark:text-zinc-200">
+                                  {(connectedAccounts[0].metadata as any)?.organization_slug || connectedAccounts[0].providerAccountId}
+                                </span>
+                                <span
+                                  className={cn(
+                                    "text-[10px] font-semibold uppercase tracking-wider ml-1",
+                                    connectedAccounts[0].status === "needs_reauth"
+                                      ? "text-amber-600 dark:text-amber-400"
+                                      : connectedAccounts[0].status === "error"
+                                      ? "text-rose-600 dark:text-rose-400"
+                                      : "text-emerald-600 dark:text-emerald-400"
+                                  )}
+                                >
+                                  {connectedAccounts[0].status === "needs_reauth" ? "Reauth Required" : "Connected"}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setIsSentryModalOpen(true)}
+                                className="px-2 py-1 text-[11px] font-medium rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 transition-colors flex items-center gap-1 cursor-pointer"
+                                title="Ver Erros & Diagnósticos"
+                              >
+                                <span>Ver Erros</span>
+                                <ExternalLink className="h-3 w-3 text-zinc-400" />
+                              </button>
+                              {canManageIntegrations && (
+                                <button
+                                  type="button"
+                                  disabled={deletingIntegrationId === connectedAccounts[0].id}
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const orgName = (connectedAccounts[0].metadata as any)?.organization_slug || connectedAccounts[0].providerAccountId;
+                                    if (confirm(`Deseja desconectar a organização Sentry (${orgName})?`)) {
+                                      setDeletingIntegrationId(connectedAccounts[0].id);
+                                      try {
+                                        await deleteIntegrationAction(connectedAccounts[0].id);
+                                        await loadIntegrations();
+                                        window.dispatchEvent(
+                                          new CustomEvent("cb-integration-changed", {
+                                            detail: { provider: "sentry", status: "disconnected" },
+                                          })
+                                        );
+                                      } catch (err) {
+                                        console.error("Erro ao remover conta Sentry:", err);
+                                      } finally {
+                                        setDeletingIntegrationId(null);
+                                      }
+                                    }
+                                  }}
+                                  className="p-1 rounded-md text-zinc-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-40"
+                                  title="Desconectar organização Sentry"
+                                >
+                                  {deletingIntegrationId === connectedAccounts[0].id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />
+                                  ) : (
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                              )}
+                            </div>
                           ) : !isConfigured ? (
                             <div className="shrink-0 flex items-center gap-1.5">
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] font-medium text-amber-500">
@@ -940,7 +1021,7 @@ export function SettingsModal({
                                 onClick={handleConfigureClick}
                                 className="shrink-0 flex items-center gap-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 px-2.5 py-1 text-xs font-medium text-zinc-800 dark:text-zinc-200 transition-colors shadow-2xs"
                               >
-                                <span>{item.id === "github" || item.id === "stripe" ? "Conectar" : (t.settings.integrationsTab.configure || "Configure")}</span>
+                                <span>{item.id === "github" || item.id === "stripe" || item.id === "sentry" ? "Conectar" : (t.settings.integrationsTab.configure || "Configure")}</span>
                                 <ExternalLink className="h-3 w-3 text-zinc-400" />
                               </button>
                             ) : null)
@@ -1361,6 +1442,30 @@ export function SettingsModal({
                 Done
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sentry Integration Dialog */}
+      {isSentryModalOpen && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
+          onClick={() => {
+            setIsSentryModalOpen(false);
+            loadIntegrations();
+          }}
+        >
+          <div
+            className="w-full max-w-4xl max-h-[85vh] rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121316] p-6 shadow-2xl text-zinc-900 dark:text-zinc-100 animate-in fade-in zoom-in-95 overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <SentryIntegrationView
+              organizationId={activeOrg?.id}
+              onClose={() => {
+                setIsSentryModalOpen(false);
+                loadIntegrations();
+              }}
+            />
           </div>
         </div>
       )}

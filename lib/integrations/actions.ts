@@ -8,6 +8,7 @@ import { revokeGoogleToken } from "./google/oauth";
 import { revokeGitHubToken } from "./github/oauth";
 import { revokeLinearToken } from "./linear/oauth";
 import { revokeMicrosoftToken } from "./microsoft/oauth";
+import { revokeSentryToken } from "./sentry/oauth";
 import { isValidUuid } from "@/lib/security/authorization";
 import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
@@ -159,6 +160,11 @@ export async function disconnectIntegrationAction(integrationId: string) {
         const accessToken = decryptToken(integration.encrypted_access_token);
         await revokeMicrosoftToken(accessToken);
       }
+    } else if (integration.provider === "sentry") {
+      if (integration.encrypted_access_token) {
+        const accessToken = decryptToken(integration.encrypted_access_token);
+        await revokeSentryToken(accessToken);
+      }
     }
   } catch (err: unknown) {
     logger.warn("External token revocation skipped or failed", {
@@ -271,6 +277,11 @@ export async function deleteIntegrationAction(integrationId: string) {
         if (integration.encrypted_access_token) {
           const accessToken = decryptToken(integration.encrypted_access_token);
           await revokeGitHubToken(accessToken);
+        }
+      } else if (integration.provider === "sentry") {
+        if (integration.encrypted_access_token) {
+          const accessToken = decryptToken(integration.encrypted_access_token);
+          await revokeSentryToken(accessToken);
         }
       }
     } catch (err: unknown) {

@@ -37,6 +37,7 @@ export const STATIC_CALLBACK_PROVIDERS = new Set([
   "linear",
   "shopify",
   "stripe",
+  "sentry",
 ]);
 
 /**
