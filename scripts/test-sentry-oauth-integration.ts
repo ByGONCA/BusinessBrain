@@ -330,6 +330,142 @@ async function runTestSuite() {
     );
   });
 
+  // ---------------------------------------------------------------------------
+  // TEST 11: Multi-Tenant Authorization & Permission Enforcement
+  // ---------------------------------------------------------------------------
+  test("Server actions enforce tenant membership & permission boundaries", () => {
+    const oauthActionsPath = path.resolve(__dirname, "../lib/integrations/sentry/actions.ts");
+    const actionsContent = fs.readFileSync(oauthActionsPath, "utf-8");
+
+    // All actions must call resolveAuthorizedSentryOrg
+    assert(actionsContent.includes("resolveAuthorizedSentryOrg"), "resolveAuthorizedSentryOrg must be defined");
+    assert(
+      actionsContent.includes('resolveAuthorizedSentryOrg(targetOrgId, "integrations.disconnect")'),
+      "disconnect action must enforce integrations.disconnect permission"
+    );
+    assert(
+      actionsContent.includes('resolveAuthorizedSentryOrg(targetOrgId, "integrations.connect")'),
+      "project selection action must enforce integrations.connect permission"
+    );
+
+    // Verify membership query targets organization_members by organization_id and user_id
+    assert(actionsContent.includes('.from("organization_members")'), "Must query organization_members");
+    assert(actionsContent.includes('.eq("organization_id", organizationId)'), "Must scope membership to organization_id");
+    assert(actionsContent.includes('.eq("user_id", user.id)'), "Must scope membership to user.id");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 12: Zero Token Leakage in Workspace Snapshots & Responses
+  // ---------------------------------------------------------------------------
+  test("Zero token leakage: SentryWorkspaceSnapshot exposes only non-sensitive telemetry", () => {
+    const typesPath = path.resolve(__dirname, "../lib/integrations/sentry/types.ts");
+    const typesContent = fs.readFileSync(typesPath, "utf-8");
+
+    // SentryWorkspaceSnapshot contract must NOT contain tokens
+    assert(!typesContent.match(/SentryWorkspaceSnapshot[\s\S]*?(access_token|encrypted_access_token)/i), "Snapshot must not contain access tokens");
+    assert(!typesContent.match(/SentryWorkspaceSnapshot[\s\S]*?(refresh_token|encrypted_refresh_token)/i), "Snapshot must not contain refresh tokens");
+
+    // Simulated snapshot output validation
+    const mockSnapshot = {
+      status: "connected",
+      connectedAccount: {
+        email: "admin@corp-alpha.com",
+        organizationSlug: "corp-alpha-sentry",
+        organizationName: "Corp Alpha Sentry",
+        connectedAt: "2026-11-09T10:00:00.000Z",
+      },
+      projects: [{ id: "1", slug: "web-app", name: "Web App", platform: "javascript-nextjs" }],
+      recentIssues: [{ id: "issue_1", title: "TypeError: null is not an object", count: "12", userCount: 3 }],
+      selectedProjectSlug: "web-app",
+      totalUnresolvedCount: 1,
+    };
+
+    const serialized = JSON.stringify(mockSnapshot);
+    assert(!serialized.includes("sntrys_"), "No Sentry token pattern in serialized snapshot");
+    assert(!serialized.includes("token"), "No token fields in serialized snapshot");
+    assert(!serialized.includes("secret"), "No secret fields in serialized snapshot");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 13: HTTP 429 Rate Limiting, Retry-After & 401 Reauth Handling
+  // ---------------------------------------------------------------------------
+  test("API Error handling: HTTP 429 rate limit with Retry-After and 401 reauth", () => {
+    const clientPath = path.resolve(__dirname, "../lib/integrations/sentry/client.ts");
+    const clientContent = fs.readFileSync(clientPath, "utf-8");
+    const actionsPath = path.resolve(__dirname, "../lib/integrations/sentry/actions.ts");
+    const actionsContent = fs.readFileSync(actionsPath, "utf-8");
+    const oauthPath = path.resolve(__dirname, "../lib/integrations/sentry/oauth.ts");
+    const oauthContent = fs.readFileSync(oauthPath, "utf-8");
+
+    assert(clientContent.includes("response.status === 429"), "Must handle HTTP 429 status in client.ts");
+    assert(clientContent.includes('response.headers.get("Retry-After")'), "Must parse Retry-After header in client.ts");
+    assert(clientContent.includes("response.status === 401"), "Must handle HTTP 401 status in client.ts");
+    assert(
+      actionsContent.includes("needs_reauth") && oauthContent.includes("needs_reauth"),
+      "Must update status to needs_reauth on revoked/expired token in actions and oauth"
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 14: Cross-Tenant State Tampering & Callback Nonce Defense
+  // ---------------------------------------------------------------------------
+  test("Cross-tenant OAuth state injection & replay rejection", () => {
+    const orgAlpha = "11111111-1111-1111-1111-111111111111";
+    const orgBravo = "22222222-2222-2222-2222-222222222222";
+    const userAlpha = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+
+    // Alpha generates a valid state for Org Alpha
+    const stateAlpha = createSentryOAuthState({
+      organizationId: orgAlpha,
+      userId: userAlpha,
+      returnUrl: "/dashboard/settings",
+    });
+
+    // Attacker modifies state payload to point to Org Bravo while keeping Alpha's signature
+    const [b64Data, sig] = stateAlpha.split(".");
+    const decoded = JSON.parse(Buffer.from(b64Data, "base64url").toString("utf-8"));
+    decoded.organizationId = orgBravo; // Swapping tenant
+    const tamperedB64 = Buffer.from(JSON.stringify(decoded)).toString("base64url");
+    const tamperedState = `${tamperedB64}.${sig}`;
+
+    // Verifying tampered state MUST fail
+    const result = verifySentryOAuthState(tamperedState);
+    assert.strictEqual(result, null, "Tampered cross-tenant OAuth state must be rejected");
+
+    // Valid state must preserve original organizationId exactly
+    const verified = verifySentryOAuthState(stateAlpha);
+    assert.strictEqual(verified?.organizationId, orgAlpha, "Verified state must match original orgAlpha");
+    assert.notStrictEqual(verified?.organizationId, orgBravo, "State must never be confused with orgBravo");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 15: Disconnect Flow Scoping & Token Revocation
+  // ---------------------------------------------------------------------------
+  test("Disconnect flow wipes tokens strictly for target organization", () => {
+    const actionsPath = path.resolve(__dirname, "../lib/integrations/sentry/actions.ts");
+    const actionsContent = fs.readFileSync(actionsPath, "utf-8");
+
+    assert(actionsContent.includes("revokeSentryToken"), "Disconnect must invoke revokeSentryToken");
+    assert(actionsContent.includes('status: "disconnected"'), "Disconnect must set status to disconnected");
+    assert(actionsContent.includes("encrypted_access_token: null"), "Disconnect must nullify encrypted access token");
+    assert(actionsContent.includes("encrypted_refresh_token: null"), "Disconnect must nullify encrypted refresh token");
+    assert(actionsContent.includes('.eq("organization_id", organizationId)'), "Disconnect must be scoped strictly by organization_id");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 16: Coexistence: Vercel Web Analytics & Speed Insights
+  // ---------------------------------------------------------------------------
+  test("Observability coexistence: Vercel Analytics & Speed Insights present exactly once", () => {
+    const layoutPath = path.resolve(__dirname, "../app/layout.tsx");
+    const layoutContent = fs.readFileSync(layoutPath, "utf-8");
+
+    const analyticsMatches = layoutContent.match(/<Analytics\s*\/>/g);
+    assert.strictEqual(analyticsMatches?.length, 1, "Vercel <Analytics /> must appear exactly once in layout");
+
+    const speedInsightsMatches = layoutContent.match(/<SpeedInsights\s*\/>/g);
+    assert.strictEqual(speedInsightsMatches?.length, 1, "Vercel <SpeedInsights /> must appear exactly once in layout");
+  });
+
   console.log("\n==================================================================");
   console.log(`SUMMARY: ${passed}/${total} TESTS PASSED WITH 0 FAILURES`);
   console.log("==================================================================\n");

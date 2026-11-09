@@ -22,33 +22,52 @@ import {
 import { logger } from "@/lib/security/logger";
 
 /**
+ * Resolves the target organization and strictly validates user authentication,
+ * tenant membership, and required permissions.
+ */
+async function resolveAuthorizedSentryOrg(
+  targetOrgId?: string,
+  requiredPermission?: "integrations.connect" | "integrations.disconnect"
+): Promise<{ organizationId: string; user: { id: string; email?: string } }> {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("Unauthorized");
+
+  const activeOrg = await getActiveOrganization();
+  const organizationId = targetOrgId || activeOrg?.id;
+  if (!organizationId) throw new Error("No active organization");
+
+  const supabase = await createClient();
+  const { data: member } = await supabase
+    .from("organization_members")
+    .select("role")
+    .eq("organization_id", organizationId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!member) {
+    throw new Error("Forbidden: Not an organization member");
+  }
+
+  if (requiredPermission) {
+    const isOwnerOrAdmin = member.role === "owner" || member.role === "admin";
+    const allowed = isOwnerOrAdmin || (await hasPermission(user.id, organizationId, requiredPermission));
+    if (!allowed) {
+      throw new Error(`Forbidden: Insufficient permissions to manage integrations (${requiredPermission})`);
+    }
+  }
+
+  return { organizationId, user };
+}
+
+/**
  * Retrieves the full operational snapshot for Sentry in the active workspace.
  */
 export async function getSentryWorkspaceSnapshotAction(
   targetOrgId?: string
 ): Promise<{ success: boolean; data?: SentryWorkspaceSnapshot; error?: string }> {
   try {
-    const user = await getCurrentUser();
-    if (!user) return { success: false, error: "Unauthorized" };
-
-    const activeOrg = await getActiveOrganization();
-    const organizationId = targetOrgId || activeOrg?.id;
-    if (!organizationId) {
-      return { success: false, error: "No active organization" };
-    }
-
-    // Verify tenant membership
+    const { organizationId } = await resolveAuthorizedSentryOrg(targetOrgId);
     const supabase = await createClient();
-    const { data: member } = await supabase
-      .from("organization_members")
-      .select("role")
-      .eq("organization_id", organizationId)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (!member) {
-      return { success: false, error: "Forbidden: Not an organization member" };
-    }
 
     const { data: integration } = await supabase
       .from("organization_integrations")
@@ -194,12 +213,7 @@ export async function getSentryIssuesAction(params: {
   targetOrgId?: string;
 }): Promise<{ success: boolean; data?: { issues: SentryIssue[]; nextCursor?: string }; error?: string }> {
   try {
-    const user = await getCurrentUser();
-    if (!user) return { success: false, error: "Unauthorized" };
-
-    const activeOrg = await getActiveOrganization();
-    const organizationId = params.targetOrgId || activeOrg?.id;
-    if (!organizationId) return { success: false, error: "No active organization" };
+    const { organizationId } = await resolveAuthorizedSentryOrg(params.targetOrgId);
 
     const supabase = await createClient();
     const { data: integration } = await supabase
@@ -241,12 +255,7 @@ export async function getSentryIssueDetailAction(
   targetOrgId?: string
 ): Promise<{ success: boolean; data?: { issue: SentryIssue; event: SentryEventDetail | null }; error?: string }> {
   try {
-    const user = await getCurrentUser();
-    if (!user) return { success: false, error: "Unauthorized" };
-
-    const activeOrg = await getActiveOrganization();
-    const organizationId = targetOrgId || activeOrg?.id;
-    if (!organizationId) return { success: false, error: "No active organization" };
+    const { organizationId } = await resolveAuthorizedSentryOrg(targetOrgId);
 
     const client = await SentryClient.forOrganization(organizationId);
     const [issue, event] = await Promise.all([
@@ -269,12 +278,7 @@ export async function setSelectedSentryProjectAction(
   targetOrgId?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const user = await getCurrentUser();
-    if (!user) return { success: false, error: "Unauthorized" };
-
-    const activeOrg = await getActiveOrganization();
-    const organizationId = targetOrgId || activeOrg?.id;
-    if (!organizationId) return { success: false, error: "No active organization" };
+    const { organizationId } = await resolveAuthorizedSentryOrg(targetOrgId, "integrations.connect");
 
     const supabase = await createClient();
     const { data: integration } = await supabase
@@ -311,21 +315,7 @@ export async function disconnectSentryAction(
   targetOrgId?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const user = await getCurrentUser();
-    if (!user) return { success: false, error: "Unauthorized" };
-
-    const activeOrg = await getActiveOrganization();
-    const organizationId = targetOrgId || activeOrg?.id;
-    if (!organizationId) return { success: false, error: "No active organization" };
-
-    const canDisconnect =
-      activeOrg?.role === "owner" ||
-      activeOrg?.role === "admin" ||
-      (await hasPermission(user.id, organizationId, "integrations.disconnect"));
-
-    if (!canDisconnect) {
-      return { success: false, error: "Forbidden: Insufficient permissions to disconnect integrations." };
-    }
+    const { organizationId } = await resolveAuthorizedSentryOrg(targetOrgId, "integrations.disconnect");
 
     const rl = await rateLimit("disconnect-sentry", organizationId, RATE_LIMIT_PRESETS.MUTATIONS);
     if (!rl.success) {
