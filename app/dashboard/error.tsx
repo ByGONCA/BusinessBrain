@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import * as Sentry from "@sentry/nextjs";
 import { ErrorPanel } from "@/components/ui/error-notice";
 
 interface DashboardErrorProps {
@@ -10,6 +11,9 @@ interface DashboardErrorProps {
 
 export default function DashboardError({ error, reset }: DashboardErrorProps) {
   React.useEffect(() => {
+    // Report unexpected dashboard error to Sentry
+    Sentry.captureException(error);
+
     // Log technical error details to console safely for debugging
     console.error("Dashboard Canvas Error:", {
       message: error?.message,

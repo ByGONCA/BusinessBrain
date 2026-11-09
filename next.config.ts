@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 
 const isDev = process.env.NODE_ENV !== "production";
 
@@ -19,6 +20,10 @@ const connectSrcDirectives = [
   "https://api.stripe.com",
   "https://accounts.google.com",
   "https://oauth2.googleapis.com",
+  "https://*.ingest.sentry.io",
+  "https://*.ingest.us.sentry.io",
+  "https://*.ingest.de.sentry.io",
+  "https://*.sentry.io",
   ...(isDev
     ? [
         "ws://localhost:*",
@@ -112,4 +117,25 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+const sentryBuildOptions = {
+  // Sentry Organization and Project slugs
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+
+  // Suppress verbose logs unless running in CI
+  silent: !process.env.CI,
+
+  // Automatically delete source maps after upload to prevent leaking proprietary source code in production
+  sourcemaps: {
+    deleteSourcemapsAfterUpload: true,
+    disable: !process.env.SENTRY_AUTH_TOKEN,
+  },
+
+  // Automatically annotate React component names in breadcrumbs
+  reactComponentAnnotation: {
+    enabled: true,
+  },
+};
+
+export default withSentryConfig(nextConfig, sentryBuildOptions);

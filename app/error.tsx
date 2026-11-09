@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 import { AlertCircle, RotateCcw, RefreshCw, LayoutDashboard } from "lucide-react";
 
 interface RootErrorProps {
@@ -11,6 +12,9 @@ interface RootErrorProps {
 
 export default function RootError({ error, reset }: RootErrorProps) {
   React.useEffect(() => {
+    // Report unexpected runtime error to Sentry
+    Sentry.captureException(error);
+
     // Log unexpected runtime error safely to console for debugging without leaking technical internals to the user UI
     console.error("Root Application Error:", {
       message: error?.message,
