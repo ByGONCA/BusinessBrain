@@ -9,15 +9,15 @@ import {
 import { encryptToken } from "@/lib/crypto/encryption";
 import { rateLimit, getClientIp, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
-import { sanitizeRedirectUrl } from "@/lib/security/redirects";
+import { sanitizeRedirectUrl, getTrustedAppUrl } from "@/lib/security/redirects";
 import { hasPermission } from "@/lib/permissions/resolver";
 
 export async function GET(request: Request) {
   const clientIp = await getClientIp();
   const rl = await rateLimit("linear-callback", clientIp, RATE_LIMIT_PRESETS.INTEGRATIONS);
 
-  const { searchParams, origin } = new URL(request.url);
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
+  const { searchParams } = new URL(request.url);
+  const baseUrl = getTrustedAppUrl(request);
   const defaultRedirect = `${baseUrl}/dashboard/linear`;
 
   if (!rl.success) {

@@ -1,3 +1,5 @@
+import { getOAuthCallbackUrl } from "@/lib/security/redirects";
+
 export const MICROSOFT_SCOPES = {
   USER_READ: "User.Read",
   CALENDARS_READWRITE: "Calendars.ReadWrite",
@@ -52,9 +54,7 @@ export function getMicrosoftConfig() {
   const clientId = process.env.MICROSOFT_CLIENT_ID || "";
   const clientSecret = process.env.MICROSOFT_CLIENT_SECRET || "";
   const tenantId = process.env.MICROSOFT_TENANT_ID || "common";
-  const redirectUri =
-    process.env.MICROSOFT_REDIRECT_URI ||
-    `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/integrations/microsoft/callback`;
+  const redirectUri = getOAuthCallbackUrl("microsoft");
 
   const isConfigured = Boolean(
     clientId &&

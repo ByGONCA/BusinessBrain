@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
+import { getTrustedAppUrl } from "@/lib/security/redirects";
 
 export async function GET(request: Request) {
-  const { origin } = new URL(request.url);
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
+  const baseUrl = getTrustedAppUrl(request);
   return NextResponse.redirect(`${baseUrl}/dashboard?settings=billing`);
 }

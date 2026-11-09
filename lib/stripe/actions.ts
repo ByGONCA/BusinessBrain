@@ -19,6 +19,7 @@ import { rateLimit, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
 import { hasPermission } from "@/lib/permissions/resolver";
 import { getServerAuthToken } from "@/lib/security/authorization";
+import { getTrustedAppUrl } from "@/lib/security/redirects";
 
 export interface CheckoutActionState {
   error?: string;
@@ -175,7 +176,7 @@ export async function createCheckoutSessionAction(
         },
       ];
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = getTrustedAppUrl();
   const trialDays = getTrialDays();
 
   try {
@@ -321,7 +322,7 @@ export async function createCustomerPortalSessionAction(): Promise<{
     }
 
     const stripe = getStripeClient();
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const appUrl = getTrustedAppUrl();
 
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: sub.stripe_customer_id,

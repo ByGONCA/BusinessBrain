@@ -6,6 +6,7 @@ import crypto from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { encryptToken, decryptToken } from "@/lib/crypto/encryption";
 import { signOAuthStatePayload, verifyOAuthStateSignature } from "@/lib/security/oauth-state";
+import { getOAuthCallbackUrl } from "@/lib/security/redirects";
 import { logger } from "@/lib/security/logger";
 
 export const LINEAR_OAUTH_SCOPES = ["read"] as const;
@@ -35,9 +36,7 @@ export interface LinearTokenExchangeResult {
 export function getLinearConfig() {
   const clientId = process.env.LINEAR_CLIENT_ID;
   const clientSecret = process.env.LINEAR_CLIENT_SECRET;
-  const redirectUri =
-    process.env.LINEAR_REDIRECT_URI ||
-    `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/integrations/linear/callback`;
+  const redirectUri = getOAuthCallbackUrl("linear");
 
   return {
     clientId: clientId || "",

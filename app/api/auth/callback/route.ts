@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUserOrganizations, getActiveOrganization } from "@/lib/organizations/queries";
 import { getOrganizationEntitlement } from "@/lib/organizations/entitlements";
-import { sanitizeRedirectUrl } from "@/lib/security/redirects";
+import { sanitizeRedirectUrl, getTrustedAppUrl } from "@/lib/security/redirects";
 import { rateLimit, getClientIp, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
 
@@ -10,8 +10,8 @@ export async function GET(request: Request) {
   const clientIp = await getClientIp();
   const rl = await rateLimit("auth-callback", clientIp, RATE_LIMIT_PRESETS.AUTH_STRICT);
 
-  const { searchParams, origin } = new URL(request.url);
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
+  const { searchParams } = new URL(request.url);
+  const baseUrl = getTrustedAppUrl(request);
 
   if (!rl.success) {
     logger.warn("Rate limit exceeded on auth callback", { clientIp });

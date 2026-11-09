@@ -1,7 +1,8 @@
 import { MetadataRoute } from "next";
+import { getTrustedAppUrl } from "@/lib/security/redirects";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://kogsync.com";
+  const baseUrl = getTrustedAppUrl();
   const lastModified = new Date();
 
   const routes = [

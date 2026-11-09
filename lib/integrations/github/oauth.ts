@@ -5,6 +5,7 @@
 import crypto from "crypto";
 import { getGitHubConfig, GITHUB_OAUTH_SCOPES, GITHUB_OAUTH_ENDPOINTS } from "./config";
 import { signOAuthStatePayload, verifyOAuthStateSignature } from "@/lib/security/oauth-state";
+import { getOAuthCallbackUrl } from "@/lib/security/redirects";
 
 export interface GitHubAuthStatePayload {
   organizationId: string;
@@ -82,9 +83,7 @@ export function generateGitHubAuthUrl(options: {
     returnUrl: options.returnUrl,
   });
 
-  const redirectUri =
-    process.env.GITHUB_REDIRECT_URI ||
-    `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/integrations/github/callback`;
+  const redirectUri = getOAuthCallbackUrl("github");
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -112,9 +111,7 @@ export async function exchangeGitHubCodeForToken(code: string): Promise<GitHubTo
     throw new Error("GITHUB_CLIENT_ID or GITHUB_CLIENT_SECRET is not configured.");
   }
 
-  const redirectUri =
-    process.env.GITHUB_REDIRECT_URI ||
-    `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/integrations/github/callback`;
+  const redirectUri = getOAuthCallbackUrl("github");
 
   const response = await fetch(GITHUB_OAUTH_ENDPOINTS.accessToken, {
     method: "POST",

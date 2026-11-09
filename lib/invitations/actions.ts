@@ -8,6 +8,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getActiveOrganization, ACTIVE_ORG_COOKIE_NAME } from "@/lib/organizations/queries";
 import { isValidUuid, generateInvitationServerToken } from "@/lib/security/authorization";
 import { getOrganizationEntitlement } from "@/lib/organizations/entitlements";
+import { getTrustedAppUrl } from "@/lib/security/redirects";
 import { SUBSCRIPTION_PLANS } from "@/lib/stripe/config";
 import { extractTokenFromInput } from "./utils";
 import { logger } from "@/lib/security/logger";
@@ -194,7 +195,7 @@ export async function createInvitationAction(params: {
 
 
   // Construct single-use acceptance link and absolute URL
-  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  const configuredAppUrl = getTrustedAppUrl();
   const baseUrl = configuredAppUrl.replace(/\/+$/, "");
   const inviteLink = `/invite/${token}`;
   const absoluteInviteLink = `${baseUrl}${inviteLink}`;
@@ -453,7 +454,7 @@ export async function resendInvitationAction(
     return { success: false, error: updateError.message };
   }
 
-  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  const configuredAppUrl = getTrustedAppUrl();
   const baseUrl = configuredAppUrl.replace(/\/+$/, "");
   const inviteLink = `/invite/${newToken}`;
   const absoluteInviteLink = `${baseUrl}${inviteLink}`;

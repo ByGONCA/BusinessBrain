@@ -1,3 +1,5 @@
+import { getOAuthCallbackUrl } from "@/lib/security/redirects";
+
 export const GOOGLE_SCOPES = {
   EMAIL: "https://www.googleapis.com/auth/userinfo.email",
   PROFILE: "https://www.googleapis.com/auth/userinfo.profile",
@@ -44,9 +46,7 @@ export const DEFAULT_GOOGLE_INTEGRATION_SCOPES: string[] = [
 export function getGoogleConfig() {
   const clientId = process.env.GOOGLE_CLIENT_ID || "";
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
-  const redirectUri =
-    process.env.GOOGLE_REDIRECT_URI ||
-    `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/integrations/google/callback`;
+  const redirectUri = getOAuthCallbackUrl("google");
 
   return {
     clientId,

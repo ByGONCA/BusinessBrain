@@ -6,7 +6,7 @@ import { z } from "zod";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { rateLimit, getClientIp, RATE_LIMIT_PRESETS } from "@/lib/security/rate-limit";
 import { logger } from "@/lib/security/logger";
-import { sanitizeRedirectUrl } from "@/lib/security/redirects";
+import { sanitizeRedirectUrl, getTrustedAppUrl } from "@/lib/security/redirects";
 import { checkPasswordRequirements } from "@/lib/auth/password-rules";
 
 const authSchema = z.object({
@@ -143,7 +143,7 @@ export async function signUpAction(
     };
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = getTrustedAppUrl();
   const supabase = await createClient();
 
   const { data, error } = await supabase.auth.signUp({
@@ -192,7 +192,7 @@ export async function resendVerificationEmailAction(
   }
 
   const supabase = await createClient();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = getTrustedAppUrl();
 
   const { error } = await supabase.auth.resend({
     type: "signup",
@@ -233,7 +233,7 @@ export async function initiateOAuthAction(
   }
 
   const supabase = await createClient();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = getTrustedAppUrl();
   const safeNext = sanitizeRedirectUrl(rawReturnUrl, "/dashboard");
 
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -283,7 +283,7 @@ export async function sendEmailOtpAction(
   }
 
   const supabase = await createClient();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = getTrustedAppUrl();
 
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data,
@@ -467,7 +467,7 @@ export async function requestPasswordResetAction(
   }
 
   const supabase = await createClient();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = getTrustedAppUrl();
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${appUrl}/api/auth/callback?next=/reset-password`,
@@ -503,7 +503,7 @@ export async function sendRecoveryOtpAction(
   }
 
   const supabase = await createClient();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const appUrl = getTrustedAppUrl();
 
   // Use signInWithOtp to instruct Supabase to generate and send a 6-digit OTP code
   const { error } = await supabase.auth.signInWithOtp({
