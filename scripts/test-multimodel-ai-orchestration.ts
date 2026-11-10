@@ -418,17 +418,17 @@ async function runMultiModelTestSuite() {
   `);
 
   // Apply foundation migrations 00038, 00039 and then 00040
-  const mig00038 = fs.readFileSync(path.join(process.cwd(), "database/migrations/00038_ai_foundation_and_byok.sql"), "utf-8");
+  const mig00038 = fs.readFileSync(path.join(process.cwd(), "database/migrations/applied/00038_ai_foundation_and_byok.sql"), "utf-8");
   await pg.exec(mig00038);
 
   const mig00039 = fs.readFileSync(
-    path.join(process.cwd(), "database/migrations/00039_ai_access_control_and_governance.sql"),
+    path.join(process.cwd(), "database/migrations/applied/00039_ai_access_control_and_governance.sql"),
     "utf-8"
   );
   await pg.exec(mig00039);
 
   const mig00040 = fs.readFileSync(
-    path.join(process.cwd(), "database/migrations/00040_multimodel_and_personal_accounts.sql"),
+    path.join(process.cwd(), "database/migrations/applied/00040_multimodel_and_personal_accounts.sql"),
     "utf-8"
   );
   await pg.exec(mig00040);

@@ -632,6 +632,12 @@ export async function verifyAndSyncCheckoutSession(sessionId: string): Promise<{
 
     // Synchronize to database using privileged service_role boundary
     const serverToken = getServerAuthToken("stripe-webhook");
+    const eventCreatedUnix = Math.max(
+      typeof (session as any).created === "number" ? (session as any).created : 0,
+      typeof (sub as any).created === "number" ? (sub as any).created : 0,
+      typeof (sub as any).current_period_start === "number" ? (sub as any).current_period_start : 0
+    ) || Math.floor(Date.now() / 1000);
+    const eventCreatedIso = new Date(eventCreatedUnix * 1000).toISOString();
 
     const { error: rpcError } = await serviceClient.rpc("sync_stripe_subscription", {
       p_organization_id: activeOrg.id,
@@ -645,6 +651,7 @@ export async function verifyAndSyncCheckoutSession(sessionId: string): Promise<{
       p_current_period_end: currentPeriodEnd,
       p_cancel_at_period_end: sub.cancel_at_period_end,
       p_server_token: serverToken,
+      p_stripe_event_created: eventCreatedIso,
     });
 
     if (rpcError) {
@@ -663,48 +670,19 @@ export async function verifyAndSyncCheckoutSession(sessionId: string): Promise<{
         };
       }
 
-      logger.warn("RPC sync_stripe_subscription failed during session verify, falling back to direct upsert", {
+      logger.error("Authoritative sync_stripe_subscription RPC failed during checkout verification", {
         error: rpcError.message,
+        code: rpcError.code,
         orgId: activeOrg.id,
+        subscriptionId,
       });
 
-      const { error: upsertError } = await serviceClient.from("subscriptions").upsert(
-        {
-          organization_id: activeOrg.id,
-          stripe_customer_id: customerId,
-          stripe_subscription_id: subscriptionId,
-          plan,
-          status: sub.status,
-          trial_start: trialStart,
-          trial_end: trialEnd,
-          current_period_start: currentPeriodStart,
-          current_period_end: currentPeriodEnd,
-          cancel_at_period_end: sub.cancel_at_period_end,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "organization_id" }
-      );
-
-      if (upsertError) {
-        logger.error("Direct upsert fallback failed during checkout verification", upsertError, {
-          orgId: activeOrg.id,
-          subscriptionId,
-          hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
-        });
-        const isPermissionError =
-          upsertError.message?.includes("permission denied") ||
-          rpcError?.message?.includes("permission denied");
-
-        return {
-          success: false,
-          isEntitled: false,
-          error:
-            isPermissionError && !process.env.SUPABASE_SERVICE_ROLE_KEY
-              ? "Configuração de servidor incompleta: SUPABASE_SERVICE_ROLE_KEY em falta no .env.local para sincronizar subscrições."
-              : "Database persistence failed during subscription synchronization.",
-          code: isPermissionError ? "PERMISSION_DENIED_SERVICE_KEY_MISSING" : "PERSISTENCE_ERROR",
-        };
-      }
+      return {
+        success: false,
+        isEntitled: false,
+        error: `Subscription synchronization failed: ${rpcError.message}`,
+        code: "SYNC_FAILED",
+      };
     }
 
     logger.info(`[Session Fallback Sync] Verified and synchronized subscription ${subscriptionId} for org ${activeOrg.id}`);

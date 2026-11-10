@@ -199,12 +199,12 @@ async function runAdvisorSecurityTests() {
   `);
 
   // Load migration 00024
-  const mig24 = fs.readFileSync("database/migrations/00024_secure_invitations_and_hashing.sql", "utf-8");
+  const mig24 = fs.readFileSync("database/migrations/applied/00024_secure_invitations_and_hashing.sql", "utf-8");
   await db.exec(mig24);
   testAssert(true, "Base Migration 00024 loaded into test database");
 
   // Load migration 00023
-  const mig23 = fs.readFileSync("database/migrations/00023_permissions_hardening_and_rls.sql", "utf-8");
+  const mig23 = fs.readFileSync("database/migrations/applied/00023_permissions_hardening_and_rls.sql", "utf-8");
   await db.exec(mig23);
   testAssert(true, "Base Migration 00023 loaded into test database");
 
@@ -242,7 +242,7 @@ async function runAdvisorSecurityTests() {
   console.log("\n[Phase 3] Applying Migration 00025 Hardening & Advisor Fixes...");
 
   // Apply EXACT Migration 00025 file
-  const mig25Sql = fs.readFileSync("database/migrations/00025_supabase_security_advisor_hardening.sql", "utf-8");
+  const mig25Sql = fs.readFileSync("database/migrations/applied/00025_supabase_security_advisor_hardening.sql", "utf-8");
   await db.exec(mig25Sql);
   testAssert(true, "Applied Migration 00025 hardening SQL file successfully");
 

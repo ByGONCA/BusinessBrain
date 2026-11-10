@@ -15,6 +15,13 @@
  * 11. Single-flight request coalescing protects against thundering herds
  * 12. Mutation idempotency protection (POST/mutations are never retried unsafely)
  * 13. Serverless budget protection: fast-fail when Retry-After exceeds execution budget
+ * 14. Global serverless deadline exhaustion (total wall-clock elapsed time enforced)
+ * 15. Dynamic per-attempt timeout recalculation based on remaining global deadline
+ * 16. Insufficient remaining time (< 400ms) prevents doomed retries
+ * 17. Active Shopify leaky-bucket pacing when approaching bucket capacity
+ * 18. Failed single-flight operation does NOT permanently poison cache and allows clean recovery
+ * 19. Concurrent requests from different tenants do NOT coalesce or cross-contaminate
+ * 20. Cache expiration during in-flight requests coalesces into the in-flight refresh
  */
 
 import assert from "assert";
@@ -29,6 +36,9 @@ import {
   ShopifyClient,
   ShopifyApiError,
   parseShopifyCallLimit,
+  calculateShopifyBucketPacingDelay,
+  recordShopifyBucketState,
+  resetShopifyBucketState,
 } from "../lib/integrations/shopify/client";
 import {
   SentryClient,
@@ -132,7 +142,6 @@ async function runAll() {
       execute: async () => {
         callCount++;
         if (callCount === 1) {
-          // 429 without Retry-After header
           return new Response("Too Many Requests", { status: 429 });
         }
         return new Response(JSON.stringify({ success: true }), { status: 200 });
@@ -142,7 +151,6 @@ async function runAll() {
     assert.strictEqual(callCount, 2);
     assert.strictEqual(result.data.success, true);
     assert.strictEqual(sleptMs.length, 1);
-    // When Retry-After is absent, default 2s minimum is applied or backoff
     assert(sleptMs[0] >= 200, "Backoff must be positive and non-zero");
   });
 
@@ -284,7 +292,6 @@ async function runAll() {
       execute: async (signal) => {
         callCount++;
         if (callCount === 1) {
-          // Simulate hung network request exceeding timeout
           return new Promise<Response>((_, reject) => {
             signal.addEventListener("abort", () => {
               const abortErr = new Error("The operation was aborted");
@@ -360,7 +367,6 @@ async function runAll() {
     const available = throttle.currentlyAvailable;
     const restoreRate = throttle.restoreRate;
 
-    // Wait time formula: ceil((requested - available) / restoreRate)
     const calculatedWaitSeconds = Math.max(Math.ceil((requested - available) / restoreRate), 1);
     assert.strictEqual(calculatedWaitSeconds, 2, "Math.ceil((100 - 10) / 50) = 2 seconds");
   });
@@ -371,10 +377,7 @@ async function runAll() {
   test("Tenant A rate limit does not affect Tenant B cache or execution state", () => {
     const cache = new TenantMemoryCache({ ttlMs: 60000 });
 
-    // Tenant A experiences rate limit / empty state
     cache.set("tenant-A", "shopify", "snapshot", "main", { rateLimited: true, retryAfter: 5 });
-
-    // Tenant B operates normally
     cache.set("tenant-B", "shopify", "snapshot", "main", { rateLimited: false, productsCount: 42 });
 
     const tenantAData: any = cache.get("tenant-A", "shopify", "snapshot", "main");
@@ -384,7 +387,6 @@ async function runAll() {
     assert.strictEqual(tenantBData.rateLimited, false);
     assert.strictEqual(tenantBData.productsCount, 42);
 
-    // Invalidation of Tenant A leaves Tenant B completely untouched
     cache.invalidateTenant("tenant-A", "shopify");
     assert.strictEqual(cache.get("tenant-A", "shopify", "snapshot", "main"), null);
     assert.strictEqual((cache.get("tenant-B", "shopify", "snapshot", "main") as any).productsCount, 42);
@@ -425,7 +427,7 @@ async function runAll() {
         provider: "shopify",
         organizationId: "org-mutation",
         operationName: "create_order",
-        isIdempotent: false, // Critical flag for POST/mutations
+        isIdempotent: false,
         execute: async () => {
           mutationAttempts++;
           return new Response(JSON.stringify({ error: "Throttled" }), {
@@ -462,11 +464,10 @@ async function runAll() {
         organizationId: "org-serverless-budget",
         operationName: "fetch_events",
         isIdempotent: true,
-        maxDelayMs: 4000, // 4-second max single wait
+        maxDelayMs: 4000,
         customSleep: mockSleep,
         execute: async () => {
           callCount++;
-          // Sentry asks to wait 60 seconds
           return new Response("Too Many Requests", {
             status: 429,
             headers: { "Retry-After": "60" },
@@ -481,6 +482,272 @@ async function runAll() {
       assert.strictEqual(err.retryAfterSeconds, 60);
       assert(err.userMessage.includes("wait 60s"));
     }
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 14: Global Serverless Deadline Enforcement (Total Wall-Clock Time)
+  // ---------------------------------------------------------------------------
+  await test("Global serverless deadline stops retries when total elapsed time exceeds deadline", async () => {
+    let simulatedTime = 1000;
+    let callCount = 0;
+
+    const fakeClock = () => simulatedTime;
+    const mockSleep = async (ms: number) => {
+      simulatedTime += ms;
+    };
+
+    try {
+      await executeWithRateLimitRetry<{ success: boolean }>({
+        provider: "shopify",
+        organizationId: "org-global-deadline",
+        operationName: "export_items",
+        isIdempotent: true,
+        globalDeadlineMs: 2500, // 2.5s absolute deadline
+        maxRetries: 3,
+        nowFn: fakeClock,
+        customSleep: mockSleep,
+        execute: async () => {
+          callCount++;
+          // First attempt takes 1500ms
+          simulatedTime += 1500;
+          return new Response("Too Many Requests", {
+            status: 429,
+            headers: { "Retry-After": "1" },
+          });
+        },
+      });
+      assert.fail("Must have thrown deadline exhaustion error");
+    } catch (err: unknown) {
+      // 1500ms elapsed out of 2500ms -> remaining = 1000ms.
+      // Retry-After = 1s (1000ms) + MIN_VIABLE_REQUEST_MS (400ms) = 1400ms > 1000ms.
+      // Must fast-fail immediately without sleeping or running doomed retry!
+      assert(err instanceof ProviderRateLimitError);
+      assert.strictEqual(callCount, 1, "Must NOT attempt retry because deadline cannot accommodate wait + request");
+      assert.strictEqual(simulatedTime, 2500, "Must not have advanced time past deadline");
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 15: Dynamic Per-Attempt Timeout Recalculation
+  // ---------------------------------------------------------------------------
+  await test("Attempt-level timeout dynamically shrinks to fit remaining global deadline", async () => {
+    let simulatedTime = 10000;
+    let callCount = 0;
+
+    const fakeClock = () => simulatedTime;
+    const mockSleep = async (ms: number) => {
+      simulatedTime += ms;
+    };
+
+    const result = await executeWithRateLimitRetry<{ ok: boolean }>({
+      provider: "sentry",
+      organizationId: "org-dyn-timeout",
+      operationName: "query_trace",
+      isIdempotent: true,
+      globalDeadlineMs: 4000, // 4s total budget
+      timeoutMs: 8000, // standard timeout is 8s (larger than global deadline!)
+      nowFn: fakeClock,
+      customSleep: mockSleep,
+      execute: async (signal) => {
+        callCount++;
+        if (callCount === 1) {
+          // Attempt 1 takes 500ms and 503s
+          simulatedTime += 500;
+          return new Response("Service Unavailable", { status: 503 });
+        }
+        // Attempt 2 succeeds
+        simulatedTime += 200;
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      },
+    });
+
+    assert.strictEqual(result.data.ok, true);
+    assert.strictEqual(callCount, 2);
+    assert(simulatedTime < 14000, "Total execution must comfortably stay within global deadline");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 16: Insufficient Viable Window (< 400ms) Prevents Doomed Retries
+  // ---------------------------------------------------------------------------
+  await test("Pre-attempt check aborts immediately if remaining time is below min viable request threshold", async () => {
+    let simulatedTime = 5000;
+    const fakeClock = () => simulatedTime;
+
+    try {
+      await executeWithRateLimitRetry<{ ok: boolean }>({
+        provider: "linear",
+        organizationId: "org-exhausted",
+        operationName: "quick_query",
+        globalDeadlineMs: 1000,
+        nowFn: fakeClock,
+        execute: async () => {
+          // Simulate that before request even completes, clock advances to 900ms
+          simulatedTime += 900;
+          return new Response("Too Many Requests", {
+            status: 429,
+            headers: { "Retry-After": "1" },
+          });
+        },
+      });
+      assert.fail("Must have aborted due to deadline exhaustion");
+    } catch (err: unknown) {
+      assert(err instanceof ProviderRateLimitError);
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 17: Active Shopify Leaky-Bucket Pacing
+  // ---------------------------------------------------------------------------
+  test("Shopify leaky bucket actively paces requests when approaching capacity (39/40)", () => {
+    resetShopifyBucketState();
+
+    const shop = "active-bucket.myshopify.com";
+    const now = 100000;
+
+    // 1. When bucket is not yet recorded, no pacing is needed
+    assert.strictEqual(calculateShopifyBucketPacingDelay(shop, now), 0);
+
+    // 2. Safe bucket level (20/40) requires no pacing
+    recordShopifyBucketState(shop, 20, 40, now);
+    assert.strictEqual(calculateShopifyBucketPacingDelay(shop, now), 0);
+
+    // 3. Approaching capacity: 39/40 (within 1 slot of 40)
+    // Leak rate: 2 calls/s = 1 call per 500ms.
+    // Slots needed to drop below threshold: 39 - 38 = 1 slot -> 500ms pacing delay.
+    recordShopifyBucketState(shop, 39, 40, now);
+    const delayAtNow = calculateShopifyBucketPacingDelay(shop, now);
+    assert.strictEqual(delayAtNow, 500, "Must calculate 500ms proactive delay for 39/40 bucket");
+
+    // 4. After 600ms have elapsed, 1 call has leaked (estimated = 38/40) -> 0ms delay
+    const delayAfterLeak = calculateShopifyBucketPacingDelay(shop, now + 600);
+    assert.strictEqual(delayAfterLeak, 0, "Delay must drop to 0ms after bucket has naturally leaked");
+
+    // 5. Completely exhausted bucket: 40/40 -> 2 slots needed -> 1000ms delay (capped at 1000ms)
+    recordShopifyBucketState(shop, 40, 40, now);
+    const delayAtFull = calculateShopifyBucketPacingDelay(shop, now);
+    assert.strictEqual(delayAtFull, 1000, "Must calculate 1000ms proactive delay for 40/40 full bucket");
+
+    // 6. Shopify Plus store (159/160) -> 40 calls/s leak rate -> min 250ms floor
+    const plusShop = "plus-store.myshopify.com";
+    recordShopifyBucketState(plusShop, 159, 160, now);
+    const delayPlus = calculateShopifyBucketPacingDelay(plusShop, now);
+    assert.strictEqual(delayPlus, 250, "Shopify Plus store must respect 250ms minimum pacing floor");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 18: Failed Single-Flight Operation Does NOT Poison Cache
+  // ---------------------------------------------------------------------------
+  await test("Failed single-flight operation cleans up in-flight state and allows subsequent retry to succeed", async () => {
+    const cache = new TenantMemoryCache({ ttlMs: 10000 });
+    let attempts = 0;
+
+    const failingFetcher = async () => {
+      attempts++;
+      if (attempts === 1) {
+        throw new Error("Temporary network partition");
+      }
+      return { recovered: true };
+    };
+
+    // First call fails
+    try {
+      await cache.coalesce("org-poison-test", "shopify", "snapshot", "main", failingFetcher);
+      assert.fail("First call must fail");
+    } catch (err: unknown) {
+      assert.strictEqual((err as Error).message, "Temporary network partition");
+    }
+
+    // Verify cache was NOT poisoned with null or error
+    assert.strictEqual(cache.get("org-poison-test", "shopify", "snapshot", "main"), null);
+
+    // Second call immediately succeeds
+    const recoveredResult: any = await cache.coalesce(
+      "org-poison-test",
+      "shopify",
+      "snapshot",
+      "main",
+      failingFetcher
+    );
+    assert.strictEqual(recoveredResult.recovered, true);
+    assert.strictEqual(attempts, 2);
+
+    // Third call hits the fresh cache without running fetcher
+    const cachedResult: any = await cache.coalesce(
+      "org-poison-test",
+      "shopify",
+      "snapshot",
+      "main",
+      failingFetcher
+    );
+    assert.strictEqual(cachedResult.recovered, true);
+    assert.strictEqual(attempts, 2, "Must serve from cache without calling fetcher");
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 19: Concurrent Requests from Different Tenants Do NOT Coalesce
+  // ---------------------------------------------------------------------------
+  await test("Concurrent requests from different tenants are strictly isolated and do NOT coalesce", async () => {
+    const cache = new TenantMemoryCache({ ttlMs: 10000 });
+    let tenantAFetches = 0;
+    let tenantBFetches = 0;
+
+    const fetcherA = async () => {
+      tenantAFetches++;
+      await new Promise((r) => setTimeout(r, 30));
+      return { tenant: "A" };
+    };
+
+    const fetcherB = async () => {
+      tenantBFetches++;
+      await new Promise((r) => setTimeout(r, 30));
+      return { tenant: "B" };
+    };
+
+    // Fire simultaneous requests for Tenant A and Tenant B
+    const [resA, resB] = await Promise.all([
+      cache.coalesce("tenant-A", "linear", "snapshot", "main", fetcherA),
+      cache.coalesce("tenant-B", "linear", "snapshot", "main", fetcherB),
+    ]);
+
+    assert.strictEqual(resA.tenant, "A");
+    assert.strictEqual(resB.tenant, "B");
+    assert.strictEqual(tenantAFetches, 1);
+    assert.strictEqual(tenantBFetches, 1);
+  });
+
+  // ---------------------------------------------------------------------------
+  // TEST 20: Cache Expiration During In-Flight Request Coalesces Cleanly
+  // ---------------------------------------------------------------------------
+  await test("Expiring cache entry triggers clean in-flight refresh with simultaneous callers coalescing", async () => {
+    const cache = new TenantMemoryCache<string>({ ttlMs: 40 }); // 40ms TTL
+    let refreshCount = 0;
+
+    const refreshFetcher = async () => {
+      refreshCount++;
+      await new Promise((r) => setTimeout(r, 30));
+      return `version-${refreshCount}`;
+    };
+
+    // Initial populate
+    const v1 = await cache.coalesce("org-expire", "sentry", "issues", "unresolved", refreshFetcher);
+    assert.strictEqual(v1, "version-1");
+    assert.strictEqual(refreshCount, 1);
+
+    // Wait 50ms for entry to expire
+    await new Promise((r) => setTimeout(r, 50));
+    assert.strictEqual(cache.get("org-expire", "sentry", "issues", "unresolved"), null);
+
+    // Three concurrent callers request data after expiration
+    const [call1, call2, call3] = await Promise.all([
+      cache.coalesce("org-expire", "sentry", "issues", "unresolved", refreshFetcher),
+      cache.coalesce("org-expire", "sentry", "issues", "unresolved", refreshFetcher),
+      cache.coalesce("org-expire", "sentry", "issues", "unresolved", refreshFetcher),
+    ]);
+
+    assert.strictEqual(call1, "version-2");
+    assert.strictEqual(call2, "version-2");
+    assert.strictEqual(call3, "version-2");
+    assert.strictEqual(refreshCount, 2, "Exactly ONE refresh network call must execute for expired entry");
   });
 
   console.log("\n==================================================================");

@@ -84,7 +84,7 @@ async function runConcurrencyTestSuite() {
 
   const migrationPath = path.resolve(
     process.cwd(),
-    "database/migrations/00045_integration_oauth_concurrency_and_security.sql"
+    "database/migrations/applied/00045_integration_oauth_concurrency_and_security.sql"
   );
   const migrationSql = fs.readFileSync(migrationPath, "utf-8");
 

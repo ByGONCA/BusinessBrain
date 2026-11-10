@@ -1,5 +1,7 @@
 // ==============================================================================
 // KogSync: Multi-Tenant Shopify Admin API Client (SSRF-Protected, Rate-Limit Safe)
+// Features: Active leaky-bucket pacing, exponential backoff with full jitter,
+// global serverless deadline protection, and GraphQL cost inspection.
 // ==============================================================================
 
 import { createClient } from "@/lib/supabase/server";
@@ -54,6 +56,62 @@ export function parseShopifyCallLimit(header: string | null | undefined): { curr
     }
   }
   return null;
+}
+
+/**
+ * In-memory process-local store of Shopify leaky bucket states per shop.
+ */
+export interface ShopifyBucketState {
+  current: number;
+  max: number;
+  lastUpdated: number;
+}
+
+const shopifyBuckets = new Map<string, ShopifyBucketState>();
+
+export function getShopifyBucketState(shopDomain: string): ShopifyBucketState | null {
+  return shopifyBuckets.get(shopDomain) || null;
+}
+
+export function recordShopifyBucketState(
+  shopDomain: string,
+  current: number,
+  max: number,
+  lastUpdated = Date.now()
+): void {
+  shopifyBuckets.set(shopDomain, { current, max, lastUpdated });
+}
+
+export function resetShopifyBucketState(shopDomain?: string): void {
+  if (shopDomain) {
+    shopifyBuckets.delete(shopDomain);
+  } else {
+    shopifyBuckets.clear();
+  }
+}
+
+/**
+ * Calculates whether a request to the shop requires proactive pacing delay
+ * to avoid tripping Shopify's REST leaky bucket limit.
+ */
+export function calculateShopifyBucketPacingDelay(shopDomain: string, nowMs = Date.now()): number {
+  const bucket = shopifyBuckets.get(shopDomain);
+  if (!bucket) return 0;
+
+  const elapsedMs = Math.max(0, nowMs - bucket.lastUpdated);
+  // Standard store: 2 calls/sec (leak rate 0.002 calls/ms); Plus store: 40 calls/sec
+  const leakRatePerMs = bucket.max >= 80 ? 40 / 1000 : 2 / 1000;
+  const leaked = Math.floor(elapsedMs * leakRatePerMs);
+  const estimatedCurrent = Math.max(0, bucket.current - leaked);
+
+  // If estimated bucket is nearly full (within 1 slot of max), pace request
+  if (estimatedCurrent >= bucket.max - 1) {
+    const slotsNeeded = estimatedCurrent - (bucket.max - 2);
+    // Pacing delay in ms, capped at 1000ms
+    return Math.min(1000, Math.max(250, Math.ceil(slotsNeeded / leakRatePerMs)));
+  }
+
+  return 0;
 }
 
 export class ShopifyApiError extends Error {
@@ -186,7 +244,7 @@ export class ShopifyClient {
 
   /**
    * SSRF-safe authenticated HTTP fetch with exponential backoff, full jitter,
-   * call-limit parsing, and serverless budget protection.
+   * active leaky-bucket pacing, and global serverless deadline protection.
    */
   private async request<T>(
     path: string,
@@ -210,6 +268,16 @@ export class ShopifyClient {
         operationName: path.split("?")[0],
         isIdempotent,
         execute: async (signal) => {
+          // Proactive leaky bucket pacing: if bucket was nearly full on last call, pace to avoid 429
+          const pacingMs = calculateShopifyBucketPacingDelay(this.shopDomain);
+          if (pacingMs > 0) {
+            logger.info("Applying proactive pacing for Shopify leaky bucket", {
+              shop: this.shopDomain,
+              pacingMs,
+            });
+            await new Promise((resolve) => setTimeout(resolve, pacingMs));
+          }
+
           const response = await fetch(fullUrl, {
             ...options,
             signal,
@@ -233,6 +301,11 @@ export class ShopifyClient {
           // Handle 429 Rate Limiting (response.status === 429)
           const retryAfterSeconds = parseRetryAfterHeader(response.headers.get("Retry-After"), 2);
           const callLimit = parseShopifyCallLimit(response.headers.get("X-Shopify-Shop-Api-Call-Limit"));
+
+          if (callLimit) {
+            recordShopifyBucketState(this.shopDomain, callLimit.max, callLimit.max);
+          }
+
           return {
             provider: "shopify",
             retryAfterSeconds,
@@ -241,14 +314,18 @@ export class ShopifyClient {
           };
         },
         onSuccess: async (res) => {
-          // Monitor call limit usage for proactive observability
+          // Track and monitor call limit usage for proactive pacing & observability
           const callLimit = parseShopifyCallLimit(res.headers.get("X-Shopify-Shop-Api-Call-Limit"));
-          if (callLimit && callLimit.current >= callLimit.max - 2) {
-            logger.warn("Shopify API call limit near exhaustion", {
-              shop: this.shopDomain,
-              organizationId: this.organizationId,
-              callLimit,
-            });
+          if (callLimit) {
+            recordShopifyBucketState(this.shopDomain, callLimit.current, callLimit.max);
+
+            if (callLimit.current >= callLimit.max - 2) {
+              logger.warn("Shopify API call limit near exhaustion", {
+                shop: this.shopDomain,
+                organizationId: this.organizationId,
+                callLimit,
+              });
+            }
           }
           return (await res.json()) as T;
         },

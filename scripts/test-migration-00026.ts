@@ -93,9 +93,9 @@ async function runAuditTests() {
   }
 
   // Apply base migrations 00024 and 00025
-  const mig00024Path = path.resolve(process.cwd(), "database/migrations/00024_secure_invitations_and_hashing.sql");
-  const mig00025Path = path.resolve(process.cwd(), "database/migrations/00025_supabase_security_advisor_hardening.sql");
-  const mig00026Path = path.resolve(process.cwd(), "database/migrations/00026_security_advisor_privilege_remedy.sql");
+  const mig00024Path = path.resolve(process.cwd(), "database/migrations/applied/00024_secure_invitations_and_hashing.sql");
+  const mig00025Path = path.resolve(process.cwd(), "database/migrations/applied/00025_supabase_security_advisor_hardening.sql");
+  const mig00026Path = path.resolve(process.cwd(), "database/migrations/applied/00026_security_advisor_privilege_remedy.sql");
 
   // Create base tables needed
   await db.exec(`

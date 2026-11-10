@@ -86,7 +86,7 @@ async function main() {
     const setupClient = await pool.connect();
     console.log("\n[Step 1] Applying migration 00024 to live database...");
     const migrationSql = fs.readFileSync(
-      path.resolve(process.cwd(), "database/migrations/00024_secure_invitations_and_hashing.sql"),
+      path.resolve(process.cwd(), "database/migrations/applied/00024_secure_invitations_and_hashing.sql"),
       "utf-8"
     );
     await setupClient.query(migrationSql);

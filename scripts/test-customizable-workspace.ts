@@ -405,7 +405,7 @@ assert(
 // ---------------------------------------------------------------------------
 console.log("\n--- Suite 6: Migration 00037 Static Security & Policy Audit ---");
 
-const migrationPath = path.join(process.cwd(), "database", "migrations", "00037_dashboard_layout_cas.sql");
+const migrationPath = path.join(process.cwd(), "database", "migrations", "applied", "00037_dashboard_layout_cas.sql");
 assert(fs.existsSync(migrationPath), "Migration 00037_dashboard_layout_cas.sql exists on disk");
 
 const migrationSql = fs.readFileSync(migrationPath, "utf8");

@@ -132,7 +132,9 @@ async function runEnterpriseSecurityTestSuite() {
   `);
 
   // Apply sequential migrations 00038, 00039, 00040, 00041
-  const migrationsDir = path.resolve(process.cwd(), "database/migrations");
+  const migrationsDir = fs.existsSync(path.resolve(process.cwd(), "database/migrations/applied"))
+    ? path.resolve(process.cwd(), "database/migrations/applied")
+    : path.resolve(process.cwd(), "database/migrations");
   const migrations = [
     "00038_ai_foundation_and_byok.sql",
     "00039_ai_access_control_and_governance.sql",

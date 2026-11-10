@@ -39,7 +39,7 @@ function setupStaging() {
   console.log("✓ Successfully wrote SERVER_AUTH_SECRET to .env.local (gitignored).");
 
   // 3. Read base migration 00024
-  const migPath = path.resolve(process.cwd(), "database/migrations/00024_secure_invitations_and_hashing.sql");
+  const migPath = path.resolve(process.cwd(), "database/migrations/applied/00024_secure_invitations_and_hashing.sql");
   if (!fs.existsSync(migPath)) {
     console.error("✗ Fatal: 00024_secure_invitations_and_hashing.sql not found!");
     process.exit(1);

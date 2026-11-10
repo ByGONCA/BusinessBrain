@@ -82,7 +82,7 @@ async function runRealPostgreSqlTests() {
 
   // 3. Apply Migration 00021 on top of the legacy database
   console.log("\n[3] Applying Migration 00021 against the legacy schema...");
-  const migration21Path = path.resolve(process.cwd(), "database/migrations/00021_rate_limit_permissions_alignment.sql");
+  const migration21Path = path.resolve(process.cwd(), "database/migrations/applied/00021_rate_limit_permissions_alignment.sql");
   const migration21Sql = fs.readFileSync(migration21Path, "utf8");
 
   // Filter out 'notify pgrst' if not listening

@@ -133,7 +133,9 @@ async function runHardeningTestSuite() {
   `);
 
   // Apply sequential migrations 00038, 00039, 00040, 00041
-  const migrationsDir = path.resolve(process.cwd(), "database/migrations");
+  const migrationsDir = fs.existsSync(path.resolve(process.cwd(), "database/migrations/applied"))
+    ? path.resolve(process.cwd(), "database/migrations/applied")
+    : path.resolve(process.cwd(), "database/migrations");
   const migrations = [
     "00038_ai_foundation_and_byok.sql",
     "00039_ai_access_control_and_governance.sql",
@@ -221,6 +223,18 @@ async function runHardeningTestSuite() {
                 return {
                   eq(col2: string, val2: any) {
                     return {
+                      lt(col3: string, val3: any) {
+                        return {
+                          async then(resolve: any) {
+                            const keys = Object.keys(values);
+                            const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(", ");
+                            const vals = [...keys.map((k) => values[k]), val, val2, val3];
+                            const q = `UPDATE public.${table} SET ${setClause} WHERE ${col} = $${keys.length + 1} AND ${col2} = $${keys.length + 2} AND ${col3} < $${keys.length + 3}`;
+                            await pg.query<any>(q, vals);
+                            resolve({ error: null });
+                          },
+                        };
+                      },
                       select() {
                         return {
                           async maybeSingle() {

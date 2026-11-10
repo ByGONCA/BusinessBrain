@@ -439,7 +439,7 @@ async function runPart2RealPostgreSqlTests() {
   `);
 
   console.log("  [Step 3] Applying Migration 00023 (Permissions Hardening & RLS)...");
-  const migrationPath = path.join(__dirname, "..", "database", "migrations", "00023_permissions_hardening_and_rls.sql");
+  const migrationPath = path.join(__dirname, "..", "database", "migrations", "applied", "00023_permissions_hardening_and_rls.sql");
   const migrationSql = fs.readFileSync(migrationPath, "utf-8");
   await pg.exec(migrationSql);
   testAssert(true, "Migration 00023 applied cleanly without syntax errors");

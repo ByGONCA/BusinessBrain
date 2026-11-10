@@ -161,7 +161,7 @@ async function runTestSuite() {
   testAssert(true, "Base Supabase environment initialized in PGlite");
 
   // Step 2: Apply Migration 00038
-  const migrationPath = path.join(__dirname, "../database/migrations/00038_ai_foundation_and_byok.sql");
+  const migrationPath = path.join(__dirname, "../database/migrations/applied/00038_ai_foundation_and_byok.sql");
   const migrationSql = fs.readFileSync(migrationPath, "utf8");
   await pg.exec(migrationSql);
   testAssert(true, "Migration 00038 executed cleanly without DDL errors");

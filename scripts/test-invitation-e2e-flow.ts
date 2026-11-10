@@ -82,9 +82,9 @@ async function runE2EInvitationFlow() {
   }
 
   // Apply migrations 00024, 00025, 00026
-  const mig00024 = fs.readFileSync("database/migrations/00024_secure_invitations_and_hashing.sql", "utf-8");
-  const mig00025 = fs.readFileSync("database/migrations/00025_supabase_security_advisor_hardening.sql", "utf-8");
-  const mig00026 = fs.readFileSync("database/migrations/00026_security_advisor_privilege_remedy.sql", "utf-8");
+  const mig00024 = fs.readFileSync("database/migrations/applied/00024_secure_invitations_and_hashing.sql", "utf-8");
+  const mig00025 = fs.readFileSync("database/migrations/applied/00025_supabase_security_advisor_hardening.sql", "utf-8");
+  const mig00026 = fs.readFileSync("database/migrations/applied/00026_security_advisor_privilege_remedy.sql", "utf-8");
 
   await db.exec(`
     create table if not exists public.organizations (

@@ -141,11 +141,11 @@ async function runAdversarialTestSuite() {
   `);
 
   // Apply Migration 00038
-  const mig00038Path = path.resolve(__dirname, "../database/migrations/00038_ai_foundation_and_byok.sql");
+  const mig00038Path = path.resolve(__dirname, "../database/migrations/applied/00038_ai_foundation_and_byok.sql");
   await pg.exec(fs.readFileSync(mig00038Path, "utf-8"));
 
   // Apply Migration 00039
-  const mig00039Path = path.resolve(__dirname, "../database/migrations/00039_ai_access_control_and_governance.sql");
+  const mig00039Path = path.resolve(__dirname, "../database/migrations/applied/00039_ai_access_control_and_governance.sql");
   await pg.exec(fs.readFileSync(mig00039Path, "utf-8"));
 
   // Grant privileges to authenticated role

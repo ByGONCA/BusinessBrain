@@ -152,14 +152,14 @@ async function runTestSuite() {
   console.log("[Phase 1] Legacy Schema Simulated with 8 Distinct State Variants.");
 
   // 3. Apply baseline migrations 00024 and 00025
-  const mig00024Path = path.resolve(process.cwd(), "database/migrations/00024_secure_invitations_and_hashing.sql");
-  const mig00025Path = path.resolve(process.cwd(), "database/migrations/00025_supabase_security_advisor_hardening.sql");
+  const mig00024Path = path.resolve(process.cwd(), "database/migrations/applied/00024_secure_invitations_and_hashing.sql");
+  const mig00025Path = path.resolve(process.cwd(), "database/migrations/applied/00025_supabase_security_advisor_hardening.sql");
   await db.exec(fs.readFileSync(mig00024Path, "utf-8"));
   await db.exec(fs.readFileSync(mig00025Path, "utf-8"));
   console.log("[Phase 2] Applied Migrations 00024 & 00025 (Baseline & check_rate_limit).");
 
   // 4. Apply Migration 00028 (Execution 1)
-  const mig00028Path = path.resolve(process.cwd(), "database/migrations/00028_rate_limit_schema_alignment.sql");
+  const mig00028Path = path.resolve(process.cwd(), "database/migrations/applied/00028_rate_limit_schema_alignment.sql");
   await db.exec(fs.readFileSync(mig00028Path, "utf-8"));
   console.log("[Phase 3] Applied Migration 00028 - 1st Execution.");
 

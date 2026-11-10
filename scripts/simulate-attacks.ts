@@ -54,7 +54,7 @@ async function runAttackSimulations() {
   try {
     const pagesActionsSrc = fs.readFileSync(path.resolve(cwd, "lib/pages/actions.ts"), "utf8");
     const migration00009Src = fs.readFileSync(
-      path.resolve(cwd, "database/migrations/00009_security_audit_hardening.sql"),
+      path.resolve(cwd, "database/migrations/applied/00009_security_audit_hardening.sql"),
       "utf8"
     );
 
@@ -86,7 +86,7 @@ async function runAttackSimulations() {
   try {
     const connectionsActionsSrc = fs.readFileSync(path.resolve(cwd, "lib/connections/actions.ts"), "utf8");
     const migration00009Src = fs.readFileSync(
-      path.resolve(cwd, "database/migrations/00009_security_audit_hardening.sql"),
+      path.resolve(cwd, "database/migrations/applied/00009_security_audit_hardening.sql"),
       "utf8"
     );
 
@@ -118,7 +118,7 @@ async function runAttackSimulations() {
   try {
     const filesActionsSrc = fs.readFileSync(path.resolve(cwd, "lib/files/actions.ts"), "utf8");
     const migration00009Src = fs.readFileSync(
-      path.resolve(cwd, "database/migrations/00009_security_audit_hardening.sql"),
+      path.resolve(cwd, "database/migrations/applied/00009_security_audit_hardening.sql"),
       "utf8"
     );
 
@@ -173,7 +173,7 @@ async function runAttackSimulations() {
   try {
     const resolverSrc = fs.readFileSync(path.resolve(cwd, "lib/permissions/resolver.ts"), "utf8");
     const migration00002Src = fs.readFileSync(
-      path.resolve(cwd, "database/migrations/00002_rls_policies.sql"),
+      path.resolve(cwd, "database/migrations/applied/00002_rls_policies.sql"),
       "utf8"
     );
 
@@ -272,7 +272,7 @@ async function runAttackSimulations() {
   try {
     const pagesActionsSrc = fs.readFileSync(path.resolve(cwd, "lib/pages/actions.ts"), "utf8");
     const migration00016Src = fs.readFileSync(
-      path.resolve(cwd, "database/migrations/00016_page_authorship_and_activity.sql"),
+      path.resolve(cwd, "database/migrations/applied/00016_page_authorship_and_activity.sql"),
       "utf8"
     );
 

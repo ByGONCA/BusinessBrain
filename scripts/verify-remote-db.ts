@@ -144,7 +144,7 @@ async function verifyRemoteDatabase() {
   } else {
     console.log(`STATUS: ${unappliedCount} PENDING TABLE(S) IN REMOTE DATABASE`);
     console.log("\nACTION REQUIRED TO CLEAR TERMINAL WARNINGS:");
-    console.log("Run database/migrations/RUN_IN_SUPABASE_TO_FIX_WARNINGS.sql in your Supabase SQL Editor:");
+    console.log("Run database/migrations/applied/RUN_IN_SUPABASE_TO_FIX_WARNINGS.sql in your Supabase SQL Editor:");
     console.log(`https://supabase.com/dashboard/project/jjalqvgaxzajsyccbjch/sql`);
   }
   console.log("=======================================================\n");

@@ -219,7 +219,7 @@ ${mockContextDoc.content}
   `);
 
   // Apply Migration 00038
-  const migrationPath = path.resolve(__dirname, "../database/migrations/00038_ai_foundation_and_byok.sql");
+  const migrationPath = path.resolve(__dirname, "../database/migrations/applied/00038_ai_foundation_and_byok.sql");
   const migrationSql = fs.readFileSync(migrationPath, "utf-8");
   await pg.exec(migrationSql);
   testAssert(true, "Applied Migration 00038 to PGlite engine");

@@ -134,7 +134,7 @@ async function runOperationalDeepValidation() {
   `);
 
   // Apply Migration 00036
-  const migrationPath = path.join(process.cwd(), "database", "migrations", "00036_phase_4_integrations_and_api.sql");
+  const migrationPath = path.join(process.cwd(), "database", "migrations", "applied", "00036_phase_4_integrations_and_api.sql");
   const migrationSql = fs.readFileSync(migrationPath, "utf8");
   await db.exec(migrationSql);
 

@@ -92,7 +92,7 @@ async function runRealPostgreSqlValidation() {
   // STEP 2: APPLY MIGRATION 00037
   // ---------------------------------------------------------------------------
   console.log("\n--- Step 2: Applying Migration 00037_dashboard_layout_cas.sql ---");
-  const migrationPath = path.resolve(__dirname, "../database/migrations/00037_dashboard_layout_cas.sql");
+  const migrationPath = path.resolve(__dirname, "../database/migrations/applied/00037_dashboard_layout_cas.sql");
   const migrationSql = fs.readFileSync(migrationPath, "utf8");
 
   await pg.exec(migrationSql);

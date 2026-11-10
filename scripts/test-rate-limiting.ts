@@ -23,7 +23,7 @@ async function runTests() {
   console.log("[1] Auditing Migration 00021 Cryptographic Security Guarantees:");
   const migration21Path = path.resolve(
     process.cwd(),
-    "database/migrations/00021_rate_limit_permissions_alignment.sql"
+    "database/migrations/applied/00021_rate_limit_permissions_alignment.sql"
   );
   assert(fs.existsSync(migration21Path), "Migration 00021_rate_limit_permissions_alignment.sql exists on disk");
 

@@ -22,6 +22,8 @@ export function getStripeClient(): Stripe {
 
   stripeInstance = new Stripe(apiKey, {
     apiVersion: "2025-02-24.acacia",
+    timeout: 15000, // Explicit 15-second bounded network timeout for serverless runtime
+    maxNetworkRetries: 2,
     appInfo: {
       name: "Company Brain SaaS",
       version: "0.1.0",

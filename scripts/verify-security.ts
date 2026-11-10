@@ -199,7 +199,7 @@ async function runTests() {
   console.log("\n[6] Auditing SQL Migration 00005:");
   const migration5Path = path.resolve(
     process.cwd(),
-    "database/migrations/00005_security_hardening.sql"
+    "database/migrations/applied/00005_security_hardening.sql"
   );
   assert(fs.existsSync(migration5Path), "Migration 00005_security_hardening.sql exists");
 
@@ -258,7 +258,7 @@ async function runTests() {
   // Check migration 00008
   const migration8Path = path.resolve(
     process.cwd(),
-    "database/migrations/00008_file_system_foundation.sql"
+    "database/migrations/applied/00008_file_system_foundation.sql"
   );
   assert(fs.existsSync(migration8Path), "Migration 00008_file_system_foundation.sql exists");
 
@@ -316,11 +316,11 @@ async function runTests() {
   console.log("\n[9] Auditing Storage RLS & Helper Function Security Hardening:");
   const migration9StoragePath = path.resolve(
     process.cwd(),
-    "database/migrations/00009_storage_rls_hardening.sql"
+    "database/migrations/applied/00009_storage_rls_hardening.sql"
   );
   const migration9AuditPath = path.resolve(
     process.cwd(),
-    "database/migrations/00009_security_audit_hardening.sql"
+    "database/migrations/applied/00009_security_audit_hardening.sql"
   );
   const migration9Path = fs.existsSync(migration9StoragePath) ? migration9StoragePath : migration9AuditPath;
   assert(fs.existsSync(migration9Path), "Migration 00009 exists");
@@ -585,7 +585,7 @@ async function runTests() {
   console.log("\n[19] Auditing Migration 00010 (Revoke Helper Functions Anon Execution):");
   const migration10Path = path.resolve(
     process.cwd(),
-    "database/migrations/00010_revoke_helper_functions_anon.sql"
+    "database/migrations/applied/00010_revoke_helper_functions_anon.sql"
   );
   assert(fs.existsSync(migration10Path), "Migration 00010_revoke_helper_functions_anon.sql exists");
 
@@ -625,7 +625,7 @@ async function runTests() {
   console.log("\n[20] Auditing Page Icons & icon_file_id Schema & Tenant Isolation:");
   const migration11Path = path.resolve(
     process.cwd(),
-    "database/migrations/00011_page_icons_file_system.sql"
+    "database/migrations/applied/00011_page_icons_file_system.sql"
   );
   assert(fs.existsSync(migration11Path), "Migration 00011_page_icons_file_system.sql exists");
 
@@ -718,7 +718,7 @@ async function runTests() {
   console.log("\n[23] Auditing Stripe Billing RPC Hardening 00012 (service_role lockdown):");
   const migration12Path = path.resolve(
     process.cwd(),
-    "database/migrations/00012_stripe_billing_rpc_hardening.sql"
+    "database/migrations/applied/00012_stripe_billing_rpc_hardening.sql"
   );
   assert(fs.existsSync(migration12Path), "Migration 00012_stripe_billing_rpc_hardening.sql exists");
 
@@ -790,7 +790,7 @@ async function runTests() {
   console.log("\n[25] Auditing Team & Permission RLS Mutation Policies (SEC-01):");
   const migration18Path = path.resolve(
     process.cwd(),
-    "database/migrations/00018_teams_and_permissions.sql"
+    "database/migrations/applied/00018_teams_and_permissions.sql"
   );
   assert(fs.existsSync(migration18Path), "Migration 00018_teams_and_permissions.sql exists");
   const migration18Sql = fs.readFileSync(migration18Path, "utf8");
@@ -837,7 +837,7 @@ async function runTests() {
   console.log("\n[26] Auditing Comment Authorship & Deletion Protection (SEC-04):");
   const migration16Path = path.resolve(
     process.cwd(),
-    "database/migrations/00016_page_authorship_and_activity.sql"
+    "database/migrations/applied/00016_page_authorship_and_activity.sql"
   );
   const migration16Sql = fs.readFileSync(migration16Path, "utf8");
 
@@ -855,7 +855,7 @@ async function runTests() {
 
   const migration17Path = path.resolve(
     process.cwd(),
-    "database/migrations/00017_github_integration_and_connections.sql"
+    "database/migrations/applied/00017_github_integration_and_connections.sql"
   );
   const migration17Sql = fs.readFileSync(migration17Path, "utf8");
 
@@ -964,7 +964,7 @@ async function runTests() {
 
   const migration13Path = path.resolve(
     process.cwd(),
-    "database/migrations/00013_organization_calendar_events.sql"
+    "database/migrations/applied/00013_organization_calendar_events.sql"
   );
   const migration13Sql = fs.readFileSync(migration13Path, "utf8");
   assert(
@@ -1214,7 +1214,7 @@ async function runTests() {
   // ---------------------------------------------------------------------------
   console.log("\n[37] Auditing Member Invitations Architecture & Token Security:");
 
-  const invitationsSqlPath = path.resolve(process.cwd(), "database/migrations/00020_organization_invitations.sql");
+  const invitationsSqlPath = path.resolve(process.cwd(), "database/migrations/applied/00020_organization_invitations.sql");
   assert(fs.existsSync(invitationsSqlPath), "Migration 00020_organization_invitations.sql exists on disk");
   const invitationsSql = fs.readFileSync(invitationsSqlPath, "utf8");
   assert(

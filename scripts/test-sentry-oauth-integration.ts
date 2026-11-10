@@ -256,7 +256,7 @@ async function runTestSuite() {
   test("Migration 00046 SQL integrity: OCC lease & concurrency RPCs defined", () => {
     const migrationPath = path.resolve(
       __dirname,
-      "../database/migrations/00046_sentry_integration_oauth_concurrency.sql"
+      "../database/migrations/applied/00046_sentry_integration_oauth_concurrency.sql"
     );
     assert(fs.existsSync(migrationPath), "Migration 00046 file must exist");
 

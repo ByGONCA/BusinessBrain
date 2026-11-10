@@ -132,13 +132,13 @@ async function runIntegratedAuditSuite() {
   `);
 
   // Apply Migration 00038 (AI Foundation)
-  const mig00038Path = path.resolve(__dirname, "../database/migrations/00038_ai_foundation_and_byok.sql");
+  const mig00038Path = path.resolve(__dirname, "../database/migrations/applied/00038_ai_foundation_and_byok.sql");
   const mig00038Sql = fs.readFileSync(mig00038Path, "utf-8");
   await pg.exec(mig00038Sql);
   testAssert(true, "Applied Migration 00038 (AI Foundation & BYOK)");
 
   // Apply Migration 00039 (AI Access Control & Governance)
-  const mig00039Path = path.resolve(__dirname, "../database/migrations/00039_ai_access_control_and_governance.sql");
+  const mig00039Path = path.resolve(__dirname, "../database/migrations/applied/00039_ai_access_control_and_governance.sql");
   const mig00039Sql = fs.readFileSync(mig00039Path, "utf-8");
   await pg.exec(mig00039Sql);
   testAssert(true, "Applied Migration 00039 (AI Access Control & Data Governance)");

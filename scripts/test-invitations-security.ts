@@ -175,7 +175,7 @@ async function runInvitationsSecuritySuite() {
   testAssert(true, "Legacy invitations inserted with plaintext tokens");
 
   console.log("\n[Step 3] Applying Migration 00024_secure_invitations_and_hashing.sql...");
-  const migration00024Path = path.resolve(process.cwd(), "database/migrations/00024_secure_invitations_and_hashing.sql");
+  const migration00024Path = path.resolve(process.cwd(), "database/migrations/applied/00024_secure_invitations_and_hashing.sql");
   assert(fs.existsSync(migration00024Path), "Migration 00024 file exists on disk");
   const migration00024Sql = fs.readFileSync(migration00024Path, "utf-8");
 

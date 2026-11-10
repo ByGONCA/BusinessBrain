@@ -55,13 +55,21 @@ export const getOrganizationEntitlement = cache(async (
     };
   }
 
-  const isEntitled = data.status === "trialing" || data.status === "active";
+  const now = Date.now();
+  const isTrialExpired = Boolean(
+    data.status === "trialing" &&
+      data.trial_end &&
+      new Date(data.trial_end).getTime() < now
+  );
+
+  const isEntitled =
+    (data.status === "trialing" && !isTrialExpired) || data.status === "active";
 
   return {
     isEntitled,
     status: data.status as SubscriptionStatus,
     plan: data.plan as SubscriptionTier,
-    isTrial: data.status === "trialing",
+    isTrial: data.status === "trialing" && !isTrialExpired,
     trialEnd: data.trial_end,
     currentPeriodEnd: data.current_period_end,
     cancelAtPeriodEnd: data.cancel_at_period_end,
