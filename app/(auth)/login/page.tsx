@@ -3,12 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Sparkles, ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2 } from "lucide-react";
 import { signInAction, AuthState } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OAuthButtons } from "@/components/ui/oauth-buttons";
 import { ThemeSelector } from "@/components/theme/theme-selector";
+import { KogSyncLogo } from "@/components/brand/kogsync-logo";
 
 function AuthQueryError() {
   const searchParams = useSearchParams();
@@ -118,8 +119,8 @@ function LoginContent() {
       <div className="w-full max-w-sm">
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center">
-          <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-secondary border border-border text-[#F5F5F5] shadow-xs hover:scale-105 transition-transform">
-            <Sparkles className="h-5 w-5 text-blue-400" />
+          <Link href="/" className="inline-flex items-center justify-center rounded-2xl p-2 hover:scale-105 transition-transform" aria-label="KogSync Home">
+            <KogSyncLogo variant="icon" size="xl" priority />
           </Link>
           <h2 className="mt-4 text-xl font-bold tracking-tight text-[#18181B] dark:text-[#F5F5F5]">
             Welcome back to KogSync

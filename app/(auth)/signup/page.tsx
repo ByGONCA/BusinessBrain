@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Sparkles, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
+import { ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
 import { signUpAction, AuthState } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { OAuthButtons } from "@/components/ui/oauth-buttons";
 import { PasswordChecklist } from "@/components/auth/password-checklist";
 import { checkPasswordRequirements } from "@/lib/auth/password-rules";
 import { ThemeSelector } from "@/components/theme/theme-selector";
+import { KogSyncLogo } from "@/components/brand/kogsync-logo";
 
 function SignUpForm({ returnUrl }: { returnUrl: string }) {
   const [state, formAction, isPending] = React.useActionState<AuthState, FormData>(
@@ -173,11 +174,11 @@ function SignUpContent() {
       <div className="w-full max-w-sm">
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center">
-          <Link href="/" className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#19191C] border border-[#E5E5E0] dark:border-[#29292D] text-[#F5F5F5] shadow-xs hover:scale-105 transition-transform">
-            <Sparkles className="h-5 w-5 text-blue-400" />
+          <Link href="/" className="inline-flex items-center justify-center rounded-2xl p-2 hover:scale-105 transition-transform" aria-label="KogSync Home">
+            <KogSyncLogo variant="icon" size="xl" priority />
           </Link>
           <h2 className="mt-4 text-xl font-bold tracking-tight text-[#18181B] dark:text-[#F5F5F5]">
-            Create your account
+            Create your KogSync account
           </h2>
           <p className="mt-1 text-xs text-[#71717A] dark:text-[#A1A1AA]">
             Start building your company&apos;s memory and intelligence layer

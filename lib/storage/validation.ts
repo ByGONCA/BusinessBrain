@@ -1,5 +1,5 @@
 /**
- * File upload validation and sanitization for Company Brain Storage.
+ * File upload validation and sanitization for KogSync Storage.
  * Enforces strict MIME type whitelists, size limits, and filename sanitization.
  */
 

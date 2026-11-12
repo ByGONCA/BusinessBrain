@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Base AI Provider Adapter (Zero Third-Party SDK Bloat)
+﻿// ==============================================================================
+// KogSync: Base AI Provider Adapter (Zero Third-Party SDK Bloat)
 // Provides unified fetch with exponential retry, 30s timeout, SSE parsing,
 // mid-stream cancellation, and rigorous credential sanitization.
 // ==============================================================================

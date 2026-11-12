@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Notion Importer & Block-to-Markdown Transpiler
+﻿// ==============================================================================
+// KogSync: Notion Importer & Block-to-Markdown Transpiler
 // Transforms Notion Block trees into Markdown, preserving page hierarchy
 // SHA-256 content deduplication prevents redundant page duplication.
 // ==============================================================================
@@ -238,7 +238,7 @@ export async function importNotionNodes(
 }
 
 /**
- * Connects to Notion REST API to query database pages and child blocks, importing into BusinessBrain.
+ * Connects to Notion REST API to query database pages and child blocks, importing into KogSync.
  */
 export async function importNotionDatabase(
   organizationId: string,

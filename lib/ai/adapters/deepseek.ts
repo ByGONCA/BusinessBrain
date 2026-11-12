@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: DeepSeek Provider Adapter (Zero Third-Party SDK Bloat)
+﻿// ==============================================================================
+// KogSync: DeepSeek Provider Adapter (Zero Third-Party SDK Bloat)
 // Supports deepseek-chat (V3) and deepseek-reasoner (R1) with native fetch & SSE.
 // ==============================================================================
 

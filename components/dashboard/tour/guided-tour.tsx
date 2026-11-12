@@ -123,10 +123,8 @@ export function GuidedTour({
       setIsActive(true);
     };
     window.addEventListener("kogsync:restart-tour", handleRestart);
-    window.addEventListener("businessbrain:restart-tour", handleRestart);
     return () => {
       window.removeEventListener("kogsync:restart-tour", handleRestart);
-      window.removeEventListener("businessbrain:restart-tour", handleRestart);
     };
   }, []);
 

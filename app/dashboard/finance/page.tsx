@@ -11,9 +11,9 @@ import { DashboardLayoutConfig } from "@/lib/widgets/types";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Corporate Finance | BusinessBrain",
+  title: "Corporate Finance | KogSync",
   description:
-    "Corporate finance dashboard, revenue trajectory, SaaS economics, and retention cohorts in BusinessBrain.",
+    "Corporate finance dashboard, revenue trajectory, SaaS economics, and retention cohorts in KogSync.",
 };
 
 export default async function FinancePage() {

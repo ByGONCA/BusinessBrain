@@ -276,7 +276,7 @@ export function UsageBillingTab({ entitlement, closeSettings }: UsageBillingTabP
             <div className="space-y-2.5 pt-2 border-t border-zinc-200 dark:border-zinc-800">
               <div>
                 <div className="flex justify-between text-xs font-medium mb-1">
-                  <span className="text-zinc-700 dark:text-zinc-300">Company Brain & Context Memory</span>
+                  <span className="text-zinc-700 dark:text-zinc-300">KogSync Context & Memory</span>
                   <span className="font-mono text-zinc-500">117,600 tokens (42%)</span>
                 </div>
                 <div className="h-1.5 w-full rounded-full bg-zinc-200 dark:bg-zinc-800">

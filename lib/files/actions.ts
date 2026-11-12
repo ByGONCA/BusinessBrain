@@ -331,7 +331,7 @@ export async function detachFileFromPageAction(
 /**
  * 6. Deletes an organization file.
  * - For company_brain: Deletes storage object and database record, reclaiming quota.
- * - For external files: Deletes Company Brain reference; never deletes file on external cloud.
+ * - For external files: Deletes KogSync reference; never deletes file on external cloud.
  */
 export async function deleteOrganizationFileAction(fileId: string): Promise<void> {
   assertValidUuid(fileId, "File ID");

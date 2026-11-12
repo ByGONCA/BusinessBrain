@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Canonical Permission Registry
+﻿// ==============================================================================
+// KogSync: Canonical Permission Registry
 // Machine-readable keys mapped to user-friendly titles, descriptions, and categories.
 // ==============================================================================
 
@@ -260,7 +260,7 @@ export const PERMISSIONS_REGISTRY: PermissionDefinition[] = [
   {
     key: "brain.view",
     category: "brain",
-    name: "View Company Brain",
+    name: "View KogSync Memory",
     description: "Explore the company map, decisions log, and organizational memory timeline.",
   },
   {
@@ -272,7 +272,7 @@ export const PERMISSIONS_REGISTRY: PermissionDefinition[] = [
   {
     key: "brain.edit",
     category: "brain",
-    name: "Edit Brain & Decisions",
+    name: "Edit KogSync & Decisions",
     description: "Update decision rationales, consequences, and entity nodes.",
   },
   {
@@ -339,7 +339,7 @@ export const PERMISSIONS_REGISTRY: PermissionDefinition[] = [
     key: "github.view",
     category: "github",
     name: "View GitHub Data",
-    description: "View connected repositories, pull requests, issues, and commits in BusinessBrain.",
+    description: "View connected repositories, pull requests, issues, and commits in KogSync.",
   },
   {
     key: "github.manage_connection",

@@ -87,7 +87,7 @@ export const NOTIFICATION_CATEGORIES: NotificationCategoryMeta[] = [
   },
   {
     id: "company_brain",
-    title: "Company Brain & Memory",
+    title: "KogSync Memory & Knowledge",
     description: "Institutional memory reviews, detected knowledge conflicts, and article updates.",
     iconName: "Brain",
   },
@@ -456,7 +456,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     defaultEmail: true,
   },
 
-  // 7. COMPANY BRAIN / MEMORY
+  // 7. KOGSYNC / MEMORY
   {
     id: "brain_article_created",
     category: "company_brain",
@@ -615,7 +615,7 @@ export const NOTIFICATION_DEFINITIONS: NotificationItemDef[] = [
     id: "mkt_tips_best_practices",
     category: "product_marketing",
     label: "Tips & best practices",
-    description: "Curated workflows and recommendations to get more out of Company Brain.",
+    description: "Curated workflows and recommendations to get more out of KogSync.",
     defaultInApp: false,
     defaultEmail: false,
   },

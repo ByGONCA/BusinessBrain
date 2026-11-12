@@ -1,5 +1,5 @@
 // ==============================================================================
-// BusinessBrain: Prism Global Runtime Initializer
+// KogSync: Prism Global Runtime Initializer
 // Ensures Prism instance is bound to globalThis / window before any grammar IIFE loads
 // ==============================================================================
 

@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Confluence Importer & Markdown Transpiler
+﻿// ==============================================================================
+// KogSync: Confluence Importer & Markdown Transpiler
 // Transforms Confluence Storage XHTML format into Markdown, preserving page hierarchy
 // SHA-256 content deduplication prevents redundant page duplication.
 // ==============================================================================

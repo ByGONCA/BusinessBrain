@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Knowledge Importers Type Definitions
+﻿// ==============================================================================
+// KogSync: Knowledge Importers Type Definitions
 // Unified models for Confluence & Notion import jobs and hierarchy trees
 // ==============================================================================
 

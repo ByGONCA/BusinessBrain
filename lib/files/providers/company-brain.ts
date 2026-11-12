@@ -22,7 +22,7 @@ export class CompanyBrainStorageProvider implements FileProvider {
     _organizationId: string,
     _externalFileId: string
   ): Promise<ExternalFileMetadata> {
-    throw new Error("Company Brain storage files are internal and do not have external file IDs.");
+    throw new Error("KogSync storage files are internal and do not have external file IDs.");
   }
 
   async getPreview(

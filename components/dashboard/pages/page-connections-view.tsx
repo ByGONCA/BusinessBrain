@@ -95,7 +95,7 @@ export function PageConnectionsView({
             </h2>
             <div className="flex items-center gap-2 mt-1 text-xs text-zinc-500">
               <Link2 className="h-3.5 w-3.5 text-indigo-500" />
-              <span>Company Brain Ledger ({connections.length} connections)</span>
+              <span>KogSync Ledger ({connections.length} connections)</span>
             </div>
           </div>
         </div>
@@ -139,7 +139,7 @@ export function PageConnectionsView({
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 text-xs font-medium hover:bg-indigo-100 transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
-              Connect to Company Brain
+              Connect to KogSync
             </button>
           </div>
         ) : (

@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: AI Layer Canonical Contracts & Provider Types
+﻿// ==============================================================================
+// KogSync: AI Layer Canonical Contracts & Provider Types
 // ==============================================================================
 
 export type AIRole = "system" | "user" | "assistant" | "tool";

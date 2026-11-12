@@ -1,7 +1,7 @@
-"use server";
+﻿"use server";
 
 // ==============================================================================
-// Company Brain: Company Connections Server Actions
+// KogSync: Company Connections Server Actions
 // Strict Organization Scoping & Zero Secret Leakage
 // ==============================================================================
 
@@ -272,7 +272,7 @@ export async function getCompanyGraphAction(): Promise<{
 
     const canView = await hasPermission(user.id, activeOrg.id, "brain.view");
     if (!canView) {
-      return { success: false, error: "Forbidden: You do not have permission to view Company Brain." };
+      return { success: false, error: "Forbidden: You do not have permission to view KogSync Memory." };
     }
 
     const graph = await getCompanyGraphData(activeOrg.id);

@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Anthropic Claude Provider Adapter (Zero Third-Party SDK Bloat)
+﻿// ==============================================================================
+// KogSync: Anthropic Claude Provider Adapter (Zero Third-Party SDK Bloat)
 // Supports claude-3-5-sonnet, claude-3-5-haiku with native fetch & SSE.
 // ==============================================================================
 

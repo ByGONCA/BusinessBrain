@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 // ==============================================================================
-// Company Brain: Deterministic Shortest Path Modal (Path Finder)
+// KogSync: Deterministic Shortest Path Modal (Path Finder)
 // Computes and visualizes connection trails between two objects
 // ==============================================================================
 

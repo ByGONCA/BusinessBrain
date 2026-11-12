@@ -1,5 +1,5 @@
 // ==============================================================================
-// BusinessBrain — Phosphor Icon System
+// KogSync — Phosphor Icon System
 // Auto-generated from SVG assets in public/Icons/
 // Built with zero extra dependencies, strict TypeScript & currentColor theming
 // ==============================================================================

@@ -1,5 +1,5 @@
 /**
- * Centralized, sanitized, colored security logger for Company Brain.
+ * Centralized, sanitized, colored security logger for KogSync.
  * Prevents accidental logging of sensitive credentials, tokens, secrets, or cookies
  * to stdout/stderr in both development and production.
  * Provides distinct ANSI color formatting for terminal readability.

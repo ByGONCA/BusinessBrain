@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 // ==============================================================================
-// Company Brain: Interactive Force-Directed Graph Canvas
+// KogSync: Interactive Force-Directed Graph Canvas
 // Obsidian-Inspired Minimalist Knowledge Graph View
 // Pure circular nodes, fine elegant links, dynamic focus highlighting,
 // zero card clutter, and smooth physical stabilization.

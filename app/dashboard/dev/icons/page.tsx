@@ -19,13 +19,13 @@ export default async function DevIconsReviewPage() {
             DEV ONLY
           </span>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            BusinessBrain Icon System & Asset Audit
+            KogSync Icon System & Asset Audit
           </h1>
         </div>
         <p className="text-xs text-muted-foreground max-w-3xl leading-relaxed">
           Centralized inventory of Phosphor SVG assets located in <code className="text-blue-400 font-mono">public/Icons/</code>,
           official brand marks in <code className="text-blue-400 font-mono">public/Logos/</code>, and side-by-side
-          feature mapping across the BusinessBrain application.
+          feature mapping across the KogSync application.
         </p>
       </div>
 

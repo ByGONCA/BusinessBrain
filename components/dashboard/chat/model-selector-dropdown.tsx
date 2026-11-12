@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 // ==============================================================================
-// Company Brain: Model Selector Dropdown
+// KogSync: Model Selector Dropdown
 // Clean, accessible model picker with Provider Logos & Zero White Borders.
 // ==============================================================================
 
@@ -142,7 +142,7 @@ export function ModelSelectorDropdown({
         >
           {/* Available Models Group - Included in Platform Plans */}
           <div className="flex items-center justify-between px-2 py-1 text-[10px] font-semibold tracking-wider text-zinc-400 uppercase">
-            <span>{isPt ? "Modelos Incluídos (BusinessBrain)" : "Included Models (BusinessBrain)"}</span>
+            <span>{isPt ? "Modelos Incluídos (KogSync)" : "Included Models (KogSync)"}</span>
             <span className="text-[9px] text-emerald-400/90 font-normal">
               {isPt ? "No Plano" : "Included"}
             </span>

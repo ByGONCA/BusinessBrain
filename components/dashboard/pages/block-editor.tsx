@@ -1171,7 +1171,7 @@ export function BlockEditor({
         properties = { fileName: "document.pdf", fileSize: "1.2 MB", mediaUrl: "" };
       } else if (type === "bookmark") {
         properties = {
-          bookmarkTitle: "Company Brain",
+          bookmarkTitle: "KogSync",
           bookmarkUrl: typeof window !== "undefined" ? window.location.href : "",
         };
       } else if (type === "columns") {
@@ -1222,7 +1222,7 @@ export function BlockEditor({
       return;
     }
 
-    // If item has actionId, handle Company Brain actions
+    // If item has actionId, handle KogSync actions
     if (item.actionId) {
       setSlashState(null);
 
@@ -1249,7 +1249,7 @@ export function BlockEditor({
       }
 
       if (item.actionId === "save_memory") {
-        showEditorToast("Content saved as Memory in Company Brain knowledge base.");
+        showEditorToast("Content saved as Memory in KogSync knowledge base.");
         return;
       }
 
@@ -1724,14 +1724,14 @@ export function BlockEditor({
     });
   };
 
-  // Handle Company Brain toolbar actions from selected text
+  // Handle KogSync toolbar actions from selected text
   const handleCompanyBrainToolbarAction = (
     action: CompanyBrainToolbarAction,
     selectedText: string
   ) => {
     if (action === "save-memory") {
       showEditorToast(
-        `Draft memory for "${selectedText.slice(0, 40)}${selectedText.length > 40 ? "..." : ""}" saved to Company Brain Memory draft.`
+        `Draft memory for "${selectedText.slice(0, 40)}${selectedText.length > 40 ? "..." : ""}" saved to KogSync Memory draft.`
       );
       return;
     }
@@ -2231,7 +2231,7 @@ export function BlockEditor({
         />
       )}
 
-      {/* Floating Toolbar for Inline Marks & Company Brain Transform */}
+      {/* Floating Toolbar for Inline Marks & KogSync Transform */}
       <FloatingFormatToolbar
         onFormat={handleFormat}
         onTransformBlock={handleTransformBlock}
@@ -2287,7 +2287,7 @@ export function BlockEditor({
         />
       )}
 
-      {/* Clean Company Brain Page Header */}
+      {/* Clean KogSync Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 pb-6 border-b border-zinc-100 dark:border-zinc-800/80 mb-6">
         <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1">
           <EmojiPicker

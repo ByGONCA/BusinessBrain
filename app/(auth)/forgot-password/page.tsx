@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Sparkles, ArrowLeft, Mail, Loader2, ArrowRight } from "lucide-react";
+import { ArrowLeft, Mail, Loader2, ArrowRight } from "lucide-react";
 import {
   requestPasswordResetAction,
   sendRecoveryOtpAction,
@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { KogSyncLogo } from "@/components/brand/kogsync-logo";
 import clsx from "clsx";
 
 function ResetLinkForm() {
@@ -278,11 +279,11 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-sm">
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#19191C] border border-[#29292D] text-[#F5F5F5] shadow-sm">
-            <Sparkles className="h-5 w-5 text-blue-400" />
-          </div>
+          <Link href="/" className="inline-flex items-center justify-center rounded-2xl p-2 hover:scale-105 transition-transform" aria-label="KogSync Home">
+            <KogSyncLogo variant="icon" size="xl" priority />
+          </Link>
           <h2 className="mt-4 text-xl font-bold tracking-tight text-[#F5F5F5]">
-            Reset your password
+            Reset your KogSync password
           </h2>
           <p className="mt-1 text-xs text-[#A1A1AA]">
             Choose how you would like to recover your account

@@ -3,13 +3,13 @@ import { AdminMessage } from "./types";
 export const ADMIN_MESSAGES: AdminMessage[] = [
   {
     id: "msg-001",
-    title: "Welcome to Company Brain 0.5 — Core Intelligence Layer",
-    sender: "Company Brain Core Team",
+    title: "Welcome to KogSync 1.0 — Core Intelligence Layer",
+    sender: "KogSync Core Team",
     senderRole: "Core Devs",
     badge: "release",
     summary: "A unified enterprise operating system aggregating knowledge, decisions, and meetings.",
     content: [
-      "Welcome to Company Brain! We built this platform to serve as the long-term institutional memory for modern fast-moving companies.",
+      "Welcome to KogSync! We built this platform to serve as the long-term institutional memory for modern fast-moving companies.",
       "In this Phase 0.5 foundation, you have full multi-tenant isolation with PostgreSQL Row-Level Security (RLS), verified Stripe billing with 7-day trials, and real-time settings configuration.",
       "Feel free to explore our new navigation shortcuts (Ctrl+K for search, Ctrl+, for Settings) and start organizing your workspace!",
     ],
@@ -41,7 +41,7 @@ export const ADMIN_MESSAGES: AdminMessage[] = [
     badge: "tip",
     summary: "Switch seamlessly between English, Portuguese, Spanish, and French.",
     content: [
-      "Company Brain is now natively multilingual! By default, the interface runs in English, with full dictionary coverage for Portuguese (PT), Spanish, and French.",
+      "KogSync is now natively multilingual! By default, the interface runs in English, with full dictionary coverage for Portuguese (PT), Spanish, and French.",
       "Your language selection updates the entire UI in real time without refreshing and is preserved across sessions via localStorage.",
       "To test it, press Ctrl+, and navigate to Preferences -> Language & time.",
     ],

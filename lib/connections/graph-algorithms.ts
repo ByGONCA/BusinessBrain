@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Deterministic Graph Algorithms
+﻿// ==============================================================================
+// KogSync: Deterministic Graph Algorithms
 // Zero AI - 100% Deterministic Traversal & Path Calculation
 // ==============================================================================
 

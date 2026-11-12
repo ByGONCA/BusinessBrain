@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: OpenAI Provider Adapter (Zero Third-Party SDK Bloat)
+﻿// ==============================================================================
+// KogSync: OpenAI Provider Adapter (Zero Third-Party SDK Bloat)
 // Supports gpt-4o, gpt-4o-mini, o1-mini, o3-mini with native fetch & SSE.
 // ==============================================================================
 

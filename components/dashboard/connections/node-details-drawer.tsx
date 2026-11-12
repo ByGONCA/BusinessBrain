@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 // ==============================================================================
-// Company Brain: Node Details Drawer
+// KogSync: Node Details Drawer
 // Displays connections, backlinks, statistics, and node actions
 // ==============================================================================
 

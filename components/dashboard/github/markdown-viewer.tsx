@@ -1,7 +1,7 @@
 "use client";
 
 // ==============================================================================
-// BusinessBrain: Rich Markdown Document Viewer
+// KogSync: Rich Markdown Document Viewer
 // Renders GitHub-flavored Markdown documents (.md, .markdown, .mdx) with:
 // - Hierarchical headings with anchors and typography
 // - Syntax-highlighted fenced code blocks with language badge & copy button

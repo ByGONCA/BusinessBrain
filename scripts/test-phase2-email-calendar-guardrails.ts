@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Phase 2 Email & Calendar Guardrails Verification Suite
+﻿// ==============================================================================
+// KogSync: Phase 2 Email & Calendar Guardrails Verification Suite
 // Validates:
 // 1. Gmail Draft Creation, Update, Listing, Send (RFC 2822 Base64url)
 // 2. Cryptographic Immutable Action Approval Tickets (HMAC-SHA256 & Canonical JSON)

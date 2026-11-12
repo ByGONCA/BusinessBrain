@@ -1,4 +1,4 @@
-// Types and contracts for BusinessBrain customizable dashboards.
+// Types and contracts for KogSync customizable dashboards.
 
 export type WidgetSize = "sm" | "md" | "lg" | "full";
 

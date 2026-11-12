@@ -773,7 +773,7 @@ export function IconReviewGallery() {
       {activeTab === "guidelines" && (
         <div className="space-y-4">
           <div className="p-5 rounded-xl border border-border bg-card space-y-3">
-            <h2 className="text-base font-bold text-foreground">BusinessBrain Design System: Iconography Rules</h2>
+            <h2 className="text-base font-bold text-foreground">KogSync Design System: Iconography Rules</h2>
             <ul className="text-xs text-muted-foreground space-y-2 list-disc pl-5">
               <li>
                 <strong className="text-foreground">Zero Emojis in Functional UI:</strong> Functional actions (Home, Tasks, Goals, Meetings, Decisions, Settings) must exclusively use Phosphor SVG components. Emojis are reserved strictly for user-created custom page icons.

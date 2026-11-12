@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Mistral AI Provider Adapter (Zero Third-Party SDK Bloat)
+﻿// ==============================================================================
+// KogSync: Mistral AI Provider Adapter (Zero Third-Party SDK Bloat)
 // Supports mistral-large-latest, mistral-small-latest with native fetch & SSE.
 // ==============================================================================
 

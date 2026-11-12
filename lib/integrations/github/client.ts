@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: GitHub Server-Side API Client
+﻿// ==============================================================================
+// KogSync: GitHub Server-Side API Client
 // Secure, scoped, decrypted-token requests with rate-limiting & SSRF protection
 // ==============================================================================
 
@@ -117,7 +117,7 @@ async function githubFetch<T>(
       Accept: "application/vnd.github+json",
       Authorization: `Bearer ${tokenData.accessToken}`,
       "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "BusinessBrain-Enterprise-Integration",
+      "User-Agent": "KogSync-Enterprise-Integration",
       ...init?.headers,
     },
     cache: "no-store",

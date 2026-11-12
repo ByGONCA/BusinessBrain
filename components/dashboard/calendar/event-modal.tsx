@@ -78,7 +78,7 @@ export function EventModal({
   const [status, setStatus] = React.useState<string>("todo");
   const [priority, setPriority] = React.useState<"low" | "medium" | "high">("medium");
 
-  // Company Brain relations state
+  // KogSync relations state
   const [workspaceProjects, setWorkspaceProjects] = React.useState<Array<{ id: string; title: string }>>([]);
   const [workspacePages, setWorkspacePages] = React.useState<Array<{ id: string; title: string }>>([]);
   const [selectedProjectId, setSelectedProjectId] = React.useState<string>("");
@@ -87,7 +87,7 @@ export function EventModal({
   const [isSaving, setIsSaving] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
 
-  // Explicit destination state (Company Brain vs Google vs Outlook)
+  // Explicit destination state (KogSync vs Google vs Outlook)
   const [destination, setDestination] = React.useState<CalendarDestination>("company");
   const [availableDestinations, setAvailableDestinations] = React.useState<{
     hasCompany: boolean;
@@ -413,7 +413,7 @@ export function EventModal({
             </div>
           </div>
 
-          {/* Target Destination Selector (Company Brain vs Google vs Outlook) */}
+          {/* Target Destination Selector (KogSync vs Google vs Outlook) */}
           {(entityType === "event" || entityType === "meeting") && (
             <div>
               <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1.5">
@@ -430,7 +430,7 @@ export function EventModal({
                       : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
                   )}
                 >
-                  <span>Company Brain</span>
+                  <span>KogSync</span>
                 </button>
 
                 <button
@@ -601,12 +601,12 @@ export function EventModal({
             </div>
           )}
 
-          {/* Company Brain Relations Picker */}
+          {/* KogSync Relations Picker */}
           <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200 border-border space-y-2.5">
             <div className="flex items-center gap-1.5">
               <LinkIcon className="h-3.5 w-3.5 text-indigo-500" />
               <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-200">
-                Company Brain Relations
+                KogSync Relations
               </span>
             </div>
 

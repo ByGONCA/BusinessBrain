@@ -1,7 +1,7 @@
 "use client";
 
 // ==============================================================================
-// BusinessBrain: GitHub Discussions & Code Snippet Comments Drawer
+// KogSync: GitHub Discussions & Code Snippet Comments Drawer
 // WhatsApp-style compact speech bubbles, pinned code snippets, local cache,
 // instant optimistic updates, and persistent PostgreSQL storage.
 // ==============================================================================

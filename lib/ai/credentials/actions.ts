@@ -1,7 +1,7 @@
-"use server";
+﻿"use server";
 
 // ==============================================================================
-// Company Brain: AI Provider & BYOK Credentials Server Actions
+// KogSync: AI Provider & BYOK Credentials Server Actions
 // Supports both personal (individual) and organization-level credentials
 // with AES-256-GCM encryption, HMAC-SHA256 fingerprinting and zero secret leakage.
 // ==============================================================================

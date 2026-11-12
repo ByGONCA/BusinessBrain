@@ -1,5 +1,5 @@
 /**
- * Domain Types for BusinessBrain Global Legal & Regulatory Compliance System
+ * Domain Types for KogSync Global Legal & Regulatory Compliance System
  *
  * Enforces strict typing for risk evaluation, legal sourcing, marketing matrices,
  * quality gates, and Antigravity subagent runtime interfaces.

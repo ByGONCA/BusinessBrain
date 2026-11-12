@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Google Drive API Client & Knowledge Importer
+﻿// ==============================================================================
+// KogSync: Google Drive API Client & Knowledge Importer
 // Fetches Docs/Sheets/Files, computes SHA-256 content hashes, and syncs into imported_documents
 // ==============================================================================
 

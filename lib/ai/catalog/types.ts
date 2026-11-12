@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Centralized Model Catalog Types
+﻿// ==============================================================================
+// KogSync: Centralized Model Catalog Types
 // ==============================================================================
 
 import { SupportedProviderId, AITaskType } from "../types";

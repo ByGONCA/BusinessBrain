@@ -16,6 +16,16 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: "any",
         type: "image/x-icon",
       },
+      {
+        src: "/KogSyncLogo/KogSync_png.png",
+        sizes: "1254x1254",
+        type: "image/png",
+      },
+      {
+        src: "/icon.png",
+        sizes: "512x512",
+        type: "image/png",
+      },
     ],
   };
 }

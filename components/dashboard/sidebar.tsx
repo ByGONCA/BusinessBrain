@@ -43,6 +43,7 @@ import { useSidebar } from "./sidebar-context";
 import { usePlatform } from "@/lib/hooks/use-platform";
 import { useLanguage } from "@/lib/i18n";
 import { useInbox } from "./inbox/inbox-context";
+import { KogSyncLogo } from "@/components/brand/kogsync-logo";
 
 interface SidebarProps {
   user: {
@@ -633,11 +634,11 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={toggleSidebar}
-                className="flex h-8 w-8 items-center justify-center rounded-md bg-blue-600 text-white shadow-xs hover:bg-blue-500 transition-colors ring-1 ring-blue-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer"
+                className="flex h-9 w-9 items-center justify-center rounded-lg p-1 hover:bg-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer"
                 title="Expand sidebar (Ctrl+\)"
                 aria-label="Expand sidebar"
               >
-                <Sparkles className="h-4 w-4" />
+                <KogSyncLogo variant="icon" size="sm" priority />
               </button>
             </div>
           ) : (
@@ -646,15 +647,10 @@ export function Sidebar({
               <Link
                 href="/"
                 onClick={(e) => handleNavClick("/dashboard", e)}
-                className="flex items-center gap-2.5 rounded-md p-1 hover:bg-hover transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600 group"
+                className="flex items-center rounded-md p-1 hover:bg-hover transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-zinc-600 group"
                 title="KogSync"
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-600 text-white shadow-xs shrink-0 ring-1 ring-blue-500/20 group-hover:bg-blue-500 transition-colors">
-                  <Sparkles className="h-3.5 w-3.5" />
-                </div>
-                <span className="font-bold text-sm tracking-tight text-foreground">
-                  KogSync
-                </span>
+                <KogSyncLogo variant="wordmark" size="md" priority />
               </Link>
 
               {/* Collapse button on desktop */}

@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Centralized Model Catalog Data
+﻿// ==============================================================================
+// KogSync: Centralized Model Catalog Data
 // Verified official pricing, limits, and capabilities as of 2026-10-29.
 // ==============================================================================
 

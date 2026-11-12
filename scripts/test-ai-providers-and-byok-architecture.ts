@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Mandatory AI Providers, Plans & BYOK Architecture Verification
+﻿// ==============================================================================
+// KogSync: Mandatory AI Providers, Plans & BYOK Architecture Verification
 // Tests all 14 mandatory verification requirements defined in the specification.
 // Simulated in memory with PGlite for deterministic PostgreSQL & RLS evaluation.
 // ==============================================================================

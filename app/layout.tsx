@@ -21,18 +21,31 @@ export const metadata: Metadata = {
   authors: [{ name: "KogSync Team" }],
   keywords: [
     "knowledge management",
-    "company brain",
+    "kogsync memory",
     "institutional memory",
     "decision log",
     "enterprise intelligence",
     "kogsync",
   ],
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.png",
+    apple: "/apple-icon.png",
+  },
   openGraph: {
     title: "KogSync — The Memory & Intelligence Platform for Modern Companies",
     description:
       "The memory and intelligence layer for modern companies. Unified knowledge, decisions, and context in one platform.",
     url: "https://kogsync.com",
     siteName: "KogSync",
+    images: [
+      {
+        url: "/KogSyncLogo/KogSync_banner_png.png",
+        width: 2752,
+        height: 1536,
+        alt: "KogSync — The Memory and Intelligence Platform",
+      },
+    ],
     locale: "en_US",
     type: "website",
   },
@@ -41,6 +54,7 @@ export const metadata: Metadata = {
     title: "KogSync — The Memory & Intelligence Platform for Modern Companies",
     description:
       "The memory and intelligence layer for modern companies. Unified knowledge, decisions, and context in one platform.",
+    images: ["/KogSyncLogo/KogSync_banner_png.png"],
   },
   robots: {
     index: true,

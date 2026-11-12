@@ -50,7 +50,7 @@ function getProviderBadge(provider: string) {
   }
   return (
     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-      <HardDrive className="h-2.5 w-2.5" /> Company Brain
+      <HardDrive className="h-2.5 w-2.5" /> KogSync
     </span>
   );
 }

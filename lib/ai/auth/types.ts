@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: AI Data Governance & Access Authorization Types
+﻿// ==============================================================================
+// KogSync: AI Data Governance & Access Authorization Types
 // ==============================================================================
 
 export type AIScopeType = "once" | "conversation" | "persistent";

@@ -543,7 +543,7 @@ export function FloatingFormatToolbar({
               ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 font-semibold"
               : "hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300"
           )}
-          title="Transform & Company Brain Actions"
+          title="Transform & KogSync Actions"
         >
           <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
           <span>More</span>
@@ -819,12 +819,12 @@ export function FloatingFormatToolbar({
             </div>
           </div>
 
-          {/* Group 3: COMPANY BRAIN */}
+          {/* Group 3: KOGSYNC */}
           <div className="border-t border-zinc-100 dark:border-zinc-800 pt-2">
             <div className="flex items-center gap-1.5 px-2 py-0.5">
               <Sparkles className="h-3 w-3 text-indigo-500" />
               <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                Company Brain
+                KogSync
               </span>
             </div>
             <div className="mt-1 space-y-0.5">

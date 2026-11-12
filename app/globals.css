@@ -4,7 +4,7 @@
 
 :root,
 html.light {
-  /* Shopeers-inspired Light Theme for BusinessBrain */
+  /* Shopeers-inspired Light Theme for KogSync */
   --background: #F3F4F6;
   --foreground: #111827;
   --card: #FFFFFF;
@@ -211,7 +211,7 @@ html.dark .bb-code-regex, .dark .bb-code-regex { color: #d16969 !important; }
 }
 
 /* ==========================================================================
-   BusinessBrain Animation System — Editorial Motion & Interactions
+   KogSync Animation System — Editorial Motion & Interactions
    ========================================================================== */
 
 :root {

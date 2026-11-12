@@ -1,5 +1,5 @@
 /**
- * Password Policy Rules & Verification for Company Brain
+ * Password Policy Rules & Verification for KogSync
  * 
  * Enforces security requirements aligned with Supabase Auth policy:
  * - Minimum 8 characters

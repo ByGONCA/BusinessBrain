@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 // ==============================================================================
-// Company Brain: Company Map Workspace
+// KogSync: Company Map Workspace
 // Master workspace integrating Graph View, Tree View, Traversal & Details
 // ==============================================================================
 

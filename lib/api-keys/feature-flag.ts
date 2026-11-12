@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Enterprise Public API Feature Flag & Controlled Blocker
+﻿// ==============================================================================
+// KogSync: Enterprise Public API Feature Flag & Controlled Blocker
 // Strictly DISABLED BY DEFAULT in all environments.
 // Cannot be active by omission in any environment.
 // ==============================================================================

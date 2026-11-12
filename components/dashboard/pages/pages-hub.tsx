@@ -1,7 +1,7 @@
 "use client";
 
 // ==============================================================================
-// BusinessBrain: Flexible Pages Hub & Knowledge Directory
+// KogSync: Flexible Pages Hub & Knowledge Directory
 // Overview of all workspace pages with hierarchy, quick duplicate, search,
 // templates, favorites, and organization actions without trapping the user.
 // ==============================================================================

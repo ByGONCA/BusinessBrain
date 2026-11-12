@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 // ==============================================================================
-// Company Brain: AI Providers and BYOK Credentials Management Tab
+// KogSync: AI Providers and BYOK Credentials Management Tab
 // Clearly distinguishes:
-// 1. "AI Incluída no BusinessBrain" (Included Platform AI for all eligible plans)
+// 1. "AI Incluída no KogSync" (Included Platform AI for all eligible plans)
 // 2. "As minhas API Keys (BYOK)" (Reserved for Pro and Enterprise plans)
 // ==============================================================================
 
@@ -218,7 +218,7 @@ export function AIProvidersTab({ entitlement, activeOrg }: AIProvidersTabProps) 
   return (
     <div className="space-y-8">
       {/* ========================================================================= */}
-      {/* SECTION 1: AI INCLUÍDA NO BUSINESSBRAIN                                  */}
+      {/* SECTION 1: AI INCLUÍDA NO KOGSYNC                                      */}
       {/* ========================================================================= */}
       <section className="space-y-4">
         <div className="flex flex-col gap-1 border-b border-white/[0.08] pb-3">

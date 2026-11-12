@@ -1,7 +1,7 @@
 import { DashboardLayoutConfig, DashboardType } from "./types";
 
 /**
- * Curated Default Layouts for BusinessBrain.
+ * Curated Default Layouts for KogSync.
  * Strictly limited to exactly 3 verified, high-signal blocks per dashboard
  * to avoid visual clutter (AGENTS.md Section 6).
  */

@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Personal Workspace Service
+﻿// ==============================================================================
+// KogSync: Personal Workspace Service
 // Manages provisioning, resolution, and isolation of personal workspaces.
 // INVARIANT: Every user has an individual Personal Workspace independent of team memberships.
 // ==============================================================================

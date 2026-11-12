@@ -216,7 +216,7 @@ export function ConnectModal({
             </div>
             <div>
               <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                Connect to Company Brain
+                Connect to KogSync
               </h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 Link {sourceType === "block" ? "block" : "page"} to structured company context

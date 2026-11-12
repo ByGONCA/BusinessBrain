@@ -1,7 +1,7 @@
 "use client";
 
 // ==============================================================================
-// BusinessBrain: Interactive Add-Snippet-to-Page Modal Window
+// KogSync: Interactive Add-Snippet-to-Page Modal Window
 // Displays the actual page in a compact interactive viewport, allowing the user
 // to choose the exact spot in the page content (between blocks) to insert the snippet.
 // ==============================================================================

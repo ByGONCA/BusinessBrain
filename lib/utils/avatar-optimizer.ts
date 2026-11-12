@@ -1,5 +1,5 @@
 /**
- * Client-side avatar optimization utility for BusinessBrain.
+ * Client-side avatar optimization utility for KogSync.
  * 
  * - Validates file types and sizes.
  * - Center-crops to square aspect ratio (1:1).

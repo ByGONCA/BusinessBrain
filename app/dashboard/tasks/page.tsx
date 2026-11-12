@@ -134,7 +134,7 @@ export default async function TasksPage() {
                 Task Provenance & Linking
               </h3>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                In Company Brain, tasks are not isolated todo lists. They carry bi-directional links to:
+                In KogSync, tasks are not isolated todo lists. They carry bi-directional links to:
               </p>
               <ul className="space-y-2 text-xs text-secondary-foreground">
                 <li className="flex items-center gap-2">

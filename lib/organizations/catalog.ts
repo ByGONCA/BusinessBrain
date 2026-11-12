@@ -1,5 +1,5 @@
 /**
- * Centralized Catalog of Suggested Teams and Job Titles for BusinessBrain.
+ * Centralized Catalog of Suggested Teams and Job Titles for KogSync.
  * 
  * IMPORTANT ARCHITECTURAL PRINCIPLES:
  * 1. Suggestions only: Job titles and departments are purely informational metadata

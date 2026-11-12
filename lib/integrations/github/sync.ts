@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: GitHub Continuous Sync & Webhook Processor
+﻿// ==============================================================================
+// KogSync: GitHub Continuous Sync & Webhook Processor
 // Scoped to organization_id with external_discussions and integration_sync_logs
 // ==============================================================================
 

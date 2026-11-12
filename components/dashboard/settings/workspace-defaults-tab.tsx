@@ -168,7 +168,7 @@ export function WorkspaceDefaultsTab({ activeOrg }: WorkspaceDefaultsTabProps) {
             >
               <option value="prompt">Prompt for Google Calendar sync</option>
               <option value="always_create">Always sync to primary calendar</option>
-              <option value="internal_only">Company Brain internal only</option>
+              <option value="internal_only">KogSync internal only</option>
             </select>
           </div>
         </div>

@@ -210,7 +210,7 @@ export async function createInvitationAction(params: {
       .maybeSingle();
     orgName = orgRecord?.name;
   }
-  const displayOrgName = orgName || "Company Brain Workspace";
+  const displayOrgName = orgName || "KogSync Workspace";
   const inviterName = user.user_metadata?.full_name || user.email?.split("@")[0] || "A team member";
 
   // Dispatch transactional email (safe, non-throwing; unconfigured returns sent: false)
@@ -463,7 +463,7 @@ export async function resendInvitationAction(
   // Dispatch transactional email (safe, non-throwing; unconfigured returns sent: false)
   const emailRes = await sendInvitationEmail({
     to: existingInvite.email,
-    organizationName: activeOrg.name || "Company Brain Workspace",
+    organizationName: activeOrg.name || "KogSync Workspace",
     inviterName,
     inviterEmail: user.email,
     inviteUrl: absoluteInviteLink,

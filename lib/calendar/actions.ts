@@ -646,7 +646,7 @@ export async function createCalendarItemAction(
       relations: input.relations || [],
     };
   } else {
-    // 3. CREATE NATIVE COMPANY OBJECT (Source of Truth is BusinessBrain/Supabase)
+    // 3. CREATE NATIVE COMPANY OBJECT (Source of Truth is KogSync/Supabase)
     if (entityType === "task") {
       const metadata: Record<string, unknown> = {
         due_date: input.startTime,

@@ -29,7 +29,7 @@ export interface OrchestratedContext {
 /**
  * AIContextOrchestrator
  *
- * Mediates all context retrieval for AI operations in BusinessBrain.
+ * Mediates all context retrieval for AI operations in KogSync.
  * Guarantees that:
  * 1. The user belongs to the active organization.
  * 2. The user holds the 'ai.chat' permission.
@@ -599,7 +599,7 @@ export class AIContextOrchestrator {
    * Formats retrieved sources into protected XML delimiters with epistemic rules.
    */
   private static buildPromptContext(sources: VerifiedSource[]): string {
-    let contextBlock = `You are BusinessBrain, the corporate intelligence assistant for this organization.\n\n`;
+    let contextBlock = `You are KogSync, the corporate intelligence assistant for this organization.\n\n`;
 
     contextBlock += `### OPERATIONAL PROTOCOL & GROUNDING RULES:
 1. Base your answers ONLY on the verified organizational context provided below in the <untrusted_organization_context> blocks.

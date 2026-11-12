@@ -127,7 +127,7 @@ export default async function InvitePage({ params }: InvitePageProps) {
               href="/login"
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold text-white transition-colors"
             >
-              Sign In to BusinessBrain
+              Sign In to KogSync
             </Link>
           </div>
         </div>

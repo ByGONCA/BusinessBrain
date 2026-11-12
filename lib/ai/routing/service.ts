@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Multi-Model Routing Engine
+﻿// ==============================================================================
+// KogSync: Multi-Model Routing Engine
 // Implements 3 selection modes: Auto (with anti-cost guardrails), Preferred, and Task-based.
 // ==============================================================================
 

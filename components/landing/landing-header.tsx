@@ -7,6 +7,7 @@ import { useLanguage } from "@/lib/i18n/context";
 import { ThemeToggle } from "@/components/theme/theme-selector";
 import { Menu, X, ArrowRight, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { KogSyncLogo } from "@/components/brand/kogsync-logo";
 
 export interface LandingHeaderUser {
   id?: string;
@@ -66,12 +67,7 @@ export function LandingHeader({ initialUser }: LandingHeaderProps = {}) {
     if (initialUser !== undefined) {
       return initialUser ? "authenticated" : "unauthenticated";
     }
-    // Fast path on client: if document has no sb- cookie, user is unauthenticated
-    if (typeof document !== "undefined") {
-      const hasSbCookie = document.cookie.split(";").some((c) => c.trim().startsWith("sb-"));
-      if (!hasSbCookie) return "unauthenticated";
-    }
-    return "loading";
+    return "unauthenticated";
   });
 
   const [avatarError, setAvatarError] = React.useState(false);
@@ -246,30 +242,10 @@ export function LandingHeader({ initialUser }: LandingHeaderProps = {}) {
           {/* Brand Wordmark & Logo */}
           <Link
             href="/"
-            className="group flex items-center gap-2.5 rounded-lg p-1 transition-transform duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            className="group flex items-center rounded-lg p-1 transition-transform duration-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
             aria-label="KogSync Homepage"
           >
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#18181B] dark:bg-[#F4F4F5] text-[#FAF9F5] dark:text-[#18181B] transition-transform duration-200 group-hover:scale-105">
-              <svg
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <circle cx="6" cy="6" r="3" />
-                <circle cx="18" cy="6" r="3" />
-                <circle cx="12" cy="18" r="3" />
-                <line x1="8.5" y1="7.5" x2="10" y2="15.5" />
-                <line x1="15.5" y1="7.5" x2="14" y2="15.5" />
-              </svg>
-            </div>
-            <span className="font-semibold text-sm tracking-tight text-[#18181B] dark:text-[#F4F4F5]">
-              KogSync
-            </span>
+            <KogSyncLogo variant="wordmark" size="md" priority />
           </Link>
 
           {/* Desktop Plain Text Navigation Links */}

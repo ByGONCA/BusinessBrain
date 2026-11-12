@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Slack Server-Side API Client
+﻿// ==============================================================================
+// KogSync: Slack Server-Side API Client
 // Channel discovery, message ingestion, and decision/ADR notifications
 // ==============================================================================
 
@@ -224,7 +224,7 @@ export async function postDecisionNotification(
           type: "button",
           text: {
             type: "plain_text",
-            text: "View in BusinessBrain",
+            text: "View in KogSync",
             emoji: true,
           },
           url: decision.url,

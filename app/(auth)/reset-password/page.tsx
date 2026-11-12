@@ -2,12 +2,14 @@
 
 import * as React from "react";
 import { ArrowRight, Loader2, KeyRound, Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
 import { updatePasswordAction, AuthState } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordChecklist } from "@/components/auth/password-checklist";
 import { checkPasswordRequirements } from "@/lib/auth/password-rules";
+import { KogSyncLogo } from "@/components/brand/kogsync-logo";
 
 export default function ResetPasswordPage() {
   const [state, formAction, isPending] = React.useActionState<AuthState, FormData>(
@@ -53,14 +55,14 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-sm">
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#19191C] border border-[#29292D] text-[#F5F5F5] shadow-sm">
-            <KeyRound className="h-5 w-5 text-blue-400" />
-          </div>
+          <Link href="/" className="inline-flex items-center justify-center rounded-2xl p-2 hover:scale-105 transition-transform" aria-label="KogSync Home">
+            <KogSyncLogo variant="icon" size="xl" priority />
+          </Link>
           <h2 className="mt-4 text-xl font-bold tracking-tight text-[#F5F5F5]">
             Set new password
           </h2>
           <p className="mt-1 text-xs text-[#A1A1AA]">
-            Enter your new secure password for Company Brain
+            Enter your new secure password for KogSync
           </p>
         </div>
 

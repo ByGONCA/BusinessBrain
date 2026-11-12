@@ -174,7 +174,7 @@ export function HelpMenu({
               onClick={async () => {
                 setIsOpen(false);
                 await resetTourAction();
-                window.dispatchEvent(new CustomEvent("businessbrain:restart-tour"));
+                window.dispatchEvent(new CustomEvent("kogsync:restart-tour"));
               }}
               className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors text-left"
             >
@@ -294,7 +294,7 @@ export function HelpMenu({
 
                   {/* Version Footnote */}
                   <div className="px-2.5 py-1 text-[10px] font-mono text-zinc-500 dark:text-zinc-400 leading-tight space-y-0.5">
-                    <p className="text-muted-foreground font-semibold">Company Brain 0.5.0</p>
+                    <p className="text-muted-foreground font-semibold">KogSync 1.0.0</p>
                     <p>{t.help.webCloudEdition}</p>
                     <p className="text-zinc-400 dark:text-zinc-500">{t.help.updatedToday}</p>
                   </div>
@@ -314,7 +314,7 @@ export function HelpMenu({
             <div className="relative pl-3.5 space-y-2 border-l border-border ml-1.5">
               <div className="relative">
                 <div className="absolute -left-[19px] top-1.5 h-1.5 w-1.5 rounded-full bg-blue-500 ring-2 ring-card" />
-                <p className="text-xs font-medium text-foreground">Company Brain 0.5</p>
+                <p className="text-xs font-medium text-foreground">KogSync 1.0</p>
                 <p className="text-[10px] text-muted-foreground">Unified memory layer</p>
               </div>
 

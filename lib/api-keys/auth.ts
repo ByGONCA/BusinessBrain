@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Public API Key Authentication Middleware & Scope Guard
+﻿// ==============================================================================
+// KogSync: Public API Key Authentication Middleware & Scope Guard
 // Authenticates Bearer tokens, validates scopes, and applies rate limiting headers
 // ==============================================================================
 

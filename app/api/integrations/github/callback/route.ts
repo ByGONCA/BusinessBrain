@@ -87,7 +87,7 @@ export async function GET(request: Request) {
       headers: {
         Authorization: `Bearer ${tokenData.access_token}`,
         Accept: "application/vnd.github+json",
-        "User-Agent": "BusinessBrain-App",
+        "User-Agent": "KogSync-App",
       },
     });
 

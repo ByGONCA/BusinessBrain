@@ -4,6 +4,7 @@ import * as React from "react";
 import { AIMessageRecord } from "@/lib/ai/chat/service";
 import { SourcesPopover } from "./sources-popover";
 import { PhosphorBrain } from "@/components/icons";
+import { KogSyncLogo } from "@/components/brand/kogsync-logo";
 import { AlertCircle, StopCircle } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
@@ -45,8 +46,8 @@ export function ChatMessageItem({ message, userName, userAvatar }: ChatMessageIt
             )}
           </div>
         ) : (
-          <div className="h-7 w-7 rounded-lg bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center justify-center">
-            <PhosphorBrain className="h-4 w-4" />
+          <div className="h-7 w-7 rounded-lg overflow-hidden flex items-center justify-center shrink-0">
+            <KogSyncLogo variant="icon" size="xs" />
           </div>
         )}
       </div>
@@ -54,7 +55,7 @@ export function ChatMessageItem({ message, userName, userAvatar }: ChatMessageIt
       {/* Message Body */}
       <div className={`max-w-[85%] sm:max-w-[78%] space-y-1.5 ${isUser ? "text-right" : "text-left"}`}>
         <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-medium">
-          <span>{isUser ? resolvedUserName : "BusinessBrain AI"}</span>
+          <span>{isUser ? resolvedUserName : "KogSync AI"}</span>
           {isAborted && (
             <span className="inline-flex items-center gap-1 text-[10px] text-amber-500">
               <StopCircle className="h-3 w-3" />

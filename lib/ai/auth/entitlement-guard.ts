@@ -46,7 +46,7 @@ export async function verifyAIAccessEntitlement(
       status: 402,
       error: "NO_ACTIVE_SUBSCRIPTION",
       message:
-        "O acesso à inteligência artificial do BusinessBrain requer um plano pago ativo (Starter, Pro ou Enterprise) ou um período de avaliação válido. Contas sem subscrição não podem executar IA, mesmo configurando chaves próprias (BYOK).",
+        "O acesso à inteligência artificial do KogSync requer um plano pago ativo (Starter, Pro ou Enterprise) ou um período de avaliação válido. Contas sem subscrição não podem executar IA, mesmo configurando chaves próprias (BYOK).",
     };
   }
 
@@ -148,7 +148,7 @@ export async function verifyBYOKEntitlement(
       error: "BYOK_PLAN_RESTRICTED",
       plan,
       message:
-        "A funcionalidade de chaves de API próprias (BYOK) está reservada aos planos Pro e Enterprise. O seu plano Starter inclui acesso aos modelos disponibilizados pela plataforma BusinessBrain. Faça upgrade para o plano Pro para ligar as suas próprias chaves de API.",
+        "A funcionalidade de chaves de API próprias (BYOK) está reservada aos planos Pro e Enterprise. O seu plano Starter inclui acesso aos modelos disponibilizados pela plataforma KogSync. Faça upgrade para o plano Pro para ligar as suas próprias chaves de API.",
     };
   }
 

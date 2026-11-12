@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
         return new Response(
           JSON.stringify({
             error:
-              "A funcionalidade de chaves próprias (BYOK) está reservada aos planos Pro e Enterprise. O plano Starter inclui acesso aos modelos da plataforma BusinessBrain. Faça upgrade para o plano Pro para utilizar as suas próprias API keys.",
+              "A funcionalidade de chaves próprias (BYOK) está reservada aos planos Pro e Enterprise. O plano Starter inclui acesso aos modelos da plataforma KogSync. Faça upgrade para o plano Pro para utilizar as suas próprias API keys.",
             code: "BYOK_PLAN_RESTRICTED",
           }),
           { status: 403, headers: { "Content-Type": "application/json" } }
@@ -247,7 +247,7 @@ export async function POST(req: NextRequest) {
         isByok = true;
       }
     } else {
-      // 8.2 Mode = "platform": Use centralized BusinessBrain credentials
+      // 8.2 Mode = "platform": Use centralized KogSync credentials
       // Verify if platform provider is configured on server
       const isConfigured = isPlatformProviderConfigured(targetProvider);
       if (!isConfigured && process.env.NODE_ENV !== "test") {

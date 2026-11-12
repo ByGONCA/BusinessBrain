@@ -3,8 +3,9 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { useLanguage } from "@/lib/i18n";
+import { KogSyncLogo } from "@/components/brand/kogsync-logo";
 
-export interface BusinessBrainLoaderProps {
+export interface KogSyncLoaderProps {
   /**
    * If true, expands to cover the available viewport (min-h-screen).
    * If false, fills the parent container (e.g. inside dashboard main content or card suspense).
@@ -17,7 +18,7 @@ export interface BusinessBrainLoaderProps {
    */
   text?: string;
   /**
-   * Whether to display the BusinessBrain logo and wordmark.
+   * Whether to display the KogSync logo and wordmark.
    * @default true
    */
   showBrand?: boolean;
@@ -27,14 +28,15 @@ export interface BusinessBrainLoaderProps {
   className?: string;
 }
 
-export type CompanyBrainLoaderProps = BusinessBrainLoaderProps;
+export type BusinessBrainLoaderProps = KogSyncLoaderProps;
+export type CompanyBrainLoaderProps = KogSyncLoaderProps;
 
-export function BusinessBrainLoader({
+export function KogSyncLoader({
   fullScreen = true,
   text,
   showBrand = true,
   className,
-}: BusinessBrainLoaderProps) {
+}: KogSyncLoaderProps) {
   const { t } = useLanguage();
   const statusText = text ?? t?.common?.loading ?? "Loading...";
 
@@ -52,29 +54,40 @@ export function BusinessBrainLoader({
       )}
     >
       <div className="flex flex-col items-center justify-center text-center">
-        {/* Animated Brand Network Icon Spinning Directly */}
+        {/* Animated Brand Network Icon */}
         <div className="relative flex items-center justify-center">
-          <svg
-            className="h-8 w-8 animate-spin text-foreground motion-reduce:animate-none"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <circle cx="6" cy="6" r="3" />
-            <circle cx="18" cy="6" r="3" />
-            <circle cx="12" cy="18" r="3" />
-            <line x1="8.5" y1="7.5" x2="10" y2="15.5" />
-            <line x1="15.5" y1="7.5" x2="14" y2="15.5" />
-          </svg>
+          <div className="relative flex items-center justify-center">
+            <svg
+              className="h-10 w-10 animate-spin text-blue-500/40 motion-reduce:animate-none absolute -inset-1"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="6" cy="6" r="3" />
+              <circle cx="18" cy="6" r="3" />
+              <circle cx="12" cy="18" r="3" />
+              <line x1="8.5" y1="7.5" x2="10" y2="15.5" />
+              <line x1="15.5" y1="7.5" x2="14" y2="15.5" />
+            </svg>
+            <KogSyncLogo variant="icon" size="sm" className="relative z-10 transition-transform duration-300" priority />
+          </div>
         </div>
 
-        {/* Optional Contextual Status Label (only rendered if explicit text is provided) */}
+        {showBrand && (
+          <div className="mt-3.5 flex items-center gap-1.5">
+            <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+              KogSync
+            </span>
+          </div>
+        )}
+
+        {/* Optional Contextual Status Label */}
         {text && (
-          <span className="mt-3 text-xs font-medium text-muted-foreground">
+          <span className="mt-2 text-xs font-medium text-muted-foreground">
             {text}
           </span>
         )}
@@ -87,6 +100,6 @@ export function BusinessBrainLoader({
 }
 
 // Backward-compatible aliases
-export const CompanyBrainLoader = BusinessBrainLoader;
-export const KogSyncLoader = BusinessBrainLoader;
-export type KogSyncLoaderProps = BusinessBrainLoaderProps;
+export const BusinessBrainLoader = KogSyncLoader;
+export const CompanyBrainLoader = KogSyncLoader;
+

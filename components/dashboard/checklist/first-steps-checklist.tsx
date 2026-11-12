@@ -129,7 +129,7 @@ export function FirstStepsChecklist({
           </div>
           <div>
             <h3 className="text-sm font-bold text-foreground tracking-tight">
-              Get started with Company Brain
+              Get started with KogSync
             </h3>
             <p className="text-xs text-muted-foreground">
               {completedCount} of {tasks.length} tasks completed

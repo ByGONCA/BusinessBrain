@@ -35,35 +35,34 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
   const entitlement = activeOrg ? await getOrganizationEntitlement(activeOrg.id) : null;
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-[#FAF9F5] dark:bg-[#09090B] text-[#18181B] dark:text-[#F4F4F5] antialiased transition-colors overflow-x-hidden selection:bg-blue-600/20">
+    <div className="relative flex min-h-screen flex-col bg-[#FAF9F5] dark:bg-[#09090B] text-[#18181B] dark:text-[#F4F4F5] antialiased selection:bg-blue-600/20">
       {/* Floating Navigation Header */}
       <LandingHeader initialUser={user} />
 
-      {/* Main Pricing Hero & Content with Layered Oversized Background Typography */}
-      <main className="relative flex-1 px-6 pt-6 sm:pt-10 pb-24 sm:px-12 lg:px-16 overflow-hidden">
-        {/* Layer 0: Oversized Architectural Background Typography (Low Contrast & Viewport Cropped) */}
+      {/* Main Pricing Hero & Content */}
+      <main className="relative flex-1 px-4 sm:px-6 lg:px-8 pt-8 sm:pt-14 pb-24">
+        {/* Subtle Ambient Radial Lighting in Background */}
         <div
           aria-hidden="true"
-          className="pointer-events-none select-none absolute inset-0 overflow-hidden flex flex-col items-center z-0"
+          className="pointer-events-none absolute inset-x-0 top-0 h-96 overflow-hidden flex justify-center z-0"
         >
-          {/* Giant "Pricing" Display Wordmark Behind Top Content */}
-          <div className="absolute -top-4 sm:-top-8 md:-top-12 left-1/2 -translate-x-1/2 text-[22vw] sm:text-[20vw] lg:text-[18vw] font-black tracking-[-0.06em] text-zinc-950/[0.045] dark:text-white/[0.065] whitespace-nowrap leading-none select-none pointer-events-none">
-            Pricing
-          </div>
-
-          {/* Central & Lower Horizon Layers for Ambient Depth */}
-          <div className="absolute top-[55%] left-1/2 -translate-x-1/2 -translate-y-1/2 text-[26vw] font-black tracking-[-0.08em] text-black/[0.015] dark:text-white/[0.012] whitespace-nowrap leading-none">
-            INTELLIGENCE
-          </div>
-
-          {/* Subtle Radial Ambient Lighting */}
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[500px] bg-blue-500/[0.03] dark:bg-blue-600/[0.04] blur-[140px] rounded-full pointer-events-none" />
+          <div className="w-[800px] h-[350px] bg-blue-500/[0.04] dark:bg-blue-600/[0.05] blur-[120px] rounded-full" />
         </div>
 
-        {/* Layer 1: Foreground Content */}
+        {/* Foreground Content */}
         <div className="relative z-10 mx-auto max-w-6xl text-center">
-          {/* Accessible Semantic Title for Screen Readers & SEO */}
-          <h1 className="sr-only">Pricing &amp; Plans — KogSync</h1>
+          {/* Hero Section Header */}
+          <div className="max-w-2xl mx-auto mb-8 sm:mb-12">
+            <span className="inline-block text-[11px] font-mono font-semibold uppercase tracking-widest text-[#71717A] dark:text-[#A1A1AA] mb-3">
+              Pricing &amp; Plans
+            </span>
+            <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-[#18181B] dark:text-[#F4F4F5]">
+              Predictable plans for modern company memory.
+            </h1>
+            <p className="mt-4 text-sm sm:text-base text-[#52525B] dark:text-[#A1A1AA] leading-relaxed">
+              Unify your company documents, decisions, and system context. Start with a 3-day unrestricted free trial with 1-click self-serve cancellation.
+            </p>
+          </div>
 
           {/* Gating Notice Banner */}
           {isSubscriptionRequired && (
@@ -76,7 +75,7 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
           )}
 
           {wasCanceled && (
-            <div className="mb-8 rounded-2xl border border-[#E5E5E0] dark:border-[#1E1E22] bg-[#F4F3EE]/90 dark:bg-[#121215]/90 p-4 text-xs text-[#52525B] dark:text-[#A1A1AA] text-left sm:text-center max-w-2xl mx-auto backdrop-blur-md">
+            <div className="mb-8 rounded-2xl border border-[#E5E5E0] dark:border-[#222228] bg-[#F4F3EE]/90 dark:bg-[#121215]/90 p-4 text-xs text-[#52525B] dark:text-[#A1A1AA] text-left sm:text-center max-w-2xl mx-auto backdrop-blur-md">
               <p className="font-semibold text-sm text-[#18181B] dark:text-[#F4F4F5]">Checkout Canceled</p>
               <p className="mt-1 text-[#71717A]">
                 No charges were processed. You can select a plan whenever you are ready.
@@ -84,8 +83,8 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
             </div>
           )}
 
-          {/* Layered Pricing Cards Component with Monthly/Annual Switcher */}
-          <div className="mt-6 sm:mt-10">
+          {/* Pricing Cards Component with Monthly/Annual Switcher */}
+          <div>
             <PricingCards
               plans={Object.values(SUBSCRIPTION_PLANS)}
               isAuthenticated={!!user}
@@ -95,7 +94,7 @@ export default async function PricingPage({ searchParams }: PricingPageProps) {
             />
           </div>
 
-          {/* Q&A Accordion List (Matching Landing Page Style) */}
+          {/* Q&A Accordion List */}
           <PricingFAQ />
         </div>
       </main>

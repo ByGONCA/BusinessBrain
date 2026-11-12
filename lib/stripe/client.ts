@@ -25,7 +25,7 @@ export function getStripeClient(): Stripe {
     timeout: 15000, // Explicit 15-second bounded network timeout for serverless runtime
     maxNetworkRetries: 2,
     appInfo: {
-      name: "Company Brain SaaS",
+      name: "KogSync SaaS",
       version: "0.1.0",
     },
   });

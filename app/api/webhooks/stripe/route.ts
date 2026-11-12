@@ -573,7 +573,7 @@ export async function POST(req: Request) {
       }
 
       case "account.application.deauthorized": {
-        // Stripe Connect: Merchant deauthorized BusinessBrain directly from their Stripe dashboard
+        // Stripe Connect: Merchant deauthorized KogSync directly from their Stripe dashboard
         const connectedAccountId = event.account || (event.data?.object as any)?.id;
         if (connectedAccountId) {
           logger.info(`[Stripe Webhook] Connect account deauthorized remotely: ${connectedAccountId}`);

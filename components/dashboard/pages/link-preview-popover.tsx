@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 // ==============================================================================
-// Company Brain: Link Preview Popover
+// KogSync: Link Preview Popover
 // Interactive floating popover when clicking or focusing links in the editor.
 // Provides 1-click open, copy, edit, and unlink actions.
 // ==============================================================================

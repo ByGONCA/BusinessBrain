@@ -1410,7 +1410,7 @@ export function BlockItem({
                       })}
 
                       <div className="pt-1.5 text-[10px] font-semibold text-indigo-500 uppercase tracking-wider px-2 py-0.5 flex items-center gap-1">
-                        <Sparkles className="h-2.5 w-2.5" /> Company Brain
+                        <Sparkles className="h-2.5 w-2.5" /> KogSync
                       </div>
                       {(
                         [

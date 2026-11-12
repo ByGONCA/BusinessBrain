@@ -137,7 +137,7 @@ export function BrandingTab({ activeOrg }: BrandingTabProps) {
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: brandColor }} />
               <span className="text-xs font-semibold text-zinc-900 dark:text-white">
-                {senderName || activeOrg?.name || "Company Brain"}
+                {senderName || activeOrg?.name || "KogSync"}
               </span>
             </div>
             <span className="text-[10px] text-zinc-400 font-mono">noreply@companybrain.ai</span>
@@ -149,7 +149,7 @@ export function BrandingTab({ activeOrg }: BrandingTabProps) {
             </p>
           </div>
           <div className="border-t border-zinc-100 dark:border-zinc-800 pt-2 text-[10px] text-zinc-400 text-center">
-            {footerText || "Sent via Company Brain"}
+            {footerText || "Sent via KogSync"}
           </div>
         </div>
 

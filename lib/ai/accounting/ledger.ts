@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: AI Cost Accounting and Ledger Service
+﻿// ==============================================================================
+// KogSync: AI Cost Accounting and Ledger Service
 // Manages precise token accounting, distinction between estimated vs reported vs billed,
 // and audit trails for both personal and organization BYOK scopes.
 // ==============================================================================
@@ -102,7 +102,7 @@ export class AICostLedgerService {
       params.cachedPromptTokens || 0
     );
 
-    // BYOK usage is billed directly to the customer's own provider account ($0 debited by BusinessBrain)
+    // BYOK usage is billed directly to the customer's own provider account ($0 debited by KogSync)
     const billedCostUsd = params.isByok ? 0.000000 : estimatedCostUsd;
 
     const row = {

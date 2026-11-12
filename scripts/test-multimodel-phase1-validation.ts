@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Phase 1 Multi-Model AI Providers Unified Verification Suite
+﻿// ==============================================================================
+// KogSync: Phase 1 Multi-Model AI Providers Unified Verification Suite
 // Validates: OpenAI, Google Gemini, Anthropic Claude, DeepSeek, Mistral
 // Covers: Adapters, Parameter Isolation, Streaming, AbortSignal, BYOK,
 //         Secret Sanitization, Accounting, 2-Phase Reservations, and Dual-Workspace Scoping.

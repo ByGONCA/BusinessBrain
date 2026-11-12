@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: File System & External File Integration Types
+﻿// ==============================================================================
+// KogSync: File System & External File Integration Types
 // ==============================================================================
 
 export type StorageProvider =

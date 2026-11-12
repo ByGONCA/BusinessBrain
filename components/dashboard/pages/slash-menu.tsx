@@ -75,7 +75,7 @@ export const CATEGORY_LABELS: Record<SlashCategory, string> = {
   basic: "Basic Blocks",
   media: "Media",
   database: "Database & Views",
-  company_brain: "Company Brain",
+  company_brain: "KogSync",
   advanced: "Advanced",
 };
 
@@ -112,7 +112,7 @@ export const ALL_SLASH_COMMANDS: SlashMenuItem[] = [
     id: "sug_task",
     category: "suggested",
     label: "Company Task",
-    description: "Track an actionable item in Company Brain.",
+    description: "Track an actionable item in KogSync.",
     icon: CheckSquare,
     keywords: ["task", "todo", "action", "cb"],
     actionId: "create_task",
@@ -331,12 +331,12 @@ export const ALL_SLASH_COMMANDS: SlashMenuItem[] = [
     blockType: "calendar",
   },
 
-  // COMPANY BRAIN
+  // KOGSYNC
   {
     id: "cb_task",
     category: "company_brain",
     label: "Task",
-    description: "Create or link a real Company Brain task.",
+    description: "Create or link a real KogSync task.",
     icon: CheckSquare,
     keywords: ["task", "todo", "assignee", "due"],
     actionId: "create_task",
@@ -381,7 +381,7 @@ export const ALL_SLASH_COMMANDS: SlashMenuItem[] = [
     id: "cb_connect",
     category: "company_brain",
     label: "Connect",
-    description: "Connect this block to any Company Brain entity.",
+    description: "Connect this block to any KogSync entity.",
     icon: Link2,
     keywords: ["connect", "link", "relation", "relate"],
     actionId: "connect",
@@ -492,7 +492,7 @@ export function SlashMenu({ query, onSelect, onClose, position }: SlashMenuProps
   const filteredItems = React.useMemo(() => {
     const q = query.toLowerCase().trim();
     if (!q) {
-      // If no query, show Suggested, followed by Basic, Media, Database, Company Brain, Advanced
+      // If no query, show Suggested, followed by Basic, Media, Database, KogSync, Advanced
       return ALL_SLASH_COMMANDS;
     }
     // Filter by label, description, or keywords

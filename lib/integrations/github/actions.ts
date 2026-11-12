@@ -72,7 +72,7 @@ async function resolveAuthorizedOrgId(orgId?: string, requiredPermission?: Permi
     .maybeSingle();
   if (!member) throw new Error("Unauthorized to access workspace.");
 
-  // If a specific BusinessBrain permission is required, enforce it (Owners bypass automatically)
+  // If a specific KogSync permission is required, enforce it (Owners bypass automatically)
   if (requiredPermission) {
     const allowed = await hasPermission(user.user.id, targetId, requiredPermission);
     if (!allowed) {
@@ -487,7 +487,7 @@ export async function getRepositoryRecentActivityAction(
 }
 
 /**
- * Connects a GitHub object (Repo, PR, Issue, Commit, Release) to a BusinessBrain object.
+ * Connects a GitHub object (Repo, PR, Issue, Commit, Release) to a KogSync object.
  * Stored in public.company_connections.
  */
 export async function connectGitHubObjectAction(input: {
@@ -535,7 +535,7 @@ export async function connectGitHubObjectAction(input: {
 }
 
 /**
- * Retrieves all connected BusinessBrain objects for a given GitHub object identifier.
+ * Retrieves all connected KogSync objects for a given GitHub object identifier.
  */
 export async function getConnectedObjectsForGitHubAction(
   sourceId: string

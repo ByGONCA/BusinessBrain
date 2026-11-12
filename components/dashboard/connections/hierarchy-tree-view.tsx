@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 // ==============================================================================
-// Company Brain: Company Hierarchy Tree View
+// KogSync: Company Hierarchy Tree View
 // Displays parent/child page structure and entity containment
 // ==============================================================================
 

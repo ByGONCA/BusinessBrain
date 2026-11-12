@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Slack Integration Configuration
+﻿// ==============================================================================
+// KogSync: Slack Integration Configuration
 // Defines OAuth scopes, environment variable accessors, and API endpoints
 // ==============================================================================
 

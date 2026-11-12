@@ -125,13 +125,13 @@ export function StorageTab({ activeOrg }: StorageTabProps) {
         </span>
 
         <div className="space-y-2">
-          {/* Internal Company Brain Storage */}
+          {/* Internal KogSync Storage */}
           <div className="p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <Server className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               <div>
                 <p className="text-xs font-semibold text-zinc-900 dark:text-zinc-100">
-                  Company Brain Internal Storage
+                  KogSync Internal Storage
                 </p>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                   Direct uploads, PDFs, images, and embedded page attachments.
@@ -152,7 +152,7 @@ export function StorageTab({ activeOrg }: StorageTabProps) {
                   External Cloud Links & Google Drive
                 </p>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                  Zero bytes consumed from Company Brain quota.
+                  Zero bytes consumed from KogSync quota.
                 </p>
               </div>
             </div>

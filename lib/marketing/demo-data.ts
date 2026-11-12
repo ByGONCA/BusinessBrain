@@ -1,5 +1,5 @@
 /**
- * Shared Fictional Demonstration Dataset for BusinessBrain
+ * Shared Fictional Demonstration Dataset for KogSync
  *
  * Provides internally consistent, cross-linked demonstration entities for the
  * interactive workstation demo on the marketing landing page.

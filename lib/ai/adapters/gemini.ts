@@ -302,7 +302,7 @@ export class GeminiAdapter extends BaseAIAdapter implements AIProviderAdapter {
     options?: ChatCompletionOptions
   ): ChatCompletionResponse {
     const lastUserMessage = [...messages].reverse().find((m) => m.role === "user")?.content || "";
-    let replyText = `[Simulação BusinessBrain ${model}] Informação processada com sucesso.`;
+    let replyText = `[Simulação KogSync ${model}] Informação processada com sucesso.`;
 
     if (options?.sources && options.sources.length > 0) {
       replyText += ` Com base no documento "${options.sources[0].title}", confirmo a seguinte resposta: ${lastUserMessage}`;

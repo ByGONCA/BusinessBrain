@@ -7,7 +7,7 @@ import {
 } from "./types";
 
 /**
- * Verified Semantic Metric Registry for BusinessBrain.
+ * Verified Semantic Metric Registry for KogSync.
  * Strictly bounded to real repository services and data models.
  * Zero ungrounded formulas, zero cross-currency aggregations.
  */

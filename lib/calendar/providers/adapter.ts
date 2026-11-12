@@ -29,7 +29,7 @@ export interface CreatedExternalEventResult {
 
 /**
  * Interface standard for external calendar adapters.
- * Ensures strict separation between BusinessBrain and third-party APIs.
+ * Ensures strict separation between KogSync and third-party APIs.
  */
 export interface CalendarAdapter {
   readonly provider: ExternalCalendarProvider;

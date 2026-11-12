@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 // ==============================================================================
-// Company Brain: Create Connection Modal
+// KogSync: Create Connection Modal
 // Establishes directed relationships between any two company objects
 // ==============================================================================
 
@@ -169,7 +169,7 @@ export function CreateConnectionModal({
                 Criar Relação Explícita
               </h3>
               <p className="text-xs text-muted-foreground">
-                Conecta dois elementos do Company Brain com tipagem contextual
+                Conecta dois elementos do KogSync com tipagem contextual
               </p>
             </div>
           </div>

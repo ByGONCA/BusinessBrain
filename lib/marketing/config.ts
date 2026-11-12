@@ -1,5 +1,5 @@
 /**
- * BusinessBrain Marketing & Landing Page Configuration
+ * KogSync Marketing & Landing Page Configuration
  * 
  * Centralizes editable design assumptions, provisional pricing, showcase definitions,
  * and verified ecosystem integrations without tampering with Stripe live configurations.

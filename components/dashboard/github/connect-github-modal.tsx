@@ -123,7 +123,7 @@ export function ConnectGitHubModal({
               <LinkIcon className="h-4 w-4" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold">Connect to BusinessBrain</h3>
+              <h3 className="text-sm font-semibold">Connect to KogSync</h3>
               <p className="text-xs text-muted-foreground truncate max-w-sm">
                 Link <span className="font-mono text-foreground font-medium">{sourceTitle}</span> to your company knowledge graph
               </p>

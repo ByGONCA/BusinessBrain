@@ -77,7 +77,7 @@ export function MentionMenu({ query, onSelect, onClose, position }: MentionMenuP
           id: e.id,
           type: e.type,
           title: e.title,
-          subtitle: `Company Brain ${e.type.charAt(0).toUpperCase() + e.type.slice(1)}`,
+          subtitle: `KogSync ${e.type.charAt(0).toUpperCase() + e.type.slice(1)}`,
         })
       );
 
@@ -210,7 +210,7 @@ export function MentionMenu({ query, onSelect, onClose, position }: MentionMenuP
       <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-zinc-400 flex items-center justify-between">
         <span>Link & Mention</span>
         <span className="flex items-center gap-1 text-[9px] text-indigo-500 font-medium">
-          <Sparkles className="h-2.5 w-2.5" /> Company Brain
+          <Sparkles className="h-2.5 w-2.5" /> KogSync
         </span>
       </div>
 

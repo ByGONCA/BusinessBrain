@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Google Workspace Comprehensive Sync Service
+﻿// ==============================================================================
+// KogSync: Google Workspace Comprehensive Sync Service
 // Syncs Drive documents and Google Meet events into organization knowledge layer
 // ==============================================================================
 

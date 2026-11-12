@@ -100,7 +100,7 @@ export function PageBreadcrumbs({
         <Link
           href="/dashboard/pages"
           className="flex items-center gap-1.5 px-1.5 py-0.5 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800/60 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors shrink-0 text-zinc-500 dark:text-zinc-400"
-          title="Company Brain Workspace"
+          title="KogSync Workspace"
         >
           <Building2 className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
           <span className="font-medium text-[11px] tracking-tight">Workspace</span>

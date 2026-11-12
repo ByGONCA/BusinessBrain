@@ -35,12 +35,12 @@ export const CANONICAL_LEAST_PRIVILEGE_REGISTRATION: SubagentRegistrationPayload
   parameters: {
     Name: "global-legal-compliance-agent",
     Description:
-      "Autonomous global legal and regulatory compliance agent for BusinessBrain. Performs read-only statutory investigations.",
+      "Autonomous global legal and regulatory compliance agent for KogSync. Performs read-only statutory investigations.",
     EnableWriteTools: false,
     EnableSubagentTools: false,
     EnableMCPTools: false,
     SystemPrompt:
-      "You are the BusinessBrain Global Legal Compliance Agent. You operate under the strict principle of least privilege with read-only tools.",
+      "You are the KogSync Global Legal Compliance Agent. You operate under the strict principle of least privilege with read-only tools.",
   },
 };
 

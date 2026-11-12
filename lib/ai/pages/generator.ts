@@ -37,7 +37,7 @@ const PageDraftSchema = z.object({
 
 export class AIPageGenerator {
   /**
-   * Validates that an array of blocks adheres strictly to BusinessBrain's native EditorBlock schema.
+   * Validates that an array of blocks adheres strictly to KogSync's native EditorBlock schema.
    * Strips any unsafe HTML tags (<script>, <iframe>, onclick).
    */
   static validateBlocks(rawBlocks: unknown[]): EditorBlock[] {

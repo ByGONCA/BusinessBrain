@@ -7,6 +7,7 @@ import { Locale } from "@/lib/i18n/types";
 import { ThemeSelector } from "@/components/theme/theme-selector";
 import { useScrollReveal } from "@/lib/hooks/use-scroll-reveal";
 import { Globe } from "lucide-react";
+import { KogSyncLogo } from "@/components/brand/kogsync-logo";
 
 export function LandingFooter() {
   const { t, locale, setLocale } = useLanguage();
@@ -42,29 +43,9 @@ export function LandingFooter() {
               >
                 <Link
                   href="/"
-                  className="inline-flex items-center gap-2.5 rounded-lg transition-transform duration-200 hover:scale-[1.02] active:scale-95"
+                  className="inline-flex items-center rounded-lg transition-transform duration-200 hover:scale-[1.02] active:scale-95"
                 >
-                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#18181B] dark:bg-[#F4F4F5] text-[#FAF9F5] dark:text-[#18181B] transition-colors duration-200">
-                    <svg
-                      className="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      <circle cx="6" cy="6" r="3" />
-                      <circle cx="18" cy="6" r="3" />
-                      <circle cx="12" cy="18" r="3" />
-                      <line x1="8.5" y1="7.5" x2="10" y2="15.5" />
-                      <line x1="15.5" y1="7.5" x2="14" y2="15.5" />
-                    </svg>
-                  </div>
-                  <span className="font-semibold text-base tracking-tight text-[#18181B] dark:text-[#F4F4F5]">
-                    KogSync
-                  </span>
+                  <KogSyncLogo variant="wordmark" size="md" />
                 </Link>
               </div>
 

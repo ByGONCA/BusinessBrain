@@ -1,7 +1,7 @@
 "use client";
 
 // ==============================================================================
-// BusinessBrain: VS Code-Style Code Viewer Component
+// KogSync: VS Code-Style Code Viewer Component
 // Features: Automatic syntax highlighting, line numbers, right-click context menu
 // to comment on lines/selection, dark/light theme integration, and non-blocking interactions.
 // ==============================================================================

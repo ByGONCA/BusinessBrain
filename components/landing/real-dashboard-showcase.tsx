@@ -392,7 +392,7 @@ const PRODUCTION_TIMELINE = [
   { id: "tl-2", date: "Aug 23, 2026", author: "Elena Rostova", title: "Engineering Spec: Monotonic OCC v14 Published", category: "Pages" },
   { id: "tl-3", date: "Aug 23, 2026", author: "GitHub Sync", title: "PR #142 Merged: Monotonic Conflict Resolver", category: "GitHub" },
   { id: "tl-4", date: "Aug 22, 2026", author: "Stripe Connect", title: "Upfront card trial payment setup completed for Apex Labs", category: "Billing" },
-  { id: "tl-5", date: "Aug 15, 2026", author: "Elena Rostova", title: "Company Brain Architecture Blueprint Finalized", category: "Milestone" },
+  { id: "tl-5", date: "Aug 15, 2026", author: "Elena Rostova", title: "KogSync Architecture Blueprint Finalized", category: "Milestone" },
 ];
 
 const PRODUCTION_MEMBERS = [

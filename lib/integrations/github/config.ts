@@ -1,9 +1,9 @@
-// ==============================================================================
-// Company Brain: GitHub Integration Configuration
+﻿// ==============================================================================
+// KogSync: GitHub Integration Configuration
 // ==============================================================================
 
 export const GITHUB_OAUTH_SCOPES = [
-  "repo", // Access public and private repositories (read-only usage in BusinessBrain)
+  "repo", // Access public and private repositories (read-only usage in KogSync)
   "read:user", // Read user profile info
   "user:email", // Access primary email for account identification
   "read:org", // Read organization membership and repos

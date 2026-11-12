@@ -12,7 +12,7 @@ export default function BrainPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight text-foreground">
-              Company Brain
+              KogSync Intelligence
             </h1>
             <span className="text-xs font-medium text-blue-400 flex items-center gap-1.5">
               AI Layer
@@ -116,7 +116,7 @@ export default function BrainPage() {
               Operating System Intelligence
             </h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Company Brain aggregates context across the entire enterprise stack:
+              KogSync aggregates context across the entire enterprise stack:
             </p>
             <ul className="space-y-2 text-xs text-secondary-foreground">
               <li className="flex items-center gap-2">

@@ -332,7 +332,7 @@ export function AppearanceTab() {
               Phase 1 Execution Plan (H3)
             </h3>
             <p style={{ fontSize: settings.baseFontSize }} className="text-zinc-600 dark:text-zinc-400 leading-relaxed pt-1">
-              Company Brain aggregates your team&apos;s knowledge, decisions, and documents into an actionable memory layer.
+              KogSync aggregates your team&apos;s knowledge, decisions, and documents into an actionable memory layer.
             </p>
           </div>
         </div>

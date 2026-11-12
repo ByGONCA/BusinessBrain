@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Slack Continuous Ingestion & Webhook Processor
+﻿// ==============================================================================
+// KogSync: Slack Continuous Ingestion & Webhook Processor
 // Signature verification with replay-attack protection (< 5 min) and external_discussions sync
 // ==============================================================================
 

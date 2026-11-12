@@ -158,7 +158,7 @@ export function CalendarView({ integrations }: CalendarViewProps) {
       }
     }
 
-    // 2. Real tags on actual events (from BusinessBrain or Google Calendar)
+    // 2. Real tags on actual events (from KogSync or Google Calendar)
     for (const evt of events) {
       if (
         evt.tag &&

@@ -38,7 +38,7 @@ export default async function GitHubPage({ searchParams }: GitHubPageProps) {
 
           <div className="space-y-2">
             <h2 className="text-xl font-bold tracking-tight text-foreground">
-              Connect GitHub to BusinessBrain
+              Connect GitHub to KogSync
             </h2>
             <p className="text-xs text-muted-foreground leading-relaxed">
               Link your repositories, pull requests, issues, and releases to your company knowledge base, decisions, and tasks.

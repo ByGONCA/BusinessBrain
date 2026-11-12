@@ -1,5 +1,5 @@
 /**
- * AI Configuration, Model Registry & Quotas for BusinessBrain.
+ * AI Configuration, Model Registry & Quotas for KogSync.
  *
  * Enforces server-side budget protection, model tiering, quota boundaries,
  * and deterministic token cost estimations for trials and paid subscription tiers.

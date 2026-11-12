@@ -1,5 +1,5 @@
 // ==============================================================================
-// BusinessBrain: Code Viewer Syntax Highlighter Engine (Prism.js / Zero-HTML)
+// KogSync: Code Viewer Syntax Highlighter Engine (Prism.js / Zero-HTML)
 // Provides secure, typed AST tokenization for VS Code-like code viewing
 // ==============================================================================
 

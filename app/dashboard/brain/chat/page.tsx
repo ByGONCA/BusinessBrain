@@ -5,7 +5,7 @@ import { AIChatService } from "@/lib/ai/chat/service";
 import { ChatView } from "@/components/dashboard/chat/chat-view";
 
 export const metadata = {
-  title: "Chat Empresarial & Memória — BusinessBrain",
+  title: "Chat Empresarial & Memória — KogSync",
   description: "Conversação conectada com a memória institucional e grafo de conhecimento da empresa.",
 };
 

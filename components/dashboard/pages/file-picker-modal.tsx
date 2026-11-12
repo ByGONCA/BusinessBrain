@@ -332,7 +332,7 @@ export function FilePickerModal({
                   <div className="flex justify-between text-xs text-zinc-600 dark:text-zinc-400">
                     <span className="flex items-center gap-1.5 font-medium">
                       <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" />
-                      Uploading to Company Brain...
+                      Uploading to KogSync...
                     </span>
                     <span>{uploadProgress}%</span>
                   </div>
@@ -436,7 +436,7 @@ export function FilePickerModal({
                   )}
 
                   <p className="text-[11px] text-zinc-400 pt-1">
-                    * External files remain in Google Drive and consume 0 Company Brain storage quota.
+                    * External files remain in Google Drive and consume 0 KogSync storage quota.
                   </p>
                 </div>
               )}
@@ -499,7 +499,7 @@ export function FilePickerModal({
                               {file.name}
                             </p>
                             <p className="text-[10px] text-zinc-400">
-                              {file.size_bytes ? formatBytes(file.size_bytes) : "Document"} • {file.storage_provider === "google_drive" ? "Google Drive" : "Company Brain"}
+                              {file.size_bytes ? formatBytes(file.size_bytes) : "Document"} • {file.storage_provider === "google_drive" ? "Google Drive" : "KogSync"}
                             </p>
                           </div>
                         </div>

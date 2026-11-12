@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Google Meet & Calendar Metadata Ingestion
+﻿// ==============================================================================
+// KogSync: Google Meet & Calendar Metadata Ingestion
 // Fetches conferenceData, attendees, and summaries, and syncs into external_discussions
 // ==============================================================================
 

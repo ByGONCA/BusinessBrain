@@ -1,0 +1,257 @@
+{
+  "version": 2,
+  "skills": {
+    "blast-radius": {
+      "source": "backnotprop/pstack",
+      "sourceType": "github",
+      "skillPath": "skills/blast-radius/SKILL.md",
+      "computedHash": "83927611fb04217ba6855e2bf40f9401de4819031f18f331426e72312e2aa562"
+    },
+    "changelog-generator": {
+      "source": "ComposioHQ/awesome-claude-skills",
+      "sourceType": "github",
+      "skillPath": "changelog-generator/SKILL.md",
+      "computedHash": "5434338dd0ea8f61988d1e9ab2a224a5b461c7ea2e7b7f33db56eab6fb6a4db1"
+    },
+    "content-research-writer": {
+      "source": "ComposioHQ/awesome-claude-skills",
+      "sourceType": "github",
+      "skillPath": "content-research-writer/SKILL.md",
+      "computedHash": "8a2dc5dd62822a23284d1ec3196ac04ec85ac3d59a4934394856b54f19e67282"
+    },
+    "doc-coauthoring": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/doc-coauthoring/SKILL.md",
+      "computedHash": "d32facc16a25b47a21a90e79c1e6c072d342a9e41b595b58b86f869ff33ccc26"
+    },
+    "docx": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/docx/SKILL.md",
+      "computedHash": "566b0933d95f5a2f981050e781162e19cebacfdff5608ab23dbe556aaf7a59e5"
+    },
+    "interrogate": {
+      "source": "backnotprop/pstack",
+      "sourceType": "github",
+      "skillPath": "skills/interrogate/SKILL.md",
+      "computedHash": "20ae3427594fc8e8848558f4c093d619b547e8c166833ac9cb2cba58dfaa14e4"
+    },
+    "invoice-organizer": {
+      "source": "ComposioHQ/awesome-claude-skills",
+      "sourceType": "github",
+      "skillPath": "invoice-organizer/SKILL.md",
+      "computedHash": "8b5681b2df69f61992a395b7337b3b1a031ef142242aaaaa49f25bde521389d4"
+    },
+    "mcp-builder": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/mcp-builder/SKILL.md",
+      "computedHash": "5a699fa929d99d7e6b1ebe10f13bf960d9ad452b70bd0733efd5d1de9524e285"
+    },
+    "meeting-insights-analyzer": {
+      "source": "ComposioHQ/awesome-claude-skills",
+      "sourceType": "github",
+      "skillPath": "meeting-insights-analyzer/SKILL.md",
+      "computedHash": "07290d48e9e3da97b145fbe85516ca32435c1141c8863e152da2b7d7543bb00a"
+    },
+    "omniroute": {
+      "source": "funcodingdev/omniroute",
+      "sourceType": "github",
+      "skillPath": "skills/omniroute/SKILL.md",
+      "computedHash": "fef48771ab6ff7fec42c0e12bc9a11ff01d49300f739bb92237e90b4f6cbe4a7"
+    },
+    "pdf": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/pdf/SKILL.md",
+      "computedHash": "48032992527f297b532782a85f9d4132417805eff1630944009bceb990d93f9a"
+    },
+    "poteto-help": {
+      "source": "backnotprop/pstack",
+      "sourceType": "github",
+      "skillPath": "skills/poteto-help/SKILL.md",
+      "computedHash": "4efdcc2b9a7eff70967c5d305d526d05a168781540aec01255b9ef13e4285262"
+    },
+    "poteto-mode": {
+      "source": "backnotprop/pstack",
+      "sourceType": "github",
+      "skillPath": "skills/poteto-mode/SKILL.md",
+      "computedHash": "6d9089bb1e05d74fd07e61c71711decc3566ef97f7535a0696a6432e42c9c797"
+    },
+    "security-audit": {
+      "source": "cloudflare/security-audit-skill",
+      "sourceType": "github",
+      "skillPath": "skills/security-audit/SKILL.md",
+      "computedHash": "8513eb3b2c39b8d05ef4f47b32ef4d18280b93a5efb91d8df6272f7435034af5"
+    },
+    "setup-pstack": {
+      "source": "backnotprop/pstack",
+      "sourceType": "github",
+      "skillPath": "skills/setup-pstack/SKILL.md",
+      "computedHash": "7945df06f7c161a16353bb9648ad97bfe5a0083356a507786b9316c6e8026240"
+    },
+    "supabase-audit-auth-config": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/audit-auth/supabase-audit-auth-config/SKILL.md",
+      "computedHash": "b503e80d7cd89662ce23842532d4555b25bc07909b8ed0181a02daaeb49e10b2"
+    },
+    "supabase-audit-auth-signup": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/audit-auth/supabase-audit-auth-signup/SKILL.md",
+      "computedHash": "41d6fb45ea227de89fc7ae6697585f41c83dd06f92ad7fc18d3b821a60095f5a"
+    },
+    "supabase-audit-auth-users": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/audit-auth/supabase-audit-auth-users/SKILL.md",
+      "computedHash": "9a6eb77c01ed96b31083eca1ef913e270235da1377b69eda0bbf570ea7084bc7"
+    },
+    "supabase-audit-authenticated": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/audit-auth/supabase-audit-authenticated/SKILL.md",
+      "computedHash": "e16f3f4e5abd712e9e01b3464f343265c0c4887bc7f37a17d90cacab9eb43c73"
+    },
+    "supabase-audit-buckets-list": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/audit-storage/supabase-audit-buckets-list/SKILL.md",
+      "computedHash": "79a1d8417fa95c80c95d331fd16cbb455ea782c06b49610d053a7e46a57239ee"
+    },
+    "supabase-audit-buckets-public": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/audit-storage/supabase-audit-buckets-public/SKILL.md",
+      "computedHash": "038a5f654329d0073a0da26412c8ac549d25bd42efdb7f5f9bb7b5d1b876c5dd"
+    },
+    "supabase-audit-buckets-read": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/audit-storage/supabase-audit-buckets-read/SKILL.md",
+      "computedHash": "de2a0a31db6785e3b3b1fa05d360ebf88c43bb45f47f88b5a2abdcda057fd408"
+    },
+    "supabase-audit-functions": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/audit-functions/supabase-audit-functions/SKILL.md",
+      "computedHash": "6e57898113240ab983f33b9f3e9115f6eec6f755e59db3799511adebe952569a"
+    },
+    "supabase-audit-realtime": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/audit-realtime/supabase-audit-realtime/SKILL.md",
+      "computedHash": "921b4425a2bf19021523be52ea98b87c2d58032bee14dc2468537c1ccfca38d5"
+    },
+    "supabase-audit-rls": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/audit-api/supabase-audit-rls/SKILL.md",
+      "computedHash": "690345b90217d9f5c24c3c868fd0d2aef783da326904ab89a0433b269e10831b"
+    },
+    "supabase-audit-rpc": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/audit-api/supabase-audit-rpc/SKILL.md",
+      "computedHash": "4543da42af6914a842e74f2695757a3af98a68a0e4ffe0fa4968d0151549b111"
+    },
+    "supabase-audit-tables-list": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/audit-api/supabase-audit-tables-list/SKILL.md",
+      "computedHash": "b11d0b4ee43b8ff2e9629421e7af0ec1d5fde7270c4eaf257566f6098245836a"
+    },
+    "supabase-audit-tables-read": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/audit-api/supabase-audit-tables-read/SKILL.md",
+      "computedHash": "be6330a021d24e10c3aaba0b7f730814b80af43a85534c3523de7d3a6a1528c5"
+    },
+    "supabase-detect": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/detection/supabase-detect/SKILL.md",
+      "computedHash": "3882c9b983cde188a6f0ba178efd08a1404469c9f8e67c124442ff98955aab1a"
+    },
+    "supabase-evidence": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/evidence/supabase-evidence/SKILL.md",
+      "computedHash": "a9358b2acd91d99c34de1594c46e8297efbbeed81f21923776a47cbdc570dd27"
+    },
+    "supabase-extract-anon-key": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/extraction/supabase-extract-anon-key/SKILL.md",
+      "computedHash": "09237ba14b0d1c1f89075264dc88bfdb149dda20fc53135a957f363ade37ec30"
+    },
+    "supabase-extract-db-string": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/extraction/supabase-extract-db-string/SKILL.md",
+      "computedHash": "db9ae1a617f5bc43b23aefff506e8d0ce2df40ce0402efe533b8a15603584521"
+    },
+    "supabase-extract-jwt": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/extraction/supabase-extract-jwt/SKILL.md",
+      "computedHash": "d26990abd1697e54d95d843a7f19ae87c4dbf3af548058e9b8be90bf0053f2e7"
+    },
+    "supabase-extract-service-key": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/extraction/supabase-extract-service-key/SKILL.md",
+      "computedHash": "e4e5d4f367fd49de1fcf7e90f98c5551f52d994f6fc2001502fcd3b748348f07"
+    },
+    "supabase-extract-url": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/extraction/supabase-extract-url/SKILL.md",
+      "computedHash": "583ea3cddf684ee93688ecc0f3bfcd01e92d6da51a0f294a2150e1132d2408f2"
+    },
+    "supabase-help": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/orchestration/supabase-help/SKILL.md",
+      "computedHash": "e7772710218083c3db9f967f3a8f112a8a849dcfc06b8dc8cf988d24d08b71e7"
+    },
+    "supabase-pentest": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/orchestration/supabase-pentest/SKILL.md",
+      "computedHash": "d79d93533d8bc51c770bd62f389e60ae308ec305dd6704c735dfdfbecdcc1f3f"
+    },
+    "supabase-report": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/report/supabase-report/SKILL.md",
+      "computedHash": "c3a1f1f39ca5deaf055353198b62e7ba59c16d1adb58787eee741694c76a4309"
+    },
+    "supabase-report-compare": {
+      "source": "yoanbernabeu/supabase-pentest-skills",
+      "sourceType": "github",
+      "skillPath": "skills/report/supabase-report-compare/SKILL.md",
+      "computedHash": "8d072c4ea627b21c110b14bb4971354bb6b5c7701481fd0afa7ca5f25a60dc6e"
+    },
+    "thermo-nuclear-code-quality-review": {
+      "source": "cursor/plugins",
+      "sourceType": "github",
+      "skillPath": "cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md",
+      "computedHash": "705eb32106f0fec9c9e9b4afccb6156f17f6e8829368e54cd5b53f10e4374340"
+    },
+    "unslop": {
+      "source": "backnotprop/pstack",
+      "sourceType": "github",
+      "skillPath": "skills/unslop/SKILL.md",
+      "computedHash": "204151f4d5cb9adf24f81e4b4f4142b91077d332e71c78511ce7a6a6083660da"
+    },
+    "xlsx": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "skillPath": "skills/xlsx/SKILL.md",
+      "computedHash": "3572b018005308f765480622987ef576fcdf9ea332d1024d3fe6c58cd65566a1"
+    }
+  }
+}

@@ -1,5 +1,5 @@
-// ==============================================================================
-// Company Brain: Company Connections Database Queries
+﻿// ==============================================================================
+// KogSync: Company Connections Database Queries
 // Server-side Cached & Organization-Scoped
 // ==============================================================================
 

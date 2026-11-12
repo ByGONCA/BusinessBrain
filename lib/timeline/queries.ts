@@ -549,7 +549,7 @@ export const getCompanyTimelineEvents = cache(
             ? "major"
             : "normal",
           title: `${icon} ${pageTitle}`,
-          description: "Workspace knowledge page established in company brain.",
+          description: "Workspace knowledge page established in KogSync memory.",
           timestamp: page.created_at,
           author,
           entityId: page.id,
