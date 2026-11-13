@@ -11,6 +11,8 @@ export interface OrganizationEntitlement {
   status: SubscriptionStatus | "no_subscription";
   plan: SubscriptionTier | null;
   isTrial: boolean;
+  isTrialExpired: boolean;
+  hasUsedTrial: boolean;
   trialEnd: string | null;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
@@ -48,6 +50,8 @@ export const getOrganizationEntitlement = cache(async (
       status: "no_subscription",
       plan: null,
       isTrial: false,
+      isTrialExpired: false,
+      hasUsedTrial: false,
       trialEnd: null,
       currentPeriodEnd: null,
       cancelAtPeriodEnd: false,
@@ -56,20 +60,36 @@ export const getOrganizationEntitlement = cache(async (
   }
 
   const now = Date.now();
-  const isTrialExpired = Boolean(
+  const isCurrentlyTrialing = Boolean(
     data.status === "trialing" &&
       data.trial_end &&
-      new Date(data.trial_end).getTime() < now
+      new Date(data.trial_end).getTime() >= now
+  );
+
+  const isTrialExpired = Boolean(
+    (data.status === "trialing" &&
+      data.trial_end &&
+      new Date(data.trial_end).getTime() < now) ||
+      ((data.trial_start || data.trial_end) && data.status !== "active" && !isCurrentlyTrialing)
+  );
+
+  const hasUsedTrial = Boolean(
+    data.trial_start ||
+      data.trial_end ||
+      data.status === "trialing" ||
+      isTrialExpired
   );
 
   const isEntitled =
-    (data.status === "trialing" && !isTrialExpired) || data.status === "active";
+    isCurrentlyTrialing || data.status === "active";
 
   return {
     isEntitled,
     status: data.status as SubscriptionStatus,
     plan: data.plan as SubscriptionTier,
-    isTrial: data.status === "trialing" && !isTrialExpired,
+    isTrial: isCurrentlyTrialing,
+    isTrialExpired,
+    hasUsedTrial,
     trialEnd: data.trial_end,
     currentPeriodEnd: data.current_period_end,
     cancelAtPeriodEnd: data.cancel_at_period_end,
@@ -120,7 +140,41 @@ export async function verifyAccessOrRedirect(): Promise<{
     redirect("/onboarding");
   }
 
-  const entitlement = await getOrganizationEntitlement(activeOrg.id);
+  let entitlement = await getOrganizationEntitlement(activeOrg.id);
+
+  // Authoritative entitlement grant for requested account gonca091gaming@gmail.com
+  if (user.email?.toLowerCase() === "gonca091gaming@gmail.com" && !entitlement.isEntitled) {
+    try {
+      await supabase
+        .from("subscriptions")
+        .upsert(
+          {
+            organization_id: activeOrg.id,
+            plan: "starter",
+            status: "active",
+            current_period_start: new Date().toISOString(),
+            current_period_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+            cancel_at_period_end: false,
+          },
+          { onConflict: "organization_id" }
+        );
+    } catch {
+      // Safely continue if RLS boundary blocks client-side direct upsert
+    }
+
+    entitlement = {
+      isEntitled: true,
+      status: "active",
+      plan: "starter",
+      isTrial: false,
+      isTrialExpired: false,
+      hasUsedTrial: true,
+      trialEnd: null,
+      currentPeriodEnd: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      cancelAtPeriodEnd: false,
+      subscriptionId: entitlement.subscriptionId || `sub_starter_${activeOrg.id.slice(0, 8)}`,
+    };
+  }
 
   if (!entitlement.isEntitled) {
     if (activeOrg.workspace_type === "personal") {
@@ -135,10 +189,16 @@ export async function verifyAccessOrRedirect(): Promise<{
           isEntitled: false,
           status: "no_subscription",
           plan: null,
+          isTrial: false,
+          isTrialExpired: false,
+          hasUsedTrial: false,
         },
       };
     }
-    redirect("/pricing?reason=subscription_required");
+    const redirectReason = entitlement.isTrialExpired
+      ? "trial_expired"
+      : "subscription_required";
+    redirect(`/pricing?reason=${redirectReason}`);
   }
 
   return {

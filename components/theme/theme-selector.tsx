@@ -83,14 +83,13 @@ export function ThemeSelector({ className = "" }: { className?: string }) {
             aria-label={opt.label}
             title={opt.label}
             onClick={() => setTheme(opt.mode)}
-            className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+            className={`flex items-center justify-center rounded-md p-1.5 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
               isSelected
                 ? "bg-white dark:bg-[#1B1B20] text-[#18181B] dark:text-[#F4F4F5] shadow-xs"
                 : "text-[#71717A] dark:text-[#A1A1AA] hover:text-[#18181B] dark:hover:text-[#F4F4F5]"
             }`}
           >
             <Icon className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline text-[11px]">{opt.label}</span>
           </button>
         );
       })}

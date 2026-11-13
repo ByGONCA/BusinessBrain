@@ -54,26 +54,19 @@ export function KogSyncLoader({
       )}
     >
       <div className="flex flex-col items-center justify-center text-center">
-        {/* Animated Brand Network Icon */}
+        {/* Brand Icon with sleek spinning accent ring */}
         <div className="relative flex items-center justify-center">
-          <div className="relative flex items-center justify-center">
-            <svg
-              className="h-10 w-10 animate-spin text-blue-500/40 motion-reduce:animate-none absolute -inset-1"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          <div className="relative flex items-center justify-center p-3">
+            <div
+              className="absolute inset-0 rounded-full border-2 border-blue-500/20 border-t-blue-500 animate-spin motion-reduce:animate-none"
               aria-hidden="true"
-            >
-              <circle cx="6" cy="6" r="3" />
-              <circle cx="18" cy="6" r="3" />
-              <circle cx="12" cy="18" r="3" />
-              <line x1="8.5" y1="7.5" x2="10" y2="15.5" />
-              <line x1="15.5" y1="7.5" x2="14" y2="15.5" />
-            </svg>
-            <KogSyncLogo variant="icon" size="sm" className="relative z-10 transition-transform duration-300" priority />
+            />
+            <KogSyncLogo
+              variant="icon"
+              size="sm"
+              className="relative z-10 transition-transform duration-300"
+              priority
+            />
           </div>
         </div>
 

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, ArrowRight, ShieldCheck, Clock, RefreshCw } from "lucide-react";
+import { Check, Loader2, ArrowRight } from "lucide-react";
 import { PlanConfig, SubscriptionTier } from "@/lib/stripe/types";
 import { OrganizationWithRole } from "@/lib/organizations/types";
 import { createCheckoutSessionAction } from "@/lib/stripe/actions";
@@ -15,6 +15,9 @@ interface PricingCardsProps {
   activeOrg: OrganizationWithRole | null;
   currentPlan: SubscriptionTier | null;
   isTrial: boolean;
+  isTrialExpired?: boolean;
+  hasUsedTrial?: boolean;
+  isEntitled?: boolean;
 }
 
 export function PricingCards({
@@ -23,6 +26,9 @@ export function PricingCards({
   activeOrg,
   currentPlan,
   isTrial,
+  isTrialExpired = false,
+  hasUsedTrial = false,
+  isEntitled = false,
 }: PricingCardsProps) {
   const router = useRouter();
   const { t } = useLanguage();
@@ -70,9 +76,9 @@ export function PricingCards({
   };
 
   return (
-    <div ref={containerRef} className="relative space-y-10">
-      {/* Instant, responsive billing switcher */}
-      <div className="flex justify-center">
+    <div ref={containerRef} className="relative">
+      {/* Instant, responsive billing switcher positioned cleanly at top */}
+      <div className="flex justify-center mb-8 sm:mb-12 relative z-20">
         <div className="inline-flex items-center rounded-xl border border-[#E5E5E0] dark:border-[#222228] bg-white/80 dark:bg-[#121215]/90 p-1.5 shadow-xs backdrop-blur-md">
           <button
             type="button"
@@ -103,16 +109,28 @@ export function PricingCards({
       </div>
 
       {errorMessage && (
-        <div className="mx-auto max-w-lg rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs text-rose-600 dark:text-rose-400">
+        <div className="mx-auto max-w-lg mb-8 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs text-rose-600 dark:text-rose-400 relative z-20">
           <p className="font-semibold">Checkout Notice</p>
           <p className="mt-1">{errorMessage}</p>
         </div>
       )}
 
-      {/* Pricing Cards Grid — Instant load, zero entrance delay, no layout shift */}
-      <div className="grid grid-cols-1 gap-6 text-left lg:grid-cols-3 lg:items-stretch relative z-10">
+      {/* Cards section with architectural "Pricing" watermark dipping behind cards */}
+      <div className="relative pt-6 sm:pt-10">
+        {/* Giant "Pricing" Display Wordmark — Higher opacity on top, fading to transparent on bottom behind cards */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none select-none absolute left-1/2 -translate-x-1/2 -top-14 sm:-top-20 md:-top-28 lg:-top-32 w-full text-center z-0 overflow-hidden"
+        >
+          <span className="inline-block text-[22vw] sm:text-[19vw] lg:text-[17vw] font-black tracking-[-0.05em] uppercase leading-none select-none pointer-events-none bg-gradient-to-b from-zinc-950/40 via-zinc-950/15 to-transparent dark:from-white/45 dark:via-white/12 dark:to-transparent bg-clip-text text-transparent [mask-image:linear-gradient(to_bottom,black_45%,transparent_98%)]">
+            Pricing
+          </span>
+        </div>
+
+        {/* Pricing Cards Grid — Instant load, zero entrance delay, no layout shift */}
+        <div className="grid grid-cols-1 gap-6 text-left lg:grid-cols-3 lg:items-stretch relative z-10">
         {plans.map((plan, idx) => {
-          const isCurrent = currentPlan === plan.id;
+          const isCurrentActive = isEntitled && currentPlan === plan.id;
           const isFeatured = plan.id === "pro";
 
           // Calculate display monthly price based on annual discount
@@ -202,7 +220,7 @@ export function PricingCards({
               <div className="mt-8 pt-5 border-t border-[#E5E5E0] dark:border-[#222228]">
                 <button
                   type="button"
-                  disabled={loadingPlan !== null || isCurrent}
+                  disabled={loadingPlan !== null || isCurrentActive}
                   onClick={() => handleSelectPlan(plan.id)}
                   className={`w-full flex items-center justify-center gap-2 rounded-xl py-3 px-4 text-xs font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none cursor-pointer ${
                     isFeatured
@@ -215,46 +233,28 @@ export function PricingCards({
                       <Loader2 className="h-4 w-4 animate-spin" />
                       <span>Preparing Checkout...</span>
                     </>
-                  ) : isCurrent ? (
-                    <span>Current Plan {isTrial ? "(Trialing)" : "(Active)"}</span>
+                  ) : isCurrentActive ? (
+                    <span>{isTrial ? t.landing.pricing.currentPlanTrialing : t.landing.pricing.currentPlanActive}</span>
+                  ) : hasUsedTrial ? (
+                    <>
+                      <span>{t.landing.pricing.selectPlan} {plan.name}</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </>
                   ) : (
                     <>
-                      <span>Start 3-Day Free Trial</span>
+                      <span>{t.landing.pricing.ctaTrial || "Start 3-Day Free Trial"}</span>
                       <ArrowRight className="h-3.5 w-3.5" />
                     </>
                   )}
                 </button>
+                {/* Transparent 3-Day Free Trial & 1-Click Cancellation disclosure */}
                 <p className="mt-2 text-center text-[11px] text-[#71717A] dark:text-[#A1A1AA]">
-                  3 days free trial • 1-Click Cancellation
+                  {hasUsedTrial ? t.landing.pricing.cancelAnytimeSubtitle : (t.landing.pricing.trialAvailableHelper || "3 days free trial • 1-Click Cancellation")}
                 </p>
               </div>
             </div>
           );
         })}
-      </div>
-
-      {/* Trust & Guarantee Strip */}
-      <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-[#E5E5E0] dark:border-[#222228] text-center sm:text-left">
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/60 dark:bg-[#121215]/60 border border-[#E5E5E0]/60 dark:border-[#222228]/60">
-          <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
-          <div className="text-xs">
-            <p className="font-semibold text-[#18181B] dark:text-[#F4F4F5]">3-Day Free Trial</p>
-            <p className="text-[11px] text-[#71717A] dark:text-[#A1A1AA]">Full access to all capabilities</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/60 dark:bg-[#121215]/60 border border-[#E5E5E0]/60 dark:border-[#222228]/60">
-          <RefreshCw className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-          <div className="text-xs">
-            <p className="font-semibold text-[#18181B] dark:text-[#F4F4F5]">Cancel Anytime</p>
-            <p className="text-[11px] text-[#71717A] dark:text-[#A1A1AA]">1-click cancellation in settings</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-white/60 dark:bg-[#121215]/60 border border-[#E5E5E0]/60 dark:border-[#222228]/60">
-          <ShieldCheck className="h-4 w-4 text-purple-600 dark:text-purple-400 shrink-0" />
-          <div className="text-xs">
-            <p className="font-semibold text-[#18181B] dark:text-[#F4F4F5]">Isolated Tenants</p>
-            <p className="text-[11px] text-[#71717A] dark:text-[#A1A1AA]">Strict PostgreSQL RLS security</p>
-          </div>
         </div>
       </div>
     </div>

@@ -182,6 +182,11 @@ export async function createCheckoutSessionAction(
   try {
     const stripe = getStripeClient();
 
+    // Check organization entitlement to determine if free trial is eligible or already consumed
+    const existingEntitlement = await getOrganizationEntitlement(activeOrg.id);
+    const hasUsedTrial = existingEntitlement.hasUsedTrial;
+    const isTrialEligible = !hasUsedTrial && trialDays > 0;
+
     // 1. Check if an existing Stripe customer ID exists in local subscriptions table
     const { data: existingSub } = await supabase
       .from("subscriptions")
@@ -229,14 +234,14 @@ export async function createCheckoutSessionAction(
       customerId = customer.id;
     }
 
-    // Create Checkout Session for subscription with free trial
+    // Create Checkout Session for subscription (only include trial_period_days if workspace is trial-eligible)
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       line_items: lineItems,
       ...(process.env.STRIPE_AUTOMATIC_TAX === "true" ? { automatic_tax: { enabled: true } } : {}),
       subscription_data: {
-        trial_period_days: trialDays,
+        ...(isTrialEligible ? { trial_period_days: trialDays } : {}),
         metadata: {
           organization_id: activeOrg.id,
           plan: planId as SubscriptionTier,

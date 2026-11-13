@@ -768,6 +768,18 @@ export interface Dictionary {
       ctaTrial: string;
       ctaViewTiers: string;
       provisionalNotice: string;
+      trialExpiredTitle: string;
+      trialExpiredDesc: string;
+      trialExpiredBadge: string;
+      activatePlan: string;
+      subscribePlan: string;
+      upgradePlan: string;
+      currentPlanActive: string;
+      currentPlanTrialing: string;
+      selectPlan: string;
+      cancelAnytimeSubtitle: string;
+      trialUsedHelper: string;
+      trialAvailableHelper: string;
     };
     faq: {
       eyebrow: string;

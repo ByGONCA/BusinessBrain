@@ -87,6 +87,8 @@ const MOCK_ENTITLEMENT: OrganizationEntitlement = {
   status: "trialing",
   plan: "pro",
   isTrial: true,
+  isTrialExpired: false,
+  hasUsedTrial: true,
   trialEnd: "2026-10-27T23:59:59Z",
   currentPeriodEnd: "2026-10-27T23:59:59Z",
   cancelAtPeriodEnd: false,

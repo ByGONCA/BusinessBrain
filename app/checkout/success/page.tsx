@@ -128,7 +128,7 @@ function CheckoutSuccessContent() {
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
           <h2 className="text-lg font-bold text-white">
-            Activating your workspace trial...
+            Activating your workspace...
           </h2>
           <p className="text-xs text-slate-400 leading-relaxed max-w-sm mx-auto">
             We are verifying your Stripe subscription and provisioning your company workspace.
@@ -153,10 +153,10 @@ function CheckoutSuccessContent() {
             <CheckCircle2 className="h-6 w-6" />
           </div>
           <h2 className="text-lg font-bold text-white">
-            Free Trial Activated!
+            Workspace Activated!
           </h2>
           <p className="text-xs text-slate-400">
-            Your 7-day unrestricted trial is active. Redirecting you to your dashboard...
+            Your workspace subscription is active. Redirecting you to your dashboard...
           </p>
         </div>
       )}
